@@ -1,11 +1,9 @@
-use std::{error::Error, io, sync::mpsc, thread};
+use std::{error::Error, io, sync::mpsc, thread, time::{Duration, Instant}};
 
 use crossterm::{
-    ExecutableCommand,
-    cursor::{Hide, Show},
-    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
+    ExecutableCommand, cursor::{Hide, Show}, event::{self, Event, KeyCode}, terminal::{self, EnterAlternateScreen, LeaveAlternateScreen}
 };
-use kaazap::{frame, render};
+use kaazap::{frame::{self, new_frame}, render};
 use rusty_audio::Audio;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -38,6 +36,44 @@ fn main() -> Result<(), Box<dyn Error>> {
             last_frame = curr_frame;
         }
     });
+
+
+
+    // Game loop
+    //
+    // Setup
+    let mut instant = Instant::now(); 
+    //
+    'gameloop: loop {
+        let delta = instant.elapsed();
+        instant = Instant::now();
+        let mut curr_frame = new_frame();
+
+
+        // Input handling:
+        //
+        // Poll for input events with default input,
+        // which returns immediately if nothing to act upon
+        while event::poll(Duration::default())? {
+            if let Event::Key(key_event) = event::read()? {
+                match key_event.code {
+                    KeyCode::Esc | KeyCode::Char('q') => {
+                        // audio.play("lose");
+                        break 'gameloop;
+                    }
+                    // TODO: Add the rest of the keymaps
+                    _ => {}
+                }
+            }
+        }
+    }
+
+
+
+
+
+
+
 
     // Cleanup and close
     //
