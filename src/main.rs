@@ -19,7 +19,7 @@ use rusty_audio::Audio;
 
 fn main() -> Result<(), Box<dyn Error>> {
     // Setup Audio
-    let mut audio = Audio::new();
+    // let mut audio = Audio::new();
     // audio.add("startup", "startup.wav");
     // audio.play("startup");
 
@@ -78,6 +78,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         // Updates
         //
 
+
+        
+        // Draw and render section
+        // 
+        // let drawables: Vec<&dyn Drawable> = vec![&player, &opponent];
+        // for drawable in drawables {
+        //     drawable.draw(&mut curr_frame);
+        // }
+        // Send the frame!
+        // Ignore the result since the receiving end of the channel won't be ready for a while
+        let _ = render_tx.send(curr_frame);
+        // Sleep since our game loop is much faster than the render loop
+        thread::sleep(Duration::from_millis(1));
+
         // Win or lose section
         //
         // TODO: Add win/lose conditions
@@ -98,7 +112,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     drop(render_tx);
     render_handle.join().unwrap();
 
-    audio.wait(); // wait for audio to finish so it isn't cut off
+    // audio.wait(); // wait for audio to finish so it isn't cut off
     stdout.execute(Show)?; // Re-show the cursor (since hidden in alternate screen)
     stdout.execute(LeaveAlternateScreen)?;
     terminal::disable_raw_mode()?;
