@@ -7,7 +7,7 @@ use std::io::{Stdout, Write};
 // Have the option to force the rendering (only should need once such as at the beginning)
 pub fn render(stdout: &mut Stdout, last_frame: &Frame, curr_frame: &Frame, force: bool) {
     if force {
-        stdout.queue(SetBackgroundColor(Color::Blue)).unwrap(); 
+        stdout.queue(SetBackgroundColor(Color::Grey)).unwrap(); 
         stdout.queue(Clear(ClearType::All)).unwrap();
         stdout.queue(SetBackgroundColor(Color::Black)).unwrap(); 
     }

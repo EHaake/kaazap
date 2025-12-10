@@ -1,9 +1,20 @@
-use std::{error::Error, io, sync::mpsc, thread, time::{Duration, Instant}};
-
-use crossterm::{
-    ExecutableCommand, cursor::{Hide, Show}, event::{self, Event, KeyCode}, terminal::{self, EnterAlternateScreen, LeaveAlternateScreen}
+use std::{
+    error::Error,
+    io,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
 };
-use kaazap::{frame::{self, new_frame}, render};
+use crossterm::{
+    ExecutableCommand,
+    cursor::{Hide, Show},
+    event::{self, Event, KeyCode},
+    terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
+};
+use kaazap::{
+    frame::{self, new_frame},
+    render,
+};
 use rusty_audio::Audio;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -37,18 +48,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
-
-
     // Game loop
     //
     // Setup
-    let mut instant = Instant::now(); 
+    let mut instant = Instant::now();
     //
     'gameloop: loop {
         let delta = instant.elapsed();
         instant = Instant::now();
         let mut curr_frame = new_frame();
-
 
         // Input handling:
         //
@@ -69,14 +77,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         // Updates
         //
-        
-
-
 
         // Win or lose section
         //
         // TODO: Add win/lose conditions
-        
+
         // if game.won() {
         //     audio.play("win");
         //     break 'gameloop;
@@ -86,13 +91,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         //     break 'gameloop;
         // }
     }
-
-
-
-
-
-
-
 
     // Cleanup and close
     //
