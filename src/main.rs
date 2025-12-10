@@ -5,6 +5,7 @@ use crossterm::{
     cursor::{Hide, Show},
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use kaazap::{frame, render};
 use rusty_audio::Audio;
 
 fn main() -> Result<(), Box<dyn Error>> {
