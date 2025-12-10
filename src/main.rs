@@ -24,18 +24,18 @@ fn main() -> Result<(), Box<dyn Error>> {
     // Use separate thread
     let (render_tx, render_rx) = mpsc::channel();
     let render_handle = thread::spawn(move || {
-        // let mut last_frame = frame::new_frame();
-        // let mut stdout = io::stdout();
-        // // first frame so we need to force render and last frame is what we have
-        // render::render(&mut stdout, &last_frame, &last_frame, true);
-        //
-        // // incremental updates
-        // while let Ok(frame) = render_rx.recv() {
-        //     let curr_frame = frame;
-        //     // Now we're ready to render our frame
-        //     render::render(&mut stdout, &last_frame, &curr_frame, false);
-        //     last_frame = curr_frame;
-        // }
+        let mut last_frame = frame::new_frame();
+        let mut stdout = io::stdout();
+        // first frame so we need to force render and last frame is what we have
+        render::render(&mut stdout, &last_frame, &last_frame, true);
+
+        // incremental updates
+        while let Ok(frame) = render_rx.recv() {
+            let curr_frame = frame;
+            // Now we're ready to render our frame
+            render::render(&mut stdout, &last_frame, &curr_frame, false);
+            last_frame = curr_frame;
+        }
     });
 
     // Cleanup and close
