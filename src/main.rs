@@ -66,6 +66,25 @@ fn main() -> Result<(), Box<dyn Error>> {
                 }
             }
         }
+
+        // Updates
+        //
+        
+
+
+
+        // Win or lose section
+        //
+        // TODO: Add win/lose conditions
+        
+        // if game.won() {
+        //     audio.play("win");
+        //     break 'gameloop;
+        // }
+        // if game.lost() {
+        //     audio.play("lose");
+        //     break 'gameloop;
+        // }
     }
 
 
