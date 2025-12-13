@@ -1,6 +1,7 @@
 pub mod frame;
 pub mod player;
 pub mod render;
+pub mod config;
 pub mod deck;
 
 // Num rows and cols for the frame of the game

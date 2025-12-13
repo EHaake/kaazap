@@ -1,5 +1,4 @@
 use std::{
-    error::Error,
     io,
     sync::mpsc,
     thread,
@@ -12,17 +11,18 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    deck::Deck, frame::{self, Drawable, new_frame}, render
+    config::Config, deck::Deck, frame::{self, Drawable, new_frame}, render
 };
-use rusty_audio::Audio;
+// use rusty_audio::Audio;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> anyhow::Result<()> {
     // Setup Audio
     // let mut audio = Audio::new();
     // audio.add("startup", "startup.wav");
     // audio.play("startup");
 
     // Terminal Initialization
+    let config = Config::from_terminal()?;
     let mut stdout = io::stdout();
     terminal::enable_raw_mode()?;
     stdout.execute(EnterAlternateScreen)?;
@@ -32,8 +32,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     //
     // Use separate thread
     let (render_tx, render_rx) = mpsc::channel();
+    let render_config = config.clone();
     let render_handle = thread::spawn(move || {
-        let mut last_frame = frame::new_frame();
+        let mut last_frame = frame::new_frame(&render_config);
         let mut stdout = io::stdout();
         // first frame so we need to force render and last frame is what we have
         render::render(&mut stdout, &last_frame, &last_frame, true);
@@ -49,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Game loop
     //
-    let mut deck = Deck::new();
+    let deck = Deck::new(&config);
     //
     // Setup
     let mut instant = Instant::now();
@@ -57,7 +58,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     'gameloop: loop {
         let delta = instant.elapsed();
         instant = Instant::now();
-        let mut curr_frame = new_frame();
+        let mut curr_frame = new_frame(&config);
 
         // Input handling:
         //

@@ -1,4 +1,4 @@
-use crate::{CARD_HEIGHT, CARD_WIDTH, NUM_COLS, NUM_ROWS, frame::Drawable};
+use crate::{CARD_HEIGHT, CARD_WIDTH, config::Config, frame::Drawable};
 
 pub struct Card {
     x: usize,
@@ -65,19 +65,13 @@ pub struct Deck {
 }
 
 impl Deck {
-    pub fn new() -> Self {
+    pub fn new(config: &Config) -> Self {
         let mut deck = Vec::new();
-        let x = NUM_COLS / 2 - (CARD_WIDTH / 2);
-        let y = NUM_ROWS - CARD_HEIGHT;
+        let x = config.num_cols / 2 - (CARD_WIDTH / 2);
+        let y = config.num_rows - CARD_HEIGHT;
         deck.push(Card::new(x, y, 1));
 
         Self { deck }
-    }
-}
-
-impl Default for Deck {
-    fn default() -> Self {
-        Self::new()
     }
 }
 

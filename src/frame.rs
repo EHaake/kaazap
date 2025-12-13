@@ -1,15 +1,15 @@
-use crate::{NUM_COLS, NUM_ROWS};
+use crate::config::Config;
 
 // Type alias for the Frame type
 // Vector of vectors of borrowed static string slices
 pub type Frame = Vec<Vec<char>>;
 
-pub fn new_frame() -> Frame {
-    let mut cols = Vec::with_capacity(NUM_COLS);
+pub fn new_frame(config: &Config) -> Frame {
+    let mut cols = Vec::with_capacity(config.num_cols);
 
-    for _ in 0..NUM_COLS {
+    for _ in 0..config.num_cols {
         // Create vector of NUM_ROWS amount of spaces " "
-        let col = vec![' '; NUM_ROWS];
+        let col = vec![' '; config.num_rows];
         cols.push(col);
     }
 

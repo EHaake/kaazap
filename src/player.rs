@@ -1,14 +1,14 @@
 // Player's cards and interaction
 
-use crate::deck::Deck;
+use crate::{config::Config, deck::Deck};
 
 pub struct Player {
     deck: Deck,
 }
 
 impl Player {
-    pub fn new() -> Self {
-        let mut deck = Deck::new();
+    pub fn new(config: &Config) -> Self {
+        let deck = Deck::new(config);
 
         Self { deck }
     }
