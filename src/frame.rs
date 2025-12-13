@@ -8,7 +8,8 @@ pub fn new_frame(config: &Config) -> Frame {
     let mut cols = Vec::with_capacity(config.num_cols);
 
     for _ in 0..config.num_cols {
-        // Create vector of NUM_ROWS amount of spaces " "
+        // Create vector of num_rows amount of spaces " "
+        // This will be the dynamic height of the terminal
         let col = vec![' '; config.num_rows];
         cols.push(col);
     }
