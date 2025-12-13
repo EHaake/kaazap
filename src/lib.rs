@@ -3,6 +3,7 @@ pub mod player;
 pub mod render;
 pub mod config;
 pub mod deck;
+pub mod card;
 
 // Num rows and cols for the frame of the game
 pub const NUM_ROWS: usize = 35;
