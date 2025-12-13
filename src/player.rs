@@ -9,5 +9,7 @@ pub struct Player {
 impl Player {
     pub fn new() -> Self {
         let mut deck = Deck::new();
+
+        Self { deck }
     }
 }

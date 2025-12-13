@@ -12,8 +12,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    frame::{self, new_frame},
-    render,
+    deck::Deck, frame::{self, Drawable, new_frame}, render
 };
 use rusty_audio::Audio;
 
@@ -50,6 +49,8 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // Game loop
     //
+    let mut deck = Deck::new();
+    //
     // Setup
     let mut instant = Instant::now();
     //
@@ -82,10 +83,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         
         // Draw and render section
         // 
-        // let drawables: Vec<&dyn Drawable> = vec![&player, &opponent];
-        // for drawable in drawables {
-        //     drawable.draw(&mut curr_frame);
-        // }
+        let drawables: Vec<&dyn Drawable> = vec![&deck];
+
+        for drawable in drawables {
+            drawable.draw(&mut curr_frame);
+        }
         // Send the frame!
         // Ignore the result since the receiving end of the channel won't be ready for a while
         let _ = render_tx.send(curr_frame);
