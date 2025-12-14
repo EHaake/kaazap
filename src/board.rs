@@ -20,8 +20,9 @@ impl BoardView {
         }
 
         // layout constants (simple, tweak later)
-        let padding_x = 2usize;
-        let dealer_y = 2usize;
+        let padding_x: usize = 4;
+        let padding_y: usize = 1;
+        let dealer_y: usize = 4;
         let played_y = dealer_y + CARD_HEIGHT + 1;
         let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 1);
 
@@ -31,18 +32,45 @@ impl BoardView {
         let opp_origin_x = mid + padding_x;
 
         //
+        // Top info (Player name, score, et)
+        //
+        // --- Player Side ---
+        let player_name_display = format!("Player: {}", state.player.name);
+        for (i, ch) in player_name_display.chars().enumerate() {
+            frame[padding_x + i][padding_y] = ch;
+        }
+
+        let player_score_display = format!("Score: {}", state.player.score());
+        for (i, ch) in player_score_display.chars().enumerate() {
+            frame[mid - 12 + i][padding_y] = ch;
+        }
+
+        // --- Opponent Side ---
+        let opponent_name_display = format!("Opponent: {}", state.opponent.name);
+        for (i, ch) in opponent_name_display.chars().enumerate() {
+            frame[mid + padding_x + i][padding_y] = ch;
+        }
+
+        let opponent_score_display = format!("Score: {}", state.opponent.score());
+        for (i, ch) in opponent_score_display.chars().enumerate() {
+            frame[self.config.num_cols - 12 + i][padding_y] = ch;
+        }
+
+
+        //
         // --- Player side ---
         //
+        // Dealer Cards 
         for (i, c) in state.player.dealer_row.iter().enumerate() {
             let x = player_origin_x + i * spacing_x;
             CardView { x, y: dealer_y, text: c.value.to_string() }.draw(frame);
         }
-
+        // Played Cards
         for (i, c) in state.player.played_row.iter().enumerate() {
             let x = player_origin_x + i * spacing_x;
             CardView { x, y: played_y, text: c.value.to_string() }.draw(frame);
         }
-
+        // Hand cards
         for (i, c) in state.player.hand.iter().enumerate() {
             let x = player_origin_x + i * spacing_x;
             CardView { x, y: hand_y, text: c.value.to_string() }.draw(frame);
@@ -51,20 +79,20 @@ impl BoardView {
         //
         // --- Opponent side ---
         //
+        // Dealer Cards
         for (i, c) in state.opponent.dealer_row.iter().enumerate() {
             let x = opp_origin_x + i * spacing_x;
             CardView { x, y: dealer_y, text: c.value.to_string() }.draw(frame);
         }
-
+        // Played Cards
         for (i, c) in state.opponent.played_row.iter().enumerate() {
             let x = opp_origin_x + i * spacing_x;
             CardView { x, y: played_y, text: c.value.to_string() }.draw(frame);
         }
-
-        // Opponent hand (hidden values)
+        // Opponent hand cards (hidden values)
         for i in 0..state.opponent.hand.len() {
             let x = opp_origin_x + i * spacing_x;
-            CardView { x, y: hand_y, text: "??".to_string() }.draw(frame);
+            CardView { x, y: hand_y, text: "?".to_string() }.draw(frame);
         }
     }
 }
