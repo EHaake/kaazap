@@ -58,10 +58,8 @@ impl BoardView {
         // 
         // If Bust, display so!
         if state.opponent.bust {
-            self.draw_text("BUSTED!!", self.config.num_cols - 12, padding_y, frame);
+            self.draw_text("BUSTED!!", self.config.num_cols - 12, padding_y + 1, frame);
         }
-
-
     }
 
     //

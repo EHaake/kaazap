@@ -87,7 +87,8 @@ fn main() -> anyhow::Result<()> {
 
         // Updates
         //
-        // game_state.update(delta, &input);
+        // Update the game state, checking for new states
+        game_state.update(delta);
 
         
         // Draw and render section

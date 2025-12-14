@@ -1,4 +1,5 @@
 use crate::{card::LogicCard, player::PlayerState};
+use std::time::Duration;
 
 #[derive(Debug, Clone, Copy)]
 pub enum GamePhase {
@@ -72,28 +73,59 @@ impl GameState {
         }
     }
 
+    // Check board state for updates
+    pub fn update(&mut self, delta: Duration) {
+        if self.player.score() > 20 {
+            self.player.bust = true;
+            self.game_phase = GamePhase::RoundEnd;
+            // TODO: Opponent wins
+        }
+
+        if self.opponent.score() > 20 {
+            self.opponent.bust = true;
+            self.game_phase = GamePhase::RoundEnd;
+            // TODO: Player wins
+        }
+
+        // Check if it's the opponent's turn and if so, play their turn
+        if let GamePhase::OpponentTurn = self.game_phase {
+            self.play_opponent_turn();
+        }
+    }
+
+    // Play the opponent's turn (deal, play card, stand)
+    fn play_opponent_turn(&mut self) {
+        self.opponent_deal();
+    }
+
+    // Opponent hits
+    fn opponent_deal(&mut self) {
+        let new_dealer_card_val: i32 = rand::random_range(0..=10);
+        self.opponent.dealer_row.push(LogicCard {
+            value: new_dealer_card_val,
+        });
+
+        self.game_phase = GamePhase::PlayerTurn;
+    }
+
     // Deal a card to the player if they are still in the game
     // Check score and toggle bust flag if they are over 20
     pub fn player_deal(&mut self) {
         if let GamePhase::PlayerTurn = self.game_phase {
-
             let new_dealer_card_val: i32 = rand::random_range(0..=10);
             self.player.dealer_row.push(LogicCard {
                 value: new_dealer_card_val,
             });
 
-            if self.player.score() > 20 {
-                self.player.bust = true;
-                self.game_phase = GamePhase::RoundEnd;
-            }
+            // Set gamephase to opponent's turn
+            self.game_phase = GamePhase::OpponentTurn;
         }
     }
 
     // Set gamestate to opponent's turn if we are on the player's turn
     pub fn player_stand(&mut self) {
-        if let GamePhase::PlayerTurn = self.game_phase {
-            self.game_phase = GamePhase::PlayerStood;
-        } 
+        self.game_phase = GamePhase::OpponentTurn;
+        self.game_phase = GamePhase::PlayerStood;
     }
 }
 
