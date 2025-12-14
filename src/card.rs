@@ -5,18 +5,19 @@ pub enum CardKind {
     Dealer,           // only +1..+10
     PlayerPlus,       // Player +1..+6
     PlayerMinus,      // Player -1..-6
-    //PlayerPlusMinus,  // Player +-1..+-6
+    //PlayerPlusMinus,  // Player +-1..+-6 so we can 'flip' its value
 }
 
 pub struct Card {
     x: usize,
     y: usize,
-    value: i32,
+    pub value: i32,
+    pub kind: CardKind,
 }
 
 impl Card {
-    pub fn new(x: usize, y: usize, value: i32) -> Self {
-        Self { x, y, value }
+    pub fn new(x: usize, y: usize, value: i32, kind: CardKind) -> Self {
+        Self { x, y, value, kind }
     }
 }
 

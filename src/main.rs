@@ -80,7 +80,6 @@ fn main() -> anyhow::Result<()> {
         // Updates
         //
 
-
         
         // Draw and render section
         // 
