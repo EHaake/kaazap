@@ -1,61 +1,65 @@
-use crate::{CARD_HEIGHT, CARD_WIDTH, config::Config};
+use crate::{CARD_HEIGHT, CARD_WIDTH, card::CardView, config::Config, frame::{Drawable, Frame}, game::GameState};
 
-pub struct Board {
-    pub player_origin_x: usize,
-    pub opponent_origin_x: usize,
-    pub dealer_row_y: usize,
-    pub side_row_y: usize,
-    pub hand_row_y: usize,
-    pub card_spacing_x: usize,
+pub struct BoardView {
+    pub config: Config,
 }
 
-impl Board {
-    // Constructor
-    pub fn from_config(config: &Config) -> Self {
-        let middle = config.num_cols / 2;
+impl BoardView {
+    pub fn new(config: Config) -> Self {
+        Self { config }
+    }
 
-        Self {
-            player_origin_x: 2,
-            opponent_origin_x: middle + 2,
-            dealer_row_y: 2,
-            side_row_y: 10,
-            hand_row_y: config.num_rows - CARD_HEIGHT - 1,
-            card_spacing_x: CARD_WIDTH + 1,
+    pub fn draw(&self, state: &GameState, frame: &mut Frame) {
+        // vertical divider down the middle
+        let mid = self.config.num_cols / 2;
+        for y in 0..self.config.num_rows {
+            if mid < frame.len() && y < frame[0].len() {
+                frame[mid][y] = '|';
+            }
         }
-    }
 
-    pub fn card_position_player_dealer(&self, index: usize) -> (usize, usize) {
-        (
-            self.player_origin_x + index * self.card_spacing_x,
-            self.dealer_row_y,
-        )
-    }
+        // layout constants (simple, tweak later)
+        let padding_x = 2usize;
+        let dealer_y = 2usize;
+        let played_y = dealer_y + CARD_HEIGHT + 1;
+        let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 1);
 
-    pub fn card_position_player_side(&self, index: usize) -> (usize, usize) {
-        (
-            self.player_origin_x + index * self.card_spacing_x,
-            self.side_row_y,
-        )
-    }
+        let spacing_x = CARD_WIDTH + 1;
 
-    pub fn card_position_player_hand(&self, index: usize) -> (usize, usize) {
-        (
-            self.player_origin_x + index * self.card_spacing_x,
-            self.hand_row_y,
-        )
-    }
+        let player_origin_x = padding_x;
+        let opp_origin_x = mid + padding_x;
 
-    pub fn card_position_opponent_dealer(&self, index: usize) -> (usize, usize) {
-        (
-            self.opponent_origin_x + index * self.card_spacing_x,
-            self.dealer_row_y,
-        )
-    }
+        // --- Player side ---
+        for (i, c) in state.player.dealer_row.iter().enumerate() {
+            let x = player_origin_x + i * spacing_x;
+            CardView { x, y: dealer_y, text: c.value.to_string() }.draw(frame);
+        }
 
-    pub fn card_position_opponent_side(&self, index: usize) -> (usize, usize) {
-        (
-            self.opponent_origin_x + index * self.card_spacing_x,
-            self.side_row_y,
-        )
+        for (i, c) in state.player.played_row.iter().enumerate() {
+            let x = player_origin_x + i * spacing_x;
+            CardView { x, y: played_y, text: c.value.to_string() }.draw(frame);
+        }
+
+        for (i, c) in state.player.hand.iter().enumerate() {
+            let x = player_origin_x + i * spacing_x;
+            CardView { x, y: hand_y, text: c.value.to_string() }.draw(frame);
+        }
+
+        // --- Opponent side ---
+        for (i, c) in state.opponent.dealer_row.iter().enumerate() {
+            let x = opp_origin_x + i * spacing_x;
+            CardView { x, y: dealer_y, text: c.value.to_string() }.draw(frame);
+        }
+
+        for (i, c) in state.opponent.played_row.iter().enumerate() {
+            let x = opp_origin_x + i * spacing_x;
+            CardView { x, y: played_y, text: c.value.to_string() }.draw(frame);
+        }
+
+        // Opponent hand (hidden values)
+        for i in 0..state.opponent.hand.len() {
+            let x = opp_origin_x + i * spacing_x;
+            CardView { x, y: hand_y, text: "??".to_string() }.draw(frame);
+        }
     }
 }

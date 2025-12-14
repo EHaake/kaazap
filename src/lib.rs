@@ -2,7 +2,6 @@ pub mod frame;
 pub mod player;
 pub mod render;
 pub mod config;
-pub mod deck;
 pub mod game;
 pub mod board;
 pub mod card;

@@ -11,7 +11,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    config::Config, deck::Deck, frame::{self, Drawable, new_frame}, render
+    board::BoardView, config::Config, frame::{self, Drawable, new_frame}, game::GameState, render
 };
 // use rusty_audio::Audio;
 
@@ -27,6 +27,9 @@ fn main() -> anyhow::Result<()> {
     terminal::enable_raw_mode()?;
     stdout.execute(EnterAlternateScreen)?;
     stdout.execute(Hide)?; // Hide cursor
+
+    let mut game_state = GameState::new_demo();
+    let board = BoardView::new(config.clone());
 
     // Render Loop
     //
@@ -49,8 +52,6 @@ fn main() -> anyhow::Result<()> {
     });
 
     // Game loop
-    //
-    let deck = Deck::new(&config);
     //
     // Setup
     let mut instant = Instant::now();
@@ -79,15 +80,14 @@ fn main() -> anyhow::Result<()> {
 
         // Updates
         //
+        // game_state.update(delta, &input);
 
         
         // Draw and render section
         // 
-        let drawables: Vec<&dyn Drawable> = vec![&deck];
+        board.draw(&game_state, &mut curr_frame);
 
-        for drawable in drawables {
-            drawable.draw(&mut curr_frame);
-        }
+        //
         // Send the frame!
         // Ignore the result since the receiving end of the channel won't be ready for a while
         let _ = render_tx.send(curr_frame);
