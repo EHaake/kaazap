@@ -74,7 +74,10 @@ fn main() -> anyhow::Result<()> {
                         break 'gameloop;
                     }
                     KeyCode::Char('d') => {
-                        game_state.deal_player();
+                        game_state.player_deal();
+                    }
+                    KeyCode::Char('s') => {
+                        game_state.player_stand();
                     }
                     // TODO: Add the rest of the keymaps
                     _ => {}

@@ -2,17 +2,17 @@ use crate::{card::LogicCard, player::PlayerState};
 
 #[derive(Debug, Clone, Copy)]
 pub enum GamePhase {
-    DealOpeningCards,
     PlayerTurn,
+    PlayerStood,
     OpponentTurn,
-    RoundResolution,
+    RoundEnd,
 }
 
 pub struct GameState {
     pub player: PlayerState,
     pub opponent: PlayerState,
     // pub dealer_deck: Vec<Card>,  // dealer will just randomly draw a +1..+10 (infinite deck)
-    // pub game_phase: GamePhase,
+    pub game_phase: GamePhase,
 }
 impl GameState {
     // pub fn new_demo() -> Self {
@@ -68,22 +68,32 @@ impl GameState {
                 ],
                 bust: false,
             },
+            game_phase: GamePhase::PlayerTurn,
         }
     }
-    
+
     // Deal a card to the player if they are still in the game
     // Check score and toggle bust flag if they are over 20
-    pub fn deal_player(&mut self) {
-        if self.player.bust {
-            return;
-        }
+    pub fn player_deal(&mut self) {
+        if let GamePhase::PlayerTurn = self.game_phase {
 
-        let new_dealer_card_val: i32 = rand::random_range(0..=10);
-        self.player.dealer_row.push(LogicCard { value: new_dealer_card_val });
+            let new_dealer_card_val: i32 = rand::random_range(0..=10);
+            self.player.dealer_row.push(LogicCard {
+                value: new_dealer_card_val,
+            });
 
-        if self.player.score() > 20 {
-            self.player.bust = true;
+            if self.player.score() > 20 {
+                self.player.bust = true;
+                self.game_phase = GamePhase::RoundEnd;
+            }
         }
+    }
+
+    // Set gamestate to opponent's turn if we are on the player's turn
+    pub fn player_stand(&mut self) {
+        if let GamePhase::PlayerTurn = self.game_phase {
+            self.game_phase = GamePhase::PlayerStood;
+        } 
     }
 }
 
@@ -92,4 +102,3 @@ impl Default for GameState {
         Self::new()
     }
 }
-

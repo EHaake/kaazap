@@ -3,7 +3,7 @@ use crate::{
     card::CardView,
     config::Config,
     frame::{Drawable, Frame},
-    game::GameState,
+    game::{GamePhase, GameState},
 };
 
 pub struct BoardView {
@@ -44,16 +44,24 @@ impl BoardView {
             self.draw_text("BUSTED!!", mid - 12, padding_y + 1, frame);
         }
 
+        // If player stood, display it!
+        if let GamePhase::PlayerStood = state.game_phase {
+            self.draw_text("Stood", padding_x, padding_y + 1, frame);
+        }
+
         // --- Opponent Side ---
         let opponent_name_display = format!("Opponent: {}", state.opponent.name);
         self.draw_text(opponent_name_display.as_str(), mid + padding_x, padding_y, frame);
 
         let opponent_score_display = format!("Score: {}", state.opponent.score());
         self.draw_text(opponent_score_display.as_str(), self.config.num_cols - 12, padding_y, frame);
+        // 
         // If Bust, display so!
         if state.opponent.bust {
             self.draw_text("BUSTED!!", self.config.num_cols - 12, padding_y, frame);
         }
+
+
     }
 
     //
