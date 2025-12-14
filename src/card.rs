@@ -8,17 +8,30 @@ pub enum CardKind {
     //PlayerPlusMinus,  // Player +-1..+-6 so we can 'flip' its value
 }
 
+pub enum Owner {
+    Player,
+    Opponent,
+    Dealer,
+    Discard,
+}
+
 pub struct Card {
-    x: usize,
-    y: usize,
+    pub x: usize,
+    pub y: usize,
     pub value: i32,
     pub kind: CardKind,
+    pub owner: Owner,
+    pub face_up: bool, // computed depending on owner
 }
 
 impl Card {
-    pub fn new(x: usize, y: usize, value: i32, kind: CardKind) -> Self {
-        Self { x, y, value, kind }
-    }
+    fn display_text(&self) -> String {
+        if !self.face_up {
+            return "".to_string();
+        }
+
+        self.value.to_string()
+    } 
 }
 
 impl Drawable for Card {
@@ -58,12 +71,12 @@ impl Drawable for Card {
             }
         }
 
-        let value_str = self.value.to_string();
+        let text = self.display_text();
         let inner_width = CARD_WIDTH - 2;
-        let start_x = x0 + 1 + (inner_width.saturating_sub(value_str.len())) / 2;
+        let start_x = x0 + 1 + (inner_width.saturating_sub(text.len())) / 2;
         let text_y = y0 + CARD_HEIGHT / 2;
 
-        for (i, ch) in value_str.chars().enumerate() {
+        for (i, ch) in text.chars().enumerate() {
             if i >= inner_width {
                 break;
             }
