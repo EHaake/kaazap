@@ -11,7 +11,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    THREAD_SLEEP_MS, board::BoardView, config::Config, frame::{self, Drawable, new_frame}, game::GameState, render
+    GAME_LOOP_SLEEP_MS, board::BoardView, config::Config, frame::{self, new_frame}, game::GameState, render
 };
 // use rusty_audio::Audio;
 
@@ -93,7 +93,6 @@ fn main() -> anyhow::Result<()> {
         //
         // Update the game state, checking for new states
         game_state.update(delta);
-
         
         // Draw and render section
         // 
@@ -104,7 +103,7 @@ fn main() -> anyhow::Result<()> {
         // Ignore the result since the receiving end of the channel won't be ready for a while
         let _ = render_tx.send(curr_frame);
         // Sleep since our game loop is much faster than the render loop
-        thread::sleep(Duration::from_millis(THREAD_SLEEP_MS));
+        thread::sleep(Duration::from_millis(GAME_LOOP_SLEEP_MS));
 
         // Win or lose section
         //

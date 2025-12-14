@@ -7,7 +7,7 @@ pub struct PlayerState {
     pub dealer_row: Vec<LogicCard>,   // dealer cards played
     pub played_row: Vec<LogicCard>,   // Side hand cards played
     pub hand: Vec<LogicCard>,         // cards in hand
-    // pub stood: bool,             // do they get a dealer card next turn?
+    pub stood: bool,             // do they get a dealer card next turn?
     pub bust: bool,              // is score > 20?
 }
 

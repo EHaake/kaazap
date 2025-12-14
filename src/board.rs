@@ -64,7 +64,7 @@ impl BoardView {
         }
 
         // If player stood, display it!
-        if let GamePhase::PlayerStood = state.game_phase {
+        if state.player.stood {
             self.draw_text("Stood", padding_x, padding_y + 1, frame);
         }
 

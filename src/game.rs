@@ -1,5 +1,5 @@
 use crate::{card::LogicCard, player::PlayerState};
-use std::time::Duration;
+use std::{thread, time::Duration};
 
 #[derive(Debug, Clone, Copy)]
 pub enum GamePhase {
@@ -56,6 +56,7 @@ impl GameState {
                     LogicCard { value: 2 },
                 ],
                 bust: false,
+                stood: false,
             },
             opponent: PlayerState {
                 name: "Opponent".to_string(),
@@ -68,6 +69,7 @@ impl GameState {
                     LogicCard { value: 4 },
                 ],
                 bust: false,
+                stood: false,
             },
             game_phase: GamePhase::PlayerTurn,
         }
@@ -90,11 +92,13 @@ impl GameState {
         // Check if it's the opponent's turn and if so, play their turn
         if let GamePhase::OpponentTurn = self.game_phase {
             self.play_opponent_turn();
+            thread::sleep(Duration::from_secs(1));
         }
     }
 
     // Play the opponent's turn (deal, play card, stand)
     fn play_opponent_turn(&mut self) {
+        // Time out for 1 sec
         self.opponent_deal();
     }
 
@@ -111,21 +115,23 @@ impl GameState {
     // Deal a card to the player if they are still in the game
     // Check score and toggle bust flag if they are over 20
     pub fn player_deal(&mut self) {
-        if let GamePhase::PlayerTurn = self.game_phase {
+        if let GamePhase::PlayerTurn = self.game_phase
+            && !self.player.stood
+        {
             let new_dealer_card_val: i32 = rand::random_range(0..=10);
             self.player.dealer_row.push(LogicCard {
                 value: new_dealer_card_val,
             });
-
-            // Set gamephase to opponent's turn
-            self.game_phase = GamePhase::OpponentTurn;
         }
+
+        // Set gamephase to opponent's turn
+        self.game_phase = GamePhase::OpponentTurn;
     }
 
     // Set gamestate to opponent's turn if we are on the player's turn
     pub fn player_stand(&mut self) {
         self.game_phase = GamePhase::OpponentTurn;
-        self.game_phase = GamePhase::PlayerStood;
+        self.player.stood = true;
     }
 }
 
