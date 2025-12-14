@@ -15,6 +15,15 @@ impl BoardView {
         Self { config }
     }
 
+    // 
+    // Draw Text Helper
+    // 
+    fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
+        for (i, ch) in text.chars().enumerate() {
+            frame[x + i][y] = ch;
+        } 
+    }
+
     //
     // Draw Top info (Player name, score, et)
     //
@@ -25,42 +34,32 @@ impl BoardView {
 
         // --- Player Side ---
         let player_name_display = format!("Player: {}", state.player.name);
-        for (i, ch) in player_name_display.chars().enumerate() {
-            frame[padding_x + i][padding_y] = ch;
-        }
+        self.draw_text(player_name_display.as_str(), padding_x, padding_y, frame);
 
         let player_score_display = format!("Score: {}", state.player.score());
-        for (i, ch) in player_score_display.chars().enumerate() {
-            frame[mid - 12 + i][padding_y] = ch;
-        }
+        self.draw_text(player_score_display.as_str(), mid - 12, padding_y, frame);
         //
         // If Bust, display so!
         if state.player.bust {
-            let bust_display = "BUSTED!!".to_string();
-            for (i, ch) in bust_display.chars().enumerate() {
-                frame[mid - 12 + i][padding_y + 1] = ch;
-            }
+            self.draw_text("BUSTED!!", mid - 12, padding_y + 1, frame);
         }
 
         // --- Opponent Side ---
         let opponent_name_display = format!("Opponent: {}", state.opponent.name);
-        for (i, ch) in opponent_name_display.chars().enumerate() {
-            frame[mid + padding_x + i][padding_y] = ch;
-        }
+        self.draw_text(opponent_name_display.as_str(), mid + padding_x, padding_y, frame);
 
         let opponent_score_display = format!("Score: {}", state.opponent.score());
-        for (i, ch) in opponent_score_display.chars().enumerate() {
-            frame[self.config.num_cols - 12 + i][padding_y] = ch;
-        }
+        self.draw_text(opponent_score_display.as_str(), self.config.num_cols - 12, padding_y, frame);
         // If Bust, display so!
         if state.opponent.bust {
-            let bust_display = "BUSTED!!".to_string();
-            for (i, ch) in bust_display.chars().enumerate() {
-                frame[self.config.num_cols - 12 + i][padding_y + 1] = ch;
-            }
+            self.draw_text("BUSTED!!", self.config.num_cols - 12, padding_y, frame);
         }
     }
 
+    //
+    // --- Drawable trait impl ---
+    //
+    // Draw the current game state
     pub fn draw(&self, state: &GameState, frame: &mut Frame) {
         //
         // draw a vertical divider down the middle
@@ -70,6 +69,9 @@ impl BoardView {
                 frame[mid][y] = '|';
             }
         }
+        
+        // Top Info
+        self.draw_top_info(state, frame);
 
         // layout constants (simple, tweak later)
         let padding_x: usize = 4;
@@ -82,10 +84,7 @@ impl BoardView {
         let player_origin_x = padding_x;
         let opp_origin_x = mid + padding_x;
 
-        // Top Info
-        self.draw_top_info(state, frame);
 
-        //
         // --- Player side ---
         //
         // Dealer Cards
@@ -119,7 +118,6 @@ impl BoardView {
             .draw(frame);
         }
 
-        //
         // --- Opponent side ---
         //
         // Dealer Cards
