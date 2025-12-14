@@ -9,3 +9,6 @@ pub mod card;
 // Card size
 pub const CARD_WIDTH: usize = 9;
 pub const CARD_HEIGHT: usize = 5;
+
+// Thread sleep time to keep from wasting cycles
+pub const THREAD_SLEEP_MS: u64 = 100;
