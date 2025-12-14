@@ -13,8 +13,6 @@ pub struct GameState {
     pub opponent: PlayerState,
     // pub dealer_deck: Vec<Card>,  // dealer will just randomly draw a +1..+10 (infinite deck)
     // pub game_phase: GamePhase,
-
-
 }
 impl GameState {
     pub fn new_demo() -> Self {
@@ -43,5 +41,31 @@ impl GameState {
             },
         }
     }
-}
 
+    pub fn new() -> Self {
+        Self {
+            player: PlayerState {
+                name: "Player".to_string(),
+                dealer_row: vec![],
+                played_row: vec![],
+                hand: vec![
+                    LogicCard { value: 5 },
+                    LogicCard { value: 3 },
+                    LogicCard { value: 6 },
+                    LogicCard { value: 2 },
+                ],
+            },
+            opponent: PlayerState {
+                name: "Opponent".to_string(),
+                dealer_row: vec![],
+                played_row: vec![],
+                hand: vec![
+                    LogicCard { value: 2 },
+                    LogicCard { value: 6 },
+                    LogicCard { value: 1 },
+                    LogicCard { value: 4 },
+                ],
+            },
+        }
+    }
+}

@@ -28,7 +28,8 @@ fn main() -> anyhow::Result<()> {
     stdout.execute(EnterAlternateScreen)?;
     stdout.execute(Hide)?; // Hide cursor
 
-    let mut game_state = GameState::new_demo();
+    // Initialize new Game State
+    let mut game_state = GameState::new();
     let board = BoardView::new(config.clone());
 
     // Render Loop

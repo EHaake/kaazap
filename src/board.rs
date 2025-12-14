@@ -10,7 +10,8 @@ impl BoardView {
     }
 
     pub fn draw(&self, state: &GameState, frame: &mut Frame) {
-        // vertical divider down the middle
+        //
+        // draw a vertical divider down the middle
         let mid = self.config.num_cols / 2;
         for y in 0..self.config.num_rows {
             if mid < frame.len() && y < frame[0].len() {
@@ -29,7 +30,9 @@ impl BoardView {
         let player_origin_x = padding_x;
         let opp_origin_x = mid + padding_x;
 
+        //
         // --- Player side ---
+        //
         for (i, c) in state.player.dealer_row.iter().enumerate() {
             let x = player_origin_x + i * spacing_x;
             CardView { x, y: dealer_y, text: c.value.to_string() }.draw(frame);
@@ -45,7 +48,9 @@ impl BoardView {
             CardView { x, y: hand_y, text: c.value.to_string() }.draw(frame);
         }
 
+        //
         // --- Opponent side ---
+        //
         for (i, c) in state.opponent.dealer_row.iter().enumerate() {
             let x = opp_origin_x + i * spacing_x;
             CardView { x, y: dealer_y, text: c.value.to_string() }.draw(frame);
