@@ -68,4 +68,16 @@ impl GameState {
             },
         }
     }
+    
+    pub fn deal_player(&mut self) {
+        let new_dealer_card_val: i32 = rand::random_range(0..=10);
+        self.player.dealer_row.push(LogicCard { value: new_dealer_card_val });
+    }
 }
+
+impl Default for GameState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+

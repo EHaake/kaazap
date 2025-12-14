@@ -73,6 +73,9 @@ fn main() -> anyhow::Result<()> {
                         // audio.play("lose");
                         break 'gameloop;
                     }
+                    KeyCode::Char('d') => {
+                        game_state.deal_player();
+                    }
                     // TODO: Add the rest of the keymaps
                     _ => {}
                 }
