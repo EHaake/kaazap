@@ -1,5 +1,12 @@
 use crate::{CARD_HEIGHT, CARD_WIDTH, frame::Drawable};
 
+#[derive(Debug, Copy, Clone)]
+pub enum CardKind {
+    Dealer,           // only +1..+10
+    PlayerPlus,       // Player +1..+6
+    PlayerMinus,      // Player -1..-6
+    //PlayerPlusMinus,  // Player +-1..+-6
+}
 
 pub struct Card {
     x: usize,
@@ -22,13 +29,15 @@ impl Drawable for Card {
         let y1 = y0 + CARD_HEIGHT - 1;
 
         // Top & bottom horizontal borders
-        for x in x0..=x1 {
+        let tmp = x0..=x1;
+        for x in tmp {
             frame[x][y0] = '-';
             frame[x][y1] = '-';
         }
 
         // Left & right vertical borders
-        for y in y0..=y1 {
+        let tmp1 = y0..=y1;
+        for y in tmp1 {
             frame[x0][y] = '|';
             frame[x1][y] = '|';
         }
@@ -40,8 +49,10 @@ impl Drawable for Card {
         frame[x1][y1] = '+';
 
         // Fill inside with spaces
-        for x in (x0 + 1)..x1 {
-            for y in (y0 + 1)..y1 {
+        let tmp2 = (x0 + 1)..x1;
+        for x in tmp2 {
+            let tmp3 = (y0 + 1)..y1;
+            for y in tmp3 {
                 frame[x][y] = ' ';
             }
         }

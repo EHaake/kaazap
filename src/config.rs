@@ -1,4 +1,4 @@
-use crossterm::terminal;
+pub(crate) use crossterm::terminal;
 
 #[derive(Debug, Clone)]
 pub struct Config {
