@@ -15,13 +15,32 @@ impl BoardView {
         Self { config }
     }
 
-    // 
+    //
     // Draw Text Helper
-    // 
+    //
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
         for (i, ch) in text.chars().enumerate() {
             frame[x + i][y] = ch;
-        } 
+        }
+    }
+
+    //
+    // Draw whose turn it is
+    //
+    fn draw_turn_text(&self, state: &GameState, frame: &mut Frame) {
+        let mid = self.config.num_cols / 2;
+        let padding_y: usize = 4;
+        let padding_x: usize = 15;
+
+        match state.game_phase {
+            GamePhase::PlayerTurn => {
+                self.draw_text("Your Turn", mid - padding_x, self.config.num_rows - padding_y, frame)
+            }
+            GamePhase::OpponentTurn =>  {
+                self.draw_text("Opponent's Turn", self.config.num_cols - padding_x, self.config.num_rows - padding_y, frame)
+            },
+            _ => {}
+        }
     }
 
     //
@@ -51,11 +70,21 @@ impl BoardView {
 
         // --- Opponent Side ---
         let opponent_name_display = format!("Opponent: {}", state.opponent.name);
-        self.draw_text(opponent_name_display.as_str(), mid + padding_x, padding_y, frame);
+        self.draw_text(
+            opponent_name_display.as_str(),
+            mid + padding_x,
+            padding_y,
+            frame,
+        );
 
         let opponent_score_display = format!("Score: {}", state.opponent.score());
-        self.draw_text(opponent_score_display.as_str(), self.config.num_cols - 12, padding_y, frame);
-        // 
+        self.draw_text(
+            opponent_score_display.as_str(),
+            self.config.num_cols - 12,
+            padding_y,
+            frame,
+        );
+        //
         // If Bust, display so!
         if state.opponent.bust {
             self.draw_text("BUSTED!!", self.config.num_cols - 12, padding_y + 1, frame);
@@ -75,7 +104,7 @@ impl BoardView {
                 frame[mid][y] = '|';
             }
         }
-        
+
         // Top Info
         self.draw_top_info(state, frame);
 
@@ -89,7 +118,6 @@ impl BoardView {
 
         let player_origin_x = padding_x;
         let opp_origin_x = mid + padding_x;
-
 
         // --- Player side ---
         //
@@ -156,5 +184,8 @@ impl BoardView {
             }
             .draw(frame);
         }
+
+        // Draw Turn Text
+        self.draw_turn_text(state, frame);
     }
 }

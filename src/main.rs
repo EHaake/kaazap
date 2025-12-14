@@ -28,9 +28,9 @@ fn main() -> anyhow::Result<()> {
     stdout.execute(EnterAlternateScreen)?;
     stdout.execute(Hide)?; // Hide cursor
 
-    // Initialize new Game State
-    let mut game_state = GameState::new();
+    // Initialize new Game State and Board
     let board = BoardView::new(config.clone());
+    let mut game_state = GameState::new();
 
     // Render Loop
     //
@@ -78,6 +78,10 @@ fn main() -> anyhow::Result<()> {
                     }
                     KeyCode::Char('s') => {
                         game_state.player_stand();
+                    }
+                    KeyCode::Char('r') => {
+                        // reset game
+                        game_state = GameState::new();
                     }
                     // TODO: Add the rest of the keymaps
                     _ => {}
