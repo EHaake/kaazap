@@ -74,10 +74,10 @@ fn main() -> anyhow::Result<()> {
                         break 'gameloop;
                     }
                     KeyCode::Char('d') => {
-                        game_state.player_deal();
+                        game_state.input_handle('d');
                     }
                     KeyCode::Char('s') => {
-                        game_state.player_stand();
+                        game_state.input_handle('s');
                     }
                     KeyCode::Char('r') => {
                         // reset game
