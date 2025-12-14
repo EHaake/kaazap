@@ -44,6 +44,12 @@ impl BoardView {
         for (i, ch) in player_score_display.chars().enumerate() {
             frame[mid - 12 + i][padding_y] = ch;
         }
+        //
+        // If Bust, display so!
+        let bust_display = "BUSTED!!".to_string();
+        for (i, ch) in bust_display.chars().enumerate() {
+            frame[mid - 12 + i][padding_y + 1] = ch;
+        }
 
         // --- Opponent Side ---
         let opponent_name_display = format!("Opponent: {}", state.opponent.name);
@@ -54,6 +60,11 @@ impl BoardView {
         let opponent_score_display = format!("Score: {}", state.opponent.score());
         for (i, ch) in opponent_score_display.chars().enumerate() {
             frame[self.config.num_cols - 12 + i][padding_y] = ch;
+        }
+        // If Bust, display so!
+        let bust_display = "BUSTED!!".to_string();
+        for (i, ch) in bust_display.chars().enumerate() {
+            frame[self.config.num_cols - 12 + i][padding_y + 1] = ch;
         }
 
 

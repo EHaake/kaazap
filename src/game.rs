@@ -54,6 +54,7 @@ impl GameState {
                     LogicCard { value: 6 },
                     LogicCard { value: 2 },
                 ],
+                bust: false,
             },
             opponent: PlayerState {
                 name: "Opponent".to_string(),
@@ -65,13 +66,24 @@ impl GameState {
                     LogicCard { value: 1 },
                     LogicCard { value: 4 },
                 ],
+                bust: false,
             },
         }
     }
     
+    // Deal a card to the player if they are still in the game
+    // Check score and toggle bust flag if they are over 20
     pub fn deal_player(&mut self) {
+        if self.player.bust {
+            return;
+        }
+
         let new_dealer_card_val: i32 = rand::random_range(0..=10);
         self.player.dealer_row.push(LogicCard { value: new_dealer_card_val });
+
+        if self.player.score() > 20 {
+            self.player.bust = true;
+        }
     }
 }
 
