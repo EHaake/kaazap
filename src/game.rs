@@ -100,7 +100,8 @@ impl GameState {
             // TODO: Player wins
         }
 
-
+        //
+        // Match on game phase to decide what to do
         match self.game_phase {
             GamePhase::OpponentThinking { until } => {
                 if Instant::now() >= until {
@@ -110,6 +111,7 @@ impl GameState {
             GamePhase::OpponentTurn => {
                 self.play_opponent_turn();
             }
+            // TODO: Handle rest of phases here
             _ => {}
         }
     }
