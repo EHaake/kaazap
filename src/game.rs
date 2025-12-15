@@ -91,12 +91,14 @@ impl GameState {
     }
 
     pub fn handle_input(&mut self, key: char) {
-        if key == 'd' {
-            self.player_deal();
-        } else if key == 's' {
-            self.player_stand();
-        } else if key == 'n' {
-            self.next_round();
+        match key {
+            '1' | '2' | '3' | '4' => {
+                self.play_card(key);
+            },
+            'd' => self.player_deal(),
+            's' => self.player_stand(),
+            'n' => self.next_round(),
+            _ => {}
         }
     }
 
@@ -240,6 +242,16 @@ impl GameState {
 
     fn setup_for_next_round(&mut self) {
         self.game_phase = GamePhase::AwaitingNextRound;
+    }
+
+    fn play_card(&mut self, key: char) {
+        // remove card from player hand
+        // add it to played_row
+        let digit = key.to_digit(10).unwrap() as usize;
+
+        if digit <= self.player.hand.len() {
+            self.player.played_row.push(self.player.hand.remove(digit - 1));
+        }
     }
 }
 

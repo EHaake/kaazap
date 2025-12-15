@@ -86,6 +86,9 @@ fn main() -> anyhow::Result<()> {
                         // reset game
                         game_state = GameState::new();
                     }
+                    KeyCode::Char('1') | KeyCode::Char('2') | KeyCode::Char('3') | KeyCode::Char('4') => {
+                        game_state.handle_input(key_event.code.as_char().unwrap());
+                    }
                     // TODO: Add the rest of the keymaps
                     _ => {}
                 }
