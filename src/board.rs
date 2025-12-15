@@ -73,13 +73,10 @@ impl BoardView {
         );
 
         //
-        // If Bust, display so!
+        // If Bust or stood, display so!
         if state.player.bust {
             self.draw_text("BUSTED!!", padding_x, padding_y + 1, frame);
-        }
-
-        // If player stood, display it!
-        if state.player.stood {
+        } else if state.player.stood {
             self.draw_text("Stood", padding_x, padding_y + 1, frame);
         }
 
@@ -108,12 +105,10 @@ impl BoardView {
             frame,
         );
         //
-        // If Bust, display so!
+        // If Bust or stood, display so!
         if state.opponent.bust {
             self.draw_text("BUSTED!!", mid + padding_x, padding_y + 1, frame);
-        }
-        // If opponent stood, display it!
-        if state.opponent.stood {
+        } else if state.opponent.stood {
             self.draw_text("Stood", mid + padding_x, padding_y + 1, frame);
         }
     }

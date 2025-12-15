@@ -104,11 +104,18 @@ impl GameState {
                 self.opponent.bust = true;
                 self.game_phase = GamePhase::RoundEnd;
             } else if self.player.score() == 20 {
-                self.player.rounds_won += 1;
+                self.player.stood = true;
                 self.game_phase = GamePhase::RoundEnd;
             } else if self.opponent.score() == 20 {
-                self.opponent.rounds_won += 1;
-                self.game_phase = GamePhase::RoundEnd;
+                // If opponent gets to 20 first (player still < 20 and not stood, need to give
+                // player more draws)
+                self.opponent.stood = true;
+                if self.player.stood || self.player.bust {
+                    self.game_phase = GamePhase::RoundEnd;
+                } else {
+                    self.game_phase = GamePhase::PlayerTurn;
+                }
+
             }
         }
 
@@ -128,6 +135,15 @@ impl GameState {
                     self.opponent.rounds_won += 1;
                 } else if self.opponent.bust {
                     self.player.rounds_won += 1;
+                } else if self.player.stood && self.opponent.stood {
+                    // Tie
+                    if self.player.score() == self.opponent.score() {
+                         
+                    } else if self.player.score() > self.opponent.score() {
+                        self.player.rounds_won += 1;
+                    } else if self.player.score() < self.opponent.score() {
+                        self.opponent.rounds_won += 1;
+                    }
                 }
 
                 self.setup_for_next_round();
