@@ -81,7 +81,7 @@ impl GameState {
         }
     }
 
-    pub fn input_handle(&mut self, key: char) {
+    pub fn handle_input(&mut self, key: char) {
         if key == 'd' {
             self.player_deal();
         } else if key == 's' {
@@ -94,6 +94,7 @@ impl GameState {
     //
     // Check board state for updates
     pub fn update(&mut self, delta: Duration) {
+        // TODO: this is inneficient and a bit of a hack to fix a bug, refactor needed
         if !matches!(self.game_phase, GamePhase::AwaitingNextRound) {
             // Opponent wins
             if self.player.score() > 20 {
@@ -158,13 +159,13 @@ impl GameState {
             self.player.dealer_row.push(LogicCard {
                 value: new_dealer_card_val,
             });
-        }
 
-        // Set gamephase to opponent's turn
-        // self.game_phase = GamePhase::OpponentTurn;
-        self.game_phase = GamePhase::OpponentThinking {
-            until: Instant::now() + Duration::from_secs(1),
-        };
+            // Set gamephase to opponent's turn
+            // self.game_phase = GamePhase::OpponentTurn;
+            self.game_phase = GamePhase::OpponentThinking {
+                until: Instant::now() + Duration::from_secs(1),
+            };
+        }
     }
 
     // Set gamestate to opponent's turn if we are on the player's turn
