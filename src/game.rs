@@ -1,10 +1,12 @@
 use crate::{card::LogicCard, player::PlayerState};
-use std::{thread, time::{Duration, Instant}};
+use std::{
+    thread,
+    time::{Duration, Instant},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub enum GamePhase {
     PlayerTurn,
-    PlayerStood,
     OpponentThinking { until: Instant },
     OpponentTurn,
     RoundEnd,
@@ -82,7 +84,6 @@ impl GameState {
         } else if key == 's' {
             self.player_stand();
         }
-        
     }
 
     // Check board state for updates
@@ -99,9 +100,17 @@ impl GameState {
             // TODO: Player wins
         }
 
-        // Check if it's the opponent's turn and if so, play their turn
-        if let GamePhase::OpponentTurn = self.game_phase {
-            self.play_opponent_turn();
+
+        match self.game_phase {
+            GamePhase::OpponentThinking { until } => {
+                if Instant::now() >= until {
+                    self.game_phase = GamePhase::OpponentTurn;
+                }
+            }
+            GamePhase::OpponentTurn => {
+                self.play_opponent_turn();
+            }
+            _ => {}
         }
     }
 
@@ -134,7 +143,10 @@ impl GameState {
         }
 
         // Set gamephase to opponent's turn
-        self.game_phase = GamePhase::OpponentTurn;
+        // self.game_phase = GamePhase::OpponentTurn;
+        self.game_phase = GamePhase::OpponentThinking {
+            until: Instant::now() + Duration::from_secs(1),
+        };
     }
 
     // Set gamestate to opponent's turn if we are on the player's turn
