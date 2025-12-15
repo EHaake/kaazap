@@ -60,6 +60,7 @@ impl GameState {
                 ],
                 bust: false,
                 stood: false,
+                rounds_won: 0,
             },
             opponent: PlayerState {
                 name: "Opponent".to_string(),
@@ -73,6 +74,7 @@ impl GameState {
                 ],
                 bust: false,
                 stood: false,
+                rounds_won: 0,
             },
             game_phase: GamePhase::PlayerTurn,
         }
@@ -83,6 +85,8 @@ impl GameState {
             self.player_deal();
         } else if key == 's' {
             self.player_stand();
+        } else if key == 'n' {
+            self.next_round();
         }
     }
 
@@ -92,12 +96,14 @@ impl GameState {
             self.player.bust = true;
             self.game_phase = GamePhase::RoundEnd;
             // TODO: Opponent wins
+            self.opponent.rounds_won += 1;
         }
 
         if self.opponent.score() > 20 {
             self.opponent.bust = true;
             self.game_phase = GamePhase::RoundEnd;
             // TODO: Player wins
+            self.player.rounds_won += 1;
         }
 
         //
@@ -118,7 +124,6 @@ impl GameState {
 
     // Play the opponent's turn (deal, play card, stand)
     fn play_opponent_turn(&mut self) {
-        // Time out for 1 sec
         self.opponent_deal();
     }
 
@@ -155,6 +160,15 @@ impl GameState {
     pub fn player_stand(&mut self) {
         self.game_phase = GamePhase::OpponentTurn;
         self.player.stood = true;
+    }
+
+    fn next_round(&mut self) {
+        // Clear dealer row for both players
+        self.player.dealer_row = vec![]; 
+        self.opponent.dealer_row = vec![]; 
+        
+        // Set GamePhase to player turn
+        self.game_phase = GamePhase::PlayerTurn;
     }
 }
 

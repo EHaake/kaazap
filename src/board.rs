@@ -37,7 +37,7 @@ impl BoardView {
                 self.draw_text("Your Turn", mid - padding_x, self.config.num_rows - padding_y, frame)
             }
             GamePhase::OpponentThinking { until: _until } =>  {
-                self.draw_text("Opponent's Turn", self.config.num_cols - padding_x - 5, self.config.num_rows - padding_y, frame)
+                self.draw_text("Opponent's Turn", self.config.num_cols - padding_x - 4, self.config.num_rows - padding_y, frame)
             },
             _ => {}
         }

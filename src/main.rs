@@ -79,6 +79,9 @@ fn main() -> anyhow::Result<()> {
                     KeyCode::Char('s') => {
                         game_state.input_handle('s');
                     }
+                    KeyCode::Char('n') => {
+                        game_state.input_handle('n');
+                    }
                     KeyCode::Char('r') => {
                         // reset game
                         game_state = GameState::new();
