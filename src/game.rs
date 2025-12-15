@@ -10,6 +10,7 @@ pub enum GamePhase {
     OpponentThinking { until: Instant },
     OpponentTurn,
     RoundEnd,
+    AwaitingNextRound,
 }
 
 pub struct GameState {
@@ -93,18 +94,18 @@ impl GameState {
     //
     // Check board state for updates
     pub fn update(&mut self, delta: Duration) {
-        // Opponent wins
-        if self.player.score() > 20 {
-            self.player.bust = true;
-            self.opponent.rounds_won += 1;
-            self.game_phase = GamePhase::RoundEnd;
-        }
+        if !matches!(self.game_phase, GamePhase::AwaitingNextRound) {
+            // Opponent wins
+            if self.player.score() > 20 {
+                self.player.bust = true;
+                self.game_phase = GamePhase::RoundEnd;
+            }
 
-        // Player wins
-        if self.opponent.score() > 20 {
-            self.opponent.bust = true;
-            self.player.rounds_won += 1;
-            self.game_phase = GamePhase::RoundEnd;
+            // Player wins
+            if self.opponent.score() > 20 {
+                self.opponent.bust = true;
+                self.game_phase = GamePhase::RoundEnd;
+            }
         }
 
         //
@@ -117,6 +118,15 @@ impl GameState {
             }
             GamePhase::OpponentTurn => {
                 self.play_opponent_turn();
+            }
+            GamePhase::RoundEnd => {
+                if self.player.bust {
+                    self.opponent.rounds_won += 1;
+                } else if self.opponent.bust {
+                    self.player.rounds_won += 1;
+                }
+
+                self.setup_for_next_round();
             }
             // TODO: Handle rest of phases here
             _ => {}
@@ -167,17 +177,23 @@ impl GameState {
     }
 
     fn next_round(&mut self) {
-        // Clear dealer row for both players
-        self.player.dealer_row = vec![];
-        self.opponent.dealer_row = vec![];
+        if let GamePhase::AwaitingNextRound = self.game_phase {
+            // Clear dealer row for both players
+            self.player.dealer_row = vec![];
+            self.opponent.dealer_row = vec![];
 
-        // Reset stood and busted flags
-        self.player.bust = false;
-        self.opponent.bust = false;
-        self.player.stood = false;
+            // Reset stood and busted flags
+            self.player.bust = false;
+            self.opponent.bust = false;
+            self.player.stood = false;
 
-        // Set GamePhase to player turn
-        self.game_phase = GamePhase::PlayerTurn;
+            // Set GamePhase to player turn
+            self.game_phase = GamePhase::PlayerTurn;
+        }
+    }
+
+    fn setup_for_next_round(&mut self) {
+        self.game_phase = GamePhase::AwaitingNextRound;
     }
 }
 
