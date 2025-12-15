@@ -158,15 +158,23 @@ impl GameState {
 
     // Set gamestate to opponent's turn if we are on the player's turn
     pub fn player_stand(&mut self) {
-        self.game_phase = GamePhase::OpponentTurn;
-        self.player.stood = true;
+        // Only allow if GamePhase is player's turn
+        if let GamePhase::PlayerTurn = self.game_phase {
+            self.game_phase = GamePhase::OpponentTurn;
+            self.player.stood = true;
+        }
     }
 
     fn next_round(&mut self) {
         // Clear dealer row for both players
-        self.player.dealer_row = vec![]; 
-        self.opponent.dealer_row = vec![]; 
-        
+        self.player.dealer_row = vec![];
+        self.opponent.dealer_row = vec![];
+
+        // Reset stood and busted flags
+        self.player.bust = false;
+        self.opponent.bust = false;
+        self.player.stood = false;
+
         // Set GamePhase to player turn
         self.game_phase = GamePhase::PlayerTurn;
     }
