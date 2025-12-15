@@ -5,6 +5,13 @@ use std::{
 };
 
 #[derive(Debug, Clone, Copy)]
+pub enum RoundOutcome {
+    PlayerWon,
+    OpponentWon,
+    Tied,
+}
+
+#[derive(Debug, Clone, Copy)]
 pub enum GamePhase {
     PlayerTurn,
     OpponentThinking { until: Instant },
@@ -18,6 +25,7 @@ pub struct GameState {
     pub opponent: PlayerState,
     // pub dealer_deck: Vec<Card>,  // dealer will just randomly draw a +1..+10 (infinite deck)
     pub game_phase: GamePhase,
+    pub round_outcome: Option<RoundOutcome>,
 }
 impl GameState {
     // pub fn new_demo() -> Self {
@@ -78,6 +86,7 @@ impl GameState {
                 rounds_won: 0,
             },
             game_phase: GamePhase::PlayerTurn,
+            round_outcome: None,
         }
     }
 
@@ -136,13 +145,16 @@ impl GameState {
                 } else if self.opponent.bust {
                     self.player.rounds_won += 1;
                 } else if self.player.stood && self.opponent.stood {
-                    // Tie
+
+                    // Tie, player wins, opponent wins
                     if self.player.score() == self.opponent.score() {
-                         
+                        self.round_outcome = Some(RoundOutcome::Tied);
                     } else if self.player.score() > self.opponent.score() {
                         self.player.rounds_won += 1;
+                        self.round_outcome = Some(RoundOutcome::PlayerWon);
                     } else if self.player.score() < self.opponent.score() {
                         self.opponent.rounds_won += 1;
+                        self.round_outcome = Some(RoundOutcome::OpponentWon);
                     }
                 }
 
@@ -206,6 +218,9 @@ impl GameState {
             self.player.bust = false;
             self.opponent.bust = false;
             self.player.stood = false;
+
+            // Reset round outcome
+            self.round_outcome = None;
 
             // Set GamePhase to player turn
             self.game_phase = GamePhase::PlayerTurn;
