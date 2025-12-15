@@ -3,7 +3,7 @@ use crate::{
     card::CardView,
     config::Config,
     frame::{Drawable, Frame},
-    game::{GamePhase, GameState},
+    game::{GamePhase, GameState, RoundOutcome},
 };
 
 pub struct BoardView {
@@ -22,6 +22,26 @@ impl BoardView {
         for (i, ch) in text.chars().enumerate() {
             frame[x + i][y] = ch;
         }
+    }
+
+    //
+    // Draw round outcome text in the middle of screen
+    fn draw_round_outcome_text(&self, state: &GameState, frame: &mut Frame) {
+        let mid_x = self.config.num_cols / 2;
+        let mid_y = self.config.num_rows / 2;
+
+        match state.round_outcome {
+            Some(RoundOutcome::PlayerWon) => {
+                self.draw_text("You won this round!", mid_x - 9, mid_y, frame);
+            }
+            Some(RoundOutcome::Tied) => {
+                self.draw_text("You Tied!", mid_x - 4, mid_y, frame);
+            }
+            Some(RoundOutcome::OpponentWon) => {
+                self.draw_text("Opponent won the round!", mid_x - 11, mid_y, frame);
+            }
+            None => {}
+        } 
     }
 
     //
@@ -209,5 +229,9 @@ impl BoardView {
 
         // Draw Turn Text
         self.draw_turn_text(state, frame);
+
+        // Draw Round Outcome if it exists
+        self.draw_round_outcome_text(state, frame);
     }
+
 }

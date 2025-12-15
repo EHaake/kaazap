@@ -142,10 +142,11 @@ impl GameState {
             GamePhase::RoundEnd => {
                 if self.player.bust {
                     self.opponent.rounds_won += 1;
+                    self.round_outcome = Some(RoundOutcome::OpponentWon);
                 } else if self.opponent.bust {
                     self.player.rounds_won += 1;
+                    self.round_outcome = Some(RoundOutcome::PlayerWon);
                 } else if self.player.stood && self.opponent.stood {
-
                     // Tie, player wins, opponent wins
                     if self.player.score() == self.opponent.score() {
                         self.round_outcome = Some(RoundOutcome::Tied);
