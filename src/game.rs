@@ -100,11 +100,14 @@ impl GameState {
             if self.player.score() > 20 {
                 self.player.bust = true;
                 self.game_phase = GamePhase::RoundEnd;
-            }
-
-            // Player wins
-            if self.opponent.score() > 20 {
+            } else if self.opponent.score() > 20 {
                 self.opponent.bust = true;
+                self.game_phase = GamePhase::RoundEnd;
+            } else if self.player.score() == 20 {
+                self.player.rounds_won += 1;
+                self.game_phase = GamePhase::RoundEnd;
+            } else if self.opponent.score() == 20 {
+                self.opponent.rounds_won += 1;
                 self.game_phase = GamePhase::RoundEnd;
             }
         }
