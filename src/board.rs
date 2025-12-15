@@ -33,12 +33,18 @@ impl BoardView {
         let padding_x: usize = 15;
 
         match state.game_phase {
-            GamePhase::PlayerTurn => {
-                self.draw_text("Your Turn", mid - padding_x, self.config.num_rows - padding_y, frame)
-            }
-            GamePhase::OpponentThinking { until: _until } =>  {
-                self.draw_text("Opponent's Turn", self.config.num_cols - padding_x - 4, self.config.num_rows - padding_y, frame)
-            },
+            GamePhase::PlayerTurn => self.draw_text(
+                "Your Turn",
+                mid - padding_x,
+                self.config.num_rows - padding_y,
+                frame,
+            ),
+            GamePhase::OpponentThinking { until: _until } => self.draw_text(
+                "Opponent's Turn",
+                self.config.num_cols - padding_x - 4,
+                self.config.num_rows - padding_y,
+                frame,
+            ),
             _ => {}
         }
     }
@@ -57,6 +63,15 @@ impl BoardView {
 
         let player_score_display = format!("Score: {}", state.player.score());
         self.draw_text(player_score_display.as_str(), mid - 12, padding_y, frame);
+
+        let player_round_score_display = format!("Rounds won: {}", state.player.rounds_won);
+        self.draw_text(
+            player_round_score_display.as_str(),
+            mid - 17,
+            padding_y + 1,
+            frame,
+        );
+
         //
         // If Bust, display so!
         if state.player.bust {
@@ -84,10 +99,22 @@ impl BoardView {
             padding_y,
             frame,
         );
+
+        let opponent_round_score_display = format!("Rounds won: {}", state.opponent.rounds_won);
+        self.draw_text(
+            opponent_round_score_display.as_str(),
+            self.config.num_cols - 17,
+            padding_y + 1,
+            frame,
+        );
         //
         // If Bust, display so!
         if state.opponent.bust {
             self.draw_text("BUSTED!!", mid + padding_x, padding_y + 1, frame);
+        }
+        // If opponent stood, display it!
+        if state.opponent.stood {
+            self.draw_text("Stood", mid + padding_x, padding_y + 1, frame);
         }
     }
 

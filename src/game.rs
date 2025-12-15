@@ -90,20 +90,21 @@ impl GameState {
         }
     }
 
+    //
     // Check board state for updates
     pub fn update(&mut self, delta: Duration) {
+        // Opponent wins
         if self.player.score() > 20 {
             self.player.bust = true;
-            self.game_phase = GamePhase::RoundEnd;
-            // TODO: Opponent wins
             self.opponent.rounds_won += 1;
+            self.game_phase = GamePhase::RoundEnd;
         }
 
+        // Player wins
         if self.opponent.score() > 20 {
             self.opponent.bust = true;
-            self.game_phase = GamePhase::RoundEnd;
-            // TODO: Player wins
             self.player.rounds_won += 1;
+            self.game_phase = GamePhase::RoundEnd;
         }
 
         //
