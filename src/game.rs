@@ -112,9 +112,12 @@ impl GameState {
             } else if self.opponent.score() > 20 {
                 self.opponent.bust = true;
                 self.game_phase = GamePhase::RoundEnd;
-            } else if self.player.score() == 20 {
+            } else if self.player.score() == 20 || self.player.stood {
+                // If player gets to 20 but opponent hasn't stood or busted, they get more turns
                 self.player.stood = true;
-                self.game_phase = GamePhase::RoundEnd;
+                if self.opponent.stood || self.opponent.bust {
+                    self.game_phase = GamePhase::RoundEnd;
+                }
             } else if self.opponent.score() == 20 {
                 // If opponent gets to 20 first (player still < 20 and not stood, need to give
                 // player more draws)
@@ -124,7 +127,6 @@ impl GameState {
                 } else {
                     self.game_phase = GamePhase::PlayerTurn;
                 }
-
             }
         }
 
@@ -160,6 +162,14 @@ impl GameState {
                 }
 
                 self.setup_for_next_round();
+            }
+            GamePhase::PlayerTurn => {
+                // If player has stood, need to go to next Opponent's turn
+                if self.player.stood {
+                    self.game_phase = GamePhase::OpponentThinking {
+                        until: Instant::now() + Duration::from_secs(1),
+                    };
+                }
             }
             // TODO: Handle rest of phases here
             _ => {}
