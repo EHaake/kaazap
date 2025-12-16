@@ -216,8 +216,11 @@ impl GameState {
     pub fn player_stand(&mut self) {
         // Only allow if GamePhase is player's turn
         if let GamePhase::PlayerTurn = self.game_phase {
-            self.game_phase = GamePhase::OpponentTurn;
             self.player.stood = true;
+
+            self.game_phase = GamePhase::OpponentThinking {
+                until: Instant::now() + Duration::from_secs(1),
+            };
         }
     }
 
