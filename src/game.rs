@@ -1,8 +1,7 @@
 use crate::{card::LogicCard, player::PlayerState};
-use std::{
-    thread,
-    time::{Duration, Instant},
-};
+use std::
+    time::{Duration, Instant}
+;
 
 #[derive(Debug, Clone, Copy)]
 pub enum RoundOutcome {
@@ -104,7 +103,7 @@ impl GameState {
 
     //
     // Check board state for updates
-    pub fn update(&mut self, delta: Duration) {
+    pub fn update(&mut self) {
         // TODO: this is inneficient and a bit of a hack to fix a bug, refactor needed
         if !matches!(self.game_phase, GamePhase::AwaitingNextRound) {
             // Opponent wins

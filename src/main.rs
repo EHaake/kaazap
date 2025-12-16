@@ -2,7 +2,7 @@ use std::{
     io,
     sync::mpsc,
     thread,
-    time::{Duration, Instant},
+    time::Duration,
 };
 use crossterm::{
     ExecutableCommand,
@@ -55,11 +55,8 @@ fn main() -> anyhow::Result<()> {
     // Game loop
     //
     // Setup
-    let mut instant = Instant::now();
     //
     'gameloop: loop {
-        let delta = instant.elapsed();
-        instant = Instant::now();
         let mut curr_frame = new_frame(&config);
 
         // Input handling:
@@ -98,7 +95,7 @@ fn main() -> anyhow::Result<()> {
         // Updates
         //
         // Update the game state, checking for new states
-        game_state.update(delta);
+        game_state.update();
         
         // Draw and render section
         // 
