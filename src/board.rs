@@ -41,7 +41,7 @@ impl BoardView {
                 self.draw_text("Opponent won the round!", mid_x - 11, mid_y, frame);
             }
             None => {}
-        } 
+        }
     }
 
     //
@@ -185,13 +185,15 @@ impl BoardView {
         }
         // Hand cards
         for (i, c) in state.player.hand.iter().enumerate() {
-            let x = player_origin_x + i * spacing_x;
-            CardView {
-                x,
-                y: hand_y,
-                text: c.value.to_string(),
+            if c.value != 0 {
+                let x = player_origin_x + i * spacing_x;
+                CardView {
+                    x,
+                    y: hand_y,
+                    text: c.value.to_string(),
+                }
+                .draw(frame);
             }
-            .draw(frame);
         }
 
         // --- Opponent side ---
@@ -208,13 +210,15 @@ impl BoardView {
         }
         // Played Cards
         for (i, c) in state.opponent.played_row.iter().enumerate() {
-            let x = opp_origin_x + i * spacing_x;
-            CardView {
-                x,
-                y: played_y,
-                text: c.value.to_string(),
+            if c.value != 0 {
+                let x = opp_origin_x + i * spacing_x;
+                CardView {
+                    x,
+                    y: played_y,
+                    text: c.value.to_string(),
+                }
+                .draw(frame);
             }
-            .draw(frame);
         }
         // Opponent hand cards (hidden values)
         for i in 0..state.opponent.hand.len() {
@@ -233,5 +237,4 @@ impl BoardView {
         // Draw Round Outcome if it exists
         self.draw_round_outcome_text(state, frame);
     }
-
 }

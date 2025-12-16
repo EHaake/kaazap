@@ -252,8 +252,12 @@ impl GameState {
         // add it to played_row
         let digit = key.to_digit(10).unwrap() as usize;
 
-        if digit <= self.player.hand.len() {
-            self.player.played_row.push(self.player.hand.remove(digit - 1));
+        // simple bounds check and valid card if value != 0
+        if digit <= self.player.hand.len() && self.player.hand[digit-1].value != 0 {
+            // "Remove" the card from the player's hand by setting value to 0
+            let card_to_play = self.player.hand[digit-1];
+            self.player.hand[digit-1].value = 0;
+            self.player.played_row.push(card_to_play);
         }
     }
 }
