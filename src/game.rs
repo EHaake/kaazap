@@ -1,7 +1,13 @@
 use crate::{card::LogicCard, player::PlayerState};
-use std::
-    time::{Duration, Instant}
-;
+use std::time::{Duration, Instant};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Action {
+    Deal,
+    Stand,
+    NextRound,
+    PlayHand { index: usize },
+}
 
 #[derive(Debug, Clone, Copy)]
 pub enum RoundOutcome {
@@ -89,15 +95,21 @@ impl GameState {
         }
     }
 
-    pub fn handle_input(&mut self, key: char) {
+    // 
+    // Take the keys from the game loop and hand them it to action_from_key
+    pub fn handle_input(&mut self, key: char) -> Option<Action> {
+        self.action_from_key(key)
+    }
+
+    //
+    // Covert a key pressed into an Action
+    pub fn action_from_key(&self, key: char) -> Option<Action> {
         match key {
-            '1' | '2' | '3' | '4' => {
-                self.play_card(key);
-            },
-            'd' => self.player_deal(),
-            's' => self.player_stand(),
-            'n' => self.next_round(),
-            _ => {}
+            '1' | '2' | '3' | '4' => Some(Action::PlayHand { index: key.to_digit(10)? as usize - 1 }), 
+            'd' => Some(Action::Deal),
+            's' => Some(Action::Stand),
+            'n' => Some(Action::NextRound),
+            _ => None,
         }
     }
 
@@ -252,10 +264,10 @@ impl GameState {
         let digit = key.to_digit(10).unwrap() as usize;
 
         // simple bounds check and valid card if value != 0
-        if digit <= self.player.hand.len() && self.player.hand[digit-1].value != 0 {
+        if digit <= self.player.hand.len() && self.player.hand[digit - 1].value != 0 {
             // "Remove" the card from the player's hand by setting value to 0
-            let card_to_play = self.player.hand[digit-1];
-            self.player.hand[digit-1].value = 0;
+            let card_to_play = self.player.hand[digit - 1];
+            self.player.hand[digit - 1].value = 0;
             self.player.played_row.push(card_to_play);
         }
     }

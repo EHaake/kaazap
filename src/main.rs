@@ -65,30 +65,7 @@ fn main() -> anyhow::Result<()> {
         // which returns immediately if nothing to act upon
         while event::poll(Duration::default())? {
             if let Event::Key(key_event) = event::read()? {
-                match key_event.code {
-                    KeyCode::Esc | KeyCode::Char('q') => {
-                        // audio.play("lose");
-                        break 'gameloop;
-                    }
-                    KeyCode::Char('d') => {
-                        game_state.handle_input('d');
-                    }
-                    KeyCode::Char('s') => {
-                        game_state.handle_input('s');
-                    }
-                    KeyCode::Char('n') => {
-                        game_state.handle_input('n');
-                    }
-                    KeyCode::Char('r') => {
-                        // reset game
-                        game_state = GameState::new();
-                    }
-                    KeyCode::Char('1') | KeyCode::Char('2') | KeyCode::Char('3') | KeyCode::Char('4') => {
-                        game_state.handle_input(key_event.code.as_char().unwrap());
-                    }
-                    // TODO: Add the rest of the keymaps
-                    _ => {}
-                }
+                game_state.handle_input(key_event.code.as_char().unwrap());
             }
         }
 
