@@ -1,9 +1,3 @@
-use std::{
-    io,
-    sync::mpsc,
-    thread,
-    time::Duration,
-};
 use crossterm::{
     ExecutableCommand,
     cursor::{Hide, Show},
@@ -11,8 +5,14 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    GAME_LOOP_SLEEP_MS, board::BoardView, config::Config, frame::{self, new_frame}, game::GameState, render
+    GAME_LOOP_SLEEP_MS,
+    board::BoardView,
+    config::Config,
+    frame::{self, new_frame},
+    game::GameState,
+    render,
 };
+use std::{io, sync::mpsc, thread, time::Duration};
 // use rusty_audio::Audio;
 
 fn main() -> anyhow::Result<()> {
@@ -65,7 +65,17 @@ fn main() -> anyhow::Result<()> {
         // which returns immediately if nothing to act upon
         while event::poll(Duration::default())? {
             if let Event::Key(key_event) = event::read()? {
-                game_state.handle_input(key_event.code.as_char().unwrap());
+                match key_event.code {
+                    KeyCode::Esc | KeyCode::Char('q') => {
+                        break 'gameloop;
+                    }
+                    KeyCode::Char(c) => {
+                        if let Some(action) = game_state.handle_input(c) {
+                            game_state.apply_action(action);
+                        }
+                    }
+                    _ => {}
+                }
             }
         }
 
@@ -73,9 +83,9 @@ fn main() -> anyhow::Result<()> {
         //
         // Update the game state, checking for new states
         game_state.update();
-        
+
         // Draw and render section
-        // 
+        //
         board.draw(&game_state, &mut curr_frame);
 
         //

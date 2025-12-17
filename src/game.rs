@@ -122,13 +122,20 @@ impl GameState {
             Action::Deal => {
                 if matches!(self.game_phase, GamePhase::PlayerTurn) && !self.player.stood {
                     self.player_deal();
+                    self.resolve_after_action();
                 }
             }
-            Action::Stand => {}
+            Action::Stand => {
+                if matches!(self.game_phase, GamePhase::PlayerTurn) {
+                    self.player_stand();
+                    self.resolve_after_action();
+                }
+            }
             _ => {}
         }
     }
 
+    // This is called whenever we mutate state to check round-end conditions
     fn resolve_after_action(&mut self) {
         // Don't resolve if awaiting next turn
         if matches!(self.game_phase, GamePhase::AwaitingNextRound) { return; }
