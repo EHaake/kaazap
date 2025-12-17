@@ -95,7 +95,7 @@ impl GameState {
         }
     }
 
-    // 
+    //
     // Take the keys from the game loop and hand them it to action_from_key
     pub fn handle_input(&mut self, key: char) -> Option<Action> {
         self.action_from_key(key)
@@ -105,12 +105,76 @@ impl GameState {
     // Covert a key pressed into an Action
     pub fn action_from_key(&self, key: char) -> Option<Action> {
         match key {
-            '1' | '2' | '3' | '4' => Some(Action::PlayHand { index: key.to_digit(10)? as usize - 1 }), 
+            '1' | '2' | '3' | '4' => Some(Action::PlayHand {
+                index: key.to_digit(10)? as usize - 1,
+            }),
             'd' => Some(Action::Deal),
             's' => Some(Action::Stand),
             'n' => Some(Action::NextRound),
             _ => None,
         }
+    }
+
+    //
+    // Centralize action validation
+    pub fn apply_action(&mut self, action: Action) {
+        match action {
+            Action::Deal => {
+                if matches!(self.game_phase, GamePhase::PlayerTurn) && !self.player.stood {
+                    self.player_deal();
+                }
+            }
+            Action::Stand => {}
+            _ => {}
+        }
+    }
+
+    fn resolve_after_action(&mut self) {
+        // Don't resolve if awaiting next turn
+        if matches!(self.game_phase, GamePhase::AwaitingNextRound) { return; }
+
+        let player_score = self.player.score();
+        let opponent_score = self.opponent.score();
+
+        // Check for bust
+        if player_score > 20 {
+            self.player.bust = true;
+            self.game_phase = GamePhase::RoundEnd;
+            return;
+        } else if opponent_score > 20 {
+            self.opponent.bust = true;
+            self.game_phase = GamePhase::RoundEnd;
+            return;
+        }
+
+        // If player is at 20, stand
+        if player_score == 20 {
+            self.player.stood = true
+        } else if opponent_score == 20 {
+            self.opponent.stood = true
+        }
+
+        // Check for round end conditions 
+        let player_done = self.player.stood || self.player.bust;
+        let opponent_done = self.opponent.stood || self.opponent.bust;
+
+        if player_done && opponent_done {
+            self.game_phase = GamePhase::RoundEnd;
+        }
+
+    }
+
+    // Deal a card to the player
+    fn player_deal(&mut self) {
+        let new_dealer_card_val: i32 = rand::random_range(0..=10);
+        self.player.dealer_row.push(LogicCard {
+            value: new_dealer_card_val,
+        });
+
+        // Set gamephase to opponent's turn
+        self.game_phase = GamePhase::OpponentThinking {
+            until: Instant::now() + Duration::from_secs(1),
+        };
     }
 
     //
@@ -204,25 +268,6 @@ impl GameState {
         self.game_phase = GamePhase::PlayerTurn;
     }
 
-    // Deal a card to the player if they are still in the game
-    // Check score and toggle bust flag if they are over 20
-    pub fn player_deal(&mut self) {
-        if let GamePhase::PlayerTurn = self.game_phase
-            && !self.player.stood
-        {
-            let new_dealer_card_val: i32 = rand::random_range(0..=10);
-            self.player.dealer_row.push(LogicCard {
-                value: new_dealer_card_val,
-            });
-
-            // Set gamephase to opponent's turn
-            // self.game_phase = GamePhase::OpponentTurn;
-            self.game_phase = GamePhase::OpponentThinking {
-                until: Instant::now() + Duration::from_secs(1),
-            };
-        }
-    }
-
     // Set gamestate to opponent's turn if we are on the player's turn
     pub fn player_stand(&mut self) {
         // Only allow if GamePhase is player's turn
@@ -232,6 +277,20 @@ impl GameState {
             self.game_phase = GamePhase::OpponentThinking {
                 until: Instant::now() + Duration::from_secs(1),
             };
+        }
+    }
+
+    fn play_card(&mut self, key: char) {
+        // remove card from player hand
+        // add it to played_row
+        let digit = key.to_digit(10).unwrap() as usize;
+
+        // simple bounds check and valid card if value != 0
+        if digit <= self.player.hand.len() && self.player.hand[digit - 1].value != 0 {
+            // "Remove" the card from the player's hand by setting value to 0
+            let card_to_play = self.player.hand[digit - 1];
+            self.player.hand[digit - 1].value = 0;
+            self.player.played_row.push(card_to_play);
         }
     }
 
@@ -256,20 +315,6 @@ impl GameState {
 
     fn setup_for_next_round(&mut self) {
         self.game_phase = GamePhase::AwaitingNextRound;
-    }
-
-    fn play_card(&mut self, key: char) {
-        // remove card from player hand
-        // add it to played_row
-        let digit = key.to_digit(10).unwrap() as usize;
-
-        // simple bounds check and valid card if value != 0
-        if digit <= self.player.hand.len() && self.player.hand[digit - 1].value != 0 {
-            // "Remove" the card from the player's hand by setting value to 0
-            let card_to_play = self.player.hand[digit - 1];
-            self.player.hand[digit - 1].value = 0;
-            self.player.played_row.push(card_to_play);
-        }
     }
 }
 
