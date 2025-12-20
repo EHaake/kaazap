@@ -66,9 +66,11 @@ fn main() -> anyhow::Result<()> {
         while event::poll(Duration::default())? {
             if let Event::Key(key_event) = event::read()? {
                 match key_event.code {
+                    // System commands
                     KeyCode::Esc | KeyCode::Char('q') => {
                         break 'gameloop;
                     }
+                    // Game commands
                     KeyCode::Char(c) => {
                         if let Some(action) = game_state.handle_input(c) {
                             game_state.apply_action(action);

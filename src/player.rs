@@ -4,12 +4,12 @@ use crate::card::LogicCard;
 
 pub struct PlayerState {
     pub name: String,
-    pub dealer_row: Vec<LogicCard>,   // dealer cards played
-    pub played_row: Vec<LogicCard>,   // Side hand cards played
-    pub hand: Vec<LogicCard>,         // cards in hand
-    pub stood: bool,                  // do they get a dealer card next turn?
-    pub bust: bool,                   // is score > 20?
-    pub rounds_won: usize,            // rounds won
+    pub dealer_row: Vec<LogicCard>,       // dealer cards played
+    pub played_row: Vec<LogicCard>,       // Side hand cards played
+    pub hand: Vec<Option<LogicCard>>,     // cards in hand
+    pub stood: bool,                      // do they get a dealer card next turn?
+    pub bust: bool,                       // is score > 20?
+    pub rounds_won: usize,                // rounds won
 }
 
 impl PlayerState {
