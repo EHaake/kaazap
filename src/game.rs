@@ -67,10 +67,10 @@ impl GameState {
                 dealer_row: vec![],
                 played_row: vec![],
                 hand: vec![
-                    LogicCard { value: 5 },
-                    LogicCard { value: 3 },
-                    LogicCard { value: 6 },
-                    LogicCard { value: 2 },
+                    Some(LogicCard { value: 5 }),
+                    Some(LogicCard { value: 3 }),
+                    Some(LogicCard { value: 6 }),
+                    Some(LogicCard { value: 2 }),
                 ],
                 bust: false,
                 stood: false,
@@ -81,10 +81,10 @@ impl GameState {
                 dealer_row: vec![],
                 played_row: vec![],
                 hand: vec![
-                    LogicCard { value: 2 },
-                    LogicCard { value: 6 },
-                    LogicCard { value: 1 },
-                    LogicCard { value: 4 },
+                    Some(LogicCard { value: 2 }),
+                    Some(LogicCard { value: 6 }),
+                    Some(LogicCard { value: 1 }),
+                    Some(LogicCard { value: 4 }),
                 ],
                 bust: false,
                 stood: false,
@@ -131,14 +131,27 @@ impl GameState {
                     self.resolve_after_action();
                 }
             }
-            _ => {}
+            Action::NextRound => {
+                if matches!(self.game_phase, GamePhase::AwaitingNextRound) {
+                    self.next_round();
+                    self.resolve_after_action();
+                }
+            }
+            Action::PlayHand { index } => {
+                if matches!(self.game_phase, GamePhase::PlayerTurn) {
+                    self.play_card(index);
+                    self.resolve_after_action();
+                }
+            }
         }
     }
 
     // This is called whenever we mutate state to check round-end conditions
     fn resolve_after_action(&mut self) {
         // Don't resolve if awaiting next turn
-        if matches!(self.game_phase, GamePhase::AwaitingNextRound) { return; }
+        if matches!(self.game_phase, GamePhase::AwaitingNextRound) {
+            return;
+        }
 
         let player_score = self.player.score();
         let opponent_score = self.opponent.score();
@@ -161,14 +174,13 @@ impl GameState {
             self.opponent.stood = true
         }
 
-        // Check for round end conditions 
+        // Check for round end conditions
         let player_done = self.player.stood || self.player.bust;
         let opponent_done = self.opponent.stood || self.opponent.bust;
 
         if player_done && opponent_done {
             self.game_phase = GamePhase::RoundEnd;
         }
-
     }
 
     // Deal a card to the player
@@ -287,17 +299,16 @@ impl GameState {
         }
     }
 
-    fn play_card(&mut self, key: char) {
-        // remove card from player hand
-        // add it to played_row
-        let digit = key.to_digit(10).unwrap() as usize;
+    ///  Remove card from player hand and add it to played_row
+    fn play_card(&mut self, digit: usize) {
+        // Bounds checking already done before entering this fn
+        let Some(Some(LogicCard { value: _ })) = self.player.hand.get(digit) else { return };
 
-        // simple bounds check and valid card if value != 0
-        if digit <= self.player.hand.len() && self.player.hand[digit - 1].value != 0 {
+        if digit < self.player.hand.len() {
             // "Remove" the card from the player's hand by setting value to 0
-            let card_to_play = self.player.hand[digit - 1];
-            self.player.hand[digit - 1].value = 0;
-            self.player.played_row.push(card_to_play);
+            let card_to_play = self.player.hand[digit];
+            self.player.hand[digit] = None;
+            self.player.played_row.push(card_to_play.unwrap());
         }
     }
 

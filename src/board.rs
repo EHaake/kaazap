@@ -185,12 +185,12 @@ impl BoardView {
         }
         // Hand cards
         for (i, c) in state.player.hand.iter().enumerate() {
-            if c.value != 0 {
+            if c.is_some() {
                 let x = player_origin_x + i * spacing_x;
                 CardView {
                     x,
                     y: hand_y,
-                    text: c.value.to_string(),
+                    text: c.unwrap().value.to_string(),
                 }
                 .draw(frame);
             }
