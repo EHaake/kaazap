@@ -180,26 +180,13 @@ impl GameState {
 
         if player_done && opponent_done {
             self.game_phase = GamePhase::RoundEnd;
-        }
-    }
+        } 
 
-    // Deal a card to the player
-    fn player_deal(&mut self) {
-        let new_dealer_card_val: i32 = rand::random_range(0..=10);
-        self.player.dealer_row.push(LogicCard {
-            value: new_dealer_card_val,
-        });
-
-        // Set gamephase to opponent's turn
-        self.game_phase = GamePhase::OpponentThinking {
-            until: Instant::now() + Duration::from_secs(1),
-        };
     }
 
     //
     // Check board state for updates
     pub fn update(&mut self) {
-        // TODO: this is inneficient and a bit of a hack to fix a bug, refactor needed
         if !matches!(self.game_phase, GamePhase::AwaitingNextRound) {
             // Opponent wins
             if self.player.score() > 20 {
@@ -208,7 +195,7 @@ impl GameState {
             } else if self.opponent.score() > 20 {
                 self.opponent.bust = true;
                 self.game_phase = GamePhase::RoundEnd;
-            } else if self.player.score() == 20 || self.player.stood {
+            } else if self.player.stood {
                 // If player gets to 20 but opponent hasn't stood or busted, they get more turns
                 self.player.stood = true;
                 if self.opponent.stood || self.opponent.bust {
@@ -272,6 +259,19 @@ impl GameState {
         }
     }
 
+    // Deal a card to the player
+    fn player_deal(&mut self) {
+        let new_dealer_card_val: i32 = rand::random_range(0..=10);
+        self.player.dealer_row.push(LogicCard {
+            value: new_dealer_card_val,
+        });
+
+        // Set gamephase to opponent's turn
+        self.game_phase = GamePhase::OpponentThinking {
+            until: Instant::now() + Duration::from_secs(1),
+        };
+    }
+
     // Play the opponent's turn (deal, play card, stand)
     fn play_opponent_turn(&mut self) {
         self.opponent_deal();
@@ -317,6 +317,10 @@ impl GameState {
             // Clear dealer row for both players
             self.player.dealer_row = vec![];
             self.opponent.dealer_row = vec![];
+
+            // Clear played row for both players
+            self.player.played_row = vec![];
+            self.opponent.played_row = vec![];
 
             // Reset stood and busted flags
             self.player.bust = false;
