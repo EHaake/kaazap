@@ -195,35 +195,37 @@ impl GameState {
     /// transitioning into AwaitingNextRound phase.
     ///
     fn finalize_round(&mut self) {
-        if self.player.bust {
-            self.round_outcome = Some(RoundOutcome::OpponentWon);
-        } else if self.opponent.bust {
-            self.round_outcome = Some(RoundOutcome::PlayerWon);
-        } else if self.player.stood && self.opponent.stood {
-            // Tie, player wins, opponent wins
-            if self.player.score() == self.opponent.score() {
-                self.round_outcome = Some(RoundOutcome::Tied);
-            } else if self.player.score() > self.opponent.score() {
-                self.round_outcome = Some(RoundOutcome::PlayerWon);
-            } else if self.player.score() < self.opponent.score() {
-                self.round_outcome = Some(RoundOutcome::OpponentWon);
-            }
-        }
+        let player_score = self.player.score();
+        let opponent_score = self.opponent.score();
 
-        self.apply_reward();
+        let outcome = if self.player.bust {
+            RoundOutcome::OpponentWon
+        } else if self.opponent.bust {
+            RoundOutcome::PlayerWon
+        } else if player_score > opponent_score {
+            RoundOutcome::PlayerWon
+        } else if opponent_score > player_score {
+            RoundOutcome::OpponentWon
+        } else {
+            RoundOutcome::Tied
+        };
+
+        self.round_outcome = Some(outcome);
+        self.apply_reward(outcome);
         self.game_phase = GamePhase::AwaitingNextRound;
     }
 
-    fn apply_reward(&mut self) {
-        match self.round_outcome {
-            Some(RoundOutcome::OpponentWon) => {
+    /// Apply round reward to the player who won, or nothing if tied
+    ///
+    fn apply_reward(&mut self, outcome: RoundOutcome) {
+        match outcome {
+            RoundOutcome::OpponentWon => {
                 self.opponent.rounds_won += 1;
             }
-            Some(RoundOutcome::PlayerWon) => {
+            RoundOutcome::PlayerWon => {
                 self.player.rounds_won += 1;
             }
-            Some(RoundOutcome::Tied) => {}
-            None => {}
+            RoundOutcome::Tied => {}
         }
     }
 
@@ -339,6 +341,8 @@ impl GameState {
 
             // Set GamePhase to player turn
             self.game_phase = GamePhase::PlayerTurn;
+            // Reset round outcome
+            self.round_outcome = None;
         }
     }
 }
