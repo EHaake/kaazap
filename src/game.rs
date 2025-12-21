@@ -174,77 +174,70 @@ impl GameState {
             self.opponent.stood = true
         }
 
+        // Opponent wins
+        if self.player.score() > 20 {
+            self.player.bust = true;
+            self.game_phase = GamePhase::RoundEnd;
+        } else if self.opponent.score() > 20 {
+            self.opponent.bust = true;
+            self.game_phase = GamePhase::RoundEnd;
+        } else if self.player.stood {
+            // If player gets to 20 but opponent hasn't stood or busted, they get more turns
+            self.player.stood = true;
+            if self.opponent.stood || self.opponent.bust {
+                self.game_phase = GamePhase::RoundEnd;
+            }
+        } else if self.opponent.score() == 20 {
+            // If opponent gets to 20 first (player still < 20 and not stood, need to give
+            // player more draws)
+            self.opponent.stood = true;
+            if self.player.stood || self.player.bust {
+                self.game_phase = GamePhase::RoundEnd;
+            } else {
+                self.game_phase = GamePhase::PlayerTurn;
+            }
+        }
         // Check for round end conditions
         let player_done = self.player.stood || self.player.bust;
         let opponent_done = self.opponent.stood || self.opponent.bust;
 
         if player_done && opponent_done {
             self.game_phase = GamePhase::RoundEnd;
-        } 
 
+            self.setup_for_next_round();
+        }
     }
 
-    //
-    // Check board state for updates
-    pub fn update(&mut self) {
-        if !matches!(self.game_phase, GamePhase::AwaitingNextRound) {
-            // Opponent wins
-            if self.player.score() > 20 {
-                self.player.bust = true;
-                self.game_phase = GamePhase::RoundEnd;
-            } else if self.opponent.score() > 20 {
-                self.opponent.bust = true;
-                self.game_phase = GamePhase::RoundEnd;
-            } else if self.player.stood {
-                // If player gets to 20 but opponent hasn't stood or busted, they get more turns
-                self.player.stood = true;
-                if self.opponent.stood || self.opponent.bust {
-                    self.game_phase = GamePhase::RoundEnd;
-                }
-            } else if self.opponent.score() == 20 {
-                // If opponent gets to 20 first (player still < 20 and not stood, need to give
-                // player more draws)
-                self.opponent.stood = true;
-                if self.player.stood || self.player.bust {
-                    self.game_phase = GamePhase::RoundEnd;
-                } else {
-                    self.game_phase = GamePhase::PlayerTurn;
-                }
+    pub fn finalize_round(&mut self) {
+        if self.player.bust {
+            self.opponent.rounds_won += 1;
+            self.round_outcome = Some(RoundOutcome::OpponentWon);
+        } else if self.opponent.bust {
+            self.player.rounds_won += 1;
+            self.round_outcome = Some(RoundOutcome::PlayerWon);
+        } else if self.player.stood && self.opponent.stood {
+            // Tie, player wins, opponent wins
+            if self.player.score() == self.opponent.score() {
+                self.round_outcome = Some(RoundOutcome::Tied);
+            } else if self.player.score() > self.opponent.score() {
+                self.player.rounds_won += 1;
+                self.round_outcome = Some(RoundOutcome::PlayerWon);
+            } else if self.player.score() < self.opponent.score() {
+                self.opponent.rounds_won += 1;
+                self.round_outcome = Some(RoundOutcome::OpponentWon);
             }
         }
 
-        //
-        // Match on game phase to decide what to do
+        self.setup_for_next_round();
+    }
+
+    pub fn tick(&mut self) {
         match self.game_phase {
             GamePhase::OpponentThinking { until } => {
                 if Instant::now() >= until {
                     self.game_phase = GamePhase::OpponentTurn;
+                    self.play_opponent_turn();
                 }
-            }
-            GamePhase::OpponentTurn => {
-                self.play_opponent_turn();
-            }
-            GamePhase::RoundEnd => {
-                if self.player.bust {
-                    self.opponent.rounds_won += 1;
-                    self.round_outcome = Some(RoundOutcome::OpponentWon);
-                } else if self.opponent.bust {
-                    self.player.rounds_won += 1;
-                    self.round_outcome = Some(RoundOutcome::PlayerWon);
-                } else if self.player.stood && self.opponent.stood {
-                    // Tie, player wins, opponent wins
-                    if self.player.score() == self.opponent.score() {
-                        self.round_outcome = Some(RoundOutcome::Tied);
-                    } else if self.player.score() > self.opponent.score() {
-                        self.player.rounds_won += 1;
-                        self.round_outcome = Some(RoundOutcome::PlayerWon);
-                    } else if self.player.score() < self.opponent.score() {
-                        self.opponent.rounds_won += 1;
-                        self.round_outcome = Some(RoundOutcome::OpponentWon);
-                    }
-                }
-
-                self.setup_for_next_round();
             }
             GamePhase::PlayerTurn => {
                 // If player has stood, need to go to next Opponent's turn
@@ -254,7 +247,9 @@ impl GameState {
                     };
                 }
             }
-            // TODO: Handle rest of phases here
+            GamePhase::RoundEnd => {
+                self.finalize_round();
+            }
             _ => {}
         }
     }
@@ -275,6 +270,7 @@ impl GameState {
     // Play the opponent's turn (deal, play card, stand)
     fn play_opponent_turn(&mut self) {
         self.opponent_deal();
+        self.resolve_after_action();
     }
 
     // Opponent hits
@@ -302,7 +298,9 @@ impl GameState {
     ///  Remove card from player hand and add it to played_row
     fn play_card(&mut self, digit: usize) {
         // Bounds checking already done before entering this fn
-        let Some(Some(LogicCard { value: _ })) = self.player.hand.get(digit) else { return };
+        let Some(Some(LogicCard { value: _ })) = self.player.hand.get(digit) else {
+            return;
+        };
 
         if digit < self.player.hand.len() {
             // "Remove" the card from the player's hand by setting value to 0
