@@ -163,7 +163,7 @@ impl GameState {
             self.player.bust = true;
             self.game_phase = GamePhase::RoundEnd;
             return;
-        } 
+        }
 
         // If opponent busts, round ends
         if opponent_score > 20 {
@@ -175,29 +175,11 @@ impl GameState {
         // If player is at 20, stand
         if player_score == 20 {
             self.player.stood = true
-        } 
+        }
 
         // If opponent at 20, stand
         if opponent_score == 20 {
-            self.opponent.stood = true
-        }
-
-        // Opponent wins
-        if self.player.stood {
-            // If player gets to 20 but opponent hasn't stood or busted, they get more turns
-            self.player.stood = true;
-            if self.opponent.stood || self.opponent.bust {
-                self.game_phase = GamePhase::RoundEnd;
-            }
-        } else if opponent_score == 20 {
-            // If opponent gets to 20 first (player still < 20 and not stood, need to give
-            // player more draws)
             self.opponent.stood = true;
-            if self.player.stood || self.player.bust {
-                self.game_phase = GamePhase::RoundEnd;
-            } else {
-                self.game_phase = GamePhase::PlayerTurn;
-            }
         }
 
         // Check for round end conditions
@@ -209,7 +191,7 @@ impl GameState {
         }
     }
 
-    /// Perform end of round tabulations and score updates, 
+    /// Perform end of round tabulations and score updates,
     /// transitioning into AwaitingNextRound phase.
     ///
     pub fn finalize_round(&mut self) {
@@ -260,6 +242,11 @@ impl GameState {
         }
     }
 
+    // Check if opponent's turn
+    fn opponent_can_act(&self) -> bool {
+        !self.opponent.stood && !self.opponent.bust
+    }
+
     // Deal a card to the player
     fn player_deal(&mut self) {
         let new_dealer_card_val: i32 = rand::random_range(0..=10);
@@ -268,9 +255,11 @@ impl GameState {
         });
 
         // Set gamephase to opponent's turn
-        self.game_phase = GamePhase::OpponentThinking {
-            until: Instant::now() + Duration::from_secs(1),
-        };
+        if self.opponent_can_act() {
+            self.game_phase = GamePhase::OpponentThinking {
+                until: Instant::now() + Duration::from_secs(1),
+            };
+        }
     }
 
     /// Play the opponent's turn (deal, play card, stand)
@@ -294,9 +283,11 @@ impl GameState {
         if let GamePhase::PlayerTurn = self.game_phase {
             self.player.stood = true;
 
-            self.game_phase = GamePhase::OpponentThinking {
-                until: Instant::now() + Duration::from_secs(1),
-            };
+            if self.opponent_can_act() {
+                self.game_phase = GamePhase::OpponentThinking {
+                    until: Instant::now() + Duration::from_secs(1),
+                };
+            }
         }
     }
 
@@ -329,8 +320,9 @@ impl GameState {
 
             // Reset stood and busted flags
             self.player.bust = false;
-            self.opponent.bust = false;
             self.player.stood = false;
+            self.opponent.bust = false;
+            self.opponent.stood = false;
 
             // Reset round outcome
             self.round_outcome = None;
@@ -339,7 +331,6 @@ impl GameState {
             self.game_phase = GamePhase::PlayerTurn;
         }
     }
-
 }
 
 impl Default for GameState {
