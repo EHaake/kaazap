@@ -157,11 +157,16 @@ impl GameState {
         let opponent_score = self.opponent.score();
 
         // Check for bust
+        //
+        // If player busts, round ends
         if player_score > 20 {
             self.player.bust = true;
             self.game_phase = GamePhase::RoundEnd;
             return;
-        } else if opponent_score > 20 {
+        } 
+
+        // If opponent busts, round ends
+        if opponent_score > 20 {
             self.opponent.bust = true;
             self.game_phase = GamePhase::RoundEnd;
             return;
@@ -170,24 +175,21 @@ impl GameState {
         // If player is at 20, stand
         if player_score == 20 {
             self.player.stood = true
-        } else if opponent_score == 20 {
+        } 
+
+        // If opponent at 20, stand
+        if opponent_score == 20 {
             self.opponent.stood = true
         }
 
         // Opponent wins
-        if self.player.score() > 20 {
-            self.player.bust = true;
-            self.game_phase = GamePhase::RoundEnd;
-        } else if self.opponent.score() > 20 {
-            self.opponent.bust = true;
-            self.game_phase = GamePhase::RoundEnd;
-        } else if self.player.stood {
+        if self.player.stood {
             // If player gets to 20 but opponent hasn't stood or busted, they get more turns
             self.player.stood = true;
             if self.opponent.stood || self.opponent.bust {
                 self.game_phase = GamePhase::RoundEnd;
             }
-        } else if self.opponent.score() == 20 {
+        } else if opponent_score == 20 {
             // If opponent gets to 20 first (player still < 20 and not stood, need to give
             // player more draws)
             self.opponent.stood = true;
@@ -197,17 +199,19 @@ impl GameState {
                 self.game_phase = GamePhase::PlayerTurn;
             }
         }
+
         // Check for round end conditions
         let player_done = self.player.stood || self.player.bust;
         let opponent_done = self.opponent.stood || self.opponent.bust;
 
         if player_done && opponent_done {
             self.game_phase = GamePhase::RoundEnd;
-
-            self.setup_for_next_round();
         }
     }
 
+    /// Perform end of round tabulations and score updates, 
+    /// transitioning into AwaitingNextRound phase.
+    ///
     pub fn finalize_round(&mut self) {
         if self.player.bust {
             self.opponent.rounds_won += 1;
@@ -228,24 +232,26 @@ impl GameState {
             }
         }
 
-        self.setup_for_next_round();
+        self.game_phase = GamePhase::AwaitingNextRound;
     }
 
     pub fn tick(&mut self) {
         match self.game_phase {
-            GamePhase::OpponentThinking { until } => {
-                if Instant::now() >= until {
-                    self.game_phase = GamePhase::OpponentTurn;
-                    self.play_opponent_turn();
-                }
-            }
             GamePhase::PlayerTurn => {
-                // If player has stood, need to go to next Opponent's turn
+                // If player has stood, auto advance to next Opponent's turn
                 if self.player.stood {
                     self.game_phase = GamePhase::OpponentThinking {
                         until: Instant::now() + Duration::from_secs(1),
                     };
                 }
+            }
+            GamePhase::OpponentThinking { until } => {
+                if Instant::now() >= until {
+                    self.game_phase = GamePhase::OpponentTurn;
+                }
+            }
+            GamePhase::OpponentTurn => {
+                self.play_opponent_turn();
             }
             GamePhase::RoundEnd => {
                 self.finalize_round();
@@ -267,20 +273,19 @@ impl GameState {
         };
     }
 
-    // Play the opponent's turn (deal, play card, stand)
+    /// Play the opponent's turn (deal, play card, stand)
     fn play_opponent_turn(&mut self) {
         self.opponent_deal();
+        self.game_phase = GamePhase::PlayerTurn;
         self.resolve_after_action();
     }
 
-    // Opponent hits
+    /// Opponent hits (gets dealer card)
     fn opponent_deal(&mut self) {
         let new_dealer_card_val: i32 = rand::random_range(0..=10);
         self.opponent.dealer_row.push(LogicCard {
             value: new_dealer_card_val,
         });
-
-        self.game_phase = GamePhase::PlayerTurn;
     }
 
     // Set gamestate to opponent's turn if we are on the player's turn
@@ -310,6 +315,8 @@ impl GameState {
         }
     }
 
+    /// Setup for next round.
+    /// Clear the player and opponent's dealer and played rows, and reset flags.
     fn next_round(&mut self) {
         if let GamePhase::AwaitingNextRound = self.game_phase {
             // Clear dealer row for both players
@@ -333,9 +340,6 @@ impl GameState {
         }
     }
 
-    fn setup_for_next_round(&mut self) {
-        self.game_phase = GamePhase::AwaitingNextRound;
-    }
 }
 
 impl Default for GameState {
