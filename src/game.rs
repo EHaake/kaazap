@@ -194,27 +194,37 @@ impl GameState {
     /// Perform end of round tabulations and score updates,
     /// transitioning into AwaitingNextRound phase.
     ///
-    pub fn finalize_round(&mut self) {
+    fn finalize_round(&mut self) {
         if self.player.bust {
-            self.opponent.rounds_won += 1;
             self.round_outcome = Some(RoundOutcome::OpponentWon);
         } else if self.opponent.bust {
-            self.player.rounds_won += 1;
             self.round_outcome = Some(RoundOutcome::PlayerWon);
         } else if self.player.stood && self.opponent.stood {
             // Tie, player wins, opponent wins
             if self.player.score() == self.opponent.score() {
                 self.round_outcome = Some(RoundOutcome::Tied);
             } else if self.player.score() > self.opponent.score() {
-                self.player.rounds_won += 1;
                 self.round_outcome = Some(RoundOutcome::PlayerWon);
             } else if self.player.score() < self.opponent.score() {
-                self.opponent.rounds_won += 1;
                 self.round_outcome = Some(RoundOutcome::OpponentWon);
             }
         }
 
+        self.apply_reward();
         self.game_phase = GamePhase::AwaitingNextRound;
+    }
+
+    fn apply_reward(&mut self) {
+        match self.round_outcome {
+            Some(RoundOutcome::OpponentWon) => {
+                self.opponent.rounds_won += 1;
+            }
+            Some(RoundOutcome::PlayerWon) => {
+                self.player.rounds_won += 1;
+            }
+            Some(RoundOutcome::Tied) => {}
+            None => {}
+        }
     }
 
     pub fn tick(&mut self) {
