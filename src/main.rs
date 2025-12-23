@@ -5,7 +5,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    CARD_WIDTH, GAME_LOOP_SLEEP_MS, H_PAD, V_PAD, board::BoardView, config::Config, frame::{self, new_frame}, game::GameState, render
+    GAME_LOOP_SLEEP_MS, board::BoardView, config::Config, frame::{self, new_frame}, game::GameState, render
 };
 use std::{io, sync::mpsc, thread, time::Duration};
 // use rusty_audio::Audio;
