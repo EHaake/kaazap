@@ -172,7 +172,6 @@ impl BoardView {
         self.draw_top_info(state, frame);
 
         // layout constants (simple, tweak later)
-        let padding_x: usize = 4;
         let dealer_y: usize = 4;
         let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 1);
         let played_y = hand_y - CARD_HEIGHT - 1;
