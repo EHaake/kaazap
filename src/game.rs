@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
-    Deal,
+    Hit,
     Stand,
     NextRound,
     PlayHand { index: usize },
@@ -110,7 +110,7 @@ impl GameState {
             '1' | '2' | '3' | '4' => Some(Action::PlayHand {
                 index: key.to_digit(10)? as usize - 1,
             }),
-            'd' => Some(Action::Deal),
+            'd' => Some(Action::Hit),
             's' => Some(Action::Stand),
             'n' => Some(Action::NextRound),
             _ => None,
@@ -121,7 +121,7 @@ impl GameState {
     // Centralize action validation
     pub fn apply_action(&mut self, action: Action) {
         match action {
-            Action::Deal => {
+            Action::Hit => {
                 if matches!(self.game_phase, GamePhase::PlayerTurn) && !self.player.stood {
                     self.player_deal();
                     self.resolve_after_action();

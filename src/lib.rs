@@ -10,6 +10,9 @@ pub mod card;
 pub const CARD_WIDTH: usize = 9;
 pub const CARD_HEIGHT: usize = 5;
 
+pub const MIN_CARD_SIZE_WIDTH: usize = 7;
+pub const MIN_CARD_SIZE_HEIGHT: usize = 4;
+
 // Padding
 pub const H_PAD: usize = 4;
 pub const V_PAD: usize = 4;

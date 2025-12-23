@@ -1,6 +1,6 @@
 pub(crate) use crossterm::terminal;
 
-use crate::{CARD_WIDTH, H_PAD, V_PAD};
+use crate::{CARD_HEIGHT, CARD_WIDTH, H_PAD, MIN_CARD_SIZE_HEIGHT, MIN_CARD_SIZE_WIDTH, V_PAD};
 
 #[derive(Debug, Clone)]
 pub struct Config {
@@ -16,8 +16,8 @@ impl Config {
         let cols = cols as usize;
         let rows = rows as usize;
 
-        let min_cols = CARD_WIDTH * 3 + H_PAD;
-        let min_rows = CARD_WIDTH * 4 + V_PAD;
+        let min_cols = CARD_WIDTH * MIN_CARD_SIZE_WIDTH + H_PAD;
+        let min_rows = CARD_HEIGHT * MIN_CARD_SIZE_HEIGHT + V_PAD;
 
         if cols < min_cols || rows < min_rows {
             anyhow::bail!(
