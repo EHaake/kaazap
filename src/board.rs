@@ -1,18 +1,35 @@
 use crate::{
-    CARD_HEIGHT, CARD_WIDTH,
-    card::CardView,
-    config::Config,
-    frame::{Drawable, Frame},
-    game::{GamePhase, GameState, RoundOutcome},
+    CARD_HEIGHT, CARD_WIDTH, H_PAD, card::CardView, config::Config, frame::{Drawable, Frame}, game::{GamePhase, GameState, RoundOutcome}
 };
+
+pub struct PlayArea {
+    pub left: usize,
+    pub right: usize,
+}
 
 pub struct BoardView {
     pub config: Config,
+    player_area: PlayArea,
+    opponent_area: PlayArea,
 }
 
 impl BoardView {
     pub fn new(config: Config) -> Self {
-        Self { config }
+        let player_area = PlayArea {
+            left: 4,
+            right: config.num_cols / 2 - H_PAD,
+        };
+
+        let opponent_area = PlayArea {
+            left: config.num_cols / 2 + H_PAD,
+            right: config.num_cols - H_PAD,
+        };
+
+        Self { 
+            config,
+            player_area,
+            opponent_area,
+        }
     }
 
     // Draw Text Helper
@@ -149,13 +166,13 @@ impl BoardView {
         // layout constants (simple, tweak later)
         let padding_x: usize = 4;
         let dealer_y: usize = 4;
-        let played_y = dealer_y + CARD_HEIGHT + 1;
         let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 1);
+        let played_y = hand_y - CARD_HEIGHT - 1;
 
         let spacing_x = CARD_WIDTH + 1;
 
-        let player_origin_x = padding_x;
-        let opp_origin_x = mid + padding_x;
+        let player_origin_x = self.player_area.left;
+        let opp_origin_x = self.opponent_area.left;
 
         // --- Player side ---
         //
