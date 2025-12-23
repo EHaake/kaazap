@@ -1,9 +1,3 @@
-use std::{
-    io,
-    sync::mpsc,
-    thread,
-    time::Duration,
-};
 use crossterm::{
     ExecutableCommand,
     cursor::{Hide, Show},
@@ -11,8 +5,14 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    GAME_LOOP_SLEEP_MS, board::BoardView, config::Config, frame::{self, new_frame}, game::GameState, render
+    GAME_LOOP_SLEEP_MS,
+    board::BoardView,
+    config::Config,
+    frame::{self, new_frame},
+    game::GameState,
+    render,
 };
+use std::{io, sync::mpsc, thread, time::Duration};
 // use rusty_audio::Audio;
 
 fn main() -> anyhow::Result<()> {
@@ -66,27 +66,16 @@ fn main() -> anyhow::Result<()> {
         while event::poll(Duration::default())? {
             if let Event::Key(key_event) = event::read()? {
                 match key_event.code {
+                    // System commands
                     KeyCode::Esc | KeyCode::Char('q') => {
-                        // audio.play("lose");
                         break 'gameloop;
                     }
-                    KeyCode::Char('d') => {
-                        game_state.handle_input('d');
+                    // Game commands
+                    KeyCode::Char(c) => {
+                        if let Some(action) = game_state.handle_input(c) {
+                            game_state.apply_action(action);
+                        }
                     }
-                    KeyCode::Char('s') => {
-                        game_state.handle_input('s');
-                    }
-                    KeyCode::Char('n') => {
-                        game_state.handle_input('n');
-                    }
-                    KeyCode::Char('r') => {
-                        // reset game
-                        game_state = GameState::new();
-                    }
-                    KeyCode::Char('1') | KeyCode::Char('2') | KeyCode::Char('3') | KeyCode::Char('4') => {
-                        game_state.handle_input(key_event.code.as_char().unwrap());
-                    }
-                    // TODO: Add the rest of the keymaps
                     _ => {}
                 }
             }
@@ -96,9 +85,9 @@ fn main() -> anyhow::Result<()> {
         //
         // Update the game state, checking for new states
         game_state.update();
-        
+
         // Draw and render section
-        // 
+        //
         board.draw(&game_state, &mut curr_frame);
 
         //

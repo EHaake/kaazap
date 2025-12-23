@@ -15,7 +15,6 @@ impl BoardView {
         Self { config }
     }
 
-    //
     // Draw Text Helper
     //
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
@@ -24,8 +23,8 @@ impl BoardView {
         }
     }
 
-    //
     // Draw round outcome text in the middle of screen
+    // 
     fn draw_round_outcome_text(&self, state: &GameState, frame: &mut Frame) {
         let mid_x = self.config.num_cols / 2;
         let mid_y = self.config.num_rows / 2;
@@ -44,7 +43,6 @@ impl BoardView {
         }
     }
 
-    //
     // Draw whose turn it is
     //
     fn draw_turn_text(&self, state: &GameState, frame: &mut Frame) {
@@ -69,7 +67,6 @@ impl BoardView {
         }
     }
 
-    //
     // Draw Top info (Player name, score, et)
     //
     fn draw_top_info(&self, state: &GameState, frame: &mut Frame) {
@@ -92,8 +89,8 @@ impl BoardView {
             frame,
         );
 
-        //
         // If Bust or stood, display so!
+        //
         if state.player.bust {
             self.draw_text("BUSTED!!", padding_x, padding_y + 1, frame);
         } else if state.player.stood {
@@ -133,7 +130,6 @@ impl BoardView {
         }
     }
 
-    //
     // --- Drawable trait impl ---
     //
     // Draw the current game state
@@ -185,12 +181,12 @@ impl BoardView {
         }
         // Hand cards
         for (i, c) in state.player.hand.iter().enumerate() {
-            if c.value != 0 {
+            if c.is_some() {
                 let x = player_origin_x + i * spacing_x;
                 CardView {
                     x,
                     y: hand_y,
-                    text: c.value.to_string(),
+                    text: c.unwrap().value.to_string(),
                 }
                 .draw(frame);
             }
