@@ -9,6 +9,13 @@ pub enum Action {
     PlayHand { index: usize },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpponentAction {
+    Hit,
+    Stand,
+    PlayHand { index: usize },
+}
+
 #[derive(Debug, Clone, Copy)]
 pub enum RoundOutcome {
     PlayerWon,
@@ -33,33 +40,6 @@ pub struct GameState {
     pub round_outcome: Option<RoundOutcome>,
 }
 impl GameState {
-    // pub fn new_demo() -> Self {
-    //     Self {
-    //         player: PlayerState {
-    //             name: "Your name".to_string(),
-    //             dealer_row: vec![LogicCard { value: 7 }, LogicCard { value: 4 }],
-    //             played_row: vec![LogicCard { value: 3 }],
-    //             hand: vec![
-    //                 LogicCard { value: 2 },
-    //                 LogicCard { value: 6 },
-    //                 LogicCard { value: 1 },
-    //                 LogicCard { value: 4 },
-    //             ],
-    //         },
-    //         opponent: PlayerState {
-    //             name: "Opponent".to_string(),
-    //             dealer_row: vec![LogicCard { value: 9 }],
-    //             played_row: vec![],
-    //             hand: vec![
-    //                 LogicCard { value: 5 },
-    //                 LogicCard { value: 3 },
-    //                 LogicCard { value: 6 },
-    //                 LogicCard { value: 2 },
-    //             ],
-    //         },
-    //     }
-    // }
-
     pub fn new() -> Self {
         Self {
             player: PlayerState {
@@ -144,6 +124,23 @@ impl GameState {
                     self.play_card(index);
                     self.resolve_after_action();
                 }
+            }
+        }
+    }
+
+    pub fn apply_opponent_action(&mut self, action: OpponentAction) {
+        match action {
+            OpponentAction::Hit => {
+                self.opponent_deal();
+                self.resolve_after_action();
+            }
+            OpponentAction::Stand => {
+                self.opponent_stand();
+                self.resolve_after_action();
+            }
+            OpponentAction::PlayHand { index } => {
+                self.opponent_play_card(index);
+                self.resolve_after_action();
             }
         }
     }
@@ -288,9 +285,43 @@ impl GameState {
         }
     }
 
+    /// Return an OpponentAction based on opponent's hand and state
+    ///
+    fn decide_opponent_move(&self) -> OpponentAction {
+        let score = self.opponent.score();
+
+        // if score is 20, stand
+        if score == 20 {
+            return OpponentAction::Stand;
+        }
+
+        // if hand contains single card to get to 20, play it
+        for (index, card) in self.opponent.hand.iter().enumerate() {
+            if let Some(card) = card
+                && score + card.value == 20
+            {
+                return OpponentAction::PlayHand { index };
+            }
+        }
+
+        OpponentAction::Hit
+    }
+
     /// Play the opponent's turn (deal, play card, stand)
+    ///
     fn play_opponent_turn(&mut self) {
-        self.opponent_deal();
+        match self.decide_opponent_move() {
+            OpponentAction::Hit => {
+                self.opponent_deal();
+            }
+            OpponentAction::Stand => {
+                self.opponent_stand();
+            }
+            OpponentAction::PlayHand { index } => {
+                self.opponent_play_card(index);
+            }
+        }
+
         self.game_phase = GamePhase::PlayerTurn;
         self.resolve_after_action();
     }
@@ -302,6 +333,8 @@ impl GameState {
             value: new_dealer_card_val,
         });
     }
+
+
 
     // Set gamestate to opponent's turn if we are on the player's turn
     pub fn player_stand(&mut self) {
@@ -317,18 +350,40 @@ impl GameState {
         }
     }
 
+    /// Opponent Stands
+    ///
+    fn opponent_stand(&mut self) {
+        self.opponent.stood = true;
+    }
+
     ///  Remove card from player hand and add it to played_row
-    fn play_card(&mut self, digit: usize) {
+    fn play_card(&mut self, index: usize) {
         // Bounds checking already done before entering this fn
-        let Some(Some(LogicCard { value: _ })) = self.player.hand.get(digit) else {
+        let Some(Some(LogicCard { value: _ })) = self.player.hand.get(index) else {
             return;
         };
 
-        if digit < self.player.hand.len() {
+        if index < self.player.hand.len() {
             // "Remove" the card from the player's hand by setting value to 0
-            let card_to_play = self.player.hand[digit];
-            self.player.hand[digit] = None;
+            let card_to_play = self.player.hand[index];
+            self.player.hand[index] = None;
             self.player.played_row.push(card_to_play.unwrap());
+        }
+    }
+
+    /// Opponent plays card
+    ///
+    fn opponent_play_card(&mut self, index: usize) {
+        // Bounds checking already done before entering this fn
+        let Some(Some(LogicCard { value: _ })) = self.opponent.hand.get(index) else {
+            return;
+        };
+
+        if index < self.opponent.hand.len() {
+            // "Remove" the card from the opponent's hand by setting value to 0
+            let card_to_play = self.opponent.hand[index];
+            self.opponent.hand[index] = None;
+            self.opponent.played_row.push(card_to_play.unwrap());
         }
     }
 

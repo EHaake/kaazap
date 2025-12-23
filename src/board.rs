@@ -1,7 +1,11 @@
 use std::cmp::max;
 
 use crate::{
-    CARD_HEIGHT, CARD_WIDTH, H_PAD, card::CardView, config::Config, frame::{Drawable, Frame}, game::{GamePhase, GameState, RoundOutcome}
+    CARD_HEIGHT, CARD_WIDTH, H_PAD,
+    card::CardView,
+    config::Config,
+    frame::{Drawable, Frame},
+    game::{GamePhase, GameState, RoundOutcome},
 };
 
 pub struct PlayArea {
@@ -32,7 +36,7 @@ impl BoardView {
         let slot_width = CARD_WIDTH + 1;
         let cards_per_row = max(1, available_width / slot_width);
 
-        Self { 
+        Self {
             config,
             player_area,
             opponent_area,
@@ -49,7 +53,7 @@ impl BoardView {
     }
 
     // Draw round outcome text in the middle of screen
-    // 
+    //
     fn draw_round_outcome_text(&self, state: &GameState, frame: &mut Frame) {
         let mid_x = self.config.num_cols / 2;
         let mid_y = self.config.num_rows / 2;
@@ -193,7 +197,7 @@ impl BoardView {
 
             CardView {
                 x,
-                y, 
+                y,
                 text: c.value.to_string(),
             }
             .draw(frame);
@@ -250,14 +254,16 @@ impl BoardView {
             }
         }
         // Opponent hand cards (hidden values)
-        for i in 0..state.opponent.hand.len() {
-            let x = opp_origin_x + i * spacing_x;
-            CardView {
-                x,
-                y: hand_y,
-                text: "?".to_string(),
+        for (i, c) in state.opponent.hand.iter().enumerate() {
+            if c.is_some() {
+                let x = opp_origin_x + i * spacing_x;
+                CardView {
+                    x,
+                    y: hand_y,
+                    text: "?".to_string(),
+                }
+                .draw(frame);
             }
-            .draw(frame);
         }
 
         // Draw Turn Text
