@@ -1,3 +1,5 @@
+use std::cmp::max;
+
 use crate::{
     CARD_HEIGHT, CARD_WIDTH, H_PAD, card::CardView, config::Config, frame::{Drawable, Frame}, game::{GamePhase, GameState, RoundOutcome}
 };
@@ -11,6 +13,7 @@ pub struct BoardView {
     pub config: Config,
     player_area: PlayArea,
     opponent_area: PlayArea,
+    cards_per_row: usize,
 }
 
 impl BoardView {
@@ -25,10 +28,15 @@ impl BoardView {
             right: config.num_cols - H_PAD,
         };
 
+        let available_width = player_area.right - player_area.left;
+        let slot_width = CARD_WIDTH + 1;
+        let cards_per_row = max(1, available_width / slot_width);
+
         Self { 
             config,
             player_area,
             opponent_area,
+            cards_per_row,
         }
     }
 
@@ -178,10 +186,15 @@ impl BoardView {
         //
         // Dealer Cards
         for (i, c) in state.player.dealer_row.iter().enumerate() {
-            let x = player_origin_x + i * spacing_x;
+            let row = i / self.cards_per_row;
+            let col = i % self.cards_per_row;
+
+            let x = player_origin_x + col * spacing_x;
+            let y = dealer_y + row * (CARD_HEIGHT + 1);
+
             CardView {
                 x,
-                y: dealer_y,
+                y, 
                 text: c.value.to_string(),
             }
             .draw(frame);
@@ -213,10 +226,14 @@ impl BoardView {
         //
         // Dealer Cards
         for (i, c) in state.opponent.dealer_row.iter().enumerate() {
-            let x = opp_origin_x + i * spacing_x;
+            let row = i / self.cards_per_row;
+            let col = i % self.cards_per_row;
+
+            let x = opp_origin_x + col * spacing_x;
+            let y = dealer_y + row * (CARD_HEIGHT + 1);
             CardView {
                 x,
-                y: dealer_y,
+                y,
                 text: c.value.to_string(),
             }
             .draw(frame);
