@@ -12,6 +12,7 @@ pub const CARD_HEIGHT: usize = 5;
 
 // Padding
 pub const H_PAD: usize = 4;
+pub const V_PAD: usize = 4;
 
 // Thread sleep time to keep from wasting cycles
 pub const GAME_LOOP_SLEEP_MS: u64 = 50;
