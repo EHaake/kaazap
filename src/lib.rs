@@ -17,5 +17,9 @@ pub const MIN_CARD_SIZE_HEIGHT: usize = 4;
 pub const H_PAD: usize = 4;
 pub const V_PAD: usize = 4;
 
+// Opponent Logic
+pub const STAND_THRESHOLD: usize = 17;
+
 // Thread sleep time to keep from wasting cycles
 pub const GAME_LOOP_SLEEP_MS: u64 = 50;
+
