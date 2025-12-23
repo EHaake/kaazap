@@ -1,18 +1,43 @@
+use std::cmp::max;
+
 use crate::{
-    CARD_HEIGHT, CARD_WIDTH,
-    card::CardView,
-    config::Config,
-    frame::{Drawable, Frame},
-    game::{GamePhase, GameState, RoundOutcome},
+    CARD_HEIGHT, CARD_WIDTH, H_PAD, card::CardView, config::Config, frame::{Drawable, Frame}, game::{GamePhase, GameState, RoundOutcome}
 };
+
+pub struct PlayArea {
+    pub left: usize,
+    pub right: usize,
+}
 
 pub struct BoardView {
     pub config: Config,
+    player_area: PlayArea,
+    opponent_area: PlayArea,
+    cards_per_row: usize,
 }
 
 impl BoardView {
     pub fn new(config: Config) -> Self {
-        Self { config }
+        let player_area = PlayArea {
+            left: 4,
+            right: config.num_cols / 2 - H_PAD,
+        };
+
+        let opponent_area = PlayArea {
+            left: config.num_cols / 2 + H_PAD,
+            right: config.num_cols - H_PAD,
+        };
+
+        let available_width = player_area.right - player_area.left;
+        let slot_width = CARD_WIDTH + 1;
+        let cards_per_row = max(1, available_width / slot_width);
+
+        Self { 
+            config,
+            player_area,
+            opponent_area,
+            cards_per_row,
+        }
     }
 
     // Draw Text Helper
@@ -147,24 +172,28 @@ impl BoardView {
         self.draw_top_info(state, frame);
 
         // layout constants (simple, tweak later)
-        let padding_x: usize = 4;
         let dealer_y: usize = 4;
-        let played_y = dealer_y + CARD_HEIGHT + 1;
         let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 1);
+        let played_y = hand_y - CARD_HEIGHT - 1;
 
         let spacing_x = CARD_WIDTH + 1;
 
-        let player_origin_x = padding_x;
-        let opp_origin_x = mid + padding_x;
+        let player_origin_x = self.player_area.left;
+        let opp_origin_x = self.opponent_area.left;
 
         // --- Player side ---
         //
         // Dealer Cards
         for (i, c) in state.player.dealer_row.iter().enumerate() {
-            let x = player_origin_x + i * spacing_x;
+            let row = i / self.cards_per_row;
+            let col = i % self.cards_per_row;
+
+            let x = player_origin_x + col * spacing_x;
+            let y = dealer_y + row * (CARD_HEIGHT + 1);
+
             CardView {
                 x,
-                y: dealer_y,
+                y, 
                 text: c.value.to_string(),
             }
             .draw(frame);
@@ -196,10 +225,14 @@ impl BoardView {
         //
         // Dealer Cards
         for (i, c) in state.opponent.dealer_row.iter().enumerate() {
-            let x = opp_origin_x + i * spacing_x;
+            let row = i / self.cards_per_row;
+            let col = i % self.cards_per_row;
+
+            let x = opp_origin_x + col * spacing_x;
+            let y = dealer_y + row * (CARD_HEIGHT + 1);
             CardView {
                 x,
-                y: dealer_y,
+                y,
                 text: c.value.to_string(),
             }
             .draw(frame);
