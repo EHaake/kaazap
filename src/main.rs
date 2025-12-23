@@ -84,7 +84,7 @@ fn main() -> anyhow::Result<()> {
         // Updates
         //
         // Update the game state, checking for new states
-        game_state.tick();
+        game_state.update();
 
         // Draw and render section
         //

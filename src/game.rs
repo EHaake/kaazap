@@ -146,7 +146,9 @@ impl GameState {
         }
     }
 
-    // This is called whenever we mutate state to check round-end conditions
+    /// After each state mutation action, check scores to see if status or
+    /// GamePhase updates need to be applied
+    ///
     fn resolve_after_action(&mut self) {
         // Don't resolve if awaiting next turn
         if matches!(self.game_phase, GamePhase::AwaitingNextRound) {
@@ -182,11 +184,8 @@ impl GameState {
             self.opponent.stood = true;
         }
 
-        // Check for round end conditions
-        let player_done = self.player.stood || self.player.bust;
-        let opponent_done = self.opponent.stood || self.opponent.bust;
-
-        if player_done && opponent_done {
+        // Check if both players have stood
+        if self.player.stood && self.opponent.stood {
             self.game_phase = GamePhase::RoundEnd;
         }
     }
@@ -200,9 +199,7 @@ impl GameState {
 
         let outcome = if self.player.bust {
             RoundOutcome::OpponentWon
-        } else if self.opponent.bust {
-            RoundOutcome::PlayerWon
-        } else if player_score > opponent_score {
+        } else if self.opponent.bust || player_score > opponent_score {
             RoundOutcome::PlayerWon
         } else if opponent_score > player_score {
             RoundOutcome::OpponentWon
@@ -229,11 +226,13 @@ impl GameState {
         }
     }
 
-    pub fn tick(&mut self) {
+    /// Check the GamePhase each tick of the gameloop and take appropriate actions
+    ///
+    pub fn update(&mut self) {
         match self.game_phase {
             GamePhase::PlayerTurn => {
-                // If player has stood, auto advance to next Opponent's turn
-                if self.player.stood {
+                // If player is done for the round, immediately switch back to Opponent
+                if !self.player_can_act() {
                     self.game_phase = GamePhase::OpponentThinking {
                         until: Instant::now() + Duration::from_secs(1),
                     };
@@ -254,9 +253,14 @@ impl GameState {
         }
     }
 
-    // Check if opponent's turn
+    /// Check if opponent can still play this round
     fn opponent_can_act(&self) -> bool {
         !self.opponent.stood && !self.opponent.bust
+    }
+
+    /// Check if player can still play this round
+    fn player_can_act(&self) -> bool {
+        !self.player.stood && !self.player.bust
     }
 
     // Deal a card to the player
