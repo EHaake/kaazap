@@ -75,6 +75,7 @@ impl GameState {
                 bust: false,
                 stood: false,
                 rounds_won: 0,
+                played_card: false,
             },
             opponent: PlayerState {
                 name: "Opponent".to_string(),
@@ -89,6 +90,7 @@ impl GameState {
                 bust: false,
                 stood: false,
                 rounds_won: 0,
+                played_card: false,
             },
             game_phase: GamePhase::PlayerTurn,
             round_outcome: None,
@@ -153,6 +155,14 @@ impl GameState {
         // Don't resolve if awaiting next turn
         if matches!(self.game_phase, GamePhase::AwaitingNextRound) {
             return;
+        }
+
+        // If player has played a card, move to Opponent's turn and reset flag
+        if self.player.played_card {
+            self.game_phase = GamePhase::OpponentThinking {
+                until: Instant::now() + Duration::from_secs(1),
+            };
+            self.player.played_card = false;
         }
 
         let player_score = self.player.score();
