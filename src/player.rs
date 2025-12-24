@@ -2,7 +2,7 @@
 
 use crate::card::LogicCard;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum Player {
     Player,
     Opponent,
