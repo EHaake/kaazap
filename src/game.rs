@@ -1,4 +1,4 @@
-use crate::{card::LogicCard, player::PlayerState};
+use crate::{STAND_THRESHOLD, card::LogicCard, player::PlayerState};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6,6 +6,13 @@ pub enum Action {
     Hit,
     Stand,
     NextRound,
+    PlayHand { index: usize },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpponentAction {
+    Hit,
+    Stand,
     PlayHand { index: usize },
 }
 
@@ -28,38 +35,11 @@ pub enum GamePhase {
 pub struct GameState {
     pub player: PlayerState,
     pub opponent: PlayerState,
-    // pub dealer_deck: Vec<Card>,  // dealer will just randomly draw a +1..+10 (infinite deck)
     pub game_phase: GamePhase,
     pub round_outcome: Option<RoundOutcome>,
 }
-impl GameState {
-    // pub fn new_demo() -> Self {
-    //     Self {
-    //         player: PlayerState {
-    //             name: "Your name".to_string(),
-    //             dealer_row: vec![LogicCard { value: 7 }, LogicCard { value: 4 }],
-    //             played_row: vec![LogicCard { value: 3 }],
-    //             hand: vec![
-    //                 LogicCard { value: 2 },
-    //                 LogicCard { value: 6 },
-    //                 LogicCard { value: 1 },
-    //                 LogicCard { value: 4 },
-    //             ],
-    //         },
-    //         opponent: PlayerState {
-    //             name: "Opponent".to_string(),
-    //             dealer_row: vec![LogicCard { value: 9 }],
-    //             played_row: vec![],
-    //             hand: vec![
-    //                 LogicCard { value: 5 },
-    //                 LogicCard { value: 3 },
-    //                 LogicCard { value: 6 },
-    //                 LogicCard { value: 2 },
-    //             ],
-    //         },
-    //     }
-    // }
 
+impl GameState {
     pub fn new() -> Self {
         Self {
             player: PlayerState {
@@ -97,14 +77,14 @@ impl GameState {
         }
     }
 
-    //
-    // Take the keys from the game loop and hand them it to action_from_key
+    /// Take the keys from the game loop and hand them it to action_from_key
+    ///
     pub fn handle_input(&mut self, key: char) -> Option<Action> {
         self.action_from_key(key)
     }
 
-    //
-    // Covert a key pressed into an Action
+    /// Convert a key pressed into an Action
+    ///
     pub fn action_from_key(&self, key: char) -> Option<Action> {
         match key {
             '1' | '2' | '3' | '4' => Some(Action::PlayHand {
@@ -117,13 +97,13 @@ impl GameState {
         }
     }
 
-    //
-    // Centralize action validation
+    /// Centralize action validation
+    ///
     pub fn apply_action(&mut self, action: Action) {
         match action {
             Action::Hit => {
                 if matches!(self.game_phase, GamePhase::PlayerTurn) && !self.player.stood {
-                    self.player_deal();
+                    self.player_hit();
                     self.resolve_after_action();
                 }
             }
@@ -144,6 +124,25 @@ impl GameState {
                     self.play_card(index);
                     self.resolve_after_action();
                 }
+            }
+        }
+    }
+
+    /// Take an OpponentAction and perform the action by calling appropriate fn's
+    ///
+    pub fn apply_opponent_action(&mut self, action: OpponentAction) {
+        match action {
+            OpponentAction::Hit => {
+                self.opponent_hit();
+                self.resolve_after_action();
+            }
+            OpponentAction::Stand => {
+                self.opponent_stand();
+                self.resolve_after_action();
+            }
+            OpponentAction::PlayHand { index } => {
+                self.opponent_play_card(index);
+                self.resolve_after_action();
             }
         }
     }
@@ -264,17 +263,20 @@ impl GameState {
     }
 
     /// Check if opponent can still play this round
+    ///
     fn opponent_can_act(&self) -> bool {
         !self.opponent.stood && !self.opponent.bust
     }
 
     /// Check if player can still play this round
+    ///
     fn player_can_act(&self) -> bool {
         !self.player.stood && !self.player.bust
     }
 
-    // Deal a card to the player
-    fn player_deal(&mut self) {
+    /// Deal a card to the player
+    ///
+    fn player_hit(&mut self) {
         let new_dealer_card_val: i32 = rand::random_range(0..=10);
         self.player.dealer_row.push(LogicCard {
             value: new_dealer_card_val,
@@ -288,22 +290,64 @@ impl GameState {
         }
     }
 
+    /// Opponent's play logic:
+    /// Return an OpponentAction based on opponent's hand and state
+    ///
+    fn decide_opponent_move(&self) -> OpponentAction {
+        let score = self.opponent.score();
+        let target = 20 - score;
+
+        // if hand contains single card to get to 20, play it
+        let first_playable_card = self
+            .opponent
+            .hand
+            .iter()
+            .enumerate()
+            .filter_map(|(i, slot)| slot.as_ref().map(|card| (i, card)))
+            .find(|(_, card)| card.value == target);
+
+        if let Some((index, _)) = first_playable_card {
+            return OpponentAction::PlayHand { index };
+        }
+
+        // if score is >= 17, stand
+        if score >= STAND_THRESHOLD as i32 {
+            return OpponentAction::Stand;
+        }
+
+        OpponentAction::Hit
+    }
+
     /// Play the opponent's turn (deal, play card, stand)
+    ///
     fn play_opponent_turn(&mut self) {
-        self.opponent_deal();
+        match self.decide_opponent_move() {
+            OpponentAction::Hit => {
+                self.opponent_hit();
+            }
+            OpponentAction::Stand => {
+                self.opponent_stand();
+            }
+            OpponentAction::PlayHand { index } => {
+                self.opponent_play_card(index);
+            }
+        }
+
         self.game_phase = GamePhase::PlayerTurn;
         self.resolve_after_action();
     }
 
     /// Opponent hits (gets dealer card)
-    fn opponent_deal(&mut self) {
+    ///
+    fn opponent_hit(&mut self) {
         let new_dealer_card_val: i32 = rand::random_range(0..=10);
         self.opponent.dealer_row.push(LogicCard {
             value: new_dealer_card_val,
         });
     }
 
-    // Set gamestate to opponent's turn if we are on the player's turn
+    /// Set gamestate to opponent's turn if we are on the player's turn
+    ///
     pub fn player_stand(&mut self) {
         // Only allow if GamePhase is player's turn
         if let GamePhase::PlayerTurn = self.game_phase {
@@ -317,18 +361,41 @@ impl GameState {
         }
     }
 
+    /// Opponent Stands
+    ///
+    fn opponent_stand(&mut self) {
+        self.opponent.stood = true;
+    }
+
     ///  Remove card from player hand and add it to played_row
-    fn play_card(&mut self, digit: usize) {
+    ///
+    fn play_card(&mut self, index: usize) {
         // Bounds checking already done before entering this fn
-        let Some(Some(LogicCard { value: _ })) = self.player.hand.get(digit) else {
+        let Some(Some(LogicCard { value: _ })) = self.player.hand.get(index) else {
             return;
         };
 
-        if digit < self.player.hand.len() {
+        if index < self.player.hand.len() {
             // "Remove" the card from the player's hand by setting value to 0
-            let card_to_play = self.player.hand[digit];
-            self.player.hand[digit] = None;
+            let card_to_play = self.player.hand[index];
+            self.player.hand[index] = None;
             self.player.played_row.push(card_to_play.unwrap());
+        }
+    }
+
+    /// Opponent plays card
+    ///
+    fn opponent_play_card(&mut self, index: usize) {
+        // Bounds checking already done before entering this fn
+        let Some(Some(LogicCard { value: _ })) = self.opponent.hand.get(index) else {
+            return;
+        };
+
+        if index < self.opponent.hand.len() {
+            // "Remove" the card from the opponent's hand by setting value to 0
+            let card_to_play = self.opponent.hand[index];
+            self.opponent.hand[index] = None;
+            self.opponent.played_row.push(card_to_play.unwrap());
         }
     }
 
