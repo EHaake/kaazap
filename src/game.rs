@@ -297,16 +297,11 @@ impl GameState {
         let score = self.opponent.score();
         let target = 20 - score;
 
-        // if hand contains single card to get to 20, play it
-        let first_playable_card = self
-            .opponent
-            .hand
-            .iter()
-            .enumerate()
-            .filter_map(|(i, slot)| slot.as_ref().map(|card| (i, card)))
-            .find(|(_, card)| card.value == target);
+        let card_hits_twenty = |card: &LogicCard| -> bool {
+            card.value == target
+        };
 
-        if let Some((index, _)) = first_playable_card {
+        if let Some(index) = self.first_hand_index(card_hits_twenty) {
             return OpponentAction::PlayHand { index };
         }
 
@@ -316,6 +311,19 @@ impl GameState {
         }
 
         OpponentAction::Hit
+    }
+
+    /// Helper to finds first occurrence of card in hand that matches predicate
+    ///
+    fn first_hand_index<P>(&self, mut pred: P) -> Option<usize>
+    where
+        P: FnMut(&LogicCard) -> bool,
+    {
+        self.opponent
+            .hand
+            .iter()
+            .enumerate()
+            .find_map(|(i, slot)| slot.as_ref().filter(|card| pred(card)).map(|_| i))
     }
 
     /// Play the opponent's turn (deal, play card, stand)
