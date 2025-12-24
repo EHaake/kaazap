@@ -1,4 +1,4 @@
-use crate::{STAND_THRESHOLD, card::LogicCard, player::PlayerState};
+use crate::{STAND_THRESHOLD, card::LogicCard, player::{Player, PlayerState}};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,13 +23,14 @@ pub enum RoundOutcome {
     Tied,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum GamePhase {
     PlayerTurn,
     OpponentThinking { until: Instant },
     OpponentTurn,
     RoundEnd,
     AwaitingNextRound,
+    GameOver { winner: Player },
 }
 
 pub struct GameState {
@@ -206,6 +207,7 @@ impl GameState {
         let player_score = self.player.score();
         let opponent_score = self.opponent.score();
 
+        // Check scores and decide round outcome
         let outcome = if self.player.bust {
             RoundOutcome::OpponentWon
         } else if self.opponent.bust || player_score > opponent_score {
@@ -216,9 +218,19 @@ impl GameState {
             RoundOutcome::Tied
         };
 
+        // Apply reward outcome (increment rounds won or not if tied)
         self.round_outcome = Some(outcome);
         self.apply_reward(outcome);
-        self.game_phase = GamePhase::AwaitingNextRound;
+
+        // Check for game win else we move into AwaitingNextRound
+        if self.player.rounds_won == 3 {
+            self.game_phase = GamePhase::GameOver { winner: Player::Player }
+        } else if self.opponent.rounds_won == 3 {
+            self.game_phase = GamePhase::GameOver { winner: Player::Opponent }
+        } else {
+            self.game_phase = GamePhase::AwaitingNextRound;
+        }
+
     }
 
     /// Apply round reward to the player who won, or nothing if tied
