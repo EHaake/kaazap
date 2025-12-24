@@ -1,4 +1,8 @@
-use crate::{STAND_THRESHOLD, card::LogicCard, player::{Player, PlayerState}};
+use crate::{
+    STAND_THRESHOLD,
+    card::LogicCard,
+    player::{Player, PlayerState},
+};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -6,6 +10,7 @@ pub enum Action {
     Hit,
     Stand,
     NextRound,
+    NextGame,
     PlayHand { index: usize },
 }
 
@@ -94,6 +99,7 @@ impl GameState {
             'd' => Some(Action::Hit),
             's' => Some(Action::Stand),
             'n' => Some(Action::NextRound),
+            'g' => Some(Action::NextGame),
             _ => None,
         }
     }
@@ -114,16 +120,21 @@ impl GameState {
                     self.resolve_after_action();
                 }
             }
+            Action::PlayHand { index } => {
+                if matches!(self.game_phase, GamePhase::PlayerTurn) {
+                    self.play_card(index);
+                    self.resolve_after_action();
+                }
+            }
             Action::NextRound => {
                 if matches!(self.game_phase, GamePhase::AwaitingNextRound) {
                     self.next_round();
                     self.resolve_after_action();
                 }
             }
-            Action::PlayHand { index } => {
-                if matches!(self.game_phase, GamePhase::PlayerTurn) {
-                    self.play_card(index);
-                    self.resolve_after_action();
+            Action::NextGame => {
+                if matches!(self.game_phase, GamePhase::GameOver { winner }) {
+                    self.new_game();
                 }
             }
         }
@@ -224,13 +235,16 @@ impl GameState {
 
         // Check for game win else we move into AwaitingNextRound
         if self.player.rounds_won == 3 {
-            self.game_phase = GamePhase::GameOver { winner: Player::Player }
+            self.game_phase = GamePhase::GameOver {
+                winner: Player::Player,
+            }
         } else if self.opponent.rounds_won == 3 {
-            self.game_phase = GamePhase::GameOver { winner: Player::Opponent }
+            self.game_phase = GamePhase::GameOver {
+                winner: Player::Opponent,
+            }
         } else {
             self.game_phase = GamePhase::AwaitingNextRound;
         }
-
     }
 
     /// Apply round reward to the player who won, or nothing if tied
@@ -309,9 +323,7 @@ impl GameState {
         let score = self.opponent.score();
         let target = 20 - score;
 
-        let card_hits_twenty = |card: &LogicCard| -> bool {
-            card.value == target
-        };
+        let card_hits_twenty = |card: &LogicCard| -> bool { card.value == target };
 
         if let Some(index) = self.first_hand_index(card_hits_twenty) {
             return OpponentAction::PlayHand { index };
@@ -421,29 +433,45 @@ impl GameState {
 
     /// Setup for next round.
     /// Clear the player and opponent's dealer and played rows, and reset flags.
+    fn setup_next_round(&mut self) {
+        // Clear dealer row for both players
+        self.player.dealer_row = vec![];
+        self.opponent.dealer_row = vec![];
+
+        // Clear played row for both players
+        self.player.played_row = vec![];
+        self.opponent.played_row = vec![];
+
+        // Reset stood and busted flags
+        self.player.bust = false;
+        self.player.stood = false;
+        self.opponent.bust = false;
+        self.opponent.stood = false;
+
+        // Reset round outcome
+        self.round_outcome = None;
+
+        // Set GamePhase to player turn
+        self.game_phase = GamePhase::PlayerTurn;
+        // Reset round outcome
+        self.round_outcome = None;
+    }
+
+    /// If in proper game phase, setup next round
+    ///
     fn next_round(&mut self) {
         if let GamePhase::AwaitingNextRound = self.game_phase {
-            // Clear dealer row for both players
-            self.player.dealer_row = vec![];
-            self.opponent.dealer_row = vec![];
+            self.setup_next_round();
+        }
+    }
 
-            // Clear played row for both players
-            self.player.played_row = vec![];
-            self.opponent.played_row = vec![];
-
-            // Reset stood and busted flags
-            self.player.bust = false;
-            self.player.stood = false;
-            self.opponent.bust = false;
-            self.opponent.stood = false;
-
-            // Reset round outcome
-            self.round_outcome = None;
-
-            // Set GamePhase to player turn
-            self.game_phase = GamePhase::PlayerTurn;
-            // Reset round outcome
-            self.round_outcome = None;
+    /// Reset all game stats
+    ///
+    fn new_game(&mut self) {
+        if let GamePhase::GameOver { winner: _ } = self.game_phase {
+            self.player.rounds_won = 0;
+            self.opponent.rounds_won = 0;
+            self.setup_next_round();
         }
     }
 }
