@@ -5,6 +5,7 @@ pub mod config;
 pub mod game;
 pub mod board;
 pub mod card;
+pub mod screen;
 
 // Card size
 pub const CARD_WIDTH: usize = 9;

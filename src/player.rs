@@ -2,6 +2,12 @@
 
 use crate::card::LogicCard;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Player {
+    Player,
+    Opponent,
+}
+
 pub struct PlayerState {
     pub name: String,
     pub dealer_row: Vec<LogicCard>,       // dealer cards played

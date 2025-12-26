@@ -5,7 +5,7 @@ use crate::{
     card::CardView,
     config::Config,
     frame::{Drawable, Frame},
-    game::{GamePhase, GameState, RoundOutcome},
+    game::{GamePhase, GameState, RoundOutcome}, player::Player,
 };
 
 pub struct PlayArea {
@@ -52,11 +52,24 @@ impl BoardView {
         }
     }
 
-    // Draw round outcome text in the middle of screen
+    // Draw round/game outcome text in the middle of screen
     //
     fn draw_round_outcome_text(&self, state: &GameState, frame: &mut Frame) {
         let mid_x = self.config.num_cols / 2;
         let mid_y = self.config.num_rows / 2;
+
+        if let GamePhase::GameOver { winner } = state.game_phase {
+            match winner {
+                Player::Player => {
+                    self.draw_text("YOU WIN THE GAME! :)", mid_x - 9, mid_y, frame);
+                }
+                Player::Opponent => {
+                    self.draw_text("YOU LOST THE GAME! :(", mid_x - 9, mid_y, frame);
+                }
+            }
+
+            return;
+        }
 
         match state.round_outcome {
             Some(RoundOutcome::PlayerWon) => {
@@ -269,7 +282,7 @@ impl BoardView {
         // Draw Turn Text
         self.draw_turn_text(state, frame);
 
-        // Draw Round Outcome if it exists
+        // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
     }
 }
