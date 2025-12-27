@@ -38,6 +38,7 @@ pub enum GamePhase {
     GameOver { winner: Player },
 }
 
+#[derive(Debug)]
 pub struct GameState {
     pub player: PlayerState,
     pub opponent: PlayerState,

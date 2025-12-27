@@ -25,7 +25,7 @@ impl App {
 
     pub fn handle_key(&mut self, key: char) {
         match &mut self.screen {
-            Screen::StartMenu { selected: _ } => {
+            Screen::StartMenu { menu_state: _ } => {
                 todo!()
             }
             Screen::InGame { game_state } => {
@@ -38,14 +38,14 @@ impl App {
 
     pub fn tick(&mut self) {
         match &mut self.screen {
-            Screen::StartMenu { selected: _ } => todo!(),
+            Screen::StartMenu { menu_state: _ } => todo!(),
             Screen::InGame { game_state } => game_state.update(),
         }
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
-        match &mut self.screen {
-            Screen::StartMenu { selected: _ } => todo!(),
+        match &self.screen {
+            Screen::StartMenu { menu_state: _menu_state } => self.screen.draw(frame, &self.config),
             Screen::InGame { game_state } => self.board_view.draw(game_state, frame),
         }
     }
