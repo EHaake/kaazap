@@ -6,6 +6,7 @@ pub mod game;
 pub mod board;
 pub mod card;
 pub mod screen;
+pub mod app;
 
 // Card size
 pub const CARD_WIDTH: usize = 9;
