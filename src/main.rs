@@ -5,7 +5,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    GAME_LOOP_SLEEP_MS, app::App, board::BoardView, config::Config, frame::{self, new_frame}, game::GameState, render
+    GAME_LOOP_SLEEP_MS, app::App, config::Config, frame::{self, new_frame}, render
 };
 use std::{io, sync::mpsc, thread, time::Duration};
 // use rusty_audio::Audio;
@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<()> {
     // let mut game_state = GameState::new();
 
     // Initialize app
-    let app = App::new(config.clone());
+    let mut app = App::new(config.clone());
 
     // Render Loop
     //
@@ -88,8 +88,8 @@ fn main() -> anyhow::Result<()> {
 
         // Draw and render section
         //
-        board.draw(&game_state, &mut curr_frame);
-        app.draw(&game_state, &mut curr_frame);
+        // board.draw(&game_state, &mut curr_frame);
+        app.draw(&mut curr_frame);
 
         //
         // Send the frame!
