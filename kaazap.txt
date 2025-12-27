@@ -1,0 +1,28 @@
+                                                                                                               
+                                                                                                               
+KKKKKKKKK    KKKKKKK                                                                                           
+K:::::::K    K:::::K                                                                                           
+K:::::::K    K:::::K                                                                                           
+K:::::::K   K::::::K                                                                                           
+KK::::::K  K:::::KKK  aaaaaaaaaaaaa     aaaaaaaaaaaaa   zzzzzzzzzzzzzzzzz  aaaaaaaaaaaaa   ppppp   ppppppppp   
+  K:::::K K:::::K     a::::::::::::a    a::::::::::::a  z:::::::::::::::z  a::::::::::::a  p::::ppp:::::::::p  
+  K::::::K:::::K      aaaaaaaaa:::::a   aaaaaaaaa:::::a z::::::::::::::z   aaaaaaaaa:::::a p:::::::::::::::::p 
+  K:::::::::::K                a::::a            a::::a zzzzzzzz::::::z             a::::a pp::::::ppppp::::::p
+  K:::::::::::K         aaaaaaa:::::a     aaaaaaa:::::a       z::::::z       aaaaaaa:::::a  p:::::p     p:::::p
+  K::::::K:::::K      aa::::::::::::a   aa::::::::::::a      z::::::z      aa::::::::::::a  p:::::p     p:::::p
+  K:::::K K:::::K    a::::aaaa::::::a  a::::aaaa::::::a     z::::::z      a::::aaaa::::::a  p:::::p     p:::::p
+KK::::::K  K:::::KKKa::::a    a:::::a a::::a    a:::::a    z::::::z      a::::a    a:::::a  p:::::p    p::::::p
+K:::::::K   K::::::Ka::::a    a:::::a a::::a    a:::::a   z::::::zzzzzzzza::::a    a:::::a  p:::::ppppp:::::::p
+K:::::::K    K:::::Ka:::::aaaa::::::a a:::::aaaa::::::a  z::::::::::::::za:::::aaaa::::::a  p::::::::::::::::p 
+K:::::::K    K:::::K a::::::::::aa:::a a::::::::::aa:::az:::::::::::::::z a::::::::::aa:::a p::::::::::::::pp  
+KKKKKKKKK    KKKKKKK  aaaaaaaaaa  aaaa  aaaaaaaaaa  aaaazzzzzzzzzzzzzzzzz  aaaaaaaaaa  aaaa p::::::pppppppp    
+                                                                                            p:::::p            
+                                                                                            p:::::p            
+                                                                                           p:::::::p           
+                                                                                           p:::::::p           
+                                                                                           p:::::::p           
+                                                                                           ppppppppp           
+                                                                                                               
+
+
+Sourced from patorjk.com
