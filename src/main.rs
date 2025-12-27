@@ -7,7 +7,7 @@ use crossterm::{
 use kaazap::{
     GAME_LOOP_SLEEP_MS, app::App, config::Config, frame::{self, new_frame}, render
 };
-use std::{io, sync::mpsc, thread, time::Duration};
+use std::{io, sync::mpsc, thread, time::{ Duration, Instant }};
 // use rusty_audio::Audio;
 
 fn main() -> anyhow::Result<()> {
@@ -29,6 +29,9 @@ fn main() -> anyhow::Result<()> {
 
     // Initialize app
     let mut app = App::new(config.clone());
+
+    // Initialize time for animations
+    let mut last_frame_time = Instant::now();
 
     // Render Loop
     //
@@ -83,8 +86,11 @@ fn main() -> anyhow::Result<()> {
         // Updates
         //
         // Update the game state, checking for new states
-        // game_state.update();
-        app.tick();
+        let now = Instant::now();
+        let dt = now.duration_since(last_frame_time);
+        last_frame_time = now;
+
+        app.tick(dt);
 
         // Draw and render section
         //

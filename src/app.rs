@@ -1,5 +1,7 @@
+use std::time::Duration;
+
 use crate::{
-    board::BoardView, config::Config, frame::Frame, game::GameState, screen::Screen
+    board::BoardView, config::Config, frame::Frame, game::GameState, screen::{MenuState, Screen}
 };
 
 pub struct App {
@@ -17,8 +19,11 @@ impl App {
             //         selected: MenuItem::StartGame,
             //     },
             //     },
-            screen: Screen::InGame { game_state: Box::new(GameState::new()) },
-            
+
+            // This enters a new game automatically since we set Screen to be InGame
+            // screen: Screen::InGame { game_state: Box::new(GameState::new()) },
+
+            screen: Screen::StartMenu { menu_state: MenuState::new() },
             board_view: BoardView::new(config),
         }
     }
@@ -36,9 +41,9 @@ impl App {
         }
     }
 
-    pub fn tick(&mut self) {
+    pub fn tick(&mut self, dt: Duration) {
         match &mut self.screen {
-            Screen::StartMenu { menu_state: _ } => todo!(),
+            Screen::StartMenu { menu_state } => menu_state.tick(dt),
             Screen::InGame { game_state } => game_state.update(),
         }
     }
