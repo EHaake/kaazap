@@ -1,5 +1,5 @@
 use crate::{
-    board::BoardView, config::Config, frame::Frame, game::GameState, screen::{MenuItem, MenuState, Screen}
+    board::BoardView, config::Config, frame::Frame, game::GameState, screen::Screen
 };
 
 pub struct App {
@@ -17,7 +17,7 @@ impl App {
             //         selected: MenuItem::StartGame,
             //     },
             //     },
-            screen: Screen::InGame { game_state: GameState::new() },
+            screen: Screen::InGame { game_state: Box::new(GameState::new()) },
             
             board_view: BoardView::new(config),
         }

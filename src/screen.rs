@@ -1,8 +1,8 @@
-use crate::game::GameState;
+use crate::{frame::Frame, game::GameState};
 
 pub enum Screen {
     StartMenu { selected: MenuState },
-    InGame { game_state: GameState },
+    InGame { game_state: Box<GameState> },
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -18,4 +18,7 @@ pub struct MenuState {
 
 impl Screen {
 
+    pub fn draw(&self, state: &MenuState, frame: &mut Frame) {
+
+    }
 }
