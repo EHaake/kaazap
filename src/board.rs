@@ -23,7 +23,7 @@ pub struct BoardView {
 impl BoardView {
     pub fn new(config: Config) -> Self {
         let player_area = PlayArea {
-            left: 4,
+            left: H_PAD,
             right: config.num_cols / 2 - H_PAD,
         };
 

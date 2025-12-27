@@ -6,7 +6,7 @@ pub enum Screen {
     InGame { game_state: Box<GameState> },
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
     StartGame,
     HowToPlay,
@@ -14,27 +14,23 @@ pub enum MenuItem {
 
 #[derive(Debug)]
 pub struct MenuState {
-    pub(crate) selected: MenuItem,
+    selected: MenuItem,
 }
 
 impl Screen {
+    pub fn draw(&self, frame: &mut Frame, config: &Config) {
 
+        // app call board.draw() so do nothing if InGame
+        match self {
+            Screen::StartMenu { menu_state } => menu_state.draw(frame, config),
+            Screen::InGame { game_state: _game_state } => {}
+        }
+    }
+}
+
+impl MenuState {
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
         // let mid = config.num_cols / 2;
-
-        match self {
-            Screen::StartMenu { menu_state } => self.draw_menu(menu_state, frame, config),
-            Screen::InGame { game_state } => self.draw_game(game_state),
-        }
-
         
-    }
-
-    fn draw_menu(&self, menu_state: &MenuState, frame: &mut Frame, config: &Config) {
-        todo!()
-    }
-
-    fn draw_game(&self, game_state: &GameState) {
-        todo!()
     }
 }
