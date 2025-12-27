@@ -5,7 +5,7 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    GAME_LOOP_SLEEP_MS, board::BoardView, config::Config, frame::{self, new_frame}, game::GameState, render
+    GAME_LOOP_SLEEP_MS, app::App, board::BoardView, config::Config, frame::{self, new_frame}, game::GameState, render
 };
 use std::{io, sync::mpsc, thread, time::Duration};
 // use rusty_audio::Audio;
@@ -24,8 +24,11 @@ fn main() -> anyhow::Result<()> {
     stdout.execute(Hide)?; // Hide cursor
 
     // Initialize new Game State and Board
-    let board = BoardView::new(config.clone());
-    let mut game_state = GameState::new();
+    // let board = BoardView::new(config.clone());
+    // let mut game_state = GameState::new();
+
+    // Initialize app
+    let app = App::new(config.clone());
 
     // Render Loop
     //
@@ -67,9 +70,10 @@ fn main() -> anyhow::Result<()> {
                     }
                     // Game commands
                     KeyCode::Char(c) => {
-                        if let Some(action) = game_state.handle_input(c) {
-                            game_state.apply_action(action);
-                        }
+                        // if let Some(action) = game_state.handle_input(c) {
+                        //     game_state.apply_action(action);
+                        // }
+                        app.handle_key(c);
                     }
                     _ => {}
                 }
@@ -79,11 +83,13 @@ fn main() -> anyhow::Result<()> {
         // Updates
         //
         // Update the game state, checking for new states
-        game_state.update();
+        // game_state.update();
+        app.tick();
 
         // Draw and render section
         //
         board.draw(&game_state, &mut curr_frame);
+        app.draw(&game_state, &mut curr_frame);
 
         //
         // Send the frame!
