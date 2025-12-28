@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use crate::{
-    board::BoardView, config::Config, frame::Frame, game::GameState, screen::{MenuState, Screen}
+    board::BoardView, config::Config, frame::Frame, menu::MenuState, screen::Screen
 };
 
 pub struct App {
