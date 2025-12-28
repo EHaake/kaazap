@@ -18,6 +18,7 @@ pub enum MenuItem {
 pub struct MenuState {
     selected: MenuItem,
     time_accumulated: Duration,
+    title_text: Vec<&'static str>
 }
 
 impl Screen {
@@ -34,29 +35,40 @@ impl Screen {
 
 impl MenuState {
     pub fn new() -> Self {
+        let title_art = include_str!("../assets/kaazap_title.txt");
+        let title_text = title_art.lines().collect::<Vec<&'static str>>();
+
         Self {
             selected: MenuItem::StartGame,
             time_accumulated: Duration::from_millis(0),
+            title_text,
         }
     }
 
-    // Draw Text Helper
-    //
+    /// Draw Text Helper
+    /// 
+    /// Takes the text to draw, location coords and frame to draw into
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
         for (i, ch) in text.chars().enumerate() {
             frame[x + i][y] = ch;
         }
     }
 
-    pub fn draw(&self, frame: &mut Frame, config: &Config) {
-        let text = "Kaazap!";
-        let mid = config.num_cols / 2;
-        let padding_x = text.len() / 2;
-        let padding_y = 15;
-
-        self.draw_text(text, mid - padding_x, padding_y, frame);
+    fn draw_title(&self, x: usize, y: usize, frame: &mut Frame) {
+        for (row, line) in self.title_text.iter().enumerate() {
+            self.draw_text(line, x, y + row, frame); 
+        }       
     }
 
+    pub fn draw(&self, frame: &mut Frame, config: &Config) {
+        let mid = config.num_cols / 2;
+        let padding_x = self.title_text[1].len() / 2 - 10;
+        let padding_y = 2;
+
+        self.draw_title(mid - padding_x, padding_y, frame);
+    }
+
+    /// Accumulate time up to duration to drive menu animations
     ///
     pub fn tick(&mut self, dt: Duration) {
         self.time_accumulated += dt;
