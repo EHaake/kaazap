@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{fmt, time::Duration};
 
 use crate::{config::Config, frame::Frame};
 
@@ -45,15 +45,22 @@ impl MenuState {
         }       
     }
 
+    fn draw_menu_items(&self, x: usize, y: usize, frame: &mut Frame) {
+
+    }
+
     /// Main draw fn figures out where to render each element, then sends it out
     ///
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
         // TODO: stop using magic numbers for positioning
         let mid = config.num_cols / 2;
-        let padding_x = self.title_text[1].len() / 2 - 11;
+        let mut padding_x = self.title_text[1].len() / 2 - 11;
         let padding_y = 2;
 
         self.draw_title(mid - padding_x, padding_y, frame);
+
+        padding_x = self.
+        self.draw_menu_items(x, y, frame);
     }
 
     /// Accumulate time up to duration to drive menu animations
@@ -71,5 +78,14 @@ impl MenuState {
 impl Default for MenuState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl fmt::Display for MenuItem {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            MenuItem::StartGame => write!(f, "Start Game"),
+            MenuItem::HowToPlay => write!(f, "How To Play"),
+        }
     }
 }
