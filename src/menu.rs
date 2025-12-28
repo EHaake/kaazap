@@ -78,7 +78,7 @@ impl MenuState {
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
         // TODO: stop using magic numbers for positioning
         let mid = config.num_cols / 2;
-        let padding_x = self.title_text[1].len() / 2 - 11;
+        let padding_x = self.title_text[1].len() / 2 - 19;
         let padding_y = 5;
 
         self.draw_title(mid - padding_x, padding_y, frame);
