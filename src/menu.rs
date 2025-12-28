@@ -1,8 +1,11 @@
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
+
 use std::{fmt, time::Duration};
 
 use crate::{config::Config, frame::Frame};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(EnumIter, Debug, Copy, Clone)]
 pub enum MenuItem {
     StartGame,
     HowToPlay,
@@ -46,7 +49,15 @@ impl MenuState {
     }
 
     fn draw_menu_items(&self, x: usize, y: usize, frame: &mut Frame) {
+        let mut padding_y = y + 15;
 
+        for menu_item in MenuItem::iter() {
+            let menu_item_text = menu_item.to_string();
+            let padding_x = x - 2 - menu_item_text.len() / 2;
+            padding_y += 3;
+
+            self.draw_text(&menu_item_text, padding_x, padding_y, frame);
+        }
     }
 
     /// Main draw fn figures out where to render each element, then sends it out
@@ -54,13 +65,12 @@ impl MenuState {
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
         // TODO: stop using magic numbers for positioning
         let mid = config.num_cols / 2;
-        let mut padding_x = self.title_text[1].len() / 2 - 11;
-        let padding_y = 2;
+        let padding_x = self.title_text[1].len() / 2 - 11;
+        let padding_y = 5;
 
         self.draw_title(mid - padding_x, padding_y, frame);
 
-        padding_x = self.
-        self.draw_menu_items(x, y, frame);
+        self.draw_menu_items(mid, padding_y, frame);
     }
 
     /// Accumulate time up to duration to drive menu animations
