@@ -5,7 +5,7 @@ use std::{fmt, time::Duration};
 
 use crate::{config::Config, frame::Frame};
 
-#[derive(EnumIter, Debug, Copy, Clone)]
+#[derive(EnumIter, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
     StartGame,
     HowToPlay,
@@ -15,7 +15,7 @@ pub enum MenuItem {
 pub struct MenuState {
     selected: MenuItem,
     time_accumulated: Duration,
-    title_text: Vec<&'static str>
+    title_text: Vec<&'static str>,
 }
 
 impl MenuState {
@@ -31,7 +31,7 @@ impl MenuState {
     }
 
     /// Draw Text Helper
-    /// 
+    ///
     /// Takes the text to draw, location coords and frame to draw into
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
         for (i, ch) in text.chars().enumerate() {
@@ -44,8 +44,8 @@ impl MenuState {
     /// Iterate through each line and send it to draw_text
     fn draw_title(&self, x: usize, y: usize, frame: &mut Frame) {
         for (row, line) in self.title_text.iter().enumerate() {
-            self.draw_text(line, x, y + row, frame); 
-        }       
+            self.draw_text(line, x, y + row, frame);
+        }
     }
 
     fn draw_menu_items(&self, x: usize, y: usize, frame: &mut Frame) {
@@ -53,10 +53,17 @@ impl MenuState {
 
         for menu_item in MenuItem::iter() {
             let menu_item_text = menu_item.to_string();
-            let padding_x = x - 2 - menu_item_text.len() / 2;
-            padding_y += 3;
+            padding_y += 2;
 
-            self.draw_text(&menu_item_text, padding_x, padding_y, frame);
+            // If this is the selected item, draw an underline
+            if self.selected == menu_item {
+                let selected_text = format!("-- {} --", menu_item_text);
+                let padding_x = x - 2 - selected_text.len() / 2;
+                self.draw_text(&selected_text, padding_x, padding_y, frame);
+            } else {
+                let padding_x = x - 2 - menu_item_text.len() / 2;
+                self.draw_text(&menu_item_text, padding_x, padding_y, frame);
+            }
         }
     }
 
