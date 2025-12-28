@@ -71,11 +71,9 @@ fn main() -> anyhow::Result<()> {
                     KeyCode::Esc | KeyCode::Char('q') => {
                         break 'gameloop;
                     }
+                    // TODO: implement arrow keys for menu navigation
                     // Game commands
                     KeyCode::Char(c) => {
-                        // if let Some(action) = game_state.handle_input(c) {
-                        //     game_state.apply_action(action);
-                        // }
                         app.handle_key(c);
                     }
                     _ => {}
@@ -87,14 +85,13 @@ fn main() -> anyhow::Result<()> {
         //
         // Update the game state, checking for new states
         let now = Instant::now();
+        // Update time duration to send to app
         let dt = now.duration_since(last_frame_time);
-        last_frame_time = now;
-
         app.tick(dt);
+        last_frame_time = now;
 
         // Draw and render section
         //
-        // board.draw(&game_state, &mut curr_frame);
         app.draw(&mut curr_frame);
 
         //
@@ -103,19 +100,6 @@ fn main() -> anyhow::Result<()> {
         let _ = render_tx.send(curr_frame);
         // Sleep since our game loop is much faster than the render loop
         thread::sleep(Duration::from_millis(GAME_LOOP_SLEEP_MS));
-
-        // Win or lose section
-        //
-        // TODO: Add win/lose conditions
-
-        // if game.won() {
-        //     audio.play("win");
-        //     break 'gameloop;
-        // }
-        // if game.lost() {
-        //     audio.play("lose");
-        //     break 'gameloop;
-        // }
     }
 
     // Cleanup and close

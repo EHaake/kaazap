@@ -55,7 +55,7 @@ impl MenuState {
             let menu_item_text = menu_item.to_string();
             padding_y += 2;
 
-            // If this is the selected item, draw an underline
+            // If this is the selected item, draw an annotation
             if self.selected == menu_item {
                 let selected_text = format!("-- {} --", menu_item_text);
                 let padding_x = x - 2 - selected_text.len() / 2;
@@ -88,6 +88,13 @@ impl MenuState {
             // toggle anim status
             // anim_state.toggle();
             self.time_accumulated -= Duration::from_millis(350);
+        }
+    }
+
+    pub fn toggle_selected(&mut self) {
+        match self.selected {
+            MenuItem::StartGame => self.selected = MenuItem::HowToPlay,
+            MenuItem::HowToPlay => self.selected = MenuItem::StartGame,
         }
     }
 }

@@ -30,8 +30,12 @@ impl App {
 
     pub fn handle_key(&mut self, key: char) {
         match &mut self.screen {
-            Screen::StartMenu { menu_state: _ } => {
-                todo!()
+            Screen::StartMenu { menu_state } => {
+                if key == 'w' {
+                    menu_state.toggle_selected();
+                } else if key == 's' {
+                    menu_state.toggle_selected();
+                }
             }
             Screen::InGame { game_state } => {
                 if let Some(action) = game_state.handle_input(key) {
