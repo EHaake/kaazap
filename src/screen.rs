@@ -62,7 +62,7 @@ impl MenuState {
 
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
         let mid = config.num_cols / 2;
-        let padding_x = self.title_text[1].len() / 2 - 10;
+        let padding_x = self.title_text[1].len() / 2 - 11;
         let padding_y = 2;
 
         self.draw_title(mid - padding_x, padding_y, frame);
