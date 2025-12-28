@@ -11,6 +11,12 @@ pub enum MenuItem {
     HowToPlay,
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum MenuAction {
+    StartGame,
+    HowToPlay,
+}
+
 #[derive(Debug)]
 pub struct MenuState {
     selected: MenuItem,
@@ -95,6 +101,13 @@ impl MenuState {
         match self.selected {
             MenuItem::StartGame => self.selected = MenuItem::HowToPlay,
             MenuItem::HowToPlay => self.selected = MenuItem::StartGame,
+        }
+    }
+
+    pub fn activate_menu_selection(&self) -> MenuAction {
+        match self.selected {
+            MenuItem::StartGame => MenuAction::StartGame,
+            MenuItem::HowToPlay => MenuAction::HowToPlay,
         }
     }
 }

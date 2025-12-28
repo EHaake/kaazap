@@ -73,10 +73,12 @@ fn main() -> anyhow::Result<()> {
                     }
                     // TODO: implement arrow keys for menu navigation
                     // Game commands
-                    KeyCode::Char(c) => {
-                        app.handle_key(c);
+                    // KeyCode::Char(c) => {
+                    //     app.handle_key(c);
+                    // }
+                    _ => {
+                        app.handle_key(key_event.code);
                     }
-                    _ => {}
                 }
             }
         }
