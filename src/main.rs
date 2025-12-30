@@ -5,9 +5,18 @@ use crossterm::{
     terminal::{self, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use kaazap::{
-    GAME_LOOP_SLEEP_MS, app::App, config::Config, frame::{self, new_frame}, render
+    GAME_LOOP_SLEEP_MS,
+    app::App,
+    config::Config,
+    frame::{self, new_frame},
+    render,
 };
-use std::{io, sync::mpsc, thread, time::{ Duration, Instant }};
+use std::{
+    io,
+    sync::mpsc,
+    thread,
+    time::{Duration, Instant},
+};
 // use rusty_audio::Audio;
 
 fn main() -> anyhow::Result<()> {
@@ -64,17 +73,12 @@ fn main() -> anyhow::Result<()> {
         //
         // Poll for input events with default input,
         // which returns immediately if nothing to act upon
-        while event::poll(Duration::default())? {
-            if let Event::Key(key_event) = event::read()? {
-                match key_event.code {
-                    // System commands
-                    KeyCode::Char('q') => {
-                        break 'gameloop;
-                    }
-                    _ => {
-                        app.handle_key(key_event.code);
-                    }
-                }
+        if event::poll(Duration::from_millis(0))?
+            && let Event::Key(key_event) = event::read()?
+        {
+            match key_event.code {
+                KeyCode::Char('q') => break 'gameloop,
+                _ => app.handle_key(key_event.code),
             }
         }
 
