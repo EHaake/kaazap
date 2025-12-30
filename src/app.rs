@@ -53,8 +53,8 @@ impl App {
             Screen::InGame { game_state } => {
                 match key {
                     KeyCode::Char(c) => {
-                        if let Some(action) = game_state.handle_input(c) {
-                            game_state.apply_action(action);
+                        if let Some(action) = game_state.handle_game_input(c) {
+                            game_state.apply_game_action(action);
                         }
                     }
                     KeyCode::Esc => {

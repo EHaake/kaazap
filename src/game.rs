@@ -1,12 +1,12 @@
+use crossterm::event::KeyCode;
+
 use crate::{
-    STAND_THRESHOLD,
-    card::LogicCard,
-    player::{Player, PlayerState},
+    STAND_THRESHOLD, card::LogicCard, menu::MenuAction, player::{Player, PlayerState}
 };
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Action {
+pub enum GameAction {
     Hit,
     Stand,
     NextRound,
@@ -86,54 +86,54 @@ impl GameState {
 
     /// Take the keys from the game loop and hand them it to action_from_key
     ///
-    pub fn handle_input(&mut self, key: char) -> Option<Action> {
-        self.action_from_key(key)
+    pub fn handle_game_input(&mut self, key: char) -> Option<GameAction> {
+        self.game_action_from_key(key)
     }
 
     /// Convert a key pressed into an Action
     ///
-    pub fn action_from_key(&self, key: char) -> Option<Action> {
+    pub fn game_action_from_key(&self, key: char) -> Option<GameAction> {
         match key {
-            '1' | '2' | '3' | '4' => Some(Action::PlayHand {
+            '1' | '2' | '3' | '4' => Some(GameAction::PlayHand {
                 index: key.to_digit(10)? as usize - 1,
             }),
-            'd' => Some(Action::Hit),
-            's' => Some(Action::Stand),
-            'n' => Some(Action::NextRound),
-            'g' => Some(Action::NextGame),
+            'd' => Some(GameAction::Hit),
+            's' => Some(GameAction::Stand),
+            'n' => Some(GameAction::NextRound),
+            'g' => Some(GameAction::NextGame),
             _ => None,
         }
     }
 
     /// Centralize action validation
     ///
-    pub fn apply_action(&mut self, action: Action) {
+    pub fn apply_game_action(&mut self, action: GameAction) {
         match action {
-            Action::Hit => {
+            GameAction::Hit => {
                 if matches!(self.game_phase, GamePhase::PlayerTurn) && !self.player.stood {
                     self.player_hit();
                     self.resolve_after_action();
                 }
             }
-            Action::Stand => {
+            GameAction::Stand => {
                 if matches!(self.game_phase, GamePhase::PlayerTurn) {
                     self.player_stand();
                     self.resolve_after_action();
                 }
             }
-            Action::PlayHand { index } => {
+            GameAction::PlayHand { index } => {
                 if matches!(self.game_phase, GamePhase::PlayerTurn) {
                     self.play_card(index);
                     self.resolve_after_action();
                 }
             }
-            Action::NextRound => {
+            GameAction::NextRound => {
                 if matches!(self.game_phase, GamePhase::AwaitingNextRound) {
                     self.next_round();
                     self.resolve_after_action();
                 }
             }
-            Action::NextGame => {
+            GameAction::NextGame => {
                 if matches!(self.game_phase, GamePhase::GameOver { winner }) {
                     self.new_game();
                 }

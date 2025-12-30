@@ -1,3 +1,4 @@
+use crossterm::event::KeyCode;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
@@ -110,6 +111,19 @@ impl MenuState {
             MenuItem::HowToPlay => MenuAction::HowToPlay,
         }
     }
+
+    pub fn handle_menu_input(&mut self, key: KeyCode) -> Option<MenuAction> {
+        self.menu_action_from_key(key)
+    }
+
+    pub fn menu_action_from_key(&self, key: KeyCode) -> Option<MenuAction> {
+        match key {
+            KeyCode::Up | KeyCode::Down => {}
+            _ => None,
+        }
+    }
+
+    pub fn apply_menu_action(&mut self, action: MenuAction) {}
 }
 
 impl Default for MenuState {
