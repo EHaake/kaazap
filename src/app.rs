@@ -38,23 +38,8 @@ impl App {
 
     pub fn handle_key(&mut self, key: KeyCode) {
         match &mut self.screen {
+            // Route the Menu inputs only to Menu
             Screen::StartMenu { menu_state } => {
-                // match key {
-                //     KeyCode::Char(c) => match c {
-                //         'w' | 's' => menu_state.toggle_selected(),
-                //         ' ' => {
-                //             menu_state.activate_menu_selection();
-                //         }
-                //         _ => {}
-                //     },
-                //     KeyCode::Enter => {
-                //         menu_state.activate_menu_selection();
-                //     }
-                //     KeyCode::Up | KeyCode::Down => {
-                //         menu_state.toggle_selected();
-                //     }
-                //     _ => {}
-                // }
                 if let Some(menu_action) = menu_state.handle_menu_input(key)
                     && let Some(menu_event) = menu_state.apply_menu_action(menu_action)
                 {
@@ -62,19 +47,20 @@ impl App {
                 }
             }
 
-            Screen::InGame { game_state } => {
-                match key {
-                    KeyCode::Char(c) => {
-                        if let Some(game_action) = game_state.handle_game_input(c) {
-                            game_state.apply_game_action(game_action);
-                        }
+            // Route the game inputs to game_state
+            Screen::InGame { game_state } => match key {
+                KeyCode::Esc => {
+                    self.screen = Screen::StartMenu {
+                        menu_state: MenuState::new(),
                     }
-                    KeyCode::Esc => {
-                        // TODO: Go back to main menu
-                    }
-                    _ => {}
                 }
-            }
+                KeyCode::Char(c) => {
+                    if let Some(game_action) = game_state.handle_game_input(c) {
+                        game_state.apply_game_action(game_action);
+                    }
+                }
+                _ => {}
+            },
         }
     }
 

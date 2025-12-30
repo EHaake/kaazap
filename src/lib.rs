@@ -26,3 +26,5 @@ pub const STAND_THRESHOLD: usize = 17;
 // Thread sleep time to keep from wasting cycles
 pub const GAME_LOOP_SLEEP_MS: u64 = 50;
 
+// Menu animation time
+pub const MENU_ANIMATION_TIME_MS: u64 = 500;

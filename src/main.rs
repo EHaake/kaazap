@@ -68,14 +68,9 @@ fn main() -> anyhow::Result<()> {
             if let Event::Key(key_event) = event::read()? {
                 match key_event.code {
                     // System commands
-                    KeyCode::Esc | KeyCode::Char('q') => {
+                    KeyCode::Char('q') => {
                         break 'gameloop;
                     }
-                    // TODO: implement arrow keys for menu navigation
-                    // Game commands
-                    // KeyCode::Char(c) => {
-                    //     app.handle_key(c);
-                    // }
                     _ => {
                         app.handle_key(key_event.code);
                     }

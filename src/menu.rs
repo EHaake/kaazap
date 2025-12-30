@@ -4,7 +4,7 @@ use strum_macros::EnumIter;
 
 use std::{fmt, time::Duration};
 
-use crate::{config::Config, frame::Frame};
+use crate::{MENU_ANIMATION_TIME_MS, config::Config, frame::Frame};
 
 #[derive(EnumIter, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
@@ -29,6 +29,7 @@ pub struct MenuState {
     selected: MenuItem,
     time_accumulated: Duration,
     title_text: Vec<&'static str>,
+    animation_state: bool,
 }
 
 impl MenuState {
@@ -40,6 +41,7 @@ impl MenuState {
             selected: MenuItem::StartGame,
             time_accumulated: Duration::from_millis(0),
             title_text,
+            animation_state: false,
         }
     }
 
@@ -70,9 +72,18 @@ impl MenuState {
 
             // If this is the selected item, draw an annotation
             if self.selected == menu_item {
-                let selected_text = format!("-- {} --", menu_item_text);
-                let padding_x = x - 2 - selected_text.len() / 2;
-                self.draw_text(&selected_text, padding_x, padding_y, frame);
+                match self.animation_state {
+                    true => {
+                        let selected_text = format!("-- {} --", menu_item_text);
+                        let padding_x = x - 2 - selected_text.len() / 2;
+                        self.draw_text(&selected_text, padding_x, padding_y, frame);
+                    }
+                    false => {
+                        let selected_text = format!("++ {} ++", menu_item_text);
+                        let padding_x = x - 2 - selected_text.len() / 2;
+                        self.draw_text(&selected_text, padding_x, padding_y, frame);
+                    }
+                }
             } else {
                 let padding_x = x - 2 - menu_item_text.len() / 2;
                 self.draw_text(&menu_item_text, padding_x, padding_y, frame);
@@ -97,10 +108,10 @@ impl MenuState {
     ///
     pub fn tick(&mut self, dt: Duration) {
         self.time_accumulated += dt;
-        if self.time_accumulated >= Duration::from_millis(350) {
+        if self.time_accumulated >= Duration::from_millis(MENU_ANIMATION_TIME_MS) {
             // toggle anim status
-            // anim_state.toggle();
-            self.time_accumulated -= Duration::from_millis(350);
+            self.animation_state = !self.animation_state;
+            self.time_accumulated -= Duration::from_millis(MENU_ANIMATION_TIME_MS);
         }
     }
 
@@ -136,7 +147,9 @@ impl MenuState {
 
     pub fn apply_menu_action(&mut self, action: MenuAction) -> Option<MenuEvent> {
         match action {
-            MenuAction::Select => Some(MenuEvent::Activate { menu_item: self.selected }),
+            MenuAction::Select => Some(MenuEvent::Activate {
+                menu_item: self.selected,
+            }),
             MenuAction::SelectionDown => {
                 self.toggle_selected();
                 None
@@ -155,6 +168,8 @@ impl Default for MenuState {
     }
 }
 
+/// Implement display for MenuItem enum to turn variants into strings
+///
 impl fmt::Display for MenuItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
