@@ -21,14 +21,6 @@ impl App {
     pub fn new(config: Config) -> Self {
         Self {
             config: config.clone(),
-            // screen: Screen::StartMenu {
-            //     selected: MenuState {
-            //         selected: MenuItem::StartGame,
-            //     },
-            //     },
-
-            // This enters a new game automatically since we set Screen to be InGame
-            // screen: Screen::InGame { game_state: Box::new(GameState::new()) },
             screen: Screen::StartMenu {
                 menu_state: MenuState::new(),
             },

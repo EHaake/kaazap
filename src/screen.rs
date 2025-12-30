@@ -11,7 +11,7 @@ pub enum Screen {
 
 impl Screen {
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
-        // app call board.draw() so do nothing if InGame
+        // app calls board.draw() so do nothing if InGame
         match self {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, config),
             Screen::InGame {
