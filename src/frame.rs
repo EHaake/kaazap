@@ -1,7 +1,7 @@
 use crate::config::Config;
 
 // Type alias for the Frame type
-// Vector of vectors of borrowed static string slices
+// Vector of vectors of chars
 pub type Frame = Vec<Vec<char>>;
 
 pub fn new_frame(config: &Config) -> Frame {

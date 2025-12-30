@@ -20,7 +20,7 @@ use std::{
 // use rusty_audio::Audio;
 
 fn main() -> anyhow::Result<()> {
-    // Setup Audio
+    // TODO: Setup Audio
     // let mut audio = Audio::new();
     // audio.add("startup", "startup.wav");
     // audio.play("startup");
@@ -32,10 +32,6 @@ fn main() -> anyhow::Result<()> {
     stdout.execute(EnterAlternateScreen)?;
     stdout.execute(Hide)?; // Hide cursor
 
-    // Initialize new Game State and Board
-    // let board = BoardView::new(config.clone());
-    // let mut game_state = GameState::new();
-
     // Initialize app
     let mut app = App::new(config.clone());
 
@@ -44,7 +40,7 @@ fn main() -> anyhow::Result<()> {
 
     // Render Loop
     //
-    // Use separate thread
+    // Use separate thread for rendering
     let (render_tx, render_rx) = mpsc::channel();
     let render_config = config.clone();
     let render_handle = thread::spawn(move || {
@@ -63,8 +59,6 @@ fn main() -> anyhow::Result<()> {
     });
 
     // Game loop
-    //
-    // Setup
     //
     'gameloop: loop {
         let mut curr_frame = new_frame(&config);
@@ -92,10 +86,8 @@ fn main() -> anyhow::Result<()> {
         last_frame_time = now;
 
         // Draw and render section
-        //
         app.draw(&mut curr_frame);
 
-        //
         // Send the frame!
         // Ignore the result since the receiving end of the channel won't be ready for a while
         let _ = render_tx.send(curr_frame);
@@ -109,7 +101,9 @@ fn main() -> anyhow::Result<()> {
     drop(render_tx);
     render_handle.join().unwrap();
 
+    // TODO: Cleanup audio once implemented
     // audio.wait(); // wait for audio to finish so it isn't cut off
+
     stdout.execute(Show)?; // Re-show the cursor (since hidden in alternate screen)
     stdout.execute(LeaveAlternateScreen)?;
     terminal::disable_raw_mode()?;
