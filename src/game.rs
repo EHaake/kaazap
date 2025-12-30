@@ -1,7 +1,7 @@
 use crossterm::event::KeyCode;
 
 use crate::{
-    STAND_THRESHOLD, card::LogicCard, menu::MenuAction, player::{Player, PlayerState}
+    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::LogicCard, menu::MenuAction, player::{Player, PlayerState}
 };
 use std::time::{Duration, Instant};
 
@@ -172,7 +172,7 @@ impl GameState {
         // If player has played a card, move to Opponent's turn and reset flag
         if self.player.played_card {
             self.game_phase = GamePhase::OpponentThinking {
-                until: Instant::now() + Duration::from_secs(1),
+                until: Instant::now() + Duration::from_millis(OPPONENT_THINKING_TIME_MS),
             };
             self.player.played_card = false;
         }
@@ -270,7 +270,7 @@ impl GameState {
                 // If player is done for the round, immediately switch back to Opponent
                 if !self.player_can_act() {
                     self.game_phase = GamePhase::OpponentThinking {
-                        until: Instant::now() + Duration::from_secs(1),
+                        until: Instant::now() + Duration::from_millis(OPPONENT_THINKING_TIME_MS),
                     };
                 }
             }
@@ -312,7 +312,7 @@ impl GameState {
         // Set gamephase to opponent's turn
         if self.opponent_can_act() {
             self.game_phase = GamePhase::OpponentThinking {
-                until: Instant::now() + Duration::from_secs(1),
+                until: Instant::now() + Duration::from_millis(OPPONENT_THINKING_TIME_MS),
             };
         }
     }
@@ -388,7 +388,7 @@ impl GameState {
 
             if self.opponent_can_act() {
                 self.game_phase = GamePhase::OpponentThinking {
-                    until: Instant::now() + Duration::from_secs(1),
+                    until: Instant::now() + Duration::from_millis(OPPONENT_THINKING_TIME_MS),
                 };
             }
         }

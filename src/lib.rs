@@ -28,3 +28,6 @@ pub const GAME_LOOP_SLEEP_MS: u64 = 50;
 
 // Menu animation time
 pub const MENU_ANIMATION_TIME_MS: u64 = 500;
+
+// Opponent thinking time
+pub const OPPONENT_THINKING_TIME_MS: u64 = 1000;
