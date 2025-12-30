@@ -13,9 +13,15 @@ pub enum MenuItem {
 }
 
 #[derive(Debug, Copy, Clone)]
+pub enum MenuEvent {
+    Activate { menu_item: MenuItem },
+}
+
+#[derive(Debug, Copy, Clone)]
 pub enum MenuAction {
-    StartGame,
-    HowToPlay,
+    Select,
+    SelectionDown,
+    SelectionUp,
 }
 
 #[derive(Debug)]
@@ -98,32 +104,49 @@ impl MenuState {
         }
     }
 
-    pub fn toggle_selected(&mut self) {
+    pub fn toggle_selected(&mut self) -> MenuItem {
         match self.selected {
             MenuItem::StartGame => self.selected = MenuItem::HowToPlay,
             MenuItem::HowToPlay => self.selected = MenuItem::StartGame,
         }
-    }
 
-    pub fn activate_menu_selection(&self) -> MenuAction {
-        match self.selected {
-            MenuItem::StartGame => MenuAction::StartGame,
-            MenuItem::HowToPlay => MenuAction::HowToPlay,
-        }
+        self.selected
     }
 
     pub fn handle_menu_input(&mut self, key: KeyCode) -> Option<MenuAction> {
         self.menu_action_from_key(key)
     }
 
+    /// Convert a key pressed into an Action
+    ///
     pub fn menu_action_from_key(&self, key: KeyCode) -> Option<MenuAction> {
         match key {
-            KeyCode::Up | KeyCode::Down => {}
+            KeyCode::Up => Some(MenuAction::SelectionUp),
+            KeyCode::Down => Some(MenuAction::SelectionDown),
+            KeyCode::Enter => Some(MenuAction::Select),
+            KeyCode::Char(c) => match c {
+                'w' => Some(MenuAction::SelectionUp),
+                's' => Some(MenuAction::SelectionDown),
+                ' ' => Some(MenuAction::Select),
+                _ => None,
+            },
             _ => None,
         }
     }
 
-    pub fn apply_menu_action(&mut self, action: MenuAction) {}
+    pub fn apply_menu_action(&mut self, action: MenuAction) -> Option<MenuEvent> {
+        match action {
+            MenuAction::Select => Some(MenuEvent::Activate { menu_item: self.selected }),
+            MenuAction::SelectionDown => {
+                self.toggle_selected();
+                None
+            }
+            MenuAction::SelectionUp => {
+                self.toggle_selected();
+                None
+            }
+        }
+    }
 }
 
 impl Default for MenuState {
