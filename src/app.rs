@@ -36,31 +36,54 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyCode) {
-        match &mut self.screen {
-            // Route the Menu inputs only to Menu
-            Screen::StartMenu { menu_state } => {
-                if let Some(menu_action) = menu_state.handle_menu_input(key)
-                    && let Some(menu_event) = menu_state.apply_menu_action(menu_action)
-                {
-                    self.apply_menu_event(menu_event);
+        if self.overlay.is_some() {
+            // Handle overlay keybinds
+            if let KeyCode::Char(c) = key
+                && c == '?' {
+                    self.overlay = None
+                }
+        } else {
+            // If overlay is not enabled, if ? is pressed, enable overlay
+            if let KeyCode::Char(c) = key
+                && c == '?' {
+                    match &mut self.screen {
+                        Screen::StartMenu { menu_state: _ } => {
+                            self.overlay = Some(OverlayKind::MenuHelp)
+                        }
+                        Screen::InGame { game_state: _ } => {
+                            self.overlay = Some(OverlayKind::GameHelp)
+                        }
+                    }
+                }
+
+            match &mut self.screen {
+                // Route the Menu inputs only to Menu
+                Screen::StartMenu { menu_state } => {
+                    if let Some(menu_action) = menu_state.handle_menu_input(key)
+                        && let Some(menu_event) = menu_state.apply_menu_action(menu_action)
+                    {
+                        self.apply_menu_event(menu_event);
+                    }
+                }
+
+                // Route the game inputs to game_state
+                Screen::InGame { game_state } => {
+                    if let KeyCode::Char(c) = key {
+                        match c {
+                            'x' => {
+                                self.screen = Screen::StartMenu {
+                                    menu_state: MenuState::new(),
+                                }
+                            }
+                            _ => {
+                                if let Some(game_action) = game_state.handle_game_input(c) {
+                                    game_state.apply_game_action(game_action);
+                                }
+                            }
+                        }
+                    }
                 }
             }
-
-            // Route the game inputs to game_state
-            Screen::InGame { game_state } => if let KeyCode::Char(c) = key {
-                match c {
-                    'x' => {
-                        self.screen = Screen::StartMenu {
-                            menu_state: MenuState::new(),
-                        }
-                    }
-                    _ => {
-                        if let Some(game_action) = game_state.handle_game_input(c) {
-                            game_state.apply_game_action(game_action);
-                        }
-                    }
-                }
-            },
         }
     }
 
