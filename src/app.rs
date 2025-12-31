@@ -3,30 +3,20 @@ use std::time::Duration;
 use crossterm::event::KeyCode;
 
 use crate::{
-    board::BoardView,
-    config::Config,
-    frame::Frame,
-    game::GameState,
-    menu::{MenuEvent, MenuItem, MenuState},
-    screen::Screen,
+    board::BoardView, config::Config, frame::Frame, game::GameState, menu::{MenuEvent, MenuItem, MenuState}, overlay::{Overlay, OverlayKind}, screen::Screen
 };
-
-pub enum OverlayKind {
-    GameHelp,
-    MenuHelp,
-}
 
 pub struct App {
     pub config: Config,
     screen: Screen,
     board_view: BoardView,
-    overlay: Option<OverlayKind>,
+    overlay: Option<Overlay>,
 }
 
 impl App {
     pub fn new(config: Config) -> Self {
         Self {
-            config: config.clone(),
+            config,
             screen: Screen::StartMenu {
                 menu_state: MenuState::new(),
             },
@@ -46,14 +36,14 @@ impl App {
             // If overlay is not enabled, if ? is pressed, enable overlay
             if let KeyCode::Char(c) = key
                 && c == '?' {
-                    match &mut self.screen {
+                    self.overlay = match &mut self.screen {
                         Screen::StartMenu { menu_state: _ } => {
-                            self.overlay = Some(OverlayKind::MenuHelp)
+                            Some(Overlay::new(OverlayKind::MenuHelp, self.config))
                         }
                         Screen::InGame { game_state: _ } => {
-                            self.overlay = Some(OverlayKind::GameHelp)
+                            Some(Overlay::new(OverlayKind::GameHelp, self.config))
                         }
-                    }
+                    };
                 }
 
             match &mut self.screen {
@@ -110,6 +100,10 @@ impl App {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
+        if let Some(overlay) = &self.overlay {
+            overlay.draw(frame);
+        }
+
         match &self.screen {
             Screen::StartMenu {
                 menu_state: _menu_state,

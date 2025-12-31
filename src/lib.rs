@@ -7,6 +7,7 @@ pub mod board;
 pub mod card;
 pub mod screen;
 pub mod menu;
+pub mod overlay;
 pub mod app;
 
 // Card size
