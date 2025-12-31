@@ -6,6 +6,8 @@ pub mod game;
 pub mod board;
 pub mod card;
 pub mod screen;
+pub mod menu;
+pub mod app;
 
 // Card size
 pub const CARD_WIDTH: usize = 9;
@@ -24,3 +26,8 @@ pub const STAND_THRESHOLD: usize = 17;
 // Thread sleep time to keep from wasting cycles
 pub const GAME_LOOP_SLEEP_MS: u64 = 50;
 
+// Menu animation time
+pub const MENU_ANIMATION_TIME_MS: u64 = 500;
+
+// Opponent thinking time
+pub const OPPONENT_THINKING_TIME_MS: u64 = 1000;

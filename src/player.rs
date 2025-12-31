@@ -8,6 +8,7 @@ pub enum Player {
     Opponent,
 }
 
+#[derive(Debug)]
 pub struct PlayerState {
     pub name: String,
     pub dealer_row: Vec<LogicCard>,       // dealer cards played
