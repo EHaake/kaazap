@@ -40,18 +40,19 @@ impl App {
             }
 
             // Route the game inputs to game_state
-            Screen::InGame { game_state } => match key {
-                KeyCode::Esc => {
-                    self.screen = Screen::StartMenu {
-                        menu_state: MenuState::new(),
+            Screen::InGame { game_state } => if let KeyCode::Char(c) = key {
+                match c {
+                    'x' => {
+                        self.screen = Screen::StartMenu {
+                            menu_state: MenuState::new(),
+                        }
+                    }
+                    _ => {
+                        if let Some(game_action) = game_state.handle_game_input(c) {
+                            game_state.apply_game_action(game_action);
+                        }
                     }
                 }
-                KeyCode::Char(c) => {
-                    if let Some(game_action) = game_state.handle_game_input(c) {
-                        game_state.apply_game_action(game_action);
-                    }
-                }
-                _ => {}
             },
         }
     }
