@@ -11,10 +11,16 @@ use crate::{
     screen::Screen,
 };
 
+pub enum OverlayKind {
+    GameHelp,
+    MenuHelp,
+}
+
 pub struct App {
     pub config: Config,
     screen: Screen,
     board_view: BoardView,
+    overlay: Option<OverlayKind>,
 }
 
 impl App {
@@ -25,6 +31,7 @@ impl App {
                 menu_state: MenuState::new(),
             },
             board_view: BoardView::new(config),
+            overlay: None,
         }
     }
 
