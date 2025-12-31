@@ -20,6 +20,7 @@ use std::{
 // use rusty_audio::Audio;
 
 fn main() -> anyhow::Result<()> {
+
     // TODO: Setup Audio
     // let mut audio = Audio::new();
     // audio.add("startup", "startup.wav");
