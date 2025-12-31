@@ -39,8 +39,8 @@ impl Overlay {
 
     /// Draw border helper
     ///
-    fn draw_border(&self, x: usize, y: usize, frame: &mut Frame) {
-        let content_width = 5;
+    fn draw_border(&self, mid_x: usize, mid_y: usize, frame: &mut Frame) {
+        let content_width = 10;
         let content_height = 5;
 
         // Compute box dimensions
@@ -48,12 +48,12 @@ impl Overlay {
         let box_height = content_height + 2 * V_PAD + 2;
 
         // get box corners
-        let x0 = x - box_width / 2;
-        let y0 = y - box_height / 2;
-        let x1 = x + box_width / 2;
-        let y1 = y + box_height / 2;
+        let x0 = mid_x - box_width / 2;
+        let y0 = mid_y - box_height / 2;
+        let x1 = mid_x + box_width / 2;
+        let y1 = mid_y + box_height / 2;
 
-        // Draw borders
+        // borders
         for x in x0..=x1 {
             frame[x][y0] = '-';
             frame[x][y1] = '-';
@@ -63,6 +63,12 @@ impl Overlay {
             frame[x0][y] = '|';
             frame[x1][y] = '|';
         }
+        
+        // corners
+        frame[x0][y0] = '+';
+        frame[x1][y0] = '+';
+        frame[x0][y1] = '+';
+        frame[x1][y1] = '+';
 
 
     }
