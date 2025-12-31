@@ -42,7 +42,7 @@ fn main() -> anyhow::Result<()> {
     // Render Loop
     //
     // Use separate thread for rendering
-    let (render_tx, render_rx) = mpsc::channel();
+    let (render_tx, render_rx) = mpsc::sync_channel(1);
     let render_config = config.clone();
     let render_handle = thread::spawn(move || {
         let mut last_frame = frame::new_frame(&render_config);
@@ -51,8 +51,11 @@ fn main() -> anyhow::Result<()> {
         render::render(&mut stdout, &last_frame, &last_frame, true);
 
         // incremental updates
-        while let Ok(frame) = render_rx.recv() {
-            let curr_frame = frame;
+        while let Ok(mut curr_frame) = render_rx.recv() {
+            // Drain queued frames (only keep the most current)
+            while let Ok(newer) = render_rx.try_recv() {
+                curr_frame = newer;
+            }
             // Now we're ready to render our frame
             render::render(&mut stdout, &last_frame, &curr_frame, false);
             last_frame = curr_frame;
@@ -91,7 +94,7 @@ fn main() -> anyhow::Result<()> {
 
         // Send the frame!
         // Ignore the result since the receiving end of the channel won't be ready for a while
-        let _ = render_tx.send(curr_frame);
+        let _ = render_tx.try_send(curr_frame);
         // Sleep since our game loop is much faster than the render loop
         thread::sleep(Duration::from_millis(GAME_LOOP_SLEEP_MS));
     }
