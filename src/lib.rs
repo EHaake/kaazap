@@ -21,6 +21,9 @@ pub const MIN_CARD_SIZE_HEIGHT: usize = 4;
 pub const H_PAD: usize = 4;
 pub const V_PAD: usize = 4;
 
+// Offsets
+pub const TITLE_X_OFFSET: usize = 21;
+
 // Opponent Logic
 pub const STAND_THRESHOLD: usize = 17;
 

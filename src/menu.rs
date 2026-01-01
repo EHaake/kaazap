@@ -4,7 +4,7 @@ use strum_macros::EnumIter;
 
 use std::{fmt, time::Duration};
 
-use crate::{MENU_ANIMATION_TIME_MS, config::Config, frame::Frame};
+use crate::{MENU_ANIMATION_TIME_MS, TITLE_X_OFFSET, config::Config, frame::Frame};
 
 #[derive(EnumIter, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
@@ -75,17 +75,17 @@ impl MenuState {
                 match self.animation_state {
                     true => {
                         let selected_text = format!("-- {} --", menu_item_text);
-                        let padding_x = x - 2 - selected_text.len() / 2;
+                        let padding_x = x - selected_text.len() / 2;
                         self.draw_text(&selected_text, padding_x, padding_y, frame);
                     }
                     false => {
                         let selected_text = format!("++ {} ++", menu_item_text);
-                        let padding_x = x - 2 - selected_text.len() / 2;
+                        let padding_x = x - selected_text.len() / 2;
                         self.draw_text(&selected_text, padding_x, padding_y, frame);
                     }
                 }
             } else {
-                let padding_x = x - 2 - menu_item_text.len() / 2;
+                let padding_x = x - menu_item_text.len() / 2;
                 self.draw_text(&menu_item_text, padding_x, padding_y, frame);
             }
         }
@@ -96,7 +96,7 @@ impl MenuState {
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
         // TODO: stop using magic numbers for positioning
         let mid = config.num_cols / 2;
-        let padding_x = self.title_text[1].len() / 2 - 19;
+        let padding_x = self.title_text[1].len() / 2 - TITLE_X_OFFSET;
         let padding_y = 5;
 
         self.draw_title(mid - padding_x, padding_y, frame);

@@ -25,6 +25,15 @@ impl Overlay {
     pub fn draw(&self, frame: &mut Frame) {
         let mid_x = self.config.num_cols / 2;
         let mid_y = self.config.num_rows / 2;
+        
+        // draw a vertical divider down the middle
+        let mid = self.config.num_cols / 2;
+        for y in 0..self.config.num_rows {
+            if mid < frame.len() && y < frame[0].len() {
+                frame[mid][y] = '|';
+            }
+        }
+        // End draw vertical divider
 
         self.draw_border(mid_x, mid_y, frame);
     }
