@@ -100,15 +100,15 @@ impl App {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
-        if let Some(overlay) = &self.overlay {
-            overlay.draw(frame);
-        }
-
         match &self.screen {
             Screen::StartMenu {
                 menu_state: _menu_state,
             } => self.screen.draw(frame, &self.config),
             Screen::InGame { game_state } => self.board_view.draw(game_state, frame),
+        }
+
+        if let Some(overlay) = &self.overlay {
+            overlay.draw(frame);
         }
     }
 }
