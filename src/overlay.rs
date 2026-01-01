@@ -40,12 +40,12 @@ impl Overlay {
         let y1 = mid_y + box_height / 2;
 
 
-        for x in x0..=x1 {
-            for y in y0..=y1 {
+        (x0..=x1).for_each(|x| {
+            (y0..=y1).for_each(|y| {
                 frame[x][y] = ' ';
-            }
+            });
             
-        }
+        });
     }
 
     pub fn draw(&self, frame: &mut Frame) {
@@ -90,15 +90,15 @@ impl Overlay {
         let y1 = mid_y + box_height / 2;
 
         // borders
-        for x in x0..=x1 {
+        (x0..=x1).for_each(|x| {
             frame[x][y0] = '-';
             frame[x][y1] = '-';
-        }
+        });
 
-        for y in y0..=y1 {
+        (y0..=y1).for_each(|y| {
             frame[x0][y] = '|';
             frame[x1][y] = '|';
-        }
+        });
 
         // corners
         frame[x0][y0] = '+';
