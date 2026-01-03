@@ -20,7 +20,33 @@ impl Overlay {
         }
     }
 
-    fn add_content(&mut self) {}
+    /// Draw Text Helper
+    ///
+    fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
+        for (i, ch) in text.chars().enumerate() {
+            frame[x + i][y] = ch;
+        }
+    }
+
+    fn add_content(
+        &self,
+        mid_x: usize,
+        mid_y: usize,
+        content_width: usize,
+        content_height: usize,
+        frame: &mut Frame,
+    ) {
+        let text = "====== Controls ======";
+
+        // Compute text dimensions
+        let box_width = content_width + 2 * H_PAD + 2;
+        let box_height = content_height + 2 * V_PAD + 2;
+        // get box corners
+        let x = mid_x - box_width / 2 + 2;
+        let y = mid_y - box_height / 2 + 1;
+
+        self.draw_text(text, x, y, frame);
+    }
 
     fn clear_overlay_box(
         &self,
@@ -39,12 +65,10 @@ impl Overlay {
         let x1 = mid_x + box_width / 2;
         let y1 = mid_y + box_height / 2;
 
-
         (x0..=x1).for_each(|x| {
             (y0..=y1).for_each(|y| {
                 frame[x][y] = ' ';
             });
-            
         });
     }
 
@@ -57,16 +81,10 @@ impl Overlay {
 
         // Draw spaces inside of entire box
         self.clear_overlay_box(mid_x, mid_y, content_width, content_height, frame);
-
+        // Draw the borders
         self.draw_border(mid_x, mid_y, content_width, content_height, frame);
-    }
-
-    /// Draw Text Helper
-    ///
-    fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
-        for (i, ch) in text.chars().enumerate() {
-            frame[x + i][y] = ch;
-        }
+        // Draw the text content
+        self.add_content(mid_x, mid_y, content_width, content_height, frame);
     }
 
     /// Draw border helper
