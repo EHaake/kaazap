@@ -72,6 +72,7 @@ impl Overlay {
         });
     }
 
+    // TODO: Consolidate frame/box centering coordinates here
     pub fn draw(&self, frame: &mut Frame) {
         let content_width = 25;
         let content_height = 5;
