@@ -20,6 +20,11 @@ impl Overlay {
         }
     }
 
+    fn read_text_from_file(&self) -> Vec<String> {
+        let s: &'static str = include_str!("../assets/menu_text.txt");
+        s.lines().map(|line| line.to_string()).collect()
+    }
+
     /// Draw Text Helper
     ///
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
