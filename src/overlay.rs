@@ -41,7 +41,8 @@ impl Overlay {
         content_height: usize,
         frame: &mut Frame,
     ) {
-        let text = "====== Controls ======";
+        // let text = "====== Controls ======";
+        let content = self.read_text_from_file();
 
         // Compute text dimensions
         let box_width = content_width + 2 * H_PAD + 2;
@@ -50,7 +51,9 @@ impl Overlay {
         let x = mid_x - box_width / 2 + 2;
         let y = mid_y - box_height / 2 + 1;
 
-        self.draw_text(text, x, y, frame);
+        for (i, line) in content.iter().enumerate() {
+            self.draw_text(line, x, y + i, frame);
+        }
     }
 
     fn clear_overlay_box(
@@ -79,7 +82,7 @@ impl Overlay {
 
     // TODO: Consolidate frame/box centering coordinates here
     pub fn draw(&self, frame: &mut Frame) {
-        let content_width = 25;
+        let content_width = 30;
         let content_height = 5;
 
         let mid_x = self.config.num_cols / 2;

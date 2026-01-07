@@ -1,4 +1,4 @@
-Controls:
+      ======  Controls  ======
 
     W / Up    - Change selection up
    D / Down   - Change selection down
