@@ -1,4 +1,4 @@
-use crate::{H_PAD, V_PAD, config::Config, frame::Frame};
+use crate::{H_PAD, V_PAD, config::Config, frame::Frame, layout::OverlayLayout};
 
 #[derive(Debug, Copy, Clone)]
 pub enum OverlayKind {
@@ -25,6 +25,10 @@ impl Overlay {
         s.lines().map(|line| line.to_string()).collect()
     }
 
+    fn compute_layout(&self, content_width: usize, content_height: usize, config: Config) -> OverlayLayout {
+        OverlayLayout::new(config, content_width, content_height)
+    }
+
     /// Draw Text Helper
     ///
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
@@ -35,21 +39,15 @@ impl Overlay {
 
     fn add_content(
         &self,
-        mid_x: usize,
-        mid_y: usize,
-        content_width: usize,
-        content_height: usize,
+        layout: OverlayLayout,
         frame: &mut Frame,
     ) {
         // let text = "====== Controls ======";
         let content = self.read_text_from_file();
 
-        // Compute text dimensions
-        let box_width = content_width + 2 * H_PAD + 2;
-        let box_height = content_height + 2 * V_PAD + 2;
-        // get box corners
-        let x = mid_x - box_width / 2 + 2;
-        let y = mid_y - box_height / 2 + 1;
+        // get inner box corners
+        let x = layout.inner.x0;
+        let y = layout.inner.y0;
 
         for (i, line) in content.iter().enumerate() {
             self.draw_text(line, x, y + i, frame);
@@ -58,20 +56,14 @@ impl Overlay {
 
     fn clear_overlay_box(
         &self,
-        mid_x: usize,
-        mid_y: usize,
-        content_width: usize,
-        content_height: usize,
+        layout: OverlayLayout,
         frame: &mut Frame,
     ) {
-        // Compute box dimensions
-        let box_width = content_width + 2 * H_PAD + 2;
-        let box_height = content_height + 2 * V_PAD + 2;
         // get box corners
-        let x0 = mid_x - box_width / 2;
-        let y0 = mid_y - box_height / 2;
-        let x1 = mid_x + box_width / 2;
-        let y1 = mid_y + box_height / 2;
+        let x0 = layout.outer.x0;
+        let x1 = layout.outer.x1;
+        let y0 = layout.outer.y0;
+        let y1 = layout.outer.y1;
 
         (x0..=x1).for_each(|x| {
             (y0..=y1).for_each(|y| {
@@ -80,41 +72,18 @@ impl Overlay {
         });
     }
 
-    // TODO: Consolidate frame/box centering coordinates here
-    pub fn draw(&self, frame: &mut Frame) {
-        let content_width = 30;
-        let content_height = 5;
-
-        let mid_x = self.config.num_cols / 2;
-        let mid_y = self.config.num_rows / 2;
-
-        // Draw spaces inside of entire box
-        self.clear_overlay_box(mid_x, mid_y, content_width, content_height, frame);
-        // Draw the borders
-        self.draw_border(mid_x, mid_y, content_width, content_height, frame);
-        // Draw the text content
-        self.add_content(mid_x, mid_y, content_width, content_height, frame);
-    }
-
     /// Draw border helper
     ///
     fn draw_border(
         &self,
-        mid_x: usize,
-        mid_y: usize,
-        content_width: usize,
-        content_height: usize,
+        layout: OverlayLayout,
         frame: &mut Frame,
     ) {
-        // Compute box dimensions
-        let box_width = content_width + 2 * H_PAD + 2;
-        let box_height = content_height + 2 * V_PAD + 2;
-
         // get box corners
-        let x0 = mid_x - box_width / 2;
-        let y0 = mid_y - box_height / 2;
-        let x1 = mid_x + box_width / 2;
-        let y1 = mid_y + box_height / 2;
+        let x0 = layout.outer.x0;
+        let x1 = layout.outer.x1;
+        let y0 = layout.outer.y0;
+        let y1 = layout.outer.y1;
 
         // borders
         (x0..=x1).for_each(|x| {
@@ -132,5 +101,20 @@ impl Overlay {
         frame[x1][y0] = '+';
         frame[x0][y1] = '+';
         frame[x1][y1] = '+';
+    }
+
+    // TODO: Stop using magic numbers of content size
+    pub fn draw(&self, frame: &mut Frame) {
+        let content_width = 32;
+        let content_height = 4;
+
+        let layout = self.compute_layout(content_width, content_height, self.config);
+
+        // Draw spaces inside of entire box
+        self.clear_overlay_box(layout, frame);
+        // Draw the borders
+        self.draw_border(layout, frame);
+        // Draw the text content
+        self.add_content(layout, frame);
     }
 }

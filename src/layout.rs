@@ -2,10 +2,10 @@ use crate::{H_PAD, V_PAD, config::Config};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Rect {
-    x0: usize,
-    x1: usize,
-    y0: usize,
-    y1: usize,
+    pub x0: usize,
+    pub x1: usize,
+    pub y0: usize,
+    pub y1: usize,
 }
 
 impl Rect {
@@ -16,8 +16,8 @@ impl Rect {
 
 #[derive(Debug, Copy, Clone)]
 pub struct OverlayLayout {
-    outer: Rect,
-    inner: Rect,
+    pub outer: Rect,
+    pub inner: Rect,
 }
 
 impl OverlayLayout {
@@ -25,7 +25,7 @@ impl OverlayLayout {
         let mid_x = config.num_cols / 2;
         let mid_y = config.num_rows / 2;
 
-        // Compute box dimensions
+        // Compute outer box dimensions
         let box_width = content_width + 2 * H_PAD;
         let box_height = content_height + 2 * V_PAD;
 
@@ -38,10 +38,10 @@ impl OverlayLayout {
         let outer = Rect::new(x0, x1, y0, y1);
         
         // Inner box dimensions
-        x0 = mid_x - content_width;
-        y0 = mid_y - content_height;
-        x1 = mid_x + content_width;
-        y1 = mid_y + content_height;
+        x0 += H_PAD / 2;
+        y0 += V_PAD / 2;
+        x1 -= H_PAD / 2;
+        y1 -= V_PAD / 2;
 
         let inner = Rect::new(x0, x1, y0, y1);
 
