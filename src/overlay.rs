@@ -1,4 +1,4 @@
-use crate::{H_PAD, V_PAD, config::Config, frame::Frame, layout::OverlayLayout};
+use crate::{config::Config, frame::Frame, layout::OverlayLayout};
 
 #[derive(Debug, Copy, Clone)]
 pub enum OverlayKind {
