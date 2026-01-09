@@ -20,6 +20,8 @@ impl Overlay {
         }
     }
 
+    /// Open a text file and read it into a Vec<String>
+    ///
     fn read_text_from_file(&self) -> Vec<String> {
         match self.overlay_kind {
             OverlayKind::GameHelp => {
@@ -31,15 +33,6 @@ impl Overlay {
                 s.lines().map(|line| line.to_string()).collect()
             }
         }
-    }
-
-    fn compute_layout(
-        &self,
-        content_width: usize,
-        content_height: usize,
-        config: Config,
-    ) -> OverlayLayout {
-        OverlayLayout::new(config, content_width, content_height)
     }
 
     /// Draw Text Helper
@@ -109,7 +102,7 @@ impl Overlay {
 
     fn draw_overlay(&self, content_width: usize, content_height: usize, frame: &mut Frame) {
         // Compute the layout based on content width and config
-        let layout = self.compute_layout(content_width, content_height, self.config);
+        let layout = OverlayLayout::new(self.config, content_width, content_height);
         // Draw spaces inside of entire box
         self.clear_overlay_box(layout, frame);
         // Draw the borders
