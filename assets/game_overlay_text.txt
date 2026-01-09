@@ -1,5 +1,5 @@
 
-          ======  Controls  ======
+           ======  Controls  ======
 
     D / space - Draw dealer card and end turn
        S      - Stand and end turn
@@ -7,4 +7,5 @@
        N      - Start next round (at round end)
 
       Q       - Quit/Exit game
+
       ?       - Close Help Overlay
