@@ -21,11 +21,24 @@ impl Overlay {
     }
 
     fn read_text_from_file(&self) -> Vec<String> {
-        let s: &'static str = include_str!("../assets/menu_text.txt");
-        s.lines().map(|line| line.to_string()).collect()
+        match self.overlay_kind {
+            OverlayKind::GameHelp => {
+                let s: &'static str = include_str!("../assets/game_overlay_text.txt");
+                s.lines().map(|line| line.to_string()).collect()
+            }
+            OverlayKind::MenuHelp => {
+                let s: &'static str = include_str!("../assets/menu_overlay_text.txt");
+                s.lines().map(|line| line.to_string()).collect()
+            }
+        }
     }
 
-    fn compute_layout(&self, content_width: usize, content_height: usize, config: Config) -> OverlayLayout {
+    fn compute_layout(
+        &self,
+        content_width: usize,
+        content_height: usize,
+        config: Config,
+    ) -> OverlayLayout {
         OverlayLayout::new(config, content_width, content_height)
     }
 
@@ -39,12 +52,7 @@ impl Overlay {
 
     /// Read content from text file and call helper to draw it into the overlay
     ///
-    fn add_content(
-        &self,
-        layout: OverlayLayout,
-        frame: &mut Frame,
-    ) {
-        // let text = "====== Controls ======";
+    fn add_content(&self, layout: OverlayLayout, frame: &mut Frame) {
         let content = self.read_text_from_file();
 
         // get inner box corners
@@ -58,11 +66,7 @@ impl Overlay {
 
     /// Clear any existing chars from the overlay box
     ///
-    fn clear_overlay_box(
-        &self,
-        layout: OverlayLayout,
-        frame: &mut Frame,
-    ) {
+    fn clear_overlay_box(&self, layout: OverlayLayout, frame: &mut Frame) {
         // get box corners
         let x0 = layout.outer.x0;
         let x1 = layout.outer.x1;
@@ -78,11 +82,7 @@ impl Overlay {
 
     /// Draw border helper
     ///
-    fn draw_border(
-        &self,
-        layout: OverlayLayout,
-        frame: &mut Frame,
-    ) {
+    fn draw_border(&self, layout: OverlayLayout, frame: &mut Frame) {
         // get box corners
         let x0 = layout.outer.x0;
         let x1 = layout.outer.x1;
@@ -107,18 +107,32 @@ impl Overlay {
         frame[x1][y1] = '+';
     }
 
-    // TODO: Stop using magic numbers of content size
-    pub fn draw(&self, frame: &mut Frame) {
-        let content_width = 32;
-        let content_height = 4;
-
+    fn draw_overlay(&self, content_width: usize, content_height: usize, frame: &mut Frame) {
+        // Compute the layout based on content width and config
         let layout = self.compute_layout(content_width, content_height, self.config);
-
         // Draw spaces inside of entire box
         self.clear_overlay_box(layout, frame);
         // Draw the borders
         self.draw_border(layout, frame);
         // Draw the text content
         self.add_content(layout, frame);
+    }
+
+    // TODO: Stop using magic numbers of content size
+    pub fn draw(&self, frame: &mut Frame) {
+        match self.overlay_kind {
+            OverlayKind::GameHelp => {
+                let content_width = 42;
+                let content_height = 6;
+
+                self.draw_overlay(content_width, content_height, frame);
+            }
+            OverlayKind::MenuHelp => {
+                let content_width = 32;
+                let content_height = 4;
+
+                self.draw_overlay(content_width, content_height, frame);
+            }
+        }
     }
 }
