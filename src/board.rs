@@ -20,6 +20,8 @@ pub struct BoardView {
     cards_per_row: usize,
 }
 
+/// Handles the drawing of the board state
+///
 impl BoardView {
     pub fn new(config: Config) -> Self {
         let player_area = PlayArea {

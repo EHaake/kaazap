@@ -8,16 +8,14 @@ pub enum Screen {
     InGame { game_state: Box<GameState> },
 }
 
-
 impl Screen {
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
-        // app calls board.draw() so do nothing if InGame
         match self {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, config),
             Screen::InGame {
+                // app calls board.draw() so do nothing if InGame
                 game_state: _game_state,
             } => {}
         }
     }
 }
-

@@ -37,6 +37,8 @@ impl Overlay {
         }
     }
 
+    /// Read content from text file and call helper to draw it into the overlay
+    ///
     fn add_content(
         &self,
         layout: OverlayLayout,
@@ -54,6 +56,8 @@ impl Overlay {
         }
     }
 
+    /// Clear any existing chars from the overlay box
+    ///
     fn clear_overlay_box(
         &self,
         layout: OverlayLayout,

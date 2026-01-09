@@ -25,6 +25,8 @@ impl App {
         }
     }
 
+    /// Route the input key to the appropriate handler
+    ///
     pub fn handle_key(&mut self, key: KeyCode) {
         if self.overlay.is_some() {
             // Handle overlay keybinds
@@ -92,6 +94,8 @@ impl App {
         }
     }
 
+    /// Call tick on each sub-screen
+    ///
     pub fn tick(&mut self, dt: Duration) {
         match &mut self.screen {
             Screen::StartMenu { menu_state } => menu_state.tick(dt),

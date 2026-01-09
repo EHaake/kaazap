@@ -5,6 +5,7 @@ pub enum CardKind {
     Dealer,           // only +1..+10
     PlayerPlus,       // Player +1..+6
     PlayerMinus,      // Player -1..-6
+    //TODO: Implement the Plus/Minus card
     //PlayerPlusMinus,  // Player +-1..+-6 so we can 'flip' its value
 }
 
