@@ -5,6 +5,7 @@ pub enum CardKind {
     Dealer,           // only +1..+10
     PlayerPlus,       // Player +1..+6
     PlayerMinus,      // Player -1..-6
+    //TODO: Implement the Plus/Minus card
     //PlayerPlusMinus,  // Player +-1..+-6 so we can 'flip' its value
 }
 
@@ -56,15 +57,15 @@ impl Drawable for CardView {
         let y1 = y0 + CARD_HEIGHT - 1;
 
         // borders
-        for x in x0..=x1 {
+        (x0..=x1).for_each(|x| {
             frame[x][y0] = '-';
             frame[x][y1] = '-';
-        }
+        });
 
-        for y in y0..=y1 {
+        (y0..=y1).for_each(|y| {
             frame[x0][y] = '|';
             frame[x1][y] = '|';
-        }
+        });
 
         // corners
         frame[x0][y0] = '+';
@@ -73,11 +74,11 @@ impl Drawable for CardView {
         frame[x1][y1] = '+';
 
         // interior
-        for x in (x0 + 1)..x1 {
-            for y in (y0 + 1)..y1 {
+        ((x0 + 1)..x1).for_each(|x| {
+            ((y0 + 1)..y1).for_each(|y| {
                 frame[x][y] = ' ';
-            }
-        }
+            });
+        });
 
         // centered text
         let inner_width = CARD_WIDTH - 2;

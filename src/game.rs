@@ -97,7 +97,7 @@ impl GameState {
             '1' | '2' | '3' | '4' => Some(GameAction::PlayHand {
                 index: key.to_digit(10)? as usize - 1,
             }),
-            'd' => Some(GameAction::Hit),
+            'd' | ' ' => Some(GameAction::Hit),
             's' => Some(GameAction::Stand),
             'n' => Some(GameAction::NextRound),
             'g' => Some(GameAction::NextGame),

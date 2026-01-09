@@ -4,7 +4,7 @@ use strum_macros::EnumIter;
 
 use std::{fmt, time::Duration};
 
-use crate::{MENU_ANIMATION_TIME_MS, config::Config, frame::Frame};
+use crate::{MENU_ANIMATION_TIME_MS, TITLE_X_OFFSET, config::Config, frame::Frame};
 
 #[derive(EnumIter, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
@@ -45,6 +45,64 @@ impl MenuState {
         }
     }
 
+    /// Convert a KeyCode from the main gameloop and return a MenuAction
+    ///
+    pub fn handle_menu_input(&mut self, key: KeyCode) -> Option<MenuAction> {
+        match key {
+            KeyCode::Up => Some(MenuAction::SelectionUp),
+            KeyCode::Down => Some(MenuAction::SelectionDown),
+            KeyCode::Enter => Some(MenuAction::Select),
+            KeyCode::Char(c) => match c {
+                'w' => Some(MenuAction::SelectionUp),
+                's' => Some(MenuAction::SelectionDown),
+                ' ' => Some(MenuAction::Select),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
+    /// Take a MenuAction and return an optional MenuEvent
+    ///
+    pub fn apply_menu_action(&mut self, action: MenuAction) -> Option<MenuEvent> {
+        match action {
+            MenuAction::Select => Some(MenuEvent::Activate {
+                menu_item: self.selected,
+            }),
+            MenuAction::SelectionDown => {
+                self.toggle_selected();
+                None
+            }
+            MenuAction::SelectionUp => {
+                self.toggle_selected();
+                None
+            }
+        }
+    }
+
+    /// Toggle selected menu item
+    /// TODO: will need to refactor this if more menu items are added
+    ///
+    pub fn toggle_selected(&mut self) -> MenuItem {
+        match self.selected {
+            MenuItem::StartGame => self.selected = MenuItem::HowToPlay,
+            MenuItem::HowToPlay => self.selected = MenuItem::StartGame,
+        }
+
+        self.selected
+    }
+
+    /// Accumulate time up to duration to drive menu animations
+    ///
+    pub fn tick(&mut self, dt: Duration) {
+        self.time_accumulated += dt;
+        if self.time_accumulated >= Duration::from_millis(MENU_ANIMATION_TIME_MS) {
+            // toggle anim status
+            self.animation_state = !self.animation_state;
+            self.time_accumulated -= Duration::from_millis(MENU_ANIMATION_TIME_MS);
+        }
+    }
+
     /// Draw Text Helper
     ///
     /// Takes the text to draw, location coords and frame to draw into
@@ -63,6 +121,8 @@ impl MenuState {
         }
     }
 
+    /// Perform the drawing of menu items, including animation
+    ///
     fn draw_menu_items(&self, x: usize, y: usize, frame: &mut Frame) {
         let mut padding_y = y + 15;
 
@@ -75,17 +135,17 @@ impl MenuState {
                 match self.animation_state {
                     true => {
                         let selected_text = format!("-- {} --", menu_item_text);
-                        let padding_x = x - 2 - selected_text.len() / 2;
+                        let padding_x = x - selected_text.len() / 2;
                         self.draw_text(&selected_text, padding_x, padding_y, frame);
                     }
                     false => {
                         let selected_text = format!("++ {} ++", menu_item_text);
-                        let padding_x = x - 2 - selected_text.len() / 2;
+                        let padding_x = x - selected_text.len() / 2;
                         self.draw_text(&selected_text, padding_x, padding_y, frame);
                     }
                 }
             } else {
-                let padding_x = x - 2 - menu_item_text.len() / 2;
+                let padding_x = x - menu_item_text.len() / 2;
                 self.draw_text(&menu_item_text, padding_x, padding_y, frame);
             }
         }
@@ -96,69 +156,12 @@ impl MenuState {
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
         // TODO: stop using magic numbers for positioning
         let mid = config.num_cols / 2;
-        let padding_x = self.title_text[1].len() / 2 - 19;
+        let padding_x = self.title_text[1].len() / 2 - TITLE_X_OFFSET;
         let padding_y = 5;
 
         self.draw_title(mid - padding_x, padding_y, frame);
 
         self.draw_menu_items(mid, padding_y, frame);
-    }
-
-    /// Accumulate time up to duration to drive menu animations
-    ///
-    pub fn tick(&mut self, dt: Duration) {
-        self.time_accumulated += dt;
-        if self.time_accumulated >= Duration::from_millis(MENU_ANIMATION_TIME_MS) {
-            // toggle anim status
-            self.animation_state = !self.animation_state;
-            self.time_accumulated -= Duration::from_millis(MENU_ANIMATION_TIME_MS);
-        }
-    }
-
-    pub fn toggle_selected(&mut self) -> MenuItem {
-        match self.selected {
-            MenuItem::StartGame => self.selected = MenuItem::HowToPlay,
-            MenuItem::HowToPlay => self.selected = MenuItem::StartGame,
-        }
-
-        self.selected
-    }
-
-    pub fn handle_menu_input(&mut self, key: KeyCode) -> Option<MenuAction> {
-        self.menu_action_from_key(key)
-    }
-
-    /// Convert a key pressed into an Action
-    ///
-    pub fn menu_action_from_key(&self, key: KeyCode) -> Option<MenuAction> {
-        match key {
-            KeyCode::Up => Some(MenuAction::SelectionUp),
-            KeyCode::Down => Some(MenuAction::SelectionDown),
-            KeyCode::Enter => Some(MenuAction::Select),
-            KeyCode::Char(c) => match c {
-                'w' => Some(MenuAction::SelectionUp),
-                's' => Some(MenuAction::SelectionDown),
-                ' ' => Some(MenuAction::Select),
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-
-    pub fn apply_menu_action(&mut self, action: MenuAction) -> Option<MenuEvent> {
-        match action {
-            MenuAction::Select => Some(MenuEvent::Activate {
-                menu_item: self.selected,
-            }),
-            MenuAction::SelectionDown => {
-                self.toggle_selected();
-                None
-            }
-            MenuAction::SelectionUp => {
-                self.toggle_selected();
-                None
-            }
-        }
     }
 }
 

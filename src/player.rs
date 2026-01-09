@@ -21,17 +21,9 @@ pub struct PlayerState {
 }
 
 impl PlayerState {
-    // pub fn new() -> Self {
-    //     Self {
-    //         name: String::from("Player 1"),
-    //         dealer_row: vec![],
-    //         played_row: vec![],
-    //         hand: vec![],
-    //         // stood: false,
-    //         bust: false,
-    //     }
-    // }
 
+    /// Calculate player's score which includes the dealer row and side cards played
+    ///
     pub fn score(&self) -> i32 {
         let total_dealer: i32 = self.dealer_row.iter().map(|c| c.value).sum();
         let total_side: i32 = self.played_row.iter().map(|c| c.value).sum();
@@ -39,9 +31,3 @@ impl PlayerState {
         total_side + total_dealer
     }
 }
-
-// impl Default for PlayerState {
-//     fn default() -> Self {
-//         Self::new()
-//     }
-// }
