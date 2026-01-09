@@ -20,7 +20,7 @@ impl Overlay {
         }
     }
 
-    /// Open a text file and read it into a Vec<String>
+    /// Open a text file and read it into a Vec<String> based on OverlayKind
     ///
     fn read_text_from_file(&self) -> Vec<String> {
         match self.overlay_kind {
@@ -100,6 +100,8 @@ impl Overlay {
         frame[x1][y1] = '+';
     }
 
+    /// Take the content size and call the functions necessary to draw the overlay
+    ///
     fn draw_overlay(&self, content_width: usize, content_height: usize, frame: &mut Frame) {
         // Compute the layout based on content width and config
         let layout = OverlayLayout::new(self.config, content_width, content_height);
