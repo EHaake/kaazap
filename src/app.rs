@@ -3,7 +3,13 @@ use std::time::Duration;
 use crossterm::event::KeyCode;
 
 use crate::{
-    board::BoardView, config::Config, frame::Frame, game::GameState, menu::{MenuEvent, MenuItem, MenuState}, overlay::{Overlay, OverlayKind}, screen::Screen
+    board::BoardView,
+    config::Config,
+    frame::Frame,
+    game::GameState,
+    menu::{MenuEvent, MenuItem, MenuState},
+    overlay::{Overlay, OverlayKind},
+    screen::Screen,
 };
 
 pub struct App {
@@ -31,22 +37,24 @@ impl App {
         if self.overlay.is_some() {
             // Handle overlay keybinds
             if let KeyCode::Char(c) = key
-                && c == '?' {
-                    self.overlay = None
-                }
+                && c == '?'
+            {
+                self.overlay = None
+            }
         } else {
             // If overlay is not enabled, if ? is pressed, enable overlay
             if let KeyCode::Char(c) = key
-                && c == '?' {
-                    self.overlay = match &mut self.screen {
-                        Screen::StartMenu { menu_state: _ } => {
-                            Some(Overlay::new(OverlayKind::MenuHelp, self.config))
-                        }
-                        Screen::InGame { game_state: _ } => {
-                            Some(Overlay::new(OverlayKind::GameHelp, self.config))
-                        }
-                    };
-                }
+                && c == '?'
+            {
+                self.overlay = match &mut self.screen {
+                    Screen::StartMenu { menu_state: _ } => {
+                        Some(Overlay::new(OverlayKind::MenuHelp, self.config))
+                    }
+                    Screen::InGame { game_state: _ } => {
+                        Some(Overlay::new(OverlayKind::GameHelp, self.config))
+                    }
+                };
+            }
 
             match &mut self.screen {
                 // Route the Menu inputs only to Menu
