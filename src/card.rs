@@ -30,16 +30,6 @@ pub struct CardView {
     pub text: String,
 }
 
-impl CardView {
-    // fn display_text(&self) -> String {
-    //     if !self.face_up {
-    //         return "".to_string();
-    //     }
-    //
-    //     self.value.to_string()
-    // } 
-}
-
 impl Drawable for CardView {
     fn draw(&self, frame: &mut Frame) {
         let x0 = self.x;

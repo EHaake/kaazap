@@ -5,7 +5,8 @@ use crate::{
     card::CardView,
     config::Config,
     frame::{Drawable, Frame},
-    game::{GamePhase, GameState, RoundOutcome}, player::Player,
+    game::{GamePhase, GameState, RoundOutcome},
+    player::Player,
 };
 
 pub struct PlayArea {
@@ -91,7 +92,7 @@ impl BoardView {
     //
     fn draw_turn_text(&self, state: &GameState, frame: &mut Frame) {
         let mid = self.config.num_cols / 2;
-        let padding_y: usize = 4;
+        let padding_y: usize = 5;
         let padding_x: usize = 15;
 
         match state.game_phase {
@@ -192,7 +193,7 @@ impl BoardView {
 
         // layout constants (simple, tweak later)
         let dealer_y: usize = 4;
-        let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 1);
+        let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 2);
         let played_y = hand_y - CARD_HEIGHT - 1;
 
         let spacing_x = CARD_WIDTH + 1;
@@ -229,14 +230,19 @@ impl BoardView {
         }
         // Hand cards
         for (i, c) in state.player.hand.iter().enumerate() {
+            let x = player_origin_x + i * spacing_x;
             if c.is_some() {
-                let x = player_origin_x + i * spacing_x;
                 CardView {
                     x,
                     y: hand_y,
                     text: c.unwrap().value.to_string(),
                 }
                 .draw(frame);
+
+                // Draw card number underneath
+                let num_x = player_origin_x + i * spacing_x + (CARD_WIDTH / 2);
+                let num_y = hand_y + CARD_HEIGHT;
+                frame[num_x][num_y] = char::from_digit((i + 1) as u32, 10).unwrap();
             }
         }
 
