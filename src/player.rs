@@ -8,6 +8,13 @@ pub enum Player {
     Opponent,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub enum PlayerStatus {
+    Active,
+    Busted,
+    Stood,
+}
+
 #[derive(Debug)]
 pub struct PlayerState {
     pub name: String,
