@@ -34,7 +34,7 @@ fn main() -> anyhow::Result<()> {
     stdout.execute(Hide)?; // Hide cursor
 
     // Initialize app
-    let mut app = App::new(config.clone());
+    let mut app = App::new(config);
 
     // Initialize time for animations
     let mut last_frame_time = Instant::now();
@@ -43,7 +43,7 @@ fn main() -> anyhow::Result<()> {
     //
     // Use separate thread for rendering
     let (render_tx, render_rx) = mpsc::sync_channel(1);
-    let render_config = config.clone();
+    let render_config = config;
     let render_handle = thread::spawn(move || {
         let mut last_frame = frame::new_frame(&render_config);
         let mut stdout = io::stdout();

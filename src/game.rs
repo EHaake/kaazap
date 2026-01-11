@@ -1,7 +1,5 @@
-use crossterm::event::KeyCode;
-
 use crate::{
-    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::LogicCard, menu::MenuAction, player::{Player, PlayerState}
+    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::LogicCard, player::{Player, PlayerState}
 };
 use std::time::{Duration, Instant};
 
@@ -134,7 +132,7 @@ impl GameState {
                 }
             }
             GameAction::NextGame => {
-                if matches!(self.game_phase, GamePhase::GameOver { winner }) {
+                if matches!(self.game_phase, GamePhase::GameOver { winner: _ }) {
                     self.new_game();
                 }
             }

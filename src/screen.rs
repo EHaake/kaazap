@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use crate::{config::Config, frame::Frame, game::GameState, menu::MenuState};
 
 #[derive(Debug)]
