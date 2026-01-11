@@ -6,6 +6,7 @@ use crate::{
     config::Config,
     frame::{Drawable, Frame},
     game::{GamePhase, GameState, RoundOutcome},
+    player::Player,
 };
 
 pub struct PlayArea {
@@ -20,10 +21,12 @@ pub struct BoardView {
     cards_per_row: usize,
 }
 
+/// Handles the drawing of the board state
+///
 impl BoardView {
     pub fn new(config: Config) -> Self {
         let player_area = PlayArea {
-            left: 4,
+            left: H_PAD,
             right: config.num_cols / 2 - H_PAD,
         };
 
@@ -44,19 +47,32 @@ impl BoardView {
         }
     }
 
-    // Draw Text Helper
-    //
+    /// Draw Text Helper
+    ///
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
         for (i, ch) in text.chars().enumerate() {
             frame[x + i][y] = ch;
         }
     }
 
-    // Draw round outcome text in the middle of screen
-    //
+    /// Draw round/game outcome text in the middle of screen
+    ///
     fn draw_round_outcome_text(&self, state: &GameState, frame: &mut Frame) {
         let mid_x = self.config.num_cols / 2;
         let mid_y = self.config.num_rows / 2;
+
+        if let GamePhase::GameOver { winner } = state.game_phase {
+            match winner {
+                Player::Player => {
+                    self.draw_text("YOU WIN THE GAME! :)", mid_x - 9, mid_y, frame);
+                }
+                Player::Opponent => {
+                    self.draw_text("YOU LOST THE GAME! :(", mid_x - 9, mid_y, frame);
+                }
+            }
+
+            return;
+        }
 
         match state.round_outcome {
             Some(RoundOutcome::PlayerWon) => {
@@ -72,11 +88,11 @@ impl BoardView {
         }
     }
 
-    // Draw whose turn it is
-    //
+    /// Draw whose turn it is
+    ///
     fn draw_turn_text(&self, state: &GameState, frame: &mut Frame) {
         let mid = self.config.num_cols / 2;
-        let padding_y: usize = 4;
+        let padding_y: usize = 5;
         let padding_x: usize = 15;
 
         match state.game_phase {
@@ -96,8 +112,8 @@ impl BoardView {
         }
     }
 
-    // Draw Top info (Player name, score, et)
-    //
+    /// Draw Top info (Player name, score, et)
+    ///
     fn draw_top_info(&self, state: &GameState, frame: &mut Frame) {
         let mid = self.config.num_cols / 2;
         let padding_y: usize = 1;
@@ -119,7 +135,6 @@ impl BoardView {
         );
 
         // If Bust or stood, display so!
-        //
         if state.player.bust {
             self.draw_text("BUSTED!!", padding_x, padding_y + 1, frame);
         } else if state.player.stood {
@@ -150,7 +165,7 @@ impl BoardView {
             padding_y + 1,
             frame,
         );
-        //
+        
         // If Bust or stood, display so!
         if state.opponent.bust {
             self.draw_text("BUSTED!!", mid + padding_x, padding_y + 1, frame);
@@ -159,9 +174,8 @@ impl BoardView {
         }
     }
 
-    // --- Drawable trait impl ---
-    //
-    // Draw the current game state
+    /// Draw the current game state
+    ///
     pub fn draw(&self, state: &GameState, frame: &mut Frame) {
         //
         // draw a vertical divider down the middle
@@ -177,7 +191,7 @@ impl BoardView {
 
         // layout constants (simple, tweak later)
         let dealer_y: usize = 4;
-        let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 1);
+        let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 2);
         let played_y = hand_y - CARD_HEIGHT - 1;
 
         let spacing_x = CARD_WIDTH + 1;
@@ -214,14 +228,19 @@ impl BoardView {
         }
         // Hand cards
         for (i, c) in state.player.hand.iter().enumerate() {
+            let x = player_origin_x + i * spacing_x;
             if c.is_some() {
-                let x = player_origin_x + i * spacing_x;
                 CardView {
                     x,
                     y: hand_y,
                     text: c.unwrap().value.to_string(),
                 }
                 .draw(frame);
+
+                // Draw card number underneath
+                let num_x = player_origin_x + i * spacing_x + (CARD_WIDTH / 2);
+                let num_y = hand_y + CARD_HEIGHT;
+                frame[num_x][num_y] = char::from_digit((i + 1) as u32, 10).unwrap();
             }
         }
 
@@ -269,7 +288,7 @@ impl BoardView {
         // Draw Turn Text
         self.draw_turn_text(state, frame);
 
-        // Draw Round Outcome if it exists
+        // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
     }
 }

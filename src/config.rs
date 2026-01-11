@@ -2,7 +2,7 @@ pub(crate) use crossterm::terminal;
 
 use crate::{CARD_HEIGHT, CARD_WIDTH, H_PAD, MIN_CARD_SIZE_HEIGHT, MIN_CARD_SIZE_WIDTH, V_PAD};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct Config {
     pub num_cols: usize,
     pub num_rows: usize,
