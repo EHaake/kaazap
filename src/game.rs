@@ -330,7 +330,7 @@ impl GameState {
             return OpponentAction::PlayHand { index };
         }
 
-        // if score is >= 17, stand
+        // if score is >= threshold, stand
         if score >= STAND_THRESHOLD as i32 {
             return OpponentAction::Stand;
         }
