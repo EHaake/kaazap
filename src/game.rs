@@ -36,6 +36,20 @@ pub enum GamePhase {
     GameOver { winner: Player },
 }
 
+#[derive(Debug, Clone)]
+pub struct GameContext {
+    pub opponent_score: i32,
+    pub player_score: i32,
+    pub player_stood: bool,
+    pub opponent_hand: Vec<i32>,
+}
+
+impl GameContext {
+    pub fn new(opponent_score: i32, player_score: i32, player_stood: bool, opponent_hand: Vec<i32>) -> Self {
+        Self { opponent_score, player_score, player_stood, opponent_hand }
+    }
+}
+
 #[derive(Debug)]
 pub struct GameState {
     pub player: PlayerState,
@@ -315,10 +329,17 @@ impl GameState {
         }
     }
 
+    fn choose_opponent_move(&self, context: GameContext) -> OpponentAction {
+
+    }
+
     /// Opponent's play logic:
     /// Return an OpponentAction based on opponent's hand and state
     ///
     fn decide_opponent_move(&self) -> OpponentAction {
+        // build context
+        let context = GameContext::new();
+
         let score = self.opponent.score();
         let target = 20 - score;
 
@@ -334,6 +355,7 @@ impl GameState {
         }
 
         OpponentAction::Hit
+
     }
 
     /// Helper to finds first occurrence of card in hand that matches predicate
