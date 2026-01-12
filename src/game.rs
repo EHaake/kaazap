@@ -36,16 +36,18 @@ pub enum GamePhase {
     GameOver { winner: Player },
 }
 
+type PlayableCard = (usize, i32); // (index/hand position, card value)
+
 #[derive(Debug, Clone)]
 pub struct GameContext {
     pub opponent_score: i32,
     pub player_score: i32,
     pub player_stood: bool,
-    pub opponent_hand: Vec<i32>,
+    pub opponent_hand: Vec<PlayableCard>, 
 }
 
 impl GameContext {
-    pub fn new(opponent_score: i32, player_score: i32, player_stood: bool, opponent_hand: Vec<i32>) -> Self {
+    pub fn new(opponent_score: i32, player_score: i32, player_stood: bool, opponent_hand: Vec<(usize, i32)>) -> Self {
         Self { opponent_score, player_score, player_stood, opponent_hand }
     }
 }
@@ -331,6 +333,7 @@ impl GameState {
 
     fn choose_opponent_move(&self, context: GameContext) -> OpponentAction {
 
+        OpponentAction::Hit
     }
 
     /// Opponent's play logic:
@@ -338,23 +341,31 @@ impl GameState {
     ///
     fn decide_opponent_move(&self) -> OpponentAction {
         // build context
-        let context = GameContext::new();
+        let player_score = self.player.score();
+        let opponent_score = self.opponent.score();
+        let player_stood = self.player.stood;
+        let opponent_hand: Vec<PlayableCard> = self.opponent.hand.iter().enumerate().filter_map(|(index, card_opt)| {
+            card_opt.as_ref().map(|card| (index, card.value))
+        }).collect();
 
-        let score = self.opponent.score();
-        let target = 20 - score;
+        let context = GameContext::new(opponent_score, player_score, player_stood, opponent_hand);
+        self.choose_opponent_move(context)
 
-        let card_hits_twenty = |card: &LogicCard| -> bool { card.value == target };
-
-        if let Some(index) = self.first_hand_index(card_hits_twenty) {
-            return OpponentAction::PlayHand { index };
-        }
-
-        // if score is >= threshold, stand
-        if score >= STAND_THRESHOLD as i32 {
-            return OpponentAction::Stand;
-        }
-
-        OpponentAction::Hit
+        // let score = self.opponent.score();
+        // let target = 20 - score;
+        //
+        // let card_hits_twenty = |card: &LogicCard| -> bool { card.value == target };
+        //
+        // if let Some(index) = self.first_hand_index(card_hits_twenty) {
+        //     return OpponentAction::PlayHand { index };
+        // }
+        //
+        // // if score is >= threshold, stand
+        // if score >= STAND_THRESHOLD as i32 {
+        //     return OpponentAction::Stand;
+        // }
+        //
+        // OpponentAction::Hit
 
     }
 
