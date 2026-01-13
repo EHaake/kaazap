@@ -66,6 +66,43 @@ impl GameContext {
 
 type ScoredOpponentMove = (i32, OpponentAction);
 
+#[derive(Debug, Clone)]
+pub struct MoveOutcome {
+    pub new_opponent_score: i32,
+    pub opponent_bust: bool,
+    pub card_preservation_value: i32, // card preservation cost
+}
+
+impl MoveOutcome {
+    fn new(context: GameContext, action: OpponentAction) -> Self {
+        match action {
+            OpponentAction::Hit => {
+                Self {
+                    new_opponent_score: context.opponent_score,
+                    opponent_bust: context.opponent_score > 20,
+                    card_preservation_value: 0,
+                }
+            },
+            OpponentAction::Stand => {
+                Self {
+                    new_opponent_score: context.opponent_score,
+                    opponent_bust: false,
+                    card_preservation_value: 0,
+                }
+            },
+            OpponentAction::PlayHand { index } => {
+                let played_card_value = context.opponent_hand[index].1;
+                let new_opponent_score = context.opponent_score + played_card_value;
+                Self {
+                    new_opponent_score,
+                    opponent_bust: new_opponent_score > 20,
+                    card_preservation_value: 0,
+                }
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct GameState {
     pub player: PlayerState,
@@ -363,6 +400,8 @@ impl GameState {
     fn score_moves(&self, context: GameContext) -> Vec<ScoredOpponentMove> {
         // Generate candidate moves from context
         let candidate_moves = self.generate_candidate_moves(context);
+
+
         candidate_moves.iter().map(|action| (0, *action)).collect()
     }
 
