@@ -1,5 +1,5 @@
 use crate::{
-    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD,
+    OPPONENT_THINKING_TIME_MS,
     card::LogicCard,
     player::{Player, PlayerState},
 };
@@ -74,21 +74,20 @@ pub struct MoveOutcome {
 }
 
 impl MoveOutcome {
-    fn new(context: GameContext, action: OpponentAction) -> Self {
+    fn new(context: &GameContext, action: OpponentAction) -> Self {
         match action {
             OpponentAction::Hit => {
                 Self {
-                    new_opponent_score: context.opponent_score,
+                    // TODO: modify to use distribution/non-determinism
+                    new_opponent_score: context.opponent_score + 5, // expected outcome
                     opponent_bust: context.opponent_score > 20,
                     card_preservation_value: 0,
                 }
-            },
-            OpponentAction::Stand => {
-                Self {
-                    new_opponent_score: context.opponent_score,
-                    opponent_bust: false,
-                    card_preservation_value: 0,
-                }
+            }
+            OpponentAction::Stand => Self {
+                new_opponent_score: context.opponent_score,
+                opponent_bust: false,
+                card_preservation_value: 0,
             },
             OpponentAction::PlayHand { index } => {
                 let played_card_value = context.opponent_hand[index].1;
@@ -98,7 +97,7 @@ impl MoveOutcome {
                     opponent_bust: new_opponent_score > 20,
                     card_preservation_value: 0,
                 }
-            },
+            }
         }
     }
 }
@@ -386,7 +385,7 @@ impl GameState {
     /// 1. Hit/Get dealer card
     /// 2. Stand
     /// 3. Play hand card
-    fn generate_candidate_moves(&self, context: GameContext) -> Vec<OpponentAction> {
+    fn generate_candidate_moves(&self, context: &GameContext) -> Vec<OpponentAction> {
         let mut candidate_moves: Vec<OpponentAction> =
             vec![OpponentAction::Hit, OpponentAction::Stand];
 
@@ -397,10 +396,37 @@ impl GameState {
         candidate_moves
     }
 
+    fn score_outcome(&self, context: &GameContext, outcome: &MoveOutcome) -> i32 {
+        let mut score = 0;
+        if context.player_stood {
+            if outcome.opponent_bust {
+                score -= 10_000_i32;
+            } else if outcome.new_opponent_score > context.player_score
+                && outcome.new_opponent_score <= 20
+            {
+                score += 10_000_i32;
+            } else if outcome.new_opponent_score == context.player_score {
+                score -= 1000_i32;
+            } else {
+                // score < player score
+                score -= 5000_i32;
+            }
+        }
+
+        score
+    }
+
     fn score_moves(&self, context: GameContext) -> Vec<ScoredOpponentMove> {
         // Generate candidate moves from context
-        let candidate_moves = self.generate_candidate_moves(context);
+        let candidate_moves = self.generate_candidate_moves(&context);
+        let mut scored_moves: Vec<ScoredOpponentMove> = vec![];
 
+        // for each candidate move, generate an outcome and score it
+        for (index, action) in candidate_moves.iter().enumerate() {
+            let outcome = MoveOutcome::new(&context, *action);
+            let score = self.score_outcome(&context, &outcome);
+            scored_moves.push((score, candidate_moves[index]));
+        }
 
         candidate_moves.iter().map(|action| (0, *action)).collect()
     }
@@ -413,7 +439,7 @@ impl GameState {
             .iter()
             .max_by_key(|&(value, _)| value)
             .unwrap();
-        
+
         max_scored_move.1 // (i32, OpponentAction)
     }
 
