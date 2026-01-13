@@ -1,5 +1,7 @@
 use crate::{
-    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::LogicCard, player::{Player, PlayerState}
+    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD,
+    card::LogicCard,
+    player::{Player, PlayerState},
 };
 use std::time::{Duration, Instant};
 
@@ -43,14 +45,26 @@ pub struct GameContext {
     pub opponent_score: i32,
     pub player_score: i32,
     pub player_stood: bool,
-    pub opponent_hand: Vec<PlayableCard>, 
+    pub opponent_hand: Vec<PlayableCard>,
 }
 
 impl GameContext {
-    pub fn new(opponent_score: i32, player_score: i32, player_stood: bool, opponent_hand: Vec<(usize, i32)>) -> Self {
-        Self { opponent_score, player_score, player_stood, opponent_hand }
+    pub fn new(
+        opponent_score: i32,
+        player_score: i32,
+        player_stood: bool,
+        opponent_hand: Vec<PlayableCard>,
+    ) -> Self {
+        Self {
+            opponent_score,
+            player_score,
+            player_stood,
+            opponent_hand,
+        }
     }
 }
+
+type ScoredOpponentMove = (i32, OpponentAction);
 
 #[derive(Debug)]
 pub struct GameState {
@@ -331,9 +345,37 @@ impl GameState {
         }
     }
 
-    fn choose_opponent_move(&self, context: GameContext) -> OpponentAction {
+    /// Moves fall into 3 buckets:
+    /// 1. Hit/Get dealer card
+    /// 2. Stand
+    /// 3. Play hand card
+    fn generate_candidate_moves(&self, context: GameContext) -> Vec<OpponentAction> {
+        let mut candidate_moves: Vec<OpponentAction> =
+            vec![OpponentAction::Hit, OpponentAction::Stand];
 
-        OpponentAction::Hit
+        for card in context.opponent_hand.iter() {
+            let (index, _value) = card;
+            candidate_moves.push(OpponentAction::PlayHand { index: *index });
+        }
+        candidate_moves
+    }
+
+    fn score_moves(&self, context: GameContext) -> Vec<ScoredOpponentMove> {
+        // Generate candidate moves from context
+        let candidate_moves = self.generate_candidate_moves(context);
+        candidate_moves.iter().map(|action| (0, *action)).collect()
+    }
+
+    fn choose_opponent_move(&self, context: GameContext) -> OpponentAction {
+        // Score the moves
+        let scored_opponent_moves = self.score_moves(context);
+        // Will always have something here so unwrap it
+        let max_scored_move = scored_opponent_moves
+            .iter()
+            .max_by_key(|&(value, _)| value)
+            .unwrap();
+        
+        max_scored_move.1 // (i32, OpponentAction)
     }
 
     /// Opponent's play logic:
@@ -344,9 +386,15 @@ impl GameState {
         let player_score = self.player.score();
         let opponent_score = self.opponent.score();
         let player_stood = self.player.stood;
-        let opponent_hand: Vec<PlayableCard> = self.opponent.hand.iter().enumerate().filter_map(|(index, card_opt)| {
-            card_opt.as_ref().map(|card| (index, card.value))
-        }).collect();
+        let opponent_hand: Vec<PlayableCard> = self
+            .opponent
+            .hand
+            .iter()
+            .enumerate()
+            .filter_map(|(index, card_optional)| {
+                card_optional.as_ref().map(|card| (index, card.value))
+            })
+            .collect();
 
         let context = GameContext::new(opponent_score, player_score, player_stood, opponent_hand);
         self.choose_opponent_move(context)
@@ -366,7 +414,6 @@ impl GameState {
         // }
         //
         // OpponentAction::Hit
-
     }
 
     /// Helper to finds first occurrence of card in hand that matches predicate
