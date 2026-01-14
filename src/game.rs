@@ -87,10 +87,11 @@ impl MoveOutcome {
     fn new(context: &GameContext, action: OpponentAction) -> Self {
         match action {
             OpponentAction::Hit => {
+                let new_opponent_score = context.opponent_score + 5; // expected outcome
                 Self {
                     // TODO: modify to use distribution/non-determinism
-                    new_opponent_score: context.opponent_score + 5, // expected outcome
-                    opponent_bust: context.opponent_score > 20,
+                    new_opponent_score,
+                    opponent_bust: new_opponent_score > 20,
                     card_preservation_value: 0,
                 }
             }
@@ -100,7 +101,7 @@ impl MoveOutcome {
                 card_preservation_value: 0,
             },
             OpponentAction::PlayHand { index } => {
-                // Get the played card that matches the index of 
+                // Get the played card that matches the index of
                 let played_card_value = context
                     .opponent_hand
                     .iter()
@@ -111,7 +112,7 @@ impl MoveOutcome {
                 Self {
                     new_opponent_score,
                     opponent_bust: new_opponent_score > 20,
-                    card_preservation_value:played_card_value.abs(),
+                    card_preservation_value: played_card_value.abs(),
                 }
             }
         }
@@ -149,10 +150,10 @@ impl GameState {
                 dealer_row: vec![],
                 played_row: vec![],
                 hand: vec![
-                    Some(LogicCard { value: 2 }),
+                    Some(LogicCard { value: 5 }),
+                    Some(LogicCard { value: 3 }),
                     Some(LogicCard { value: 6 }),
-                    Some(LogicCard { value: 1 }),
-                    Some(LogicCard { value: 4 }),
+                    Some(LogicCard { value: 2 }),
                 ],
                 bust: false,
                 stood: false,
@@ -412,33 +413,53 @@ impl GameState {
         candidate_moves
     }
 
+    /// Calculate the score using utility scoring based on the following heuristics:
+    /// 1) Bust is terrible (worst)
+    /// 2) Winning is good (best)
+    /// 3) Tying is bad but not nearly as bad as losing
+    /// 4) When losing, getting closer to 20 is good
+    /// 5) When player has 20, getting closer to 20 is best
+    /// 6) Card preservation matters but never at the cost of losing a round
     fn score_outcome(&self, context: &GameContext, outcome: &MoveOutcome) -> i32 {
         let mut score: i32 = 0;
 
-        // Always subtract bust penalty and card preservation penalty
+        // 1) Always subtract bust penalty
         if outcome.opponent_bust {
             score -= BUST_PENALTY;
         }
 
+        // 6) card preservation penalty
         score -= outcome.card_preservation_value * PRESERVE_WEIGHT;
 
         if context.player_stood {
-            if outcome.new_opponent_score > context.player_score && outcome.new_opponent_score <= 20
-            {
+            let player_score = context.player_score;
+            let opponent_score = outcome.new_opponent_score;
+
+            if opponent_score > player_score && opponent_score <= 20 {
+                // 2) Big win bonus plus shaping to encourage winning by higher (closer to 20)
                 score += WIN_BONUS;
-            } else if outcome.new_opponent_score == context.player_score {
+                score += opponent_score * 10;
+            } else if player_score == opponent_score {
+                // 3) Tying is bad but encourage tying higher (eg player is stood at 19)
                 score -= TIE_PENALTY;
+                score += opponent_score * 5;
             } else {
-                // score < player score
+                // 4) Losing is bad, but encourage losing by less
                 score -= LOSE_PENALTY;
+
+                // closer to player's score is better
+                let score_gap = (player_score - opponent_score).abs();
+                score -= score_gap * 100;
+
+                // encourage higher non-bust scores
+                score += opponent_score * 5;
             }
         } else {
             let distance = (outcome.new_opponent_score - SETUP_TARGET).abs();
             score -= distance * POSITION_WEIGHT;
 
-            // TODO:  Optional extra shaping:
-            // slight reward for higher scores up to 18, discourages hovering too low.
-            // score += outcome.new_opponent_score * 5;
+            // slight reward for higher scores , discourages hovering at SETUP_TARGET
+            score += outcome.new_opponent_score * 5;
         }
 
         score
