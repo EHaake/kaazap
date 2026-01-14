@@ -5,6 +5,16 @@ use crate::{
 };
 use std::time::{Duration, Instant};
 
+// Game score consts
+const BUST_PENALTY: i32 = 10_000;
+const WIN_BONUS: i32 = 10_000;
+const LOSE_PENALTY: i32 = 5_000;
+const TIE_PENALTY: i32 = 1_000;
+
+const SETUP_TARGET: i32 = 16;
+const POSITION_WEIGHT: i32 = 200; // how strongly we prefer being near SETUP_TARGET
+const PRESERVE_WEIGHT: i32 = 50; // how strongly we avoid spending valuable cards
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameAction {
     Hit,
@@ -90,12 +100,18 @@ impl MoveOutcome {
                 card_preservation_value: 0,
             },
             OpponentAction::PlayHand { index } => {
-                let played_card_value = context.opponent_hand[index].1;
+                // Get the played card that matches the index of 
+                let played_card_value = context
+                    .opponent_hand
+                    .iter()
+                    .find(|&&num| num.0 == index)
+                    .unwrap()
+                    .1;
                 let new_opponent_score = context.opponent_score + played_card_value;
                 Self {
                     new_opponent_score,
                     opponent_bust: new_opponent_score > 20,
-                    card_preservation_value: 0,
+                    card_preservation_value:played_card_value.abs(),
                 }
             }
         }
@@ -397,20 +413,32 @@ impl GameState {
     }
 
     fn score_outcome(&self, context: &GameContext, outcome: &MoveOutcome) -> i32 {
-        let mut score = 0;
+        let mut score: i32 = 0;
+
+        // Always subtract bust penalty and card preservation penalty
+        if outcome.opponent_bust {
+            score -= BUST_PENALTY;
+        }
+
+        score -= outcome.card_preservation_value * PRESERVE_WEIGHT;
+
         if context.player_stood {
-            if outcome.opponent_bust {
-                score -= 10_000_i32;
-            } else if outcome.new_opponent_score > context.player_score
-                && outcome.new_opponent_score <= 20
+            if outcome.new_opponent_score > context.player_score && outcome.new_opponent_score <= 20
             {
-                score += 10_000_i32;
+                score += WIN_BONUS;
             } else if outcome.new_opponent_score == context.player_score {
-                score -= 1000_i32;
+                score -= TIE_PENALTY;
             } else {
                 // score < player score
-                score -= 5000_i32;
+                score -= LOSE_PENALTY;
             }
+        } else {
+            let distance = (outcome.new_opponent_score - SETUP_TARGET).abs();
+            score -= distance * POSITION_WEIGHT;
+
+            // TODO:  Optional extra shaping:
+            // slight reward for higher scores up to 18, discourages hovering too low.
+            // score += outcome.new_opponent_score * 5;
         }
 
         score
@@ -428,7 +456,7 @@ impl GameState {
             scored_moves.push((score, candidate_moves[index]));
         }
 
-        candidate_moves.iter().map(|action| (0, *action)).collect()
+        scored_moves
     }
 
     fn choose_opponent_move(&self, context: GameContext) -> OpponentAction {
