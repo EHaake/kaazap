@@ -1,9 +1,12 @@
 use crate::{
     OPPONENT_THINKING_TIME_MS,
     card::LogicCard,
-    player::{Player, PlayerState},
+    player::{self, Player, PlayerState},
 };
-use std::time::{Duration, Instant};
+use std::{
+    io::BufRead,
+    time::{Duration, Instant},
+};
 
 // Game score consts
 const BUST_PENALTY: i32 = 10_000;
@@ -418,26 +421,36 @@ impl GameState {
     }
 
     /// Calculate the score using utility scoring based on the following heuristics:
-    /// 1) Bust is terrible (worst)
+    ///
+    /// 1) Bust is bad (but prefer to tie if player stood at 20)
     /// 2) Winning is good (best)
     /// 3) Tying is bad but not nearly as bad as losing
     /// 4) When losing, getting closer to 20 is good
     /// 5) When player has 20, getting closer to 20 is best
     /// 6) Card preservation matters but never at the cost of losing a round
+    ///
     fn score_outcome(&self, context: &GameContext, outcome: &MoveOutcome) -> i32 {
         let mut score: i32 = 0;
 
-        // 1) Always subtract bust penalty
-        if outcome.opponent_bust {
-            score -= BUST_PENALTY;
-        }
+        let player_score = context.player_score;
+        let opponent_score = outcome.new_opponent_score;
 
         // 6) card preservation penalty
         score -= outcome.card_preservation_value * PRESERVE_WEIGHT;
 
         if context.player_stood {
-            let player_score = context.player_score;
-            let opponent_score = outcome.new_opponent_score;
+            // 1) BUST calcuations
+            // Player is done playing for the round so special case for calculating bust penalty
+            if outcome.opponent_bust {
+                if context.opponent_score < player_score {
+                    // If opponent is behind, busting isn't worse than losing any other way
+                    score -= LOSE_PENALTY;
+                } else {
+                    // If opponent is ahead, busting is throwing so punish hard
+                    score -= BUST_PENALTY;
+                }
+                return score;
+            }
 
             if opponent_score > player_score && opponent_score <= 20 {
                 // 2) Big win bonus plus shaping to encourage winning by higher (closer to 20)
@@ -445,8 +458,13 @@ impl GameState {
                 score += opponent_score * 10;
             } else if player_score == opponent_score {
                 // 3) Tying is bad but encourage tying higher (eg player is stood at 19)
-                score -= TIE_PENALTY;
-                score += opponent_score * 5;
+                // if player is at 20, need to tie so make tying a bonus
+                if player_score == 20 {
+                    score += TIE_PENALTY * 10;
+                } else {
+                    score -= TIE_PENALTY;
+                    score += opponent_score * 5;
+                }
             } else {
                 // 4) Losing is bad, but encourage losing by less
                 score -= LOSE_PENALTY;
@@ -459,6 +477,12 @@ impl GameState {
                 score += opponent_score * 5;
             }
         } else {
+            // We're trying to get to our SETUP_TARGET
+            if outcome.opponent_bust {
+                score -= BUST_PENALTY;
+                return score;
+            }
+
             let distance = (outcome.new_opponent_score - SETUP_TARGET).abs();
             score -= distance * POSITION_WEIGHT;
 
@@ -469,6 +493,9 @@ impl GameState {
         score
     }
 
+    /// Score all possible moves
+    /// Hit is a special case and we apply expected value of all possible draws
+    ///
     fn score_moves(&self, context: GameContext) -> Vec<ScoredOpponentMove> {
         // Generate candidate moves from context
         let candidate_moves = self.generate_candidate_moves(&context);
@@ -529,35 +556,6 @@ impl GameState {
 
         let context = GameContext::new(opponent_score, player_score, player_stood, opponent_hand);
         self.choose_opponent_move(context)
-
-        // let score = self.opponent.score();
-        // let target = 20 - score;
-        //
-        // let card_hits_twenty = |card: &LogicCard| -> bool { card.value == target };
-        //
-        // if let Some(index) = self.first_hand_index(card_hits_twenty) {
-        //     return OpponentAction::PlayHand { index };
-        // }
-        //
-        // // if score is >= threshold, stand
-        // if score >= STAND_THRESHOLD as i32 {
-        //     return OpponentAction::Stand;
-        // }
-        //
-        // OpponentAction::Hit
-    }
-
-    /// Helper to finds first occurrence of card in hand that matches predicate
-    ///
-    fn first_hand_index<P>(&self, mut pred: P) -> Option<usize>
-    where
-        P: FnMut(&LogicCard) -> bool,
-    {
-        self.opponent
-            .hand
-            .iter()
-            .enumerate()
-            .find_map(|(i, slot)| slot.as_ref().filter(|card| pred(card)).map(|_| i))
     }
 
     /// Play the opponent's turn (deal, play card, stand)
