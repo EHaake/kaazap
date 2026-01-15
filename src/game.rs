@@ -86,15 +86,6 @@ pub struct MoveOutcome {
 impl MoveOutcome {
     fn new(context: &GameContext, action: OpponentAction) -> Self {
         match action {
-            OpponentAction::Hit => {
-                let new_opponent_score = context.opponent_score + 5; // expected outcome
-                Self {
-                    // TODO: modify to use distribution/non-determinism
-                    new_opponent_score,
-                    opponent_bust: new_opponent_score > 20,
-                    card_preservation_value: 0,
-                }
-            }
             OpponentAction::Stand => Self {
                 new_opponent_score: context.opponent_score,
                 opponent_bust: false,
@@ -115,6 +106,19 @@ impl MoveOutcome {
                     card_preservation_value: played_card_value.abs(),
                 }
             }
+            OpponentAction::Hit => {
+                unreachable!("Hit should use from_hit()");
+            }
+        }
+    }
+
+    fn from_hit(context: &GameContext, draw_val: i32) -> Self {
+        let new_opponent_score = context.opponent_score + draw_val;
+
+        Self {
+            new_opponent_score,
+            opponent_bust: new_opponent_score > 20,
+            card_preservation_value: 0,
         }
     }
 }
@@ -471,10 +475,23 @@ impl GameState {
         let mut scored_moves: Vec<ScoredOpponentMove> = vec![];
 
         // for each candidate move, generate an outcome and score it
-        for (index, action) in candidate_moves.iter().enumerate() {
-            let outcome = MoveOutcome::new(&context, *action);
-            let score = self.score_outcome(&context, &outcome);
-            scored_moves.push((score, candidate_moves[index]));
+        for &action in candidate_moves.iter() {
+            let score = match action {
+                OpponentAction::Hit => {
+                    let mut sum = 0;
+                    for draw in 1..=10 {
+                        let temp_outcome = MoveOutcome::from_hit(&context, draw);
+                        sum += self.score_outcome(&context, &temp_outcome)
+                    }
+
+                    sum / 10
+                }
+                _ => {
+                    let outcome = MoveOutcome::new(&context, action);
+                    self.score_outcome(&context, &outcome)
+                }
+            };
+            scored_moves.push((score, action));
         }
 
         scored_moves
@@ -489,7 +506,7 @@ impl GameState {
             .max_by_key(|&(value, _)| value)
             .unwrap();
 
-        max_scored_move.1 // (i32, OpponentAction)
+        max_scored_move.1 // (move_score_i32, OpponentAction)
     }
 
     /// Opponent's play logic:
