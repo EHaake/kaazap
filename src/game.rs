@@ -17,6 +17,9 @@ const TIE_PENALTY: i32 = 1_000;
 const SETUP_TARGET: i32 = 16;
 const POSITION_WEIGHT: i32 = 200; // how strongly we prefer being near SETUP_TARGET
 const PRESERVE_WEIGHT: i32 = 50; // how strongly we avoid spending valuable cards
+const URGENCY_WEIGHT: i32 = 200; // how strongly we penalize being behind
+const SETUP_PLAY_FLAT_PENALTY: i32 = 1500; // how strongly we penalize playing a card early
+const LOW_SCORE_PENALTY: i32 = 2000; // how strongly we penalize being at a low score
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameAction {
@@ -435,9 +438,6 @@ impl GameState {
         let player_score = context.player_score;
         let opponent_score = outcome.new_opponent_score;
 
-        // 6) card preservation penalty
-        score -= outcome.card_preservation_value * PRESERVE_WEIGHT;
-
         if context.player_stood {
             // 1) BUST calcuations
             // Player is done playing for the round so special case for calculating bust penalty
@@ -451,6 +451,9 @@ impl GameState {
                 }
                 return score;
             }
+
+            // 6) card preservation penalty
+            score -= outcome.card_preservation_value * PRESERVE_WEIGHT;
 
             if opponent_score > player_score && opponent_score <= 20 {
                 // 2) Big win bonus plus shaping to encourage winning by higher (closer to 20)
@@ -477,17 +480,58 @@ impl GameState {
                 score += opponent_score * 5;
             }
         } else {
-            // We're trying to get to our SETUP_TARGET
             if outcome.opponent_bust {
-                score -= BUST_PENALTY;
+                // If player is already strong and we're behind, reward taking risks
+                // Busting shouldn't be worse than falling behind.
+                let behind = context.opponent_score < context.player_score;
+                let player_strong = context.player_score >= 16;
+
+                if behind && player_strong {
+                    score -= LOSE_PENALTY
+                } else {
+                    score -= BUST_PENALTY;
+                }
                 return score;
             }
 
-            let distance = (outcome.new_opponent_score - SETUP_TARGET).abs();
-            score -= distance * POSITION_WEIGHT;
+            // Dynamic zone: shifts upward as the player score increases.
+            // Keeps opponent from "parking" at 14–15 when player is already at 17–19.
+            let (zone_low, zone_high) = if context.player_score < 16 {
+                (14, 18)
+            } else {
+                let low = (context.player_score - 3).clamp(14, 19);
+                let high = (context.player_score - 1).clamp(low, 20);
+                (low, high)
+            };
+
+            let new_opponent_score = outcome.new_opponent_score;
+            let distance_to_zone = if new_opponent_score < zone_low {
+                zone_low - new_opponent_score
+            } else if new_opponent_score > zone_high {
+                new_opponent_score - zone_high
+            } else {
+                0
+            };
+
+            // If we're behind the player's current score, apply pressure to catch up.
+            let gap_to_player = (context.player_score - new_opponent_score).max(0);
+            let urgency_scale = (context.player_score - 14).clamp(0, 6); // 0..6
+            score -= gap_to_player * URGENCY_WEIGHT * urgency_scale / 6;
+
+            if outcome.card_preservation_value > 0 {
+                score -= SETUP_PLAY_FLAT_PENALTY;
+            }
+
+            score -= distance_to_zone * POSITION_WEIGHT;
+            score -= outcome.card_preservation_value * PRESERVE_WEIGHT * 2;
 
             // slight reward for higher scores , discourages hovering at SETUP_TARGET
-            score += outcome.new_opponent_score * 5;
+            score += new_opponent_score * 5;
+
+            // Penalize being at a low score
+            if new_opponent_score < 14 {
+                score -= (14 - new_opponent_score) * LOW_SCORE_PENALTY;
+            }
         }
 
         score
