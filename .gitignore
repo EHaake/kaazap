@@ -1,1 +1,30 @@
-/target
+# Compiled binary product targets
+/target/
+
+# Cargo Workspace Local Configs
+.cargo/config.toml
+
+# Dependency verification hashes
+Cargo.lock
+
+# macOS Specific Files
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# macOS Icon family
+.DocumentRevisions-V100/
+.fseventsd/
+.Spotlight-V100/
+.VolumeIcon.icns
+.com.apple.timemachine.donotbackup/
+
+# macOS Directory Icons
+Icon?
+.VolumeIcon.icns
+
+# IDE Specific Files (Optional)
+.idea/
+.vscode/
+*.rs.bk
