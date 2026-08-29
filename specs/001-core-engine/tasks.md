@@ -126,6 +126,16 @@ Review: after every task.
   in hand; `d`/`s` in this phase produce no action.
   *Verify: `cargo test sign_` green; full `cargo test` green.*
 
+- [x] **T004a — Surface new-game/menu controls in the help overlay**
+  *Discovered scope (human observation): starting a new game after game
+  over (`g`) and returning to the menu (`x`) already work in code but were
+  absent from the `?` controls overlay — a discoverability gap, not a
+  missing mechanic. Added `G` and `X` lines to
+  `assets/game_overlay_text.txt` and bumped the overlay's `content_height`
+  to fit.*
+  *Verify: manual — `?` in game shows G and X lines inside an intact
+  border. Done via the run-kaazap driver.*
+
 - [ ] **T005 — Flip application (2&4, 3&6)**
   - Flips route through the commit path as
     `PlayedCard { card: Flip(k), value: 0 }`, then `apply_flip(kind)`:
