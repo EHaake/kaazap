@@ -1,7 +1,5 @@
-use crossterm::event::KeyCode;
-
 use crate::{
-    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::LogicCard, menu::MenuAction, player::{Player, PlayerState}
+    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::{Card, PlayedCard}, player::{Player, PlayerState}
 };
 use std::time::{Duration, Instant};
 
@@ -53,11 +51,13 @@ impl GameState {
                 name: "Your Name".to_string(),
                 dealer_row: vec![],
                 played_row: vec![],
+                // Interim fixed hand, same values as before — random
+                // dealing from DEFAULT_SIDE_DECK arrives in T007
                 hand: vec![
-                    Some(LogicCard { value: 5 }),
-                    Some(LogicCard { value: 3 }),
-                    Some(LogicCard { value: 6 }),
-                    Some(LogicCard { value: 2 }),
+                    Some(Card::Plus(5)),
+                    Some(Card::Plus(3)),
+                    Some(Card::Plus(6)),
+                    Some(Card::Plus(2)),
                 ],
                 bust: false,
                 stood: false,
@@ -69,10 +69,10 @@ impl GameState {
                 dealer_row: vec![],
                 played_row: vec![],
                 hand: vec![
-                    Some(LogicCard { value: 2 }),
-                    Some(LogicCard { value: 6 }),
-                    Some(LogicCard { value: 1 }),
-                    Some(LogicCard { value: 4 }),
+                    Some(Card::Plus(2)),
+                    Some(Card::Plus(6)),
+                    Some(Card::Plus(1)),
+                    Some(Card::Plus(4)),
                 ],
                 bust: false,
                 stood: false,
@@ -304,10 +304,7 @@ impl GameState {
     /// Deal a card to the player
     ///
     fn player_hit(&mut self) {
-        let new_dealer_card_val: i32 = rand::random_range(0..=10);
-        self.player.dealer_row.push(LogicCard {
-            value: new_dealer_card_val,
-        });
+        self.player.dealer_row.push(draw_dealer_card());
 
         // Set gamephase to opponent's turn
         if self.opponent_can_act() {
@@ -324,7 +321,10 @@ impl GameState {
         let score = self.opponent.score();
         let target = 20 - score;
 
-        let card_hits_twenty = |card: &LogicCard| -> bool { card.value == target };
+        // Interim: only fixed Plus cards are recognized, matching current
+        // behavior — the generalized predicate arrives in T008
+        let card_hits_twenty =
+            |card: &Card| -> bool { matches!(card, Card::Plus(n) if *n as i32 == target) };
 
         if let Some(index) = self.first_hand_index(card_hits_twenty) {
             return OpponentAction::PlayHand { index };
@@ -342,7 +342,7 @@ impl GameState {
     ///
     fn first_hand_index<P>(&self, mut pred: P) -> Option<usize>
     where
-        P: FnMut(&LogicCard) -> bool,
+        P: FnMut(&Card) -> bool,
     {
         self.opponent
             .hand
@@ -373,10 +373,7 @@ impl GameState {
     /// Opponent hits (gets dealer card)
     ///
     fn opponent_hit(&mut self) {
-        let new_dealer_card_val: i32 = rand::random_range(0..=10);
-        self.opponent.dealer_row.push(LogicCard {
-            value: new_dealer_card_val,
-        });
+        self.opponent.dealer_row.push(draw_dealer_card());
     }
 
     /// Set gamestate to opponent's turn if we are on the player's turn
@@ -403,33 +400,33 @@ impl GameState {
     ///  Remove card from player hand and add it to played_row
     ///
     fn play_card(&mut self, index: usize) {
-        // Bounds checking already done before entering this fn
-        let Some(Some(LogicCard { value: _ })) = self.player.hand.get(index) else {
+        let Some(Some(card)) = self.player.hand.get(index).copied() else {
             return;
         };
 
-        if index < self.player.hand.len() {
-            // "Remove" the card from the player's hand by setting value to 0
-            let card_to_play = self.player.hand[index];
-            self.player.hand[index] = None;
-            self.player.played_row.push(card_to_play.unwrap());
-        }
+        // Interim: only fixed-value cards commit; ± / flip / tiebreaker
+        // handling lands in T003-T005 (they can't appear in hands yet)
+        let Some(value) = fixed_face_value(card) else {
+            return;
+        };
+
+        self.player.hand[index] = None;
+        self.player.played_row.push(PlayedCard { card, value });
     }
 
     /// Opponent plays card
     ///
     fn opponent_play_card(&mut self, index: usize) {
-        // Bounds checking already done before entering this fn
-        let Some(Some(LogicCard { value: _ })) = self.opponent.hand.get(index) else {
+        let Some(Some(card)) = self.opponent.hand.get(index).copied() else {
             return;
         };
 
-        if index < self.opponent.hand.len() {
-            // "Remove" the card from the opponent's hand by setting value to 0
-            let card_to_play = self.opponent.hand[index];
-            self.opponent.hand[index] = None;
-            self.opponent.played_row.push(card_to_play.unwrap());
-        }
+        let Some(value) = fixed_face_value(card) else {
+            return;
+        };
+
+        self.opponent.hand[index] = None;
+        self.opponent.played_row.push(PlayedCard { card, value });
     }
 
     /// Setup for next round.
@@ -480,5 +477,67 @@ impl GameState {
 impl Default for GameState {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Draw a random dealer card, 0-10 inclusive (intentional variant)
+///
+fn draw_dealer_card() -> PlayedCard {
+    let n: u8 = rand::random_range(0..=10);
+    PlayedCard {
+        card: Card::Dealer(n),
+        value: n as i8,
+    }
+}
+
+/// The committed value of a card that needs no play-time choice,
+/// or None for kinds that do (or that have a board effect instead)
+///
+fn fixed_face_value(card: Card) -> Option<i8> {
+    match card {
+        Card::Plus(n) => Some(n as i8),
+        Card::Minus(n) => Some(-(n as i8)),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn dealer_draw_stays_within_bounds_and_hits_both_ends() {
+        let mut seen_zero = false;
+        let mut seen_ten = false;
+
+        for _ in 0..1000 {
+            let pc = draw_dealer_card();
+            let Card::Dealer(n) = pc.card else {
+                panic!("dealer draw produced a non-dealer card: {:?}", pc.card);
+            };
+
+            assert!(n <= 10, "dealer draw out of bounds: {n}");
+            assert_eq!(pc.value, n as i8);
+
+            seen_zero |= n == 0;
+            seen_ten |= n == 10;
+        }
+
+        // Catches the range shrinking (e.g. 0..10 instead of 0..=10);
+        // odds of a false failure are (10/11)^1000 — negligible
+        assert!(seen_zero, "0 never drawn in 1000 draws");
+        assert!(seen_ten, "10 never drawn in 1000 draws");
+    }
+
+    #[test]
+    fn fixed_face_value_covers_only_choice_free_kinds() {
+        assert_eq!(fixed_face_value(Card::Plus(4)), Some(4));
+        assert_eq!(fixed_face_value(Card::Minus(3)), Some(-3));
+        assert_eq!(fixed_face_value(Card::PlusMinus(2)), None);
+        assert_eq!(fixed_face_value(Card::Tiebreaker), None);
+        assert_eq!(
+            fixed_face_value(Card::Flip(crate::card::FlipKind::TwoFour)),
+            None
+        );
     }
 }

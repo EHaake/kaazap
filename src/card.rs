@@ -1,27 +1,5 @@
 use crate::{CARD_HEIGHT, CARD_WIDTH, frame::{Drawable, Frame}};
 
-#[derive(Debug, Copy, Clone)]
-pub enum CardKind {
-    Dealer,           // only +1..+10
-    PlayerPlus,       // Player +1..+6
-    PlayerMinus,      // Player -1..-6
-    //TODO: Implement the Plus/Minus card
-    //PlayerPlusMinus,  // Player +-1..+-6 so we can 'flip' its value
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Owner {
-    Player,
-    Opponent,
-    Dealer,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub struct LogicCard {
-    pub value: i32,
-    // pub kind: CardKind,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FlipKind {
     TwoFour,

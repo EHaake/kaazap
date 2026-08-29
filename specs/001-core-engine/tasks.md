@@ -58,7 +58,11 @@ Review: after every task.
   *Verify: `cargo test card::` — label tests for all six variants and
   the deck-composition test pass.*
 
-- [ ] **T002 — Migrate rows/hands to the new types; delete `LogicCard` (`player.rs`, `game.rs`, `board.rs`)**
+- [x] **T002 — Migrate rows/hands to the new types; delete `LogicCard` (`player.rs`, `game.rs`, `board.rs`)**
+  *Finding (T002): `PlayerState.played_card` is never set `true` anywhere —
+  the "card play passes the turn" branch in `resolve_after_action` is dead
+  code; playing a card currently leaves the turn with the player. Behavior
+  preserved as-is this task; decide its fate in T003 (commit path).*
   The pivot task — mechanical migration, no new behavior:
   - `PlayerState`: `dealer_row`/`played_row` → `Vec<PlayedCard>`,
     `hand` → `Vec<Option<Card>>`; `score()` sums `value` over both rows.

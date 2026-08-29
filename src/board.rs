@@ -233,7 +233,7 @@ impl BoardView {
                 CardView {
                     x,
                     y: hand_y,
-                    text: c.unwrap().value.to_string(),
+                    text: c.unwrap().label(),
                 }
                 .draw(frame);
 
