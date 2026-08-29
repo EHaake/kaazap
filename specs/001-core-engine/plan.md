@@ -1,6 +1,6 @@
 # Plan: Core Pazaak Card Engine
 
-**Status**: Draft — pending review
+**Status**: Approved
 **Implements**: spec.md in this directory
 
 Guiding constraint from `CLAUDE.md`: simplest design that satisfies the
