@@ -136,7 +136,7 @@ Review: after every task.
   *Verify: manual — `?` in game shows G and X lines inside an intact
   border. Done via the run-kaazap driver.*
 
-- [ ] **T005 — Flip application (2&4, 3&6)**
+- [x] **T005 — Flip application (2&4, 3&6)**
   - Flips route through the commit path as
     `PlayedCard { card: Flip(k), value: 0 }`, then `apply_flip(kind)`:
     negate `value` on every `PlayedCard` in all four rows where

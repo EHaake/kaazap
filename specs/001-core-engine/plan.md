@@ -83,8 +83,10 @@ All in `game.rs`, extending the existing state machine — no new modules.
   four rows where `value.abs()` matches the kind's pair (2/4 or 3/6),
   skipping zeros. Then run the existing resolution logic for *both*
   players — including the spec's ruling that a standing player pushed
-  over 20 busts. `resolve_after_action` already checks both scores; it
-  needs only the standing-player-bust case added.
+  over 20 busts. *(Correction at T005: `resolve_after_action` needed no
+  change — its bust checks never consulted `stood`, so a standing player
+  pushed over 20 already busts. Proven by test, not assumed:
+  `flip_busts_a_standing_player_pushed_over_twenty`.)*
 - **Tiebreaker resolution**: in `finalize_round`'s `Tied` branch, check
   each side's `played_row` for a `Tiebreaker` entry. Exactly one side
   has one → that side wins the round; both or neither → tie stands

@@ -6,6 +6,17 @@ pub enum FlipKind {
     ThreeSix,
 }
 
+impl FlipKind {
+    /// Whether a card at this table value gets its sign inverted by
+    /// this flip kind — sign ignored, zeros never match
+    pub fn flips_value(&self, value: i8) -> bool {
+        match self {
+            FlipKind::TwoFour => matches!(value.abs(), 2 | 4),
+            FlipKind::ThreeSix => matches!(value.abs(), 3 | 6),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Card {
     Dealer(u8),     // main-deck draw, 0-10 (intentional variant)
@@ -169,6 +180,18 @@ mod tests {
     fn label_tiebreaker_is_distinct_from_plus_minus_one() {
         assert_eq!(Card::Tiebreaker.label(), "±1T");
         assert_ne!(Card::Tiebreaker.label(), Card::PlusMinus(1).label());
+    }
+
+    #[test]
+    fn flip_value_matching_ignores_sign_and_skips_zero() {
+        assert!(FlipKind::TwoFour.flips_value(2));
+        assert!(FlipKind::TwoFour.flips_value(-4));
+        assert!(!FlipKind::TwoFour.flips_value(3));
+        assert!(!FlipKind::TwoFour.flips_value(0));
+        assert!(FlipKind::ThreeSix.flips_value(-3));
+        assert!(FlipKind::ThreeSix.flips_value(6));
+        assert!(!FlipKind::ThreeSix.flips_value(2));
+        assert!(!FlipKind::ThreeSix.flips_value(0));
     }
 
     #[test]

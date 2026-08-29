@@ -1,5 +1,5 @@
 use crate::{
-    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::{Card, PlayedCard}, player::{Player, PlayerState}
+    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::{Card, FlipKind, PlayedCard}, player::{Player, PlayerState}
 };
 use std::time::{Duration, Instant};
 
@@ -458,12 +458,37 @@ impl GameState {
             return;
         }
 
-        // Interim: flip kinds become playable in T005
+        // Flips land at value 0 and immediately rework the whole table
+        if let Card::Flip(kind) = card {
+            self.commit_play(Player::Player, index, 0);
+            self.apply_flip(kind);
+            return;
+        }
+
         let Some(value) = fixed_face_value(card) else {
             return;
         };
 
         self.commit_play(Player::Player, index, value);
+    }
+
+    /// Invert the sign of every table card the flip kind matches — both
+    /// sides, dealer-drawn and hand-played alike. Bust/stand fallout is
+    /// resolve_after_action's job, which runs after every action.
+    ///
+    fn apply_flip(&mut self, kind: FlipKind) {
+        for row in [
+            &mut self.player.dealer_row,
+            &mut self.player.played_row,
+            &mut self.opponent.dealer_row,
+            &mut self.opponent.played_row,
+        ] {
+            for pc in row.iter_mut() {
+                if kind.flips_value(pc.value) {
+                    pc.value = -pc.value;
+                }
+            }
+        }
     }
 
     /// Answer the pending sign choice: commit the card at its magnitude
@@ -559,6 +584,116 @@ fn fixed_face_value(card: Card) -> Option<i8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn pc(card: Card, value: i8) -> PlayedCard {
+        PlayedCard { card, value }
+    }
+
+    #[test]
+    fn flip_inverts_matching_values_on_both_sides_including_dealer_rows() {
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![pc(Card::Dealer(2), 2), pc(Card::Dealer(7), 7)];
+        gs.player.played_row = vec![pc(Card::Minus(4), -4)];
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(4), 4)];
+        gs.opponent.played_row = vec![pc(Card::Plus(2), 2), pc(Card::Minus(3), -3)];
+        gs.player.hand[0] = Some(Card::Flip(FlipKind::TwoFour));
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(gs.player.dealer_row[0].value, -2);
+        assert_eq!(gs.player.dealer_row[1].value, 7); // non-matching untouched
+        assert_eq!(gs.player.played_row[0].value, 4); // -4 -> +4
+        assert_eq!(gs.opponent.dealer_row[0].value, -4);
+        assert_eq!(gs.opponent.played_row[0].value, -2);
+        assert_eq!(gs.opponent.played_row[1].value, -3); // 3 is not 2&4's pair
+    }
+
+    #[test]
+    fn flip_three_six_inverts_threes_and_sixes() {
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![pc(Card::Dealer(3), 3), pc(Card::Dealer(6), 6)];
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(2), 2)];
+        gs.player.hand[1] = Some(Card::Flip(FlipKind::ThreeSix));
+
+        gs.apply_game_action(GameAction::PlayHand { index: 1 });
+
+        assert_eq!(gs.player.dealer_row[0].value, -3);
+        assert_eq!(gs.player.dealer_row[1].value, -6);
+        assert_eq!(gs.opponent.dealer_row[0].value, 2);
+        // Totals reflect the inversion immediately
+        assert_eq!(gs.player.score(), -9);
+    }
+
+    #[test]
+    fn flip_card_itself_contributes_zero_and_lands_on_table() {
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![pc(Card::Dealer(5), 5)];
+        gs.player.hand[0] = Some(Card::Flip(FlipKind::ThreeSix));
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert!(gs.player.hand[0].is_none());
+        let flip = gs.player.played_row[0];
+        assert_eq!(flip.card, Card::Flip(FlipKind::ThreeSix));
+        assert_eq!(flip.value, 0);
+        assert_eq!(gs.player.score(), 5);
+    }
+
+    #[test]
+    fn flip_ignores_zero_valued_cards() {
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![pc(Card::Dealer(0), 0)];
+        gs.player.played_row = vec![pc(Card::Flip(FlipKind::TwoFour), 0)];
+        gs.player.hand[0] = Some(Card::Flip(FlipKind::TwoFour));
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(gs.player.dealer_row[0].value, 0);
+        assert_eq!(gs.player.played_row[0].value, 0);
+    }
+
+    #[test]
+    fn flip_busts_a_standing_player_pushed_over_twenty() {
+        let mut gs = GameState::new();
+        // Opponent stood at 18: 10 + 10 - 2
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(10), 10)];
+        gs.opponent.played_row = vec![pc(Card::Minus(2), -2)];
+        gs.opponent.stood = true;
+        gs.player.dealer_row = vec![pc(Card::Dealer(7), 7)];
+        gs.player.hand[0] = Some(Card::Flip(FlipKind::TwoFour));
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(gs.opponent.score(), 22);
+        assert!(gs.opponent.bust);
+        assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
+
+        // And the round resolves against the busted side
+        gs.update();
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::PlayerWon)));
+    }
+
+    #[test]
+    fn flip_that_lowers_a_standing_player_keeps_them_standing_not_bust() {
+        let mut gs = GameState::new();
+        // Opponent stood at 18: 10 + 4 + 4
+        gs.opponent.dealer_row = vec![
+            pc(Card::Dealer(10), 10),
+            pc(Card::Dealer(4), 4),
+            pc(Card::Dealer(4), 4),
+        ];
+        gs.opponent.stood = true;
+        gs.player.dealer_row = vec![pc(Card::Dealer(7), 7)];
+        gs.player.hand[0] = Some(Card::Flip(FlipKind::TwoFour));
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(gs.opponent.score(), 2); // 10 - 4 - 4
+        assert!(!gs.opponent.bust);
+        assert!(gs.opponent.stood);
+        // Round continues, turn still with the player
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+    }
 
     #[test]
     fn dealer_draw_stays_within_bounds_and_hits_both_ends() {
