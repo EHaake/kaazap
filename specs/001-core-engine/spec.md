@@ -1,6 +1,6 @@
 # Spec: Core Pazaak Card Engine
 
-**Status**: Draft — pending review
+**Status**: Approved
 **Depends on**: nothing (first feature spec)
 
 ## Summary
