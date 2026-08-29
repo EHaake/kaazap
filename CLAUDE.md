@@ -18,6 +18,15 @@ Wins earn currency and/or card packs that unlock better side-deck cards
 for future matches. It's a personal project, built with the intent of
 eventually being presentable enough to share (portfolio, itch.io).
 
+## Simplicity
+
+This is a small personal project, not an enterprise production codebase.
+Prefer the simplest design that satisfies the spec: fewer types, fewer
+abstractions, no speculative generality. Readability and maintainability
+beat cleverness and future-proofing. If a plan or implementation grows
+indirection the spec doesn't demand, that's a smell — cut it. This is a
+standing instruction to Claude Code as much as a note to the human.
+
 ## Platform
 
 - **Target**: Linux, macOS, Windows terminals via `crossterm`. No specific
