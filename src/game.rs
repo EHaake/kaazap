@@ -271,7 +271,16 @@ impl GameState {
         } else if opponent_score > player_score {
             RoundOutcome::OpponentWon
         } else {
-            RoundOutcome::Tied
+            // Equal totals: a lone tiebreaker in play wins the round for
+            // its owner; two of them cancel and the tie stands
+            match (
+                self.player.has_tiebreaker_in_play(),
+                self.opponent.has_tiebreaker_in_play(),
+            ) {
+                (true, false) => RoundOutcome::PlayerWon,
+                (false, true) => RoundOutcome::OpponentWon,
+                _ => RoundOutcome::Tied,
+            }
         };
 
         // Apply reward outcome (increment rounds won or not if tied)
@@ -693,6 +702,127 @@ mod tests {
         assert!(gs.opponent.stood);
         // Round continues, turn still with the player
         assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+    }
+
+    /// Build a finished round where both sides stand on equal totals.
+    /// Each side's dealer row is filled to `dealer_total`, and any extra
+    /// played cards are appended to reach the same final score.
+    fn tied_round(player_played: Vec<PlayedCard>, opponent_played: Vec<PlayedCard>) -> GameState {
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(8), 8)];
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(8), 8)];
+        gs.player.played_row = player_played;
+        gs.opponent.played_row = opponent_played;
+        gs.player.stood = true;
+        gs.opponent.stood = true;
+        gs.game_phase = GamePhase::RoundEnd;
+        gs
+    }
+
+    #[test]
+    fn tiebreaker_one_side_in_play_wins_the_tie_for_that_side() {
+        // Both land on 19: player 18 + tiebreaker(+1), opponent 18 + 1
+        let mut gs = tied_round(
+            vec![pc(Card::Tiebreaker, 1)],
+            vec![pc(Card::Plus(1), 1)],
+        );
+        assert_eq!(gs.player.score(), gs.opponent.score());
+
+        gs.update();
+
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::PlayerWon)));
+        assert_eq!(gs.player.rounds_won, 1);
+        assert_eq!(gs.opponent.rounds_won, 0);
+    }
+
+    #[test]
+    fn tiebreaker_wins_the_tie_for_the_opponent_too() {
+        let mut gs = tied_round(
+            vec![pc(Card::Plus(1), 1)],
+            vec![pc(Card::Tiebreaker, 1)],
+        );
+        assert_eq!(gs.player.score(), gs.opponent.score());
+
+        gs.update();
+
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
+        assert_eq!(gs.opponent.rounds_won, 1);
+        assert_eq!(gs.player.rounds_won, 0);
+    }
+
+    #[test]
+    fn tiebreaker_played_as_minus_one_still_wins_the_tie() {
+        // Identity decides the tie, not the sign it was played at:
+        // player 18 - 1 = 17, opponent 18 - 1 = 17
+        let mut gs = tied_round(
+            vec![pc(Card::Tiebreaker, -1)],
+            vec![pc(Card::Minus(1), -1)],
+        );
+        assert_eq!(gs.player.score(), gs.opponent.score());
+
+        gs.update();
+
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::PlayerWon)));
+    }
+
+    #[test]
+    fn tiebreaker_on_both_sides_cancels_and_the_tie_stands() {
+        let mut gs = tied_round(
+            vec![pc(Card::Tiebreaker, 1)],
+            vec![pc(Card::Tiebreaker, 1)],
+        );
+        assert_eq!(gs.player.score(), gs.opponent.score());
+
+        gs.update();
+
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::Tied)));
+        assert_eq!(gs.player.rounds_won, 0);
+        assert_eq!(gs.opponent.rounds_won, 0);
+    }
+
+    #[test]
+    fn tie_with_no_tiebreaker_stands() {
+        let mut gs = tied_round(vec![], vec![]);
+        assert_eq!(gs.player.score(), gs.opponent.score());
+
+        gs.update();
+
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::Tied)));
+        assert_eq!(gs.player.rounds_won, 0);
+        assert_eq!(gs.opponent.rounds_won, 0);
+    }
+
+    #[test]
+    fn tiebreaker_does_not_rescue_a_losing_round() {
+        // The tiebreaker only breaks ties — it never overturns a loss
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![pc(Card::Dealer(10), 10)];
+        gs.player.played_row = vec![pc(Card::Tiebreaker, 1)]; // 11
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(9), 9)]; // 19
+        gs.player.stood = true;
+        gs.opponent.stood = true;
+        gs.game_phase = GamePhase::RoundEnd;
+
+        gs.update();
+
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
+    }
+
+    #[test]
+    fn tiebreaker_does_not_rescue_a_bust() {
+        // Busting loses outright, tiebreaker in play or not
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(10), 10)];
+        gs.player.played_row = vec![pc(Card::Tiebreaker, 1)]; // 21
+        gs.player.bust = true;
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(10), 10)];
+        gs.opponent.played_row = vec![pc(Card::Plus(1), 1)]; // also 21 — equal totals
+        gs.opponent.stood = true;
+        gs.game_phase = GamePhase::RoundEnd;
+
+        gs.update();
+
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
     }
 
     #[test]

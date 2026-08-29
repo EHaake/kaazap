@@ -29,6 +29,14 @@ impl PlayerState {
 
         total_side + total_dealer
     }
+
+    /// Does this player have a tiebreaker on the table this round?
+    /// (played_row is cleared each round, so this is round-scoped.)
+    pub fn has_tiebreaker_in_play(&self) -> bool {
+        self.played_row
+            .iter()
+            .any(|pc| pc.card == Card::Tiebreaker)
+    }
 }
 
 #[cfg(test)]

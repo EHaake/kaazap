@@ -153,7 +153,11 @@ Review: after every task.
   immediately.
   *Verify: `cargo test flip_` green; full `cargo test` green.*
 
-- [ ] **T006 — Tiebreaker resolution**
+- [x] **T006 — Tiebreaker resolution**
+  *Mutation check performed (two mutations, both confirmed red, rule
+  restored): inverting the winner mapping turned the three one-sided
+  tests red; making two tiebreakers award a win turned the both-sides
+  test red.*
   In `finalize_round`'s `Tied` branch: exactly one side with a
   `Tiebreaker` in its `played_row` wins the round; both or neither →
   the tie stands. (`setup_next_round` clearing `played_row` already
