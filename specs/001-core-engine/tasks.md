@@ -106,7 +106,7 @@ Review: after every task.
   negative); the slot stays empty afterward.
   *Verify: `cargo test commit_` green; full `cargo test` green.*
 
-- [ ] **T004 — Sign-choice phase (± and tiebreaker)**
+- [x] **T004 — Sign-choice phase (± and tiebreaker)**
   - `GamePhase::AwaitingSignChoice { hand_index }`, entered from
     `apply_game_action` when the played card is `PlusMinus` or
     `Tiebreaker` (card stays in hand until committed).

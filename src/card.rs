@@ -30,6 +30,17 @@ impl Card {
             Card::Tiebreaker => "±1T".to_string(),
         }
     }
+
+    /// The magnitude a sign-choice card plays at (± cards and the
+    /// tiebreaker), or None for kinds needing no play-time choice.
+    /// One source of truth for both the commit logic and the prompt.
+    pub fn sign_choice_magnitude(&self) -> Option<i8> {
+        match self {
+            Card::PlusMinus(n) => Some(*n as i8),
+            Card::Tiebreaker => Some(1),
+            _ => None,
+        }
+    }
 }
 
 /// A card on the table: identity plus its current signed contribution.
@@ -158,6 +169,16 @@ mod tests {
     fn label_tiebreaker_is_distinct_from_plus_minus_one() {
         assert_eq!(Card::Tiebreaker.label(), "±1T");
         assert_ne!(Card::Tiebreaker.label(), Card::PlusMinus(1).label());
+    }
+
+    #[test]
+    fn sign_choice_magnitude_covers_plus_minus_and_tiebreaker_only() {
+        assert_eq!(Card::PlusMinus(3).sign_choice_magnitude(), Some(3));
+        assert_eq!(Card::Tiebreaker.sign_choice_magnitude(), Some(1));
+        assert_eq!(Card::Plus(4).sign_choice_magnitude(), None);
+        assert_eq!(Card::Minus(2).sign_choice_magnitude(), None);
+        assert_eq!(Card::Flip(FlipKind::TwoFour).sign_choice_magnitude(), None);
+        assert_eq!(Card::Dealer(5).sign_choice_magnitude(), None);
     }
 
     #[test]

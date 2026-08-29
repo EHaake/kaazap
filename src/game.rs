@@ -10,6 +10,8 @@ pub enum GameAction {
     NextRound,
     NextGame,
     PlayHand { index: usize },
+    ChooseSign { positive: bool },
+    CancelSignChoice,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -31,6 +33,9 @@ pub enum RoundOutcome {
 #[derive(Debug, Clone)]
 pub enum GamePhase {
     PlayerTurn,
+    // A ± or tiebreaker card was selected and waits in hand for the
+    // player's +/- answer
+    AwaitingSignChoice { hand_index: usize },
     OpponentThinking { until: Instant },
     OpponentTurn,
     RoundEnd,
@@ -93,6 +98,17 @@ impl GameState {
     /// Convert a key pressed into an Action
     ///
     pub fn game_action_from_key(&self, key: char) -> Option<GameAction> {
+        // While a sign choice is pending, the only meaningful keys are
+        // the choice itself and cancel — everything else is ignored
+        if matches!(self.game_phase, GamePhase::AwaitingSignChoice { .. }) {
+            return match key {
+                '+' | '1' => Some(GameAction::ChooseSign { positive: true }),
+                '-' | '2' => Some(GameAction::ChooseSign { positive: false }),
+                'c' => Some(GameAction::CancelSignChoice),
+                _ => None,
+            };
+        }
+
         match key {
             '1' | '2' | '3' | '4' => Some(GameAction::PlayHand {
                 index: key.to_digit(10)? as usize - 1,
@@ -125,6 +141,17 @@ impl GameState {
                 if matches!(self.game_phase, GamePhase::PlayerTurn) {
                     self.play_card(index);
                     self.resolve_after_action();
+                }
+            }
+            GameAction::ChooseSign { positive } => {
+                if let GamePhase::AwaitingSignChoice { hand_index } = self.game_phase {
+                    self.commit_sign_choice(hand_index, positive);
+                    self.resolve_after_action();
+                }
+            }
+            GameAction::CancelSignChoice => {
+                if matches!(self.game_phase, GamePhase::AwaitingSignChoice { .. }) {
+                    self.game_phase = GamePhase::PlayerTurn;
                 }
             }
             GameAction::NextRound => {
@@ -418,19 +445,42 @@ impl GameState {
     }
 
     /// Resolve how the player's selected card commits: fixed-value cards
-    /// commit immediately at face value
+    /// commit immediately at face value; sign-choice kinds wait in hand
+    /// for the player's +/- answer
     ///
     fn play_card(&mut self, index: usize) {
         let Some(Some(card)) = self.player.hand.get(index).copied() else {
             return;
         };
 
-        // Interim: sign-choice and flip kinds become playable in
-        // T004/T005 (they can't appear in hands until T007)
+        if card.sign_choice_magnitude().is_some() {
+            self.game_phase = GamePhase::AwaitingSignChoice { hand_index: index };
+            return;
+        }
+
+        // Interim: flip kinds become playable in T005
         let Some(value) = fixed_face_value(card) else {
             return;
         };
 
+        self.commit_play(Player::Player, index, value);
+    }
+
+    /// Answer the pending sign choice: commit the card at its magnitude
+    /// with the chosen sign, and hand the turn state back to PlayerTurn
+    ///
+    fn commit_sign_choice(&mut self, index: usize, positive: bool) {
+        // Whatever happens below, the prompt is over
+        self.game_phase = GamePhase::PlayerTurn;
+
+        let Some(Some(card)) = self.player.hand.get(index).copied() else {
+            return;
+        };
+        let Some(magnitude) = card.sign_choice_magnitude() else {
+            return;
+        };
+
+        let value = if positive { magnitude } else { -magnitude };
         self.commit_play(Player::Player, index, value);
     }
 
@@ -581,6 +631,147 @@ mod tests {
         let pc = gs.opponent.played_row[0];
         assert_eq!(pc.card, Card::Plus(4));
         assert_eq!(pc.value, 4);
+    }
+
+    #[test]
+    fn sign_play_enters_choice_phase_and_keeps_card_in_hand() {
+        let mut gs = GameState::new();
+        gs.player.hand[0] = Some(Card::PlusMinus(3));
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert!(matches!(
+            gs.game_phase,
+            GamePhase::AwaitingSignChoice { hand_index: 0 }
+        ));
+        assert_eq!(gs.player.hand[0], Some(Card::PlusMinus(3)));
+        assert!(gs.player.played_row.is_empty());
+    }
+
+    #[test]
+    fn sign_choose_positive_commits_positive() {
+        let mut gs = GameState::new();
+        gs.player.hand[0] = Some(Card::PlusMinus(3));
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        gs.apply_game_action(GameAction::ChooseSign { positive: true });
+
+        assert!(gs.player.hand[0].is_none());
+        let pc = gs.player.played_row[0];
+        assert_eq!(pc.card, Card::PlusMinus(3));
+        assert_eq!(pc.value, 3);
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+    }
+
+    #[test]
+    fn sign_choose_negative_commits_negative() {
+        let mut gs = GameState::new();
+        gs.player.hand[0] = Some(Card::PlusMinus(3));
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        gs.apply_game_action(GameAction::ChooseSign { positive: false });
+
+        assert!(gs.player.hand[0].is_none());
+        let pc = gs.player.played_row[0];
+        assert_eq!(pc.card, Card::PlusMinus(3));
+        assert_eq!(pc.value, -3);
+    }
+
+    #[test]
+    fn sign_tiebreaker_plays_as_plus_or_minus_one() {
+        let mut gs = GameState::new();
+        gs.player.hand[2] = Some(Card::Tiebreaker);
+
+        gs.apply_game_action(GameAction::PlayHand { index: 2 });
+        assert!(matches!(
+            gs.game_phase,
+            GamePhase::AwaitingSignChoice { hand_index: 2 }
+        ));
+
+        gs.apply_game_action(GameAction::ChooseSign { positive: false });
+        let pc = gs.player.played_row[0];
+        assert_eq!(pc.card, Card::Tiebreaker);
+        assert_eq!(pc.value, -1);
+    }
+
+    #[test]
+    fn sign_cancel_restores_turn_with_card_unspent() {
+        let mut gs = GameState::new();
+        gs.player.hand[1] = Some(Card::PlusMinus(6));
+        gs.apply_game_action(GameAction::PlayHand { index: 1 });
+
+        gs.apply_game_action(GameAction::CancelSignChoice);
+
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+        assert_eq!(gs.player.hand[1], Some(Card::PlusMinus(6)));
+        assert!(gs.player.played_row.is_empty());
+    }
+
+    #[test]
+    fn sign_phase_maps_only_choice_and_cancel_keys() {
+        let mut gs = GameState::new();
+        gs.player.hand[0] = Some(Card::PlusMinus(3));
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(
+            gs.game_action_from_key('+'),
+            Some(GameAction::ChooseSign { positive: true })
+        );
+        assert_eq!(
+            gs.game_action_from_key('1'),
+            Some(GameAction::ChooseSign { positive: true })
+        );
+        assert_eq!(
+            gs.game_action_from_key('-'),
+            Some(GameAction::ChooseSign { positive: false })
+        );
+        assert_eq!(
+            gs.game_action_from_key('2'),
+            Some(GameAction::ChooseSign { positive: false })
+        );
+        assert_eq!(
+            gs.game_action_from_key('c'),
+            Some(GameAction::CancelSignChoice)
+        );
+        // Hit/Stand/other play keys are ignored while the prompt is up
+        assert_eq!(gs.game_action_from_key('d'), None);
+        assert_eq!(gs.game_action_from_key('s'), None);
+        assert_eq!(gs.game_action_from_key('3'), None);
+    }
+
+    #[test]
+    fn sign_normal_phase_key_mapping_unchanged() {
+        let gs = GameState::new();
+
+        assert_eq!(
+            gs.game_action_from_key('1'),
+            Some(GameAction::PlayHand { index: 0 })
+        );
+        assert_eq!(gs.game_action_from_key('d'), Some(GameAction::Hit));
+        assert_eq!(gs.game_action_from_key('s'), Some(GameAction::Stand));
+        assert_eq!(gs.game_action_from_key('+'), None);
+        assert_eq!(gs.game_action_from_key('c'), None);
+    }
+
+    #[test]
+    fn sign_update_leaves_choice_phase_alone() {
+        let mut gs = GameState::new();
+        gs.player.hand[0] = Some(Card::PlusMinus(3));
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        gs.update();
+
+        assert!(matches!(gs.game_phase, GamePhase::AwaitingSignChoice { .. }));
+    }
+
+    #[test]
+    fn sign_choose_outside_choice_phase_is_noop() {
+        let mut gs = GameState::new();
+
+        gs.apply_game_action(GameAction::ChooseSign { positive: true });
+
+        assert!(gs.player.played_row.is_empty());
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
     }
 
     #[test]
