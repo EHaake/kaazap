@@ -9,7 +9,11 @@ Replace Kaazap's placeholder card model (`LogicCard { value: i32 }`) with
 a real card-type system supporting Pazaak's full card variety — plus,
 minus, flip (±), and special cards (2&4, 3&6, tiebreaker) — along with
 the game-logic changes needed to score and resolve rounds correctly with
-them. This is the foundational spec every later system (opponent
+them. A single signed integer can represent a fixed-value card, but not
+a card whose value is a *choice made at play time* (flip, 2&4, 3&6) or
+one with behavior beyond its value (tiebreaker) — hence a real type
+model rather than a wider integer. Existing behavior (dealer draws,
+fixed-value hand cards) maps into the new model unchanged. This is the foundational spec every later system (opponent
 personalities, campaign/progression, persistence) builds on top of.
 
 ## Goals
@@ -46,8 +50,11 @@ personalities, campaign/progression, persistence) builds on top of.
   spec draws from the same fixed default deck as the player, with the
   same existing simple AI. Distinct opponent decks/strategies are a
   later spec.
-- **Mid-match hand redraw** — confirmed out of scope in an earlier
-  conversation; not real Pazaak behavior, and Kaazap won't add it.
+- **Mid-match hand redraw** — not in this spec: v1 keeps real Pazaak's
+  no-redraw behavior. Deferred rather than rejected — a redraw mechanic
+  is a candidate for the post-v1 rule-enhancement pass (see
+  `ROADMAP.md`), once a complete baseline game exists to evaluate
+  variants against.
 - **"How to Play" menu wiring** — separate, small, unrelated fix. Note
   that the overlay's rules text will need updating once these new card
   types exist, but that's a follow-up, not part of this spec.
@@ -135,7 +142,9 @@ that game, that side wins the round instead of it resulting in a tie.
 
 - Main deck's 0–10 range: intentional, not a bug (see `DECISIONS.md`) —
   unchanged by this spec.
-- No mid-match side-deck redraw — confirmed, matches real Pazaak.
+- No mid-match side-deck redraw in v1 — matches real Pazaak. Kept open
+  as a possible post-v1 rule enhancement rather than permanently ruled
+  out.
 - No full side-deck customization in v1 — confirmed; default deck is
   fixed content, not player-editable.
 - Minus cards ship in the v1 default deck rather than being deferred to
