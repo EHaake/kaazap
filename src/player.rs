@@ -17,7 +17,6 @@ pub struct PlayerState {
     pub stood: bool,                      // do they get a dealer card next turn?
     pub bust: bool,                       // is score > 20?
     pub rounds_won: usize,                // rounds won
-    pub played_card: bool,                // did player play a card this turn?
 }
 
 impl PlayerState {
@@ -46,7 +45,6 @@ mod tests {
             stood: false,
             bust: false,
             rounds_won: 0,
-            played_card: false,
         }
     }
 

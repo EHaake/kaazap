@@ -164,3 +164,8 @@ on this branch: drop the unused `rusty_time` dependency from
   prompt phase — the prompt is player UI, not game logic.
 - `rand`'s `choose_multiple` for dealing rather than hand-rolled
   index sampling.
+- `PlayerState.played_card` deleted (T002 finding, ruled at T003): the
+  flag was never set anywhere, so playing a side card has always kept
+  the turn with the player. That matches real Pazaak (play a card, then
+  still hit or stand), so the behavior stays and the dead flag and its
+  never-taken pass-the-turn branch in `resolve_after_action` are gone.

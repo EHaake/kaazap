@@ -16,7 +16,9 @@ pub enum GameAction {
 pub enum OpponentAction {
     Hit,
     Stand,
-    PlayHand { index: usize },
+    // The AI resolves sign choices itself, so the committed value rides
+    // in the action — the sign-choice prompt is player UI only
+    PlayHand { index: usize, value: i8 },
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -62,7 +64,6 @@ impl GameState {
                 bust: false,
                 stood: false,
                 rounds_won: 0,
-                played_card: false,
             },
             opponent: PlayerState {
                 name: "Opponent".to_string(),
@@ -77,7 +78,6 @@ impl GameState {
                 bust: false,
                 stood: false,
                 rounds_won: 0,
-                played_card: false,
             },
             game_phase: GamePhase::PlayerTurn,
             round_outcome: None,
@@ -153,11 +153,33 @@ impl GameState {
                 self.opponent_stand();
                 self.resolve_after_action();
             }
-            OpponentAction::PlayHand { index } => {
-                self.opponent_play_card(index);
+            OpponentAction::PlayHand { index, value } => {
+                self.commit_play(Player::Opponent, index, value);
                 self.resolve_after_action();
             }
         }
+    }
+
+    /// Borrow the given side's state mutably
+    ///
+    fn side_state_mut(&mut self, side: Player) -> &mut PlayerState {
+        match side {
+            Player::Player => &mut self.player,
+            Player::Opponent => &mut self.opponent,
+        }
+    }
+
+    /// The one path a hand card takes onto the table: remove it from the
+    /// hand and push it to played_row with its committed signed value
+    ///
+    fn commit_play(&mut self, side: Player, index: usize, value: i8) {
+        let state = self.side_state_mut(side);
+        let Some(Some(card)) = state.hand.get(index).copied() else {
+            return;
+        };
+
+        state.hand[index] = None;
+        state.played_row.push(PlayedCard { card, value });
     }
 
     /// After each state mutation action, check scores to see if status or
@@ -169,13 +191,8 @@ impl GameState {
             return;
         }
 
-        // If player has played a card, move to Opponent's turn and reset flag
-        if self.player.played_card {
-            self.game_phase = GamePhase::OpponentThinking {
-                until: Instant::now() + Duration::from_millis(OPPONENT_THINKING_TIME_MS),
-            };
-            self.player.played_card = false;
-        }
+        // Note: playing a side card deliberately keeps the turn with the
+        // player (matches real Pazaak — play a card, then hit or stand)
 
         let player_score = self.player.score();
         let opponent_score = self.opponent.score();
@@ -327,7 +344,10 @@ impl GameState {
             |card: &Card| -> bool { matches!(card, Card::Plus(n) if *n as i32 == target) };
 
         if let Some(index) = self.first_hand_index(card_hits_twenty) {
-            return OpponentAction::PlayHand { index };
+            return OpponentAction::PlayHand {
+                index,
+                value: target as i8,
+            };
         }
 
         // if score is >= 17, stand
@@ -361,8 +381,8 @@ impl GameState {
             OpponentAction::Stand => {
                 self.opponent_stand();
             }
-            OpponentAction::PlayHand { index } => {
-                self.opponent_play_card(index);
+            OpponentAction::PlayHand { index, value } => {
+                self.commit_play(Player::Opponent, index, value);
             }
         }
 
@@ -397,36 +417,21 @@ impl GameState {
         self.opponent.stood = true;
     }
 
-    ///  Remove card from player hand and add it to played_row
+    /// Resolve how the player's selected card commits: fixed-value cards
+    /// commit immediately at face value
     ///
     fn play_card(&mut self, index: usize) {
         let Some(Some(card)) = self.player.hand.get(index).copied() else {
             return;
         };
 
-        // Interim: only fixed-value cards commit; ± / flip / tiebreaker
-        // handling lands in T003-T005 (they can't appear in hands yet)
+        // Interim: sign-choice and flip kinds become playable in
+        // T004/T005 (they can't appear in hands until T007)
         let Some(value) = fixed_face_value(card) else {
             return;
         };
 
-        self.player.hand[index] = None;
-        self.player.played_row.push(PlayedCard { card, value });
-    }
-
-    /// Opponent plays card
-    ///
-    fn opponent_play_card(&mut self, index: usize) {
-        let Some(Some(card)) = self.opponent.hand.get(index).copied() else {
-            return;
-        };
-
-        let Some(value) = fixed_face_value(card) else {
-            return;
-        };
-
-        self.opponent.hand[index] = None;
-        self.opponent.played_row.push(PlayedCard { card, value });
+        self.commit_play(Player::Player, index, value);
     }
 
     /// Setup for next round.
@@ -527,6 +532,55 @@ mod tests {
         // odds of a false failure are (10/11)^1000 — negligible
         assert!(seen_zero, "0 never drawn in 1000 draws");
         assert!(seen_ten, "10 never drawn in 1000 draws");
+    }
+
+    #[test]
+    fn commit_play_empties_slot_and_records_card_with_value() {
+        let mut gs = GameState::new();
+        // Player hand slot 0 holds Plus(5)
+        gs.commit_play(Player::Player, 0, 5);
+
+        assert!(gs.player.hand[0].is_none());
+        assert_eq!(gs.player.played_row.len(), 1);
+        let pc = gs.player.played_row[0];
+        assert_eq!(pc.card, Card::Plus(5));
+        assert_eq!(pc.value, 5);
+        assert_eq!(gs.player.score(), 5);
+    }
+
+    #[test]
+    fn commit_play_negative_value_lands_negative() {
+        let mut gs = GameState::new();
+        // Opponent hand slot 1 holds Plus(6); a negative committed value
+        // must land as passed — this is the path ± signs ride on
+        gs.commit_play(Player::Opponent, 1, -6);
+
+        assert!(gs.opponent.hand[1].is_none());
+        let pc = gs.opponent.played_row[0];
+        assert_eq!(pc.card, Card::Plus(6));
+        assert_eq!(pc.value, -6);
+        assert_eq!(gs.opponent.score(), -6);
+    }
+
+    #[test]
+    fn commit_play_on_empty_or_bad_slot_is_a_noop() {
+        let mut gs = GameState::new();
+        gs.commit_play(Player::Player, 2, 6);
+        gs.commit_play(Player::Player, 2, 6); // slot already empty
+        gs.commit_play(Player::Player, 99, 1); // out of bounds
+
+        assert_eq!(gs.player.played_row.len(), 1);
+    }
+
+    #[test]
+    fn commit_via_opponent_action_carries_the_action_value() {
+        let mut gs = GameState::new();
+        // Opponent hand slot 3 holds Plus(4)
+        gs.apply_opponent_action(OpponentAction::PlayHand { index: 3, value: 4 });
+
+        let pc = gs.opponent.played_row[0];
+        assert_eq!(pc.card, Card::Plus(4));
+        assert_eq!(pc.value, 4);
     }
 
     #[test]

@@ -61,8 +61,9 @@ Review: after every task.
 - [x] **T002 — Migrate rows/hands to the new types; delete `LogicCard` (`player.rs`, `game.rs`, `board.rs`)**
   *Finding (T002): `PlayerState.played_card` is never set `true` anywhere —
   the "card play passes the turn" branch in `resolve_after_action` is dead
-  code; playing a card currently leaves the turn with the player. Behavior
-  preserved as-is this task; decide its fate in T003 (commit path).*
+  code; playing a card currently leaves the turn with the player. Resolved
+  at T003 (human ruling): behavior kept — it matches real Pazaak — and the
+  dead flag and branch deleted. Recorded in plan.md.*
   The pivot task — mechanical migration, no new behavior:
   - `PlayerState`: `dealer_row`/`played_row` → `Vec<PlayedCard>`,
     `hand` → `Vec<Option<Card>>`; `score()` sums `value` over both rows.
@@ -93,7 +94,7 @@ Review: after every task.
 
 Review: after every task.
 
-- [ ] **T003 — Shared commit path**
+- [x] **T003 — Shared commit path**
   `commit_play(side, index, value: i8)` removes the card from the hand
   and pushes `PlayedCard` — replacing the duplicated
   `play_card`/`opponent_play_card` bodies. `OpponentAction::PlayHand`
