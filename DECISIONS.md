@@ -47,8 +47,10 @@ unrelated features.
   deck between matches, KOTOR-vendor style). v1 ships a simple default
   deck instead. Revisit once the campaign loop itself is proven out.
 - **Mid-run side-deck redraw.** Real Pazaak doesn't redraw your hand
-  within a given match, and Kaazap won't either — confirmed explicitly
-  rather than left as an assumption.
+  within a given match, and v1 of Kaazap won't either. Deferred rather
+  than rejected: once the full game exists, rule enhancements that fit
+  the TUI format get considered as a deliberate post-v1 pass (see
+  `ROADMAP.md`), and a redraw mechanic is a candidate there.
 
 ## Testing
 

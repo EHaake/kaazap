@@ -27,3 +27,7 @@ of, not guessed at here in advance.
 - **Full side-deck customization** — collecting/building your own 10-card
   side deck, KOTOR-vendor style. Explicitly deferred out of v1 in favor
   of a simple default deck; revisit once the core campaign loop exists.
+- **Post-v1 rule enhancements** — once the complete game exists as a
+  baseline, consider Kaazap-specific rule variants that suit the TUI
+  format (a mid-match hand-redraw mechanic is one candidate). Evaluated
+  against the finished core game, not designed in advance.
