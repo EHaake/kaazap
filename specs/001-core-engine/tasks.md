@@ -38,7 +38,7 @@ values as `Plus` cards) so behavior is unchanged until dealing lands.
 
 Review: after every task.
 
-- [ ] **T001 — New card types, labels, and the default deck (`card.rs`)**
+- [x] **T001 — New card types, labels, and the default deck (`card.rs`)**
   Add alongside the existing `LogicCard` (untouched this task; deleted in
   T002):
   - `FlipKind { TwoFour, ThreeSix }` and
