@@ -1,15 +1,15 @@
-           ======  Controls  ======
+=== Controls ===
 
-  ← / →      - Select a hand card
-  ↑ / ↓      - Flip a +/- card's sign
-  Enter      - Play the selected card
-  1, 2, 3, 4 - Play hand card directly
-    D / space - Draw dealer card and end turn
-       S      - Stand and end turn
-        (over 20: D and S accept the bust)
-       N      - Start next round (at round end)
-       G      - Start new game (at game end)
-       X      - Return to main menu
+  ← / →      Select a hand card
+  ↑ / ↓      Flip a ± card's sign
+  Enter      Play the selected card
+  1 2 3 4    Play a hand card
+  D / Space  Draw a card (ends turn)
+  S          Stand (ends turn)
+  N          Next round
+  G          New game
+  X          Back to menu
+  Q          Quit
+  ?          Close this overlay
 
-      Q       - Quit/Exit game
-      ?       - Close Help Overlay
+  Over 20: D or S accepts the bust.

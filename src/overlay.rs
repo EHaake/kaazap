@@ -1,4 +1,4 @@
-use crate::{config::Config, frame::{BorderWeight, Emphasis, Frame, draw_box, draw_text}, layout::OverlayLayout};
+use crate::{config::Config, frame::{Align, BorderWeight, Emphasis, Frame, draw_box, draw_text_in}, layout::OverlayLayout};
 
 #[derive(Debug, Copy, Clone)]
 pub enum OverlayKind {
@@ -45,14 +45,16 @@ impl Overlay {
         }
     }
 
-    /// Draw already-loaded content into the overlay's inner box
-    ///
+    /// Draw already-loaded content into the overlay's inner box. The
+    /// first line is treated as a title and centered; the rest are
+    /// left-aligned so lists and columns stay lined up.
     fn add_content(&self, content: &[String], layout: OverlayLayout, frame: &mut Frame) {
-        let x = layout.inner.x0;
-        let y = layout.inner.y0;
-
         for (i, line) in content.iter().enumerate() {
-            draw_text(frame, x, y + i, line, Emphasis::Normal);
+            if i == 0 {
+                draw_text_in(frame, layout.inner, 0, Align::Center, line.trim(), Emphasis::Normal);
+            } else {
+                draw_text_in(frame, layout.inner, i, Align::Left, line, Emphasis::Normal);
+            }
         }
     }
 
