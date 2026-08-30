@@ -1,49 +1,25 @@
-use std::cmp::max;
-
 use crate::{
-    CARD_HEIGHT, CARD_WIDTH, H_PAD,
+    CARD_HEIGHT, CARD_WIDTH,
     card::CardView,
     config::Config,
-    frame::{Drawable, Emphasis, Frame, draw_text},
+    frame::{Align, Drawable, Emphasis, Frame, draw_text, draw_text_in},
     game::{GamePhase, GameState, RoundOutcome},
-    player::Player,
+    layout::{BoardLayout, SideLayout, card_slot, cards_per_row},
+    player::{Player, PlayerState},
 };
-
-pub struct PlayArea {
-    pub left: usize,
-    pub right: usize,
-}
 
 pub struct BoardView {
     pub config: Config,
-    player_area: PlayArea,
-    opponent_area: PlayArea,
-    cards_per_row: usize,
+    layout: BoardLayout,
 }
 
 /// Handles the drawing of the board state
 ///
 impl BoardView {
     pub fn new(config: Config) -> Self {
-        let player_area = PlayArea {
-            left: H_PAD,
-            right: config.num_cols / 2 - H_PAD,
-        };
-
-        let opponent_area = PlayArea {
-            left: config.num_cols / 2 + H_PAD,
-            right: config.num_cols - H_PAD,
-        };
-
-        let available_width = player_area.right - player_area.left;
-        let slot_width = CARD_WIDTH + 1;
-        let cards_per_row = max(1, available_width / slot_width);
-
         Self {
             config,
-            player_area,
-            opponent_area,
-            cards_per_row,
+            layout: BoardLayout::new(config),
         }
     }
 
@@ -141,126 +117,81 @@ impl BoardView {
         }
     }
 
-    /// Draw Top info (Player name, score, et)
+    /// Draw one side's header: name (left), score (right, Strong),
+    /// rounds won (right), and a bust/stood note (left).
+    fn draw_side_header(&self, side: &SideLayout, name: &str, p: &PlayerState, frame: &mut Frame) {
+        draw_text_in(frame, side.header, 0, Align::Left, &format!("{name}: {}", p.name), Emphasis::Normal);
+        draw_text_in(frame, side.header, 0, Align::Right, &format!("Score: {}", p.score()), Emphasis::Strong);
+        draw_text_in(frame, side.header, 1, Align::Right, &format!("Rounds won: {}", p.rounds_won), Emphasis::Normal);
+
+        if p.bust {
+            draw_text_in(frame, side.header, 1, Align::Left, "BUSTED!!", Emphasis::Normal);
+        } else if p.stood {
+            draw_text_in(frame, side.header, 1, Align::Left, "Stood", Emphasis::Normal);
+        }
+    }
+
+    /// Draw Top info (Player name, score, etc.)
     ///
     fn draw_top_info(&self, state: &GameState, frame: &mut Frame) {
-        let mid = self.config.num_cols / 2;
-        let padding_y: usize = 1;
-        let padding_x: usize = 4;
+        self.draw_side_header(&self.layout.player, "Player", &state.player, frame);
+        self.draw_side_header(&self.layout.opponent, "Opponent", &state.opponent, frame);
+    }
 
-        // --- Player Side ---
-        let player_name_display = format!("Player: {}", state.player.name);
-        draw_text(frame, padding_x, padding_y, &player_name_display, Emphasis::Normal);
+    /// Draw one side's zones: Muted labels, dealer grid (wraps), played
+    /// row, and hand. `reveal_hand` shows the player's card faces and
+    /// number keys; the opponent's hand shows hidden "?" faces.
+    fn draw_side(&self, side: &SideLayout, ps: &PlayerState, reveal_hand: bool, frame: &mut Frame) {
+        // Zone labels sit one row above each zone (clip-safe if tight)
+        draw_text(frame, side.dealer.x0, side.dealer.y0.saturating_sub(1), "Dealer", Emphasis::Muted);
+        draw_text(frame, side.played.x0, side.played.y0.saturating_sub(1), "Played", Emphasis::Muted);
+        draw_text(frame, side.hand.x0, side.hand.y0.saturating_sub(1), "Hand", Emphasis::Muted);
 
-        let player_score_display = format!("Score: {}", state.player.score());
-        draw_text(frame, mid - 12, padding_y, &player_score_display, Emphasis::Normal);
-
-        let player_round_score_display = format!("Rounds won: {}", state.player.rounds_won);
-        draw_text(frame, mid - 17, padding_y + 1, &player_round_score_display, Emphasis::Normal);
-
-        // If Bust or stood, display so!
-        if state.player.bust {
-            draw_text(frame, padding_x, padding_y + 1, "BUSTED!!", Emphasis::Normal);
-        } else if state.player.stood {
-            draw_text(frame, padding_x, padding_y + 1, "Stood", Emphasis::Normal);
+        // Dealer draws wrap into rows within the zone
+        let per = cards_per_row(side.dealer);
+        for (i, c) in ps.dealer_row.iter().enumerate() {
+            let (x, y) = card_slot(side.dealer, i % per, i / per);
+            CardView::new(x, y, c.display_text()).draw(frame);
         }
 
-        // --- Opponent Side ---
-        let opponent_name_display = format!("Opponent: {}", state.opponent.name);
-        draw_text(frame, mid + padding_x, padding_y, &opponent_name_display, Emphasis::Normal);
+        // Played cards — one row; flips sit here at value 0 (no filter)
+        for (i, c) in ps.played_row.iter().enumerate() {
+            let (x, y) = card_slot(side.played, i, 0);
+            CardView::new(x, y, c.display_text()).draw(frame);
+        }
 
-        let opponent_score_display = format!("Score: {}", state.opponent.score());
-        draw_text(frame, self.config.num_cols - 12, padding_y, &opponent_score_display, Emphasis::Normal);
+        // Hand — faces + number keys for the player, hidden for the opponent
+        for (i, c) in ps.hand.iter().enumerate() {
+            let Some(card) = c else { continue };
+            let (x, y) = card_slot(side.hand, i, 0);
+            let text = if reveal_hand {
+                card.label()
+            } else {
+                "?".to_string()
+            };
+            CardView::new(x, y, text).draw(frame);
 
-        let opponent_round_score_display = format!("Rounds won: {}", state.opponent.rounds_won);
-        draw_text(frame, self.config.num_cols - 17, padding_y + 1, &opponent_round_score_display, Emphasis::Normal);
-
-        // If Bust or stood, display so!
-        if state.opponent.bust {
-            draw_text(frame, mid + padding_x, padding_y + 1, "BUSTED!!", Emphasis::Normal);
-        } else if state.opponent.stood {
-            draw_text(frame, mid + padding_x, padding_y + 1, "Stood", Emphasis::Normal);
+            if reveal_hand {
+                // number key centered just below the card
+                draw_text(frame, x + CARD_WIDTH / 2, y + CARD_HEIGHT, &(i + 1).to_string(), Emphasis::Normal);
+            }
         }
     }
 
     /// Draw the current game state
     ///
     pub fn draw(&self, state: &GameState, frame: &mut Frame) {
-        //
-        // draw a vertical divider down the middle
-        let mid = self.config.num_cols / 2;
+        // Vertical divider down the middle
+        let divider_x = self.layout.divider_x;
         for y in 0..self.config.num_rows {
-            if mid < frame.len() && y < frame[0].len() {
-                frame[mid][y].ch = '│';
+            if divider_x < frame.len() && y < frame[0].len() {
+                frame[divider_x][y].ch = '│';
             }
         }
 
-        // Top Info
         self.draw_top_info(state, frame);
-
-        // layout constants (simple, tweak later)
-        let dealer_y: usize = 4;
-        let hand_y = self.config.num_rows.saturating_sub(CARD_HEIGHT + 2);
-        let played_y = hand_y - CARD_HEIGHT - 1;
-
-        let spacing_x = CARD_WIDTH + 1;
-
-        let player_origin_x = self.player_area.left;
-        let opp_origin_x = self.opponent_area.left;
-
-        // --- Player side ---
-        //
-        // Dealer Cards
-        for (i, c) in state.player.dealer_row.iter().enumerate() {
-            let row = i / self.cards_per_row;
-            let col = i % self.cards_per_row;
-
-            let x = player_origin_x + col * spacing_x;
-            let y = dealer_y + row * (CARD_HEIGHT + 1);
-
-            CardView::new(x, y, c.display_text()).draw(frame);
-        }
-        // Played Cards
-        for (i, c) in state.player.played_row.iter().enumerate() {
-            let x = player_origin_x + i * spacing_x;
-            CardView::new(x, played_y, c.display_text()).draw(frame);
-        }
-        // Hand cards
-        for (i, c) in state.player.hand.iter().enumerate() {
-            let x = player_origin_x + i * spacing_x;
-            if c.is_some() {
-                CardView::new(x, hand_y, c.unwrap().label()).draw(frame);
-
-                // Draw card number underneath
-                let num_x = player_origin_x + i * spacing_x + (CARD_WIDTH / 2);
-                let num_y = hand_y + CARD_HEIGHT;
-                frame[num_x][num_y].ch = char::from_digit((i + 1) as u32, 10).unwrap();
-            }
-        }
-
-        // --- Opponent side ---
-        //
-        // Dealer Cards
-        for (i, c) in state.opponent.dealer_row.iter().enumerate() {
-            let row = i / self.cards_per_row;
-            let col = i % self.cards_per_row;
-
-            let x = opp_origin_x + col * spacing_x;
-            let y = dealer_y + row * (CARD_HEIGHT + 1);
-            CardView::new(x, y, c.display_text()).draw(frame);
-        }
-        // Played Cards — flips sit here at value 0, so no zero-filter
-        for (i, c) in state.opponent.played_row.iter().enumerate() {
-            let x = opp_origin_x + i * spacing_x;
-            CardView::new(x, played_y, c.display_text()).draw(frame);
-        }
-        // Opponent hand cards (hidden values)
-        for (i, c) in state.opponent.hand.iter().enumerate() {
-            if c.is_some() {
-                let x = opp_origin_x + i * spacing_x;
-                CardView::new(x, hand_y, "?".to_string()).draw(frame);
-            }
-        }
+        self.draw_side(&self.layout.player, &state.player, true, frame);
+        self.draw_side(&self.layout.opponent, &state.opponent, false, frame);
 
         // Draw Turn Text
         self.draw_turn_text(state, frame);

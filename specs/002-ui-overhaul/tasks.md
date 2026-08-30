@@ -116,7 +116,16 @@ Review: after every task.
 
 Review: after every task.
 
-- [ ] **T004 — Board regions**
+- [x] **T004 — Board regions**
+  *`BoardLayout`/`SideLayout` + `cards_per_row`/`card_slot` compute all
+  board geometry from `Config`; board.rs holds no coordinate arithmetic
+  or magic offsets — the old `PlayArea`/`cards_per_row` field and the
+  `dealer_y=4`/`hand_y`/`played_y` constants are gone. Headers place via
+  the header Rect with alignment (scores `Strong`, right-aligned); zone
+  labels "Dealer"/"Played"/"Hand" render `Muted` above each zone. Card
+  positions preserved; the score readouts now right-align to the region
+  instead of hand-tuned `mid-12`/`mid-17` offsets (intentional, cleaner).
+  Turn/outcome text left for T005's status line.*
   `layout.rs`: `BoardLayout`/`SideLayout` (header, dealer, played,
   hand, status, divider) as pure functions of terminal size, plus
   card-slot math (`slot index -> Rect`, wrapping by cards-per-row).
