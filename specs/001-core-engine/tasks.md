@@ -183,7 +183,7 @@ Review: after every task.
   *Verify: `cargo test deal_` green; full `cargo test` green; manual:
   new games show different hands across runs.*
 
-- [ ] **T008 — Opponent AI predicate generalization**
+- [x] **T008 — Opponent AI predicate generalization**
   The "hits exactly 20" predicate becomes "any playable value of this
   card equals the target": `Plus(n)` → +n, `Minus(n)` → −n,
   `PlusMinus(n)` → ±n, `Tiebreaker` → ±1, `Flip` → never playable
@@ -194,6 +194,23 @@ Review: after every task.
   with a tiebreaker it plays +1; a flip card is never selected even
   when nothing else is playable.
   *Verify: `cargo test ai_` green; full `cargo test` green.*
+
+- [ ] **T008a — DECISION NEEDED: busting is immediate, so minus cards can
+      never be played** *(discovered at T008 — not yet actioned)*
+  `resolve_after_action` sets `bust` and jumps to `RoundEnd` the instant a
+  score exceeds 20, before the player can respond. A negative card is only
+  ever wanted when you are *over* 20, so minus cards — and the negative
+  half of every ± card — are unreachable for both sides. Verified
+  empirically, not inferred: at 23 with a −4 in hand, the phase is already
+  `RoundEnd` and the play is rejected, leaving the card stuck in hand.
+  In real Pazaak you bust only if you *end your turn* over 20; going over
+  and playing a minus card to come back down is the game's central
+  tension. This is pre-existing behavior, not introduced by this spec, but
+  it hollows out the spec's explicit decision to ship minus cards in v1.
+  Options: (a) defer the bust check to end-of-turn in this spec as a new
+  task, (b) ship v1 as-is and open a follow-up spec, (c) drop minus cards
+  from the v1 deck. Needs a human ruling — do not action unilaterally.
+  *Verify: n/a until a decision is made.*
 
 ## Phase 3 — Rendering (`board.rs`)
 

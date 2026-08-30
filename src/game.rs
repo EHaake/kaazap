@@ -360,17 +360,15 @@ impl GameState {
     ///
     fn decide_opponent_move(&self) -> OpponentAction {
         let score = self.opponent.score();
-        let target = 20 - score;
 
-        // Interim: only fixed Plus cards are recognized, matching current
-        // behavior — the generalized predicate arrives in T008
-        let card_hits_twenty =
-            |card: &Card| -> bool { matches!(card, Card::Plus(n) if *n as i32 == target) };
-
-        if let Some(index) = self.first_hand_index(card_hits_twenty) {
+        // Play any card that lands exactly on 20. A target outside card
+        // range isn't reachable at all, so don't bother looking.
+        if let Ok(target) = i8::try_from(20 - score)
+            && let Some(index) = self.first_hand_index(|card| card.can_play_as(target))
+        {
             return OpponentAction::PlayHand {
                 index,
-                value: target as i8,
+                value: target,
             };
         }
 
@@ -818,6 +816,83 @@ mod tests {
         gs.update();
 
         assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
+    }
+
+    /// An opponent sitting on `dealer_total` (as one card) with an exact
+    /// hand — hands are dealt randomly, so tests must set their own.
+    fn opponent_at(dealer_total: u8, hand: Vec<Card>) -> GameState {
+        let mut gs = GameState::new();
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(dealer_total), dealer_total as i8)];
+        gs.opponent.hand = hand.into_iter().map(Some).collect();
+        gs
+    }
+
+    #[test]
+    fn ai_plays_a_plus_card_that_lands_on_twenty() {
+        let gs = opponent_at(15, vec![Card::Plus(5)]);
+
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 5 }
+        );
+    }
+
+    #[test]
+    fn ai_plays_plus_minus_as_the_sign_that_reaches_twenty() {
+        let gs = opponent_at(18, vec![Card::PlusMinus(2)]);
+
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 2 }
+        );
+    }
+
+    #[test]
+    fn ai_plays_the_tiebreaker_to_reach_twenty() {
+        let gs = opponent_at(19, vec![Card::Tiebreaker]);
+
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 1 }
+        );
+    }
+
+    #[test]
+    fn ai_never_plays_a_flip_card() {
+        // Both flips in hand, nothing else: the AI must not play one,
+        // even sitting where a card play would otherwise be considered
+        let gs = opponent_at(
+            18,
+            vec![Card::Flip(FlipKind::TwoFour), Card::Flip(FlipKind::ThreeSix)],
+        );
+
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+    }
+
+    #[test]
+    fn ai_skips_cards_that_miss_twenty_and_falls_through_to_stand() {
+        let gs = opponent_at(18, vec![Card::Plus(4), Card::PlusMinus(3)]);
+
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+    }
+
+    #[test]
+    fn ai_hits_below_the_stand_threshold_with_no_playable_card() {
+        let gs = opponent_at(10, vec![Card::Plus(4)]);
+
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+    }
+
+    #[test]
+    fn ai_play_reaches_exactly_twenty_end_to_end() {
+        // The value the AI chooses is the value that lands on the table
+        let mut gs = opponent_at(18, vec![Card::PlusMinus(2)]);
+
+        let action = gs.decide_opponent_move();
+        gs.apply_opponent_action(action);
+
+        assert_eq!(gs.opponent.score(), 20);
+        assert_eq!(gs.opponent.played_row[0].value, 2);
     }
 
     fn filled_slots(hand: &[Option<Card>]) -> usize {

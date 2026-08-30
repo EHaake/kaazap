@@ -44,6 +44,19 @@ impl Card {
         }
     }
 
+    /// Can this card be played at exactly this signed value? ± cards and
+    /// the tiebreaker answer to either sign; flips carry no value of
+    /// their own, so they never match.
+    pub fn can_play_as(&self, value: i8) -> bool {
+        match self {
+            Card::Plus(n) => *n as i8 == value,
+            Card::Minus(n) => -(*n as i8) == value,
+            Card::PlusMinus(n) => *n as i8 == value.abs(),
+            Card::Tiebreaker => value.abs() == 1,
+            Card::Flip(_) | Card::Dealer(_) => false,
+        }
+    }
+
     /// The magnitude a sign-choice card plays at (± cards and the
     /// tiebreaker), or None for kinds needing no play-time choice.
     /// One source of truth for both the commit logic and the prompt.
@@ -204,6 +217,38 @@ mod tests {
         assert!(FlipKind::ThreeSix.flips_value(6));
         assert!(!FlipKind::ThreeSix.flips_value(2));
         assert!(!FlipKind::ThreeSix.flips_value(0));
+    }
+
+    #[test]
+    fn can_play_as_matches_fixed_cards_at_their_own_value_only() {
+        assert!(Card::Plus(4).can_play_as(4));
+        assert!(!Card::Plus(4).can_play_as(-4));
+        assert!(!Card::Plus(4).can_play_as(3));
+
+        assert!(Card::Minus(3).can_play_as(-3));
+        assert!(!Card::Minus(3).can_play_as(3));
+    }
+
+    #[test]
+    fn can_play_as_accepts_either_sign_for_plus_minus_and_tiebreaker() {
+        assert!(Card::PlusMinus(6).can_play_as(6));
+        assert!(Card::PlusMinus(6).can_play_as(-6));
+        assert!(!Card::PlusMinus(6).can_play_as(5));
+        assert!(!Card::PlusMinus(6).can_play_as(0));
+
+        assert!(Card::Tiebreaker.can_play_as(1));
+        assert!(Card::Tiebreaker.can_play_as(-1));
+        assert!(!Card::Tiebreaker.can_play_as(2));
+        assert!(!Card::Tiebreaker.can_play_as(0));
+    }
+
+    #[test]
+    fn can_play_as_never_matches_flips_or_dealer_cards() {
+        for value in -10..=10 {
+            assert!(!Card::Flip(FlipKind::TwoFour).can_play_as(value));
+            assert!(!Card::Flip(FlipKind::ThreeSix).can_play_as(value));
+            assert!(!Card::Dealer(5).can_play_as(value));
+        }
     }
 
     #[test]
