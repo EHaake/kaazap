@@ -93,6 +93,10 @@ impl PlayedCard {
         match self.card {
             Card::Flip(_) => self.card.label(),
             Card::Dealer(_) => self.value.to_string(),
+            // The tiebreaker keeps its T marker once played, so a tie it
+            // decides is legible on the table — otherwise it's an
+            // indistinguishable +1/-1 and losing the tie looks arbitrary
+            Card::Tiebreaker => format!("{:+}T", self.value),
             _ => format!("{:+}", self.value),
         }
     }
@@ -239,8 +243,12 @@ mod tests {
         assert_eq!(flipped_plus.display_text(), "-4");
         let pm = PlayedCard { card: Card::PlusMinus(3), value: -3 };
         assert_eq!(pm.display_text(), "-3");
+        // A played tiebreaker keeps its T marker (both signs) so a tie it
+        // decides is legible — not an indistinguishable +1/-1
         let tb = PlayedCard { card: Card::Tiebreaker, value: 1 };
-        assert_eq!(tb.display_text(), "+1");
+        assert_eq!(tb.display_text(), "+1T");
+        let tb_neg = PlayedCard { card: Card::Tiebreaker, value: -1 };
+        assert_eq!(tb_neg.display_text(), "-1T");
 
         // Dealer cards: bare value, negative when flipped
         let dealer = PlayedCard { card: Card::Dealer(7), value: 7 };

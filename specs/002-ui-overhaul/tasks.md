@@ -99,6 +99,19 @@ Review: after every task.
   finds no border ASCII; manual real-terminal check of heavy glyphs
   reported.*
 
+- [x] **T003a — Played tiebreaker stays legible on the table**
+  *(human-reported "bug": lost a 20–20 tie inexplicably)* Diagnosed as
+  correct rules behavior made invisible: the opponent's tiebreaker (a
+  lone tiebreaker wins an otherwise-tied round) rendered as a plain
+  "+1", indistinguishable from a Plus(1), so the tie-loss looked
+  arbitrary. Fixed the display, not the logic: `PlayedCard::display_text`
+  now shows a played tiebreaker as "+1T"/"-1T", matching its "±1T" hand
+  label. The spec-001 test that had locked in the misleading "+1" is
+  corrected (not weakened) to assert the marked form, both signs.
+  `game.rs`/`player.rs` untouched — resolution logic was already right.
+  *Verify: `cargo test` green (80); a played tiebreaker shows "+1T" on
+  the table.*
+
 ## Phase 2 — Layout layer (`layout.rs`, `board.rs`, `menu.rs`, `overlay.rs`)
 
 Review: after every task.
