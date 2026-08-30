@@ -27,6 +27,22 @@ enterprise-grade process for a solo effort.
   currently recalled, but it's deliberate, not a bug. Kept as-is; treat
   it as one of Kaazap's subtle rule changes rather than something to
   "fix" without a real design conversation first.
+- **No per-turn side-card limit.** Real Pazaak allows exactly one
+  side-deck card per turn; Kaazap allows any number in a turn,
+  including chaining several recovery cards while over 20. Deliberate
+  simplicity (no per-turn flag to track) — confirmed as a variant, not
+  canon fidelity, during spec 001's review.
+- **The draw key accepts the bust while over 20.** Going over 20
+  doesn't bust by itself (that part is canon — you may play a card to
+  recover before your turn ends); Kaazap's variant is that while over,
+  `d`/space draws nothing and instead stands into the bust, same as
+  `s`, so every key keeps a meaning in that state. Human-ruled during
+  spec 001 (T008b).
+- **Flip/bust edge rulings** (canon sources are thin here, spec 001):
+  a *standing* player pushed over 20 by a flip card busts immediately;
+  a *live* player pushed over gets their recovery window; any side
+  still over 20 when the round ends for another reason is bust at
+  resolution; and if both sides end up bust, the round is a tie.
 
 ## Why a campaign/progression system exists at all
 
