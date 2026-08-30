@@ -220,6 +220,16 @@ Review: after every task.
   removed. Also: unselected hand cards now render `Muted` so the heavy
   breathing selection stands out more. Verified in-app: selected ±3
   kept its face, status flipped +3↔-3. `game.rs`/`player.rs` untouched.
+
+- [x] **T007b — OVER 20 alert stacks above the prompt, doesn't replace it**
+  *(human-reported)* The over-20 warning was replacing the whole status
+  line, hiding the sign/cursor instructions — so while over 20 you
+  couldn't see how to flip a ± to minus. The status strip is now two
+  rows: `over_twenty_alert` renders on the upper row only while over 20,
+  and the base prompt (cursor hint / selected-± "Play -3?") always
+  renders below it. Over-20 logic split out of `status_message`. Verified
+  in-app: "OVER 20!  (d/s: bust)" on the row above "←/→ card …", both
+  visible. `game.rs`/`player.rs` untouched.
   `SelectionPulse` owned by `App`, ticked in `App::tick`
   (`MENU_ANIMATION_TIME_MS` renamed `SELECTION_PULSE_MS`); passed
   read-only into draws. Board: selected card renders heavy border,

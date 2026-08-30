@@ -67,10 +67,16 @@ impl BoardLayout {
         let player = side(H_PAD, divider_x.saturating_sub(H_PAD));
         let opponent = side(divider_x + H_PAD, cols.saturating_sub(H_PAD));
 
-        // The status message shares the hand's vertical band but sits to
-        // the right of the cards, on the player half (as it always has).
-        // A small gap keeps right-aligned text off the divider.
-        let status = Rect::new(H_PAD, divider_x.saturating_sub(2), status_y, status_y);
+        // The status strip shares the hand's vertical band but sits to
+        // the right of the cards, on the player half. Two rows: an alert
+        // line above the base prompt line (so OVER 20 doesn't hide the
+        // controls). A small gap keeps right-aligned text off the divider.
+        let status = Rect::new(
+            H_PAD,
+            divider_x.saturating_sub(2),
+            status_y.saturating_sub(1),
+            status_y,
+        );
 
         Self {
             divider_x,

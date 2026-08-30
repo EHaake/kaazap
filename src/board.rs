@@ -62,12 +62,17 @@ impl BoardView {
         draw_text(frame, mid_x - 7, mid_y + 2, "(n: next round)", Emphasis::Muted);
     }
 
-    /// Draw the single status message (if any) right-aligned in the
-    /// player-half status strip.
+    /// Draw the status strip: the base prompt on the lower row, and —
+    /// only while over 20 — an alert on the row above it, so the warning
+    /// never hides the sign/cursor instructions.
     fn draw_status(&self, state: &GameState, cursor: &HandCursor, frame: &mut Frame) {
+        if let Some((alert, emphasis)) = over_twenty_alert(state) {
+            draw_text_in(frame, self.layout.status, 0, Align::Right, &alert, emphasis);
+        }
+
         let selected = state.player.hand.get(cursor.index()).copied().flatten();
         if let Some((msg, emphasis)) = status_message(state, selected, cursor.pending_positive()) {
-            draw_text_in(frame, self.layout.status, 0, Align::Right, &msg, emphasis);
+            draw_text_in(frame, self.layout.status, 1, Align::Right, &msg, emphasis);
         }
     }
 
@@ -200,11 +205,6 @@ pub fn status_message(
     selected: Option<Card>,
     positive: bool,
 ) -> Option<(String, Emphasis)> {
-    // Alert: over 20 during the player's turn (drawing is disabled)
-    if matches!(state.game_phase, GamePhase::PlayerTurn) && state.player.score() > 20 {
-        return Some(("OVER 20! Play a card (d/s: bust)".to_string(), Emphasis::Alert));
-    }
-
     // Sign prompt while a plus-or-minus / tiebreaker card waits to commit
     // (this is the direct number-key play path, answered with h/l)
     if let GamePhase::AwaitingSignChoice { hand_index } = state.game_phase {
@@ -244,6 +244,18 @@ pub fn status_message(
             Some(("Opponent's Turn".to_string(), Emphasis::Muted))
         }
         _ => None,
+    }
+}
+
+/// The over-20 alert, shown on its own status row above the base prompt
+/// while the player is over 20 and can still act (so the recovery
+/// instructions below it stay visible). Separate from status_message so
+/// it never replaces the prompt.
+pub fn over_twenty_alert(state: &GameState) -> Option<(String, Emphasis)> {
+    if matches!(state.game_phase, GamePhase::PlayerTurn) && state.player.score() > 20 {
+        Some(("OVER 20!  (d/s: bust)".to_string(), Emphasis::Alert))
+    } else {
+        None
     }
 }
 
@@ -290,18 +302,42 @@ mod tests {
         assert!(!text.contains("Play +"));
     }
 
-    #[test]
-    fn status_over_twenty_alert_beats_turn_text() {
+    fn over_20_game() -> GameState {
         let mut gs = GameState::new();
-        // Force a live over-20 total on the player's turn
+        // Force a live over-20 total on the player's turn (10+10+5)
         gs.player.dealer_row = vec![
             crate::card::PlayedCard { card: Card::Dealer(10), value: 10 },
             crate::card::PlayedCard { card: Card::Dealer(10), value: 10 },
             crate::card::PlayedCard { card: Card::Dealer(5), value: 5 },
         ];
-        let (text, emphasis) = msg(&gs).unwrap();
+        gs
+    }
+
+    #[test]
+    fn status_over_twenty_alert_is_its_own_line() {
+        let gs = over_20_game();
+        let (text, emphasis) = over_twenty_alert(&gs).unwrap();
         assert!(text.starts_with("OVER 20"));
         assert_eq!(emphasis, Emphasis::Alert);
+    }
+
+    #[test]
+    fn status_over_twenty_does_not_replace_the_base_prompt() {
+        // The whole point of the fix: over 20, the sign/cursor prompt
+        // still shows (on the row below the alert)
+        let gs = over_20_game();
+        let (text, _) = status_message(&gs, Some(Card::PlusMinus(3)), false).unwrap();
+        assert_eq!(text, "Play -3?  (↑/↓ flip · Enter play)");
+
+        // and with no special card selected, the generic hint survives
+        let (hint, _) = status_message(&gs, None, true).unwrap();
+        assert!(hint.contains("Enter play"));
+    }
+
+    #[test]
+    fn status_no_alert_when_not_over_twenty() {
+        let gs = GameState::new();
+        assert_eq!(over_twenty_alert(&gs), None);
     }
 
     #[test]
