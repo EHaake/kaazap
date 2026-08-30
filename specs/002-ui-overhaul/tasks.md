@@ -1,0 +1,204 @@
+# Tasks: TUI Overhaul
+
+**Status**: Draft — pending review
+**Implements**: plan.md in this directory
+
+Ordered, small, independently verifiable. Each task is completable and
+testable on its own; resume at the first unchecked task.
+
+<!-- WARNING, worth leaving in: once implementation starts, this file
+gets written by more than one party. Never edit it from a stale copy;
+prefer small targeted edits over regenerating it wholesale. -->
+
+Per the constitution: every task ends with `cargo build` and
+`cargo test`, both green, actual output reported. *Verify:* lines are
+the task-specific checks on top of that baseline. One commit per task,
+referencing the task ID; push after each commit — draft PR #2 tracks
+the running diff.
+
+**Review cadence**: Phases 1–3 (rendering foundation, layout, cursor +
+pulse) are foundational — stop for review after **every task**. Phases
+4–5 (resize/help, acceptance) are mechanical — stop after **each
+phase**.
+
+**Standing tripwire** (from plan.md): `game.rs` and `player.rs` are not
+modified in this spec. Every task's verify implicitly includes
+`git diff main -- src/game.rs src/player.rs` staying empty; a task that
+needs to touch them has gone off-plan and stops for review.
+
+---
+
+## Phase 1 — Rendering foundation (`frame.rs`, `render.rs`, `card.rs`)
+
+Review: after every task.
+
+- [ ] **T001 — Styled cells: `Cell` + `Emphasis`, renderer attributes**
+  `frame.rs`: `Emphasis { Normal, Strong, Muted, Alert }` (one-axis
+  enum, `Default = Normal`), `Cell { ch, emphasis }`,
+  `Frame = Vec<Vec<Cell>>`; all writing sites migrate mechanically
+  (chars become `Normal` cells — visuals unchanged this task).
+  `render.rs`: diff compares `Cell`s; a changed cell whose emphasis
+  differs from the currently-emitted attribute gets
+  `SetAttribute(Reset)` + Bold/Dim/Reverse before printing; a
+  dimension mismatch between last and current frame forces the full
+  clear + redraw path. No color code paths exist.
+  Tests: `cell_` — default cell, emphasis-to-attribute mapping helper.
+  *Verify: `cargo test` green; driver smoke — board renders
+  character-identical to pre-task (same snapshot greps pass);
+  `grep -rn "SetForegroundColor\|SetBackgroundColor" src/` shows only
+  the pre-existing force-clear background lines or less.*
+
+- [ ] **T002 — Drawing vocabulary: clip-safe text + one box-drawer**
+  `frame.rs` gains the single implementations: `draw_text` (clip-safe:
+  writes what fits, drops the rest, cannot panic at any x/y/length),
+  `draw_text_in(rect, row, align)` (Left/Center/Right within a Rect),
+  `draw_box(rect, weight)` with `BorderWeight { Single, Heavy }` and
+  the box-drawing glyph constants. The three identical `draw_text`
+  helpers in `board.rs`, `menu.rs`, `overlay.rs` are deleted; call
+  sites switch to the shared versions (positions unchanged, borders
+  still ASCII this task).
+  Tests: `clip_` — out-of-bounds x/y, text overrunning the frame edge,
+  rect-relative clipping and alignment; `box_` — corners/edges/weights
+  asserted on a small in-memory frame.
+  *Verify: `cargo test clip_ box_` green; driver smoke unchanged;
+  `grep -c "fn draw_text" src/*.rs` finds exactly one definition.*
+
+- [ ] **T003 — Box-drawing restyle**
+  `CardView` draws via `draw_box` (gains `weight` + text emphasis
+  params, defaults Single/Normal); the board divider becomes `│`; the
+  overlay border uses `draw_box(Single)`. ASCII `+-|` chrome is gone.
+  Includes the plan's font check: render heavy `┏━┓` in a real
+  terminal alongside single-line; if heavy reads badly, flip the
+  approved fallback (double-line) and record the outcome here.
+  *Verify: driver snapshot shows `┌`/`─`/`│` card borders and divider;
+  `grep -n '"+-"\|'\''+'\''' src/card.rs src/board.rs src/overlay.rs`
+  finds no border ASCII; manual real-terminal check of heavy glyphs
+  reported.*
+
+## Phase 2 — Layout layer (`layout.rs`, `board.rs`, `menu.rs`, `overlay.rs`)
+
+Review: after every task.
+
+- [ ] **T004 — Board regions**
+  `layout.rs`: `BoardLayout`/`SideLayout` (header, dealer, played,
+  hand, status, divider) as pure functions of terminal size, plus
+  card-slot math (`slot index -> Rect`, wrapping by cards-per-row).
+  `board.rs` places everything through it: zone labels ("Dealer",
+  "Played", "Hand") drawn `Muted`; scores `Strong`; no coordinate
+  arithmetic or magic offsets remain in `board.rs`.
+  Tests: `layout_` — regions in-bounds and non-overlapping at minimum
+  (67x24), typical (180x48), and odd sizes; slot math wraps rows
+  correctly.
+  *Verify: `cargo test layout_` green; driver — zones labeled, cards
+  and headers land in their regions at 180x48; a second driver run at
+  the minimum size renders without artifacts.*
+
+- [ ] **T005 — Status line, menu/overlay layout, self-sizing overlays**
+  One pure precedence function chooses the single status message:
+  alert ("OVER 20 …", rendered `Alert`) > sign-prompt > cursor hint
+  (slot exists now, wired in T007) > turn text; `board.rs` renders its
+  result right-aligned in the status rect (the manual
+  `saturating_sub` placements go away). Outcome/BUSTED banners render
+  `Alert`. `menu.rs` positions via `MenuLayout`. `overlay.rs` computes
+  `content_width`/`content_height` from the loaded text's measured
+  lines — both magic-number TODOs die here.
+  Tests: `status_` — every precedence ordering; `overlay_` — measured
+  sizing from sample text.
+  *Verify: `cargo test status_ overlay_` green; driver — prompt,
+  over-20 alert, outcome text, and both overlays render correctly
+  placed; the TODO comments are gone.*
+
+## Phase 3 — Cursor + pulse (`app.rs`, `board.rs`, `menu.rs`)
+
+Review: after every task.
+
+- [ ] **T006 — Hand cursor: logic, routing, action emission**
+  `HandCursor` on `Screen::InGame`: ←/→ move across occupied slots
+  (wrapping), ↑/↓ toggle pending sign (reset to `+` on move; only
+  meaningful on sign-choice cards), Enter confirms — emitting existing
+  actions only (`PlayHand`, then `ChooseSign` for ±/tiebreaker).
+  Cursor methods are pure over `&[Option<Card>]` so they unit-test
+  without an `App`. Slot normalization after a play; empty-hand
+  no-ops. Arrow/Enter routing in `app.rs` ahead of the char path,
+  active only during `PlayerTurn`. Rides along: extend the run-kaazap
+  driver's `key:` to send escape sequences (`\e` → ESC) so arrows are
+  scriptable — committed to main per the skill's home, merged back.
+  Tests: `cursor_` — movement/wrap/skip, sign toggle + reset, confirm
+  action sequences (fixed, flip, ±, tiebreaker), empty hand,
+  normalization after play.
+  *Verify: `cargo test cursor_` green; driver plays a full card via
+  arrows + Enter (no number keys), including a ± card at both signs;
+  `git diff main -- src/game.rs src/player.rs` empty.*
+
+- [ ] **T007 — Selection pulse + selection rendering**
+  `SelectionPulse` owned by `App`, ticked in `App::tick`
+  (`MENU_ANIMATION_TIME_MS` renamed `SELECTION_PULSE_MS`); passed
+  read-only into draws. Board: selected card renders heavy border,
+  border emphasis breathing `Strong`/`Normal` on the pulse; a
+  sign-choice card's face shows its pending signed value (`+3`/`-3`)
+  instead of `±3`; the cursor hint joins the status line. Menu: the
+  `++ item ++` decoration is retired; the selected item breathes on
+  the shared pulse; `MenuState`'s private timer is removed.
+  Tests: `pulse_` — accumulation toggles phase at the cadence and
+  carries remainder (the old menu-timer arithmetic, now shared).
+  *Verify: `cargo test pulse_` green; driver snapshot shows `┏` heavy
+  border exactly on the selected card and the pending sign on its
+  face; manual real-terminal check: card and menu selections visibly
+  breathe, nothing else moves.*
+
+## Phase 4 — Resize + How to Play (`main.rs`, `app.rs`, `overlay.rs`, assets)
+
+Review: after the phase.
+
+- [ ] **T008 — Terminal resize handling**
+  `main.rs` handles `Event::Resize`: at/above minimum → rebuild
+  `Config`, `App::resize` (layouts + any open overlay), frames
+  reallocated, renderer's dimension-mismatch force gives a clean full
+  redraw. Below minimum → `App` presents "Terminal too small — need at
+  least WxH" with the game paused and state untouched; a compliant
+  resize returns to play exactly where it was. Startup below minimum
+  still errors (unchanged).
+  *Verify: manual — resize a live game larger, smaller, below minimum,
+  and back: clean re-layout each time, recovery screen shown and
+  dismissed, game resumes mid-round with state intact; no panic at any
+  step.*
+
+- [ ] **T009 — How to Play, wired and current**
+  `OverlayKind::HowToPlay` backed by new
+  `assets/how_to_play_text.txt`: card kinds and effects, over-20
+  recovery (incl. d/s accepting the bust), tiebreaker resolution,
+  first-to-3 match structure. `MenuItem::HowToPlay` opens it;
+  dismissal mirrors the help overlay. `game_overlay_text.txt` gains
+  the cursor keys.
+  *Verify: driver — menu → How to Play shows the rules text inside an
+  intact border; dismiss returns to menu; controls overlay lists the
+  cursor keys.*
+
+## Phase 5 — Acceptance
+
+Review: after the phase.
+
+- [ ] **T010 — Acceptance sweep + skeptical review**
+  Walk every spec.md acceptance box with evidence: full build (no new
+  warnings vs `main`), full test suite, a complete game played with
+  arrows-only and another with direct-keys-only, the no-color check
+  (no color escape emission paths in `src/`), monochrome/emphasis
+  behavior eyeballed in a real terminal, resize exercised. Then run
+  the `skeptical-reviewer` subagent over the branch (as spec 001 did)
+  and address its findings — sub-lettered tasks for anything real.
+  Mark PR #2 ready only on the human's word.
+  *Verify: all spec.md acceptance boxes checked with evidence;
+  reviewer findings resolved or explicitly ruled; build/test output
+  reported verbatim.*
+
+---
+
+## Handoff note
+
+Read `CLAUDE.md`, `design/brief.md`, then this spec's `spec.md`,
+`plan.md`, and this file. Implement in order from T001. **Stop for
+review after every task in Phases 1–3; after each full phase for
+Phases 4–5.** One commit per task referencing the task ID; push after
+each commit — draft PR #2 tracks the diff. Sub-letter (`T00Xa`) any
+genuinely new scope and flag it — never silently absorb it, never
+renumber. The `game.rs`/`player.rs` tripwire applies to every task.

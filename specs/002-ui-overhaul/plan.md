@@ -1,6 +1,6 @@
 # Plan: TUI Overhaul
 
-**Status**: Draft — pending review
+**Status**: Approved
 **Implements**: spec.md in this directory (design reference:
 `design/brief.md`)
 
