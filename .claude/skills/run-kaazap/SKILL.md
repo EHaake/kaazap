@@ -23,7 +23,7 @@ Steps execute in order:
 | Step | Meaning |
 |---|---|
 | `wait:TEXT[:SECONDS]` | Pump output until TEXT appears on screen (default timeout 15s) |
-| `key:KEYS` | Send KEYS to the app (`\r` = Enter) |
+| `key:KEYS` | Send KEYS to the app (`\r` = Enter, `\e` = ESC — e.g. `\e[C` right arrow) |
 | `pump:SECONDS` | Let the app run and absorb output for SECONDS |
 | `snap:LABEL` | Print the current screen grid, labeled |
 
@@ -49,6 +49,9 @@ first two; there is no common substring across all three.
 | Key | Action |
 |---|---|
 | `1`–`4` | Play hand card at that slot |
+| `\e[C` / `\e[D` | Cursor select next/prev hand card (right/left arrow) |
+| `\e[A` / `\e[B` | Toggle a ±/tiebreaker card's sign (up/down arrow) |
+| `\r` | Confirm the cursor-selected card (Enter) |
 | `d` / space | Hit (draw a dealer card) |
 | `s` | Stand |
 | `n` | Next round (when prompted) |
