@@ -191,7 +191,7 @@ impl BoardView {
         let mid = self.config.num_cols / 2;
         for y in 0..self.config.num_rows {
             if mid < frame.len() && y < frame[0].len() {
-                frame[mid][y].ch = '|';
+                frame[mid][y].ch = '│';
             }
         }
 
@@ -218,33 +218,18 @@ impl BoardView {
             let x = player_origin_x + col * spacing_x;
             let y = dealer_y + row * (CARD_HEIGHT + 1);
 
-            CardView {
-                x,
-                y,
-                text: c.display_text(),
-            }
-            .draw(frame);
+            CardView::new(x, y, c.display_text()).draw(frame);
         }
         // Played Cards
         for (i, c) in state.player.played_row.iter().enumerate() {
             let x = player_origin_x + i * spacing_x;
-            CardView {
-                x,
-                y: played_y,
-                text: c.display_text(),
-            }
-            .draw(frame);
+            CardView::new(x, played_y, c.display_text()).draw(frame);
         }
         // Hand cards
         for (i, c) in state.player.hand.iter().enumerate() {
             let x = player_origin_x + i * spacing_x;
             if c.is_some() {
-                CardView {
-                    x,
-                    y: hand_y,
-                    text: c.unwrap().label(),
-                }
-                .draw(frame);
+                CardView::new(x, hand_y, c.unwrap().label()).draw(frame);
 
                 // Draw card number underneath
                 let num_x = player_origin_x + i * spacing_x + (CARD_WIDTH / 2);
@@ -262,33 +247,18 @@ impl BoardView {
 
             let x = opp_origin_x + col * spacing_x;
             let y = dealer_y + row * (CARD_HEIGHT + 1);
-            CardView {
-                x,
-                y,
-                text: c.display_text(),
-            }
-            .draw(frame);
+            CardView::new(x, y, c.display_text()).draw(frame);
         }
         // Played Cards — flips sit here at value 0, so no zero-filter
         for (i, c) in state.opponent.played_row.iter().enumerate() {
             let x = opp_origin_x + i * spacing_x;
-            CardView {
-                x,
-                y: played_y,
-                text: c.display_text(),
-            }
-            .draw(frame);
+            CardView::new(x, played_y, c.display_text()).draw(frame);
         }
         // Opponent hand cards (hidden values)
         for (i, c) in state.opponent.hand.iter().enumerate() {
             if c.is_some() {
                 let x = opp_origin_x + i * spacing_x;
-                CardView {
-                    x,
-                    y: hand_y,
-                    text: "?".to_string(),
-                }
-                .draw(frame);
+                CardView::new(x, hand_y, "?".to_string()).draw(frame);
             }
         }
 

@@ -1,4 +1,4 @@
-use crate::{config::Config, frame::{Emphasis, Frame, draw_text}, layout::OverlayLayout};
+use crate::{config::Config, frame::{BorderWeight, Emphasis, Frame, draw_box, draw_text}, layout::OverlayLayout};
 
 #[derive(Debug, Copy, Clone)]
 pub enum OverlayKind {
@@ -68,28 +68,7 @@ impl Overlay {
     /// Draw border helper
     ///
     fn draw_border(&self, layout: OverlayLayout, frame: &mut Frame) {
-        // get box corners
-        let x0 = layout.outer.x0;
-        let x1 = layout.outer.x1;
-        let y0 = layout.outer.y0;
-        let y1 = layout.outer.y1;
-
-        // borders
-        (x0..=x1).for_each(|x| {
-            frame[x][y0].ch = '-';
-            frame[x][y1].ch = '-';
-        });
-
-        (y0..=y1).for_each(|y| {
-            frame[x0][y].ch = '|';
-            frame[x1][y].ch = '|';
-        });
-
-        // corners
-        frame[x0][y0].ch = '+';
-        frame[x1][y0].ch = '+';
-        frame[x0][y1].ch = '+';
-        frame[x1][y1].ch = '+';
+        draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
     }
 
     /// Take the content size and call the functions necessary to draw the overlay

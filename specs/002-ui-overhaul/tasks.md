@@ -81,7 +81,13 @@ Review: after every task.
   *Verify: `cargo test clip_ box_` green; driver smoke unchanged;
   `grep -c "fn draw_text" src/*.rs` finds exactly one definition.*
 
-- [ ] **T003 — Box-drawing restyle**
+- [x] **T003 — Box-drawing restyle**
+  *Single-line confirmed in-app (cards `┌───┐`/`│`/`└───┘`, divider `│`,
+  overlay framed). Heavy-glyph font check deferred to its real use: no
+  Heavy weight renders until T007's selected card, so the definitive
+  real-terminal check happens there; double-line (`╔═╗`) is the ready
+  fallback (one `BorderWeight::glyphs` arm) if heavy reads badly. Human
+  asked to eyeball the heavy sample in the meantime.*
   `CardView` draws via `draw_box` (gains `weight` + text emphasis
   params, defaults Single/Normal); the board divider becomes `│`; the
   overlay border uses `draw_box(Single)`. ASCII `+-|` chrome is gone.
