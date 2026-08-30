@@ -1,6 +1,6 @@
 # Tasks: TUI Overhaul
 
-**Status**: Draft — pending review
+**Status**: Approved
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task is completable and
@@ -32,7 +32,15 @@ needs to touch them has gone off-plan and stops for review.
 
 Review: after every task.
 
-- [ ] **T001 — Styled cells: `Cell` + `Emphasis`, renderer attributes**
+- [x] **T001 — Styled cells: `Cell` + `Emphasis`, renderer attributes**
+  *Open item for review (T003/T005 territory): `render.rs` still forces
+  a grey-clear + black background (`SetBackgroundColor`, pre-existing).
+  Acceptance criterion #1 ("no color escape codes ever") and the brief's
+  "default background" want these gone, but removing them is a real
+  visual change (black vs terminal-default bg) — left mechanical in T001,
+  flagged for a human call on when/whether to drop them. Also: once Alert
+  (Reverse) lands, `SetAttribute(Reset)` may clear that forced bg for
+  following cells — another reason to drop it. Not a blocker for T001.*
   `frame.rs`: `Emphasis { Normal, Strong, Muted, Alert }` (one-axis
   enum, `Default = Normal`), `Cell { ch, emphasis }`,
   `Frame = Vec<Vec<Cell>>`; all writing sites migrate mechanically

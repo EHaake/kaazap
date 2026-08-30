@@ -51,7 +51,7 @@ impl BoardView {
     ///
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
         for (i, ch) in text.chars().enumerate() {
-            frame[x + i][y] = ch;
+            frame[x + i][y].ch = ch;
         }
     }
 
@@ -214,7 +214,7 @@ impl BoardView {
         let mid = self.config.num_cols / 2;
         for y in 0..self.config.num_rows {
             if mid < frame.len() && y < frame[0].len() {
-                frame[mid][y] = '|';
+                frame[mid][y].ch = '|';
             }
         }
 
@@ -272,7 +272,7 @@ impl BoardView {
                 // Draw card number underneath
                 let num_x = player_origin_x + i * spacing_x + (CARD_WIDTH / 2);
                 let num_y = hand_y + CARD_HEIGHT;
-                frame[num_x][num_y] = char::from_digit((i + 1) as u32, 10).unwrap();
+                frame[num_x][num_y].ch = char::from_digit((i + 1) as u32, 10).unwrap();
             }
         }
 

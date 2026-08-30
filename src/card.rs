@@ -145,25 +145,25 @@ impl Drawable for CardView {
 
         // borders
         (x0..=x1).for_each(|x| {
-            frame[x][y0] = '-';
-            frame[x][y1] = '-';
+            frame[x][y0].ch = '-';
+            frame[x][y1].ch = '-';
         });
 
         (y0..=y1).for_each(|y| {
-            frame[x0][y] = '|';
-            frame[x1][y] = '|';
+            frame[x0][y].ch = '|';
+            frame[x1][y].ch = '|';
         });
 
         // corners
-        frame[x0][y0] = '+';
-        frame[x1][y0] = '+';
-        frame[x0][y1] = '+';
-        frame[x1][y1] = '+';
+        frame[x0][y0].ch = '+';
+        frame[x1][y0].ch = '+';
+        frame[x0][y1].ch = '+';
+        frame[x1][y1].ch = '+';
 
         // interior
         ((x0 + 1)..x1).for_each(|x| {
             ((y0 + 1)..y1).for_each(|y| {
-                frame[x][y] = ' ';
+                frame[x][y].ch = ' ';
             });
         });
 
@@ -178,7 +178,7 @@ impl Drawable for CardView {
         let start_x = x0 + 1 + (inner_width - text.chars().count()) / 2;
 
         for (i, ch) in text.chars().enumerate() {
-            frame[start_x + i][text_y] = ch;
+            frame[start_x + i][text_y].ch = ch;
         }
     }
 }

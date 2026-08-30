@@ -108,7 +108,7 @@ impl MenuState {
     /// Takes the text to draw, location coords and frame to draw into
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
         for (i, ch) in text.chars().enumerate() {
-            frame[x + i][y] = ch;
+            frame[x + i][y].ch = ch;
         }
     }
 

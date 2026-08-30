@@ -39,7 +39,7 @@ impl Overlay {
     ///
     fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
         for (i, ch) in text.chars().enumerate() {
-            frame[x + i][y] = ch;
+            frame[x + i][y].ch = ch;
         }
     }
 
@@ -68,7 +68,7 @@ impl Overlay {
 
         (x0..=x1).for_each(|x| {
             (y0..=y1).for_each(|y| {
-                frame[x][y] = ' ';
+                frame[x][y].ch = ' ';
             });
         });
     }
@@ -84,20 +84,20 @@ impl Overlay {
 
         // borders
         (x0..=x1).for_each(|x| {
-            frame[x][y0] = '-';
-            frame[x][y1] = '-';
+            frame[x][y0].ch = '-';
+            frame[x][y1].ch = '-';
         });
 
         (y0..=y1).for_each(|y| {
-            frame[x0][y] = '|';
-            frame[x1][y] = '|';
+            frame[x0][y].ch = '|';
+            frame[x1][y].ch = '|';
         });
 
         // corners
-        frame[x0][y0] = '+';
-        frame[x1][y0] = '+';
-        frame[x0][y1] = '+';
-        frame[x1][y1] = '+';
+        frame[x0][y0].ch = '+';
+        frame[x1][y0].ch = '+';
+        frame[x0][y1].ch = '+';
+        frame[x1][y1].ch = '+';
     }
 
     /// Take the content size and call the functions necessary to draw the overlay
