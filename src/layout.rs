@@ -69,13 +69,38 @@ impl BoardLayout {
 
         // The status message shares the hand's vertical band but sits to
         // the right of the cards, on the player half (as it always has).
-        let status = Rect::new(H_PAD, divider_x.saturating_sub(1), status_y, status_y);
+        // A small gap keeps right-aligned text off the divider.
+        let status = Rect::new(H_PAD, divider_x.saturating_sub(2), status_y, status_y);
 
         Self {
             divider_x,
             player,
             opponent,
             status,
+        }
+    }
+}
+
+/// Start-menu geometry from terminal size and the title art's height.
+#[derive(Debug, Copy, Clone)]
+pub struct MenuLayout {
+    pub center_x: usize,
+    pub title_top: usize,
+    pub items_top: usize,
+    pub item_spacing: usize,
+}
+
+impl MenuLayout {
+    pub fn new(config: Config, title_height: usize) -> Self {
+        let title_top = 5;
+        // Gap below the title art, then the menu items — no longer the
+        // scattered y+15/+2 magic the menu used to inline.
+        const TITLE_GAP: usize = 3;
+        Self {
+            center_x: config.num_cols / 2,
+            title_top,
+            items_top: title_top + title_height + TITLE_GAP,
+            item_spacing: 2,
         }
     }
 }

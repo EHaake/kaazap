@@ -33,13 +33,13 @@ impl BoardView {
         if let GamePhase::GameOver { winner } = state.game_phase {
             match winner {
                 Player::Player => {
-                    draw_text(frame, mid_x - 9, mid_y, "YOU WIN THE GAME! :)", Emphasis::Normal);
+                    draw_text(frame, mid_x - 9, mid_y, "YOU WIN THE GAME! :)", Emphasis::Alert);
                 }
                 Player::Opponent => {
-                    draw_text(frame, mid_x - 9, mid_y, "YOU LOST THE GAME! :(", Emphasis::Normal);
+                    draw_text(frame, mid_x - 9, mid_y, "YOU LOST THE GAME! :(", Emphasis::Alert);
                 }
             }
-            draw_text(frame, mid_x - 11, mid_y + 2, "(g: new game, x: menu)", Emphasis::Normal);
+            draw_text(frame, mid_x - 11, mid_y + 2, "(g: new game, x: menu)", Emphasis::Muted);
 
             return;
         }
@@ -48,72 +48,24 @@ impl BoardView {
         // exactly when n is the key that advances
         match state.round_outcome {
             Some(RoundOutcome::PlayerWon) => {
-                draw_text(frame, mid_x - 9, mid_y, "You won this round!", Emphasis::Normal);
+                draw_text(frame, mid_x - 9, mid_y, "You won this round!", Emphasis::Alert);
             }
             Some(RoundOutcome::Tied) => {
-                draw_text(frame, mid_x - 4, mid_y, "You Tied!", Emphasis::Normal);
+                draw_text(frame, mid_x - 4, mid_y, "You Tied!", Emphasis::Alert);
             }
             Some(RoundOutcome::OpponentWon) => {
-                draw_text(frame, mid_x - 11, mid_y, "Opponent won the round!", Emphasis::Normal);
+                draw_text(frame, mid_x - 11, mid_y, "Opponent won the round!", Emphasis::Alert);
             }
             None => return,
         }
-        draw_text(frame, mid_x - 7, mid_y + 2, "(n: next round)", Emphasis::Normal);
+        draw_text(frame, mid_x - 7, mid_y + 2, "(n: next round)", Emphasis::Muted);
     }
 
-    /// Draw whose turn it is
-    ///
-    fn draw_turn_text(&self, state: &GameState, frame: &mut Frame) {
-        let mid = self.config.num_cols / 2;
-        let padding_y: usize = 5;
-        let padding_x: usize = 15;
-
-        match state.game_phase {
-            GamePhase::PlayerTurn => {
-                // Over 20 the turn continues but drawing won't: say so.
-                // Long texts right-align to the divider so they stay on
-                // the player's half.
-                if state.player.score() > 20 {
-                    let text = "OVER 20! Play a card (d/s: bust)";
-                    draw_text(
-                        frame,
-                        mid.saturating_sub(text.chars().count() + 2),
-                        self.config.num_rows - padding_y,
-                        text,
-                        Emphasis::Normal,
-                    );
-                } else {
-                    draw_text(
-                        frame,
-                        mid - padding_x,
-                        self.config.num_rows - padding_y,
-                        "Your Turn",
-                        Emphasis::Normal,
-                    );
-                }
-            }
-            GamePhase::AwaitingSignChoice { hand_index } => {
-                if let Some(Some(card)) = state.player.hand.get(hand_index)
-                    && let Some(magnitude) = card.sign_choice_magnitude()
-                {
-                    let prompt = format!("+{magnitude} (h) or -{magnitude} (l)? (c cancels)");
-                    draw_text(
-                        frame,
-                        mid.saturating_sub(prompt.chars().count() + 2),
-                        self.config.num_rows - padding_y,
-                        &prompt,
-                        Emphasis::Normal,
-                    );
-                }
-            }
-            GamePhase::OpponentThinking { until: _until } => draw_text(
-                frame,
-                self.config.num_cols - padding_x - 4,
-                self.config.num_rows - padding_y,
-                "Opponent's Turn",
-                Emphasis::Normal,
-            ),
-            _ => {}
+    /// Draw the single status message (if any) right-aligned in the
+    /// player-half status strip.
+    fn draw_status(&self, state: &GameState, frame: &mut Frame) {
+        if let Some((msg, emphasis)) = status_message(state) {
+            draw_text_in(frame, self.layout.status, 0, Align::Right, &msg, emphasis);
         }
     }
 
@@ -125,9 +77,9 @@ impl BoardView {
         draw_text_in(frame, side.header, 1, Align::Right, &format!("Rounds won: {}", p.rounds_won), Emphasis::Normal);
 
         if p.bust {
-            draw_text_in(frame, side.header, 1, Align::Left, "BUSTED!!", Emphasis::Normal);
+            draw_text_in(frame, side.header, 1, Align::Left, "BUSTED!!", Emphasis::Alert);
         } else if p.stood {
-            draw_text_in(frame, side.header, 1, Align::Left, "Stood", Emphasis::Normal);
+            draw_text_in(frame, side.header, 1, Align::Left, "Stood", Emphasis::Muted);
         }
     }
 
@@ -193,10 +145,102 @@ impl BoardView {
         self.draw_side(&self.layout.player, &state.player, true, frame);
         self.draw_side(&self.layout.opponent, &state.opponent, false, frame);
 
-        // Draw Turn Text
-        self.draw_turn_text(state, frame);
+        // Draw the status line (turn / prompt / alert)
+        self.draw_status(state, frame);
 
         // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
+    }
+}
+
+/// The single status message for the current game state, with its
+/// emphasis — precedence: over-20 alert > sign prompt > (cursor hint,
+/// T007) > turn text. Pure, so precedence is unit-testable.
+pub fn status_message(state: &GameState) -> Option<(String, Emphasis)> {
+    // Alert: over 20 during the player's turn (drawing is disabled)
+    if matches!(state.game_phase, GamePhase::PlayerTurn) && state.player.score() > 20 {
+        return Some(("OVER 20! Play a card (d/s: bust)".to_string(), Emphasis::Alert));
+    }
+
+    // Sign prompt while a plus-or-minus / tiebreaker card waits to commit
+    if let GamePhase::AwaitingSignChoice { hand_index } = state.game_phase {
+        if let Some(Some(card)) = state.player.hand.get(hand_index)
+            && let Some(magnitude) = card.sign_choice_magnitude()
+        {
+            return Some((
+                format!("+{magnitude} (h) or -{magnitude} (l)? (c cancels)"),
+                Emphasis::Strong,
+            ));
+        }
+        return None;
+    }
+
+    // Otherwise, whose turn it is
+    match state.game_phase {
+        GamePhase::PlayerTurn => Some(("Your Turn".to_string(), Emphasis::Strong)),
+        GamePhase::OpponentThinking { .. } => {
+            Some(("Opponent's Turn".to_string(), Emphasis::Muted))
+        }
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::card::Card;
+    use crate::game::GameState;
+
+    fn msg(state: &GameState) -> Option<(String, Emphasis)> {
+        status_message(state)
+    }
+
+    #[test]
+    fn status_player_turn_is_your_turn_strong() {
+        let gs = GameState::new(); // starts in PlayerTurn
+        assert_eq!(msg(&gs), Some(("Your Turn".to_string(), Emphasis::Strong)));
+    }
+
+    #[test]
+    fn status_over_twenty_alert_beats_turn_text() {
+        let mut gs = GameState::new();
+        // Force a live over-20 total on the player's turn
+        gs.player.dealer_row = vec![
+            crate::card::PlayedCard { card: Card::Dealer(10), value: 10 },
+            crate::card::PlayedCard { card: Card::Dealer(10), value: 10 },
+            crate::card::PlayedCard { card: Card::Dealer(5), value: 5 },
+        ];
+        let (text, emphasis) = msg(&gs).unwrap();
+        assert!(text.starts_with("OVER 20"));
+        assert_eq!(emphasis, Emphasis::Alert);
+    }
+
+    #[test]
+    fn status_sign_prompt_shows_the_cards_magnitude() {
+        let mut gs = GameState::new();
+        gs.player.hand[0] = Some(Card::PlusMinus(3));
+        gs.game_phase = GamePhase::AwaitingSignChoice { hand_index: 0 };
+        let (text, emphasis) = msg(&gs).unwrap();
+        assert_eq!(text, "+3 (h) or -3 (l)? (c cancels)");
+        assert_eq!(emphasis, Emphasis::Strong);
+    }
+
+    #[test]
+    fn status_opponent_turn_is_muted() {
+        let mut gs = GameState::new();
+        gs.game_phase = GamePhase::OpponentThinking {
+            until: std::time::Instant::now(),
+        };
+        assert_eq!(
+            msg(&gs),
+            Some(("Opponent's Turn".to_string(), Emphasis::Muted))
+        );
+    }
+
+    #[test]
+    fn status_is_empty_at_round_end() {
+        let mut gs = GameState::new();
+        gs.game_phase = GamePhase::RoundEnd;
+        assert_eq!(msg(&gs), None);
     }
 }

@@ -4,7 +4,7 @@ use strum_macros::EnumIter;
 
 use std::{fmt, time::Duration};
 
-use crate::{MENU_ANIMATION_TIME_MS, TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text}};
+use crate::{MENU_ANIMATION_TIME_MS, TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text}, layout::MenuLayout};
 
 #[derive(EnumIter, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
@@ -114,45 +114,40 @@ impl MenuState {
 
     /// Perform the drawing of menu items, including animation
     ///
-    fn draw_menu_items(&self, x: usize, y: usize, frame: &mut Frame) {
-        let mut padding_y = y + 15;
+    fn draw_menu_items(&self, layout: &MenuLayout, frame: &mut Frame) {
+        let mut y = layout.items_top;
 
         for menu_item in MenuItem::iter() {
             let menu_item_text = menu_item.to_string();
-            padding_y += 2;
 
             // If this is the selected item, draw an annotation
             if self.selected == menu_item {
-                match self.animation_state {
-                    true => {
-                        let selected_text = format!("-- {} --", menu_item_text);
-                        let padding_x = x - selected_text.len() / 2;
-                        draw_text(frame, padding_x, padding_y, &selected_text, Emphasis::Normal);
-                    }
-                    false => {
-                        let selected_text = format!("++ {} ++", menu_item_text);
-                        let padding_x = x - selected_text.len() / 2;
-                        draw_text(frame, padding_x, padding_y, &selected_text, Emphasis::Normal);
-                    }
-                }
+                let selected_text = match self.animation_state {
+                    true => format!("-- {} --", menu_item_text),
+                    false => format!("++ {} ++", menu_item_text),
+                };
+                let x = layout.center_x - selected_text.len() / 2;
+                draw_text(frame, x, y, &selected_text, Emphasis::Normal);
             } else {
-                let padding_x = x - menu_item_text.len() / 2;
-                draw_text(frame, padding_x, padding_y, &menu_item_text, Emphasis::Normal);
+                let x = layout.center_x - menu_item_text.len() / 2;
+                draw_text(frame, x, y, &menu_item_text, Emphasis::Normal);
             }
+
+            y += layout.item_spacing;
         }
     }
 
     /// Main draw fn figures out where to render each element, then sends it out
     ///
     pub fn draw(&self, frame: &mut Frame, config: &Config) {
-        // TODO: stop using magic numbers for positioning
-        let mid = config.num_cols / 2;
-        let padding_x = self.title_text[1].len() / 2 - TITLE_X_OFFSET;
-        let padding_y = 5;
+        let layout = MenuLayout::new(*config, self.title_text.len());
 
-        self.draw_title(mid - padding_x, padding_y, frame);
+        // Title art keeps its own centering (leading-whitespace aware),
+        // anchored on the layout's center.
+        let title_x = layout.center_x - (self.title_text[1].len() / 2 - TITLE_X_OFFSET);
+        self.draw_title(title_x, layout.title_top, frame);
 
-        self.draw_menu_items(mid, padding_y, frame);
+        self.draw_menu_items(&layout, frame);
     }
 }
 

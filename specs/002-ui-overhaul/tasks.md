@@ -139,7 +139,17 @@ Review: after every task.
   and headers land in their regions at 180x48; a second driver run at
   the minimum size renders without artifacts.*
 
-- [ ] **T005 — Status line, menu/overlay layout, self-sizing overlays**
+- [x] **T005 — Status line, menu/overlay layout, self-sizing overlays**
+  *`status_message` is one pure precedence function (over-20 Alert >
+  sign-prompt Strong > turn text; opponent-turn Muted), rendered
+  right-aligned in the status strip — the manual `saturating_sub`
+  placements are gone. BUSTED and outcome banners now render Alert,
+  Stood/hints Muted. Menu positions via `MenuLayout` (items tightened
+  from the old ~9-row gap to a computed 3-row gap below the title —
+  flagged, vetoable). Overlays self-size via `measure()` (widest line ×
+  line count); both magic-number TODOs deleted. Status strip inset 2
+  cols from the divider (small T004-layout refinement) so right-aligned
+  text isn't flush. Cursor-hint precedence slot noted for T007.*
   One pure precedence function chooses the single status message:
   alert ("OVER 20 …", rendered `Alert`) > sign-prompt > cursor hint
   (slot exists now, wired in T007) > turn text; `board.rs` renders its
