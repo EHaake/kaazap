@@ -151,7 +151,12 @@ def main(argv):
                     failed = True
                     break
             elif op == "key":
-                keys = arg.replace("\\r", "\r").replace("\\n", "\n").replace("\\t", "\t")
+                keys = (
+                    arg.replace("\\r", "\r")
+                    .replace("\\n", "\n")
+                    .replace("\\t", "\t")
+                    .replace("\\e", "\x1b")  # ESC, for arrow-key sequences
+                )
                 os.write(master, keys.encode())
             elif op == "pump":
                 pump(float(arg))
