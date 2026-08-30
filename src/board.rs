@@ -70,10 +70,13 @@ impl BoardView {
                     self.draw_text("YOU LOST THE GAME! :(", mid_x - 9, mid_y, frame);
                 }
             }
+            self.draw_text("(g: new game, x: menu)", mid_x - 11, mid_y + 2, frame);
 
             return;
         }
 
+        // Round outcome only renders during AwaitingNextRound, which is
+        // exactly when n is the key that advances
         match state.round_outcome {
             Some(RoundOutcome::PlayerWon) => {
                 self.draw_text("You won this round!", mid_x - 9, mid_y, frame);
@@ -84,8 +87,9 @@ impl BoardView {
             Some(RoundOutcome::OpponentWon) => {
                 self.draw_text("Opponent won the round!", mid_x - 11, mid_y, frame);
             }
-            None => {}
+            None => return,
         }
+        self.draw_text("(n: next round)", mid_x - 7, mid_y + 2, frame);
     }
 
     /// Draw whose turn it is

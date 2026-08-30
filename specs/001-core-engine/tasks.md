@@ -314,6 +314,15 @@ Review: after the phase.
   *Verify: full `cargo test` green (68 tests, incl. the three new ones);
   overlay and cue confirmed in-app via driver.*
 
+- [x] **T012b — Advance-key hints at round end and game over**
+  *(human observation post-review; ruled: fix now rather than defer to
+  the UI spec — same discoverability shape as T004a, two strings in
+  existing draw code)* The outcome text now carries its advancing key:
+  "(n: next round)" under the round result, "(g: new game, x: menu)"
+  under the game result.
+  *Verify: manual via driver — both hints observed under their outcome
+  texts in a live round end and a driven full match.*
+
 ## Handoff note
 
 Read `CLAUDE.md`, then `specs/001-core-engine/spec.md`, `plan.md`, and
