@@ -4,6 +4,7 @@ use crate::{config::Config, frame::{BorderWeight, Emphasis, Frame, draw_box, dra
 pub enum OverlayKind {
     GameHelp,
     MenuHelp,
+    HowToPlay,
 }
 
 #[derive(Debug)]
@@ -35,6 +36,10 @@ impl Overlay {
             }
             OverlayKind::MenuHelp => {
                 let s: &'static str = include_str!("../assets/menu_overlay_text.txt");
+                s.lines().map(|line| line.to_string()).collect()
+            }
+            OverlayKind::HowToPlay => {
+                let s: &'static str = include_str!("../assets/how_to_play_text.txt");
                 s.lines().map(|line| line.to_string()).collect()
             }
         }

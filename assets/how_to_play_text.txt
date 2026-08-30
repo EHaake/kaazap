@@ -1,0 +1,17 @@
+=======  How to Play  =======
+
+Beat the opponent's total without passing
+20. First to 3 round wins takes the match.
+
+Draw a card (0-10) each turn; play side
+cards to adjust, then Stand.
+
+ +N / -N   add or subtract N
+ ±N        pick + or - when played
+ 2&4 / 3&6 flip matching cards' signs
+ ±1T       tiebreaker (±1), wins a tie
+
+Over 20 isn't bust - recover with a minus
+card, or press d/s to bust.
+
+Play with 1-4 or arrows + Enter.  ? closes.

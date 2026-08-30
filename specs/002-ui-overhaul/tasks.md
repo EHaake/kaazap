@@ -274,7 +274,15 @@ Review: after the phase.
   dismissed, game resumes mid-round with state intact; no panic at any
   step.*
 
-- [ ] **T009 — How to Play, wired and current**
+- [x] **T009 — How to Play, wired and current**
+  *`OverlayKind::HowToPlay` + `assets/how_to_play_text.txt` (card kinds
+  and effects, over-20 recovery incl. d/s accepting the bust, tiebreaker
+  wins a tie, first-to-3 match). `MenuItem::HowToPlay` opens it; overlays
+  now dismiss on ?/Esc/Enter (friendlier for a menu-reached modal). The
+  game controls overlay gained the cursor keys (←/→, ↑/↓, Enter). Sized
+  to fit the minimum terminal via the self-sizing overlay. Verified
+  in-app: menu → How to Play shows the rules framed; controls overlay
+  lists the cursor keys.*
   `OverlayKind::HowToPlay` backed by new
   `assets/how_to_play_text.txt`: card kinds and effects, over-20
   recovery (incl. d/s accepting the bust), tiebreaker resolution,

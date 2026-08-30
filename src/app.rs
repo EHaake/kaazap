@@ -251,11 +251,9 @@ impl App {
         }
 
         if self.overlay.is_some() {
-            // Handle overlay keybinds
-            if let KeyCode::Char(c) = key
-                && c == '?'
-            {
-                self.overlay = None
+            // Any overlay is dismissed with ?, Esc, or Enter
+            if matches!(key, KeyCode::Char('?') | KeyCode::Esc | KeyCode::Enter) {
+                self.overlay = None;
             }
         } else {
             // If overlay is not enabled, if ? is pressed, enable overlay
@@ -324,7 +322,9 @@ impl App {
                     cursor: HandCursor::default(),
                 };
             }
-            MenuItem::HowToPlay => {}
+            MenuItem::HowToPlay => {
+                self.overlay = Some(Overlay::new(OverlayKind::HowToPlay, self.config));
+            }
         }
     }
 
