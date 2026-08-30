@@ -158,6 +158,11 @@ def main(argv):
                     .replace("\\e", "\x1b")  # ESC, for arrow-key sequences
                 )
                 os.write(master, keys.encode())
+            elif op == "resize":
+                # Resize the pty; the kernel sends SIGWINCH to the app,
+                # which crossterm surfaces as Event::Resize. WxH in cells.
+                w, h = (int(v) for v in arg.lower().split("x"))
+                fcntl.ioctl(master, termios.TIOCSWINSZ, struct.pack("HHHH", h, w, 0, 0))
             elif op == "pump":
                 pump(float(arg))
             elif op == "snap":
