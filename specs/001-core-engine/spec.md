@@ -203,3 +203,6 @@ sources don't cover this case).
   while over. This is the recovery window that makes minus and ± cards
   worth holding. The previous instant-bust was an intentional
   placeholder from before negative cards existed, not an oversight.
+  Amended (T008b, human-requested): while over 20 the draw key doesn't
+  refuse — it accepts the bust and ends the round, same as standing, so
+  every key keeps a meaning in that state.

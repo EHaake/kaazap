@@ -181,3 +181,5 @@ on this branch: drop the unused `rusty_time` dependency from
   (the new single source of truth `can_play_as` derives from). The
   standing-flip ruling is unchanged and its test still passes. Instant
   bust had been a deliberate placeholder until negative cards existed.
+  Amended (T008b): `Hit` while over 20 routes to `player_stand()`
+  instead of being ignored — the draw key accepts the bust.

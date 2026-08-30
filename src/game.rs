@@ -114,12 +114,15 @@ impl GameState {
     pub fn apply_game_action(&mut self, action: GameAction) {
         match action {
             GameAction::Hit => {
-                // No drawing while over 20 — recover with a card or stand
-                if matches!(self.game_phase, GamePhase::PlayerTurn)
-                    && !self.player.stood
-                    && self.player.score() <= 20
-                {
-                    self.player_hit();
+                if matches!(self.game_phase, GamePhase::PlayerTurn) && !self.player.stood {
+                    if self.player.score() <= 20 {
+                        self.player_hit();
+                    } else {
+                        // Drawing while over 20 is meaningless, so the
+                        // draw key accepts the bust instead — same as
+                        // standing (human-requested, T008b)
+                        self.player_stand();
+                    }
                     self.resolve_after_action();
                 }
             }
@@ -998,14 +1001,20 @@ mod tests {
     }
 
     #[test]
-    fn bust_hit_is_refused_while_over_twenty() {
+    fn bust_hit_while_over_twenty_stands_into_the_bust() {
+        // The draw key draws nothing while over — it accepts the bust,
+        // exactly like standing (T008b ruling)
         let mut gs = player_over_at_23(vec![None, None, None, None]);
         let drawn_before = gs.player.dealer_row.len();
 
         gs.apply_game_action(GameAction::Hit);
 
         assert_eq!(gs.player.dealer_row.len(), drawn_before);
-        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+        assert!(gs.player.bust);
+        assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
+
+        gs.update();
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
     }
 
     #[test]

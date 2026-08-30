@@ -211,6 +211,16 @@ Review: after every task.
   refusal, live-flip survival); `ai_recovers…`/`ai_with_no_recovery…`/
   `ai_over_twenty_turn…` green; hands-off driver rounds terminate.*
 
+- [x] **T008b — Draw key accepts the bust while over 20**
+  *(human-requested follow-up to T008a)* While over 20, `d`/space no
+  longer silently refuses: it stands into the bust and ends the round,
+  same as `s` — every key keeps a meaning in the over-20 state. The
+  T008a hit-refusal test is deliberately rewritten (not weakened) to
+  assert the new stand-into-bust behavior; ruling recorded in spec.md
+  and plan.md.
+  *Verify: `cargo test bust_hit_while_over_twenty_stands_into_the_bust`
+  green; full `cargo test` green.*
+
 ## Phase 3 — Rendering (`board.rs`)
 
 Review: after the phase (both tasks done).
