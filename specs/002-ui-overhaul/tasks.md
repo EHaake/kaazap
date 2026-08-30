@@ -33,14 +33,18 @@ needs to touch them has gone off-plan and stops for review.
 Review: after every task.
 
 - [x] **T001 — Styled cells: `Cell` + `Emphasis`, renderer attributes**
-  *Open item for review (T003/T005 territory): `render.rs` still forces
-  a grey-clear + black background (`SetBackgroundColor`, pre-existing).
-  Acceptance criterion #1 ("no color escape codes ever") and the brief's
-  "default background" want these gone, but removing them is a real
-  visual change (black vs terminal-default bg) — left mechanical in T001,
-  flagged for a human call on when/whether to drop them. Also: once Alert
-  (Reverse) lands, `SetAttribute(Reset)` may clear that forced bg for
-  following cells — another reason to drop it. Not a blocker for T001.*
+  *(The forced-background item flagged here was resolved in T001a.)*
+
+- [x] **T001a — Drop the forced background; inherit terminal default**
+  *(human-ruled: the background should be the terminal's own)* Removed
+  `render.rs`'s `SetBackgroundColor` grey-clear/black lines — `src/` now
+  emits zero color codes (acceptance criterion #1), and cleared cells
+  show the terminal's default background (brief). Added a per-frame
+  `SetAttribute(Reset)` baseline so an attribute left active at frame end
+  can't leak into the next frame's redrawn cells once Alert lands.
+  *Verify: `grep -rn "Set(Fore|Back)groundColor\|Color::" src/` empty;
+  `cargo test` green (71); driver renders the board without regression;
+  real-terminal background confirmed default by the human.*
   `frame.rs`: `Emphasis { Normal, Strong, Muted, Alert }` (one-axis
   enum, `Default = Normal`), `Cell { ch, emphasis }`,
   `Frame = Vec<Vec<Cell>>`; all writing sites migrate mechanically

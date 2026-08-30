@@ -1,4 +1,4 @@
-use crossterm::{QueueableCommand, cursor::MoveTo, style::{Attribute, Color, SetAttribute, SetBackgroundColor}, terminal::{Clear, ClearType}};
+use crossterm::{QueueableCommand, cursor::MoveTo, style::{Attribute, SetAttribute}, terminal::{Clear, ClearType}};
 
 use crate::frame::{Emphasis, Frame};
 use std::io::{Stdout, Write};
@@ -6,17 +6,18 @@ use std::io::{Stdout, Write};
 // Only render what changed between last_frame and curr_frame
 // Have the option to force the rendering (only should need once such as at the beginning)
 pub fn render(stdout: &mut Stdout, last_frame: &Frame, curr_frame: &Frame, force: bool) {
-    if force {
-        stdout.queue(SetBackgroundColor(Color::Grey)).unwrap();
-        stdout.queue(Clear(ClearType::All)).unwrap();
-        stdout.queue(SetBackgroundColor(Color::Black)).unwrap();
-    }
-
-    // Track the attribute currently active in the terminal so we only
-    // emit a change when a drawn cell's emphasis differs from it.
-    // SetAttribute persists across the cells we skip, so comparing
-    // against the last *emitted* cell's emphasis is correct.
+    // Start every frame from a known attribute baseline: reset SGR so an
+    // attribute left active at the end of the previous frame can't leak
+    // into cells we redraw here. This only affects characters we draw
+    // next — glyphs already on screen keep their appearance. No colors
+    // are ever set, so cleared/default cells show the terminal's own
+    // background (design/brief.md: default background).
+    stdout.queue(SetAttribute(Attribute::Reset)).unwrap();
     let mut active = Emphasis::Normal;
+
+    if force {
+        stdout.queue(Clear(ClearType::All)).unwrap();
+    }
 
     for (x, col) in curr_frame.iter().enumerate() {
         for (y, cell) in col.iter().enumerate() {
