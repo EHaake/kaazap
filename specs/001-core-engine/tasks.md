@@ -270,7 +270,14 @@ Review: after the phase.
   *Verify: `rusty_time` absent from `Cargo.toml` and `Cargo.lock`;
   `cargo build` and `cargo test` green.*
 
-- [ ] **T012 — Acceptance sweep**
+- [x] **T012 — Acceptance sweep**
+  *Evidence: 65/65 tests green; branch warnings a strict subset of
+  main's (4 → 2, two cleared); full match driven to GAME OVER with a
+  visible mid-match spent hand, then `g` re-dealt fresh hands; every
+  card kind exercised in-app across the phase smokes (T009: +2/2&4/-2/
+  ±3 incl. post-flip -2; T010 follow-up: ±1/±1T via h and l; T012 run:
+  opponent bust-recovery path at 24 and 22). All spec.md acceptance
+  boxes ticked.*
   Walk spec.md's acceptance criteria and check every box: full
   `cargo build` (confirming no new warnings vs `main`), full
   `cargo test`, and a manual best-of-3 playthrough exercising every

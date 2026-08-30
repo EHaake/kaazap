@@ -139,26 +139,26 @@ sources don't cover this case).
 
 ## Acceptance criteria
 
-- [ ] Main deck still draws 0–10 inclusive, unchanged.
-- [ ] Side-deck cards exist in kinds: plus, minus, plus-or-minus (±),
+- [x] Main deck still draws 0–10 inclusive, unchanged.
+- [x] Side-deck cards exist in kinds: plus, minus, plus-or-minus (±),
       flip (2&4, 3&6), and tiebreaker.
-- [ ] Playing a ± card prompts the player to choose + or − before it's
+- [x] Playing a ± card prompts the player to choose + or − before it's
       applied to their total.
-- [ ] Playing a 2&4 or 3&6 flip card inverts the sign of every
+- [x] Playing a 2&4 or 3&6 flip card inverts the sign of every
       matching-value card on the table (both sides), and both totals
       update immediately.
-- [ ] Playing a tiebreaker card applies +1 or −1 (player's choice), and
+- [x] Playing a tiebreaker card applies +1 or −1 (player's choice), and
       if the round would otherwise end tied with exactly one side's
       tiebreaker in play, that side wins the round instead.
-- [ ] At the start of each new game, both player and opponent draw an
+- [x] At the start of each new game, both player and opponent draw an
       independent, fresh random 4-card hand from the fixed default side
       deck.
-- [ ] A played hand card doesn't return until the next game starts (no
+- [x] A played hand card doesn't return until the next game starts (no
       mid-match redraw) — unchanged behavior, covered by a regression
       test.
-- [ ] `cargo test` passes, with new unit tests covering scoring and
+- [x] `cargo test` passes, with new unit tests covering scoring and
       round resolution for every new card kind.
-- [ ] `cargo build` succeeds with no new warnings introduced by this work.
+- [x] `cargo build` succeeds with no new warnings introduced by this work.
 
 ## Resolved decisions
 
