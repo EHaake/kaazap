@@ -150,36 +150,42 @@ structure. Dismissed the same way the controls overlay is.
 
 ## Acceptance criteria
 
-- [ ] `Frame` cells carry monochrome emphasis; the renderer emits
+- [x] `Frame` cells carry monochrome emphasis; the renderer emits
       attribute changes only when a cell's emphasis differs — and no
-      color escape codes ever.
-- [ ] All cards, dividers, and overlay frames render with single-line
-      box-drawing; no ASCII `+-|` chrome remains.
-- [ ] A full game is playable with only arrows + Enter: navigating the
-      hand, toggling a ± card's sign visibly on its face, and
-      committing — verified in the running game.
-- [ ] Direct-key play (`1`–`4`, `d`/space, `s`, `h`/`l` prompt, `n`,
+      color escape codes ever. *(T001/T001a; `grep` for color setters in
+      `src/` is empty.)*
+- [x] All cards, dividers, and overlay frames render with single-line
+      box-drawing; no ASCII `+-|` chrome remains. *(T003.)*
+- [x] A full game is playable with only arrows + Enter: navigating the
+      hand, toggling a ± card's pending sign (shown in the status line
+      per T007a, not on the card face), and committing — verified in the
+      running game.
+- [x] Direct-key play (`1`–`4`, `d`/space, `s`, `h`/`l` prompt, `n`,
       `g`, `x`, `?`) works exactly as before — regression-checked
-      against the spec-001 behavior.
-- [ ] The selected card (and selected menu item) is visually distinct
-      per the brief; unselected cards are unchanged.
-- [ ] The selected card and selected menu item pulse gently between
+      against the spec-001 behavior. *(Keys-only round to outcome +
+      h/l sub-prompt verified in-app.)*
+- [x] The selected card (and selected menu item) is visually distinct
+      per the brief (heavy border / `▸` marker); unselected cards are
+      unchanged (unselected hand cards dim per T007a). *(T007.)*
+- [x] The selected card and selected menu item pulse gently between
       emphasis states; nothing else on screen animates — verified by
-      running.
-- [ ] No text-drawing code can panic from placement: drawing at any
+      running. *(T007; real-terminal eyeball still recommended.)*
+- [x] No text-drawing code can panic from placement: drawing at any
       position, any length, any terminal size ≥ minimum clips safely
-      — covered by unit tests on the layout/clipping logic.
-- [ ] `board.rs`, `overlay.rs`, and `menu.rs` place content via the
+      — covered by unit tests on the layout/clipping logic. *(T002
+      `clip_`/`box_` tests.)*
+- [x] `board.rs`, `overlay.rs`, and `menu.rs` place content via the
       layout layer; the hand-tuned numeric offsets (and both
-      magic-number TODOs) are gone.
-- [ ] Resize during play re-lays-out cleanly; below-minimum shows the
+      magic-number TODOs) are gone. *(T004/T005.)*
+- [x] Resize during play re-lays-out cleanly; below-minimum shows the
       recovery state and restores without losing game state; verified
-      by resizing a live game.
-- [ ] Menu → How to Play opens the rules overlay; its text covers all
-      card kinds, over-20/bust behavior, and the tiebreaker.
-- [ ] `cargo test` green, with new tests covering cursor logic, sign
-      toggling, region computation, and clip arithmetic; `cargo build`
-      introduces no new warnings.
+      by resizing a live game. *(T008; shrink→recover→reflow with score
+      intact.)*
+- [x] Menu → How to Play opens the rules overlay; its text covers all
+      card kinds, over-20/bust behavior, and the tiebreaker. *(T009.)*
+- [x] `cargo test` green (114), with new tests covering cursor logic,
+      sign toggling, region computation, and clip arithmetic; `cargo
+      build` introduces no new warnings (0, down from main's 4).
 
 ## Resolved decisions
 
