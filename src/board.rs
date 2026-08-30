@@ -1,8 +1,9 @@
 use crate::{
     CARD_HEIGHT, CARD_WIDTH,
+    app::HandCursor,
     card::CardView,
     config::Config,
-    frame::{Align, Drawable, Emphasis, Frame, draw_text, draw_text_in},
+    frame::{Align, BorderWeight, Drawable, Emphasis, Frame, draw_text, draw_text_in},
     game::{GamePhase, GameState, RoundOutcome},
     layout::{BoardLayout, SideLayout, card_slot, cards_per_row},
     player::{Player, PlayerState},
@@ -91,9 +92,16 @@ impl BoardView {
     }
 
     /// Draw one side's zones: Muted labels, dealer grid (wraps), played
-    /// row, and hand. `reveal_hand` shows the player's card faces and
-    /// number keys; the opponent's hand shows hidden "?" faces.
-    fn draw_side(&self, side: &SideLayout, ps: &PlayerState, reveal_hand: bool, frame: &mut Frame) {
+    /// row, and hand. The player's side passes `selection` (the cursor's
+    /// slot, pending sign, and pulse emphasis) and reveals hand faces +
+    /// number keys; the opponent's side passes None and hides its hand.
+    fn draw_side(
+        &self,
+        side: &SideLayout,
+        ps: &PlayerState,
+        selection: Option<Selection>,
+        frame: &mut Frame,
+    ) {
         // Zone labels sit one row above each zone (clip-safe if tight)
         draw_text(frame, side.dealer.x0, side.dealer.y0.saturating_sub(1), "Dealer", Emphasis::Muted);
         draw_text(frame, side.played.x0, side.played.y0.saturating_sub(1), "Played", Emphasis::Muted);
@@ -116,14 +124,23 @@ impl BoardView {
         for (i, c) in ps.hand.iter().enumerate() {
             let Some(card) = c else { continue };
             let (x, y) = card_slot(side.hand, i, 0);
-            let text = if reveal_hand {
-                card.label()
-            } else {
-                "?".to_string()
-            };
-            CardView::new(x, y, text).draw(frame);
 
-            if reveal_hand {
+            let view = match selection {
+                // Selected player card: heavy breathing border, pending face
+                Some(sel) if sel.index == i => {
+                    let mut v = CardView::new(x, y, card.selected_face(sel.pending_positive));
+                    v.weight = BorderWeight::Heavy;
+                    v.emphasis = sel.pulse;
+                    v
+                }
+                // Other player card: real face
+                Some(_) => CardView::new(x, y, card.label()),
+                // Opponent card: hidden
+                None => CardView::new(x, y, "?".to_string()),
+            };
+            view.draw(frame);
+
+            if selection.is_some() {
                 // number key centered just below the card
                 draw_text(frame, x + CARD_WIDTH / 2, y + CARD_HEIGHT, &(i + 1).to_string(), Emphasis::Normal);
             }
@@ -132,7 +149,7 @@ impl BoardView {
 
     /// Draw the current game state
     ///
-    pub fn draw(&self, state: &GameState, frame: &mut Frame) {
+    pub fn draw(&self, state: &GameState, cursor: &HandCursor, pulse: Emphasis, frame: &mut Frame) {
         // Vertical divider down the middle
         let divider_x = self.layout.divider_x;
         for y in 0..self.config.num_rows {
@@ -142,15 +159,29 @@ impl BoardView {
         }
 
         self.draw_top_info(state, frame);
-        self.draw_side(&self.layout.player, &state.player, true, frame);
-        self.draw_side(&self.layout.opponent, &state.opponent, false, frame);
 
-        // Draw the status line (turn / prompt / alert)
+        let selection = Selection {
+            index: cursor.index(),
+            pending_positive: cursor.pending_positive(),
+            pulse,
+        };
+        self.draw_side(&self.layout.player, &state.player, Some(selection), frame);
+        self.draw_side(&self.layout.opponent, &state.opponent, None, frame);
+
+        // Draw the status line (turn / prompt / alert / cursor hint)
         self.draw_status(state, frame);
 
         // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
     }
+}
+
+/// The player's hand selection state, passed into rendering.
+#[derive(Clone, Copy)]
+struct Selection {
+    index: usize,
+    pending_positive: bool,
+    pulse: Emphasis,
 }
 
 /// The single status message for the current game state, with its
@@ -175,9 +206,13 @@ pub fn status_message(state: &GameState) -> Option<(String, Emphasis)> {
         return None;
     }
 
-    // Otherwise, whose turn it is
+    // Otherwise, whose turn it is — the player's turn teaches the cursor
+    // controls (the hint implies it's your move)
     match state.game_phase {
-        GamePhase::PlayerTurn => Some(("Your Turn".to_string(), Emphasis::Strong)),
+        GamePhase::PlayerTurn => Some((
+            "←/→ card  ↑/↓ sign  Enter play".to_string(),
+            Emphasis::Strong,
+        )),
         GamePhase::OpponentThinking { .. } => {
             Some(("Opponent's Turn".to_string(), Emphasis::Muted))
         }
@@ -196,9 +231,11 @@ mod tests {
     }
 
     #[test]
-    fn status_player_turn_is_your_turn_strong() {
+    fn status_player_turn_shows_the_cursor_hint_strong() {
         let gs = GameState::new(); // starts in PlayerTurn
-        assert_eq!(msg(&gs), Some(("Your Turn".to_string(), Emphasis::Strong)));
+        let (text, emphasis) = msg(&gs).unwrap();
+        assert!(text.contains("Enter play"));
+        assert_eq!(emphasis, Emphasis::Strong);
     }
 
     #[test]

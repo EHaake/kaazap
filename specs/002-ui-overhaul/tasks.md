@@ -195,7 +195,21 @@ Review: after every task.
   arrows + Enter (no number keys), including a ± card at both signs;
   `git diff main -- src/game.rs src/player.rs` empty.*
 
-- [ ] **T007 — Selection pulse + selection rendering**
+- [x] **T007 — Selection pulse + selection rendering**
+  *`SelectionPulse` on `App`, ticked once in `App::tick`, its emphasis
+  passed read-only into both draws. Selected hand card renders a heavy
+  border breathing Strong↔Normal, with a sign-choice card's face showing
+  its pending signed value (`+1T`↔`-1T` verified in-app). Menu selection
+  keeps its animation as the shared pulse — `++ item ++` retired for a
+  constant `▸` marker (its always-on anchor, mirroring the card's heavy
+  border) plus the breathing emphasis; `MenuState`'s private timer/
+  fields and `MenuState::tick` are gone, `Screen::draw` (now dead)
+  removed with them (clears the last pre-existing warning). Cursor hint
+  joins the status line: PlayerTurn now shows "←/→ card ↑/↓ sign Enter
+  play" instead of "Your Turn" — flagged, vetoable.*
+  *Deviation note: menu selection uses a `▸` marker anchor because a menu
+  item has no border to anchor the breathe; without it the item would be
+  indistinguishable at the Normal phase. `selected_face` lives on `Card`.*
   `SelectionPulse` owned by `App`, ticked in `App::tick`
   (`MENU_ANIMATION_TIME_MS` renamed `SELECTION_PULSE_MS`); passed
   read-only into draws. Board: selected card renders heavy border,

@@ -3,15 +3,57 @@ use std::time::Duration;
 use crossterm::event::KeyCode;
 
 use crate::{
+    SELECTION_PULSE_MS,
     board::BoardView,
     card::Card,
     config::Config,
-    frame::Frame,
+    frame::{Emphasis, Frame},
     game::{GameAction, GamePhase, GameState},
     menu::{MenuEvent, MenuItem, MenuState},
     overlay::{Overlay, OverlayKind},
     screen::Screen,
 };
+
+/// The one shared selection animation: a gentle two-phase breathe that
+/// modulates the emphasis of whatever is currently selected (a hand
+/// card's heavy border, the highlighted menu item). One cadence across
+/// every screen, per design/brief.md — the only thing that moves.
+#[derive(Debug)]
+pub struct SelectionPulse {
+    acc: Duration,
+    on: bool,
+}
+
+impl Default for SelectionPulse {
+    fn default() -> Self {
+        Self {
+            acc: Duration::ZERO,
+            on: true,
+        }
+    }
+}
+
+impl SelectionPulse {
+    pub fn tick(&mut self, dt: Duration) {
+        self.acc += dt;
+        let period = Duration::from_millis(SELECTION_PULSE_MS);
+        while self.acc >= period {
+            self.on = !self.on;
+            self.acc -= period;
+        }
+    }
+
+    /// Emphasis for the selected element at this instant. The structural
+    /// anchor (heavy border / marker) stays constant; only this breathes,
+    /// between Strong and Normal, so it reads as breathing not flicker.
+    pub fn emphasis(&self) -> Emphasis {
+        if self.on {
+            Emphasis::Strong
+        } else {
+            Emphasis::Normal
+        }
+    }
+}
 
 /// The player's card-selection cursor: which hand slot is selected, and
 /// the pending sign for a plus-or-minus / tiebreaker card. Pure logic
@@ -137,6 +179,7 @@ pub struct App {
     screen: Screen,
     board_view: BoardView,
     overlay: Option<Overlay>,
+    pulse: SelectionPulse,
 }
 
 impl App {
@@ -148,6 +191,7 @@ impl App {
             },
             board_view: BoardView::new(config),
             overlay: None,
+            pulse: SelectionPulse::default(),
         }
     }
 
@@ -235,18 +279,21 @@ impl App {
     /// Call tick on each sub-screen
     ///
     pub fn tick(&mut self, dt: Duration) {
-        match &mut self.screen {
-            Screen::StartMenu { menu_state } => menu_state.tick(dt),
-            Screen::InGame { game_state, .. } => game_state.update(),
+        // One pulse drives every screen's selection breathe
+        self.pulse.tick(dt);
+
+        if let Screen::InGame { game_state, .. } = &mut self.screen {
+            game_state.update();
         }
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
+        let pulse = self.pulse.emphasis();
         match &self.screen {
-            Screen::StartMenu {
-                menu_state: _menu_state,
-            } => self.screen.draw(frame, &self.config),
-            Screen::InGame { game_state, .. } => self.board_view.draw(game_state, frame),
+            Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
+            Screen::InGame { game_state, cursor } => {
+                self.board_view.draw(game_state, cursor, pulse, frame)
+            }
         }
 
         if let Some(overlay) = &self.overlay {
@@ -419,5 +466,43 @@ mod tests {
 
         assert!(gs.player.hand[0].is_some()); // untouched
         assert!(gs.player.played_row.is_empty());
+    }
+
+    // --- selection pulse ---
+
+    fn period() -> Duration {
+        Duration::from_millis(crate::SELECTION_PULSE_MS)
+    }
+
+    #[test]
+    fn pulse_toggles_phase_each_period() {
+        let mut p = SelectionPulse::default();
+        assert_eq!(p.emphasis(), Emphasis::Strong); // starts "on"
+        p.tick(period());
+        assert_eq!(p.emphasis(), Emphasis::Normal);
+        p.tick(period());
+        assert_eq!(p.emphasis(), Emphasis::Strong);
+    }
+
+    #[test]
+    fn pulse_accumulates_small_ticks_and_carries_remainder() {
+        let mut p = SelectionPulse::default();
+        let half = period() / 2;
+
+        p.tick(half); // half a period — no toggle yet
+        assert_eq!(p.emphasis(), Emphasis::Strong);
+        p.tick(half); // full period reached — toggles
+        assert_eq!(p.emphasis(), Emphasis::Normal);
+        p.tick(half); // remainder was ~0; half alone doesn't toggle
+        assert_eq!(p.emphasis(), Emphasis::Normal);
+        p.tick(half);
+        assert_eq!(p.emphasis(), Emphasis::Strong);
+    }
+
+    #[test]
+    fn pulse_large_tick_lands_on_the_right_phase() {
+        let mut p = SelectionPulse::default();
+        p.tick(period() * 3); // odd number of toggles
+        assert_eq!(p.emphasis(), Emphasis::Normal);
     }
 }

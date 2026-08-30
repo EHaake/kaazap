@@ -2,9 +2,9 @@ use crossterm::event::KeyCode;
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
-use std::{fmt, time::Duration};
+use std::fmt;
 
-use crate::{MENU_ANIMATION_TIME_MS, TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text}, layout::MenuLayout};
+use crate::{TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text}, layout::MenuLayout};
 
 #[derive(EnumIter, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
@@ -27,9 +27,7 @@ pub enum MenuAction {
 #[derive(Debug)]
 pub struct MenuState {
     selected: MenuItem,
-    time_accumulated: Duration,
     title_text: Vec<&'static str>,
-    animation_state: bool,
 }
 
 impl MenuState {
@@ -39,9 +37,7 @@ impl MenuState {
 
         Self {
             selected: MenuItem::StartGame,
-            time_accumulated: Duration::from_millis(0),
             title_text,
-            animation_state: false,
         }
     }
 
@@ -92,17 +88,6 @@ impl MenuState {
         self.selected
     }
 
-    /// Accumulate time up to duration to drive menu animations
-    ///
-    pub fn tick(&mut self, dt: Duration) {
-        self.time_accumulated += dt;
-        if self.time_accumulated >= Duration::from_millis(MENU_ANIMATION_TIME_MS) {
-            // toggle anim status
-            self.animation_state = !self.animation_state;
-            self.time_accumulated -= Duration::from_millis(MENU_ANIMATION_TIME_MS);
-        }
-    }
-
     /// Draw the title which is a Vector<&'static str>
     ///
     /// Iterate through each line and send it to draw_text
@@ -112,26 +97,21 @@ impl MenuState {
         }
     }
 
-    /// Perform the drawing of menu items, including animation
-    ///
-    fn draw_menu_items(&self, layout: &MenuLayout, frame: &mut Frame) {
+    /// Draw the menu items. The selected item carries a constant "▸ "
+    /// marker (its always-on selection anchor) and breathes with the
+    /// shared pulse emphasis; unselected items render plain.
+    fn draw_menu_items(&self, layout: &MenuLayout, pulse: Emphasis, frame: &mut Frame) {
         let mut y = layout.items_top;
 
         for menu_item in MenuItem::iter() {
-            let menu_item_text = menu_item.to_string();
-
-            // If this is the selected item, draw an annotation
-            if self.selected == menu_item {
-                let selected_text = match self.animation_state {
-                    true => format!("-- {} --", menu_item_text),
-                    false => format!("++ {} ++", menu_item_text),
-                };
-                let x = layout.center_x - selected_text.len() / 2;
-                draw_text(frame, x, y, &selected_text, Emphasis::Normal);
+            let (text, emphasis) = if self.selected == menu_item {
+                (format!("▸ {menu_item}"), pulse)
             } else {
-                let x = layout.center_x - menu_item_text.len() / 2;
-                draw_text(frame, x, y, &menu_item_text, Emphasis::Normal);
-            }
+                (menu_item.to_string(), Emphasis::Normal)
+            };
+
+            let x = layout.center_x - text.chars().count() / 2;
+            draw_text(frame, x, y, &text, emphasis);
 
             y += layout.item_spacing;
         }
@@ -139,7 +119,7 @@ impl MenuState {
 
     /// Main draw fn figures out where to render each element, then sends it out
     ///
-    pub fn draw(&self, frame: &mut Frame, config: &Config) {
+    pub fn draw(&self, frame: &mut Frame, config: &Config, pulse: Emphasis) {
         let layout = MenuLayout::new(*config, self.title_text.len());
 
         // Title art keeps its own centering (leading-whitespace aware),
@@ -147,7 +127,7 @@ impl MenuState {
         let title_x = layout.center_x - (self.title_text[1].len() / 2 - TITLE_X_OFFSET);
         self.draw_title(title_x, layout.title_top, frame);
 
-        self.draw_menu_items(&layout, frame);
+        self.draw_menu_items(&layout, pulse, frame);
     }
 }
 
