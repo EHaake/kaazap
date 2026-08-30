@@ -121,7 +121,7 @@ impl BoardView {
                 if let Some(Some(card)) = state.player.hand.get(hand_index)
                     && let Some(magnitude) = card.sign_choice_magnitude()
                 {
-                    let prompt = format!("+{magnitude} or -{magnitude}?  [+/-]  (c cancels)");
+                    let prompt = format!("+{magnitude} (h) or -{magnitude} (l)? (c cancels)");
                     self.draw_text(
                         &prompt,
                         mid.saturating_sub(prompt.chars().count() + 2),

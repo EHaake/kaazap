@@ -249,7 +249,9 @@ Review: after the phase (both tasks done).
   also renders "OVER 20! Play a card or stand" in the same text area
   while the player is over 20 — pairing the T008a/T008b rules with a
   visible cue. Long texts right-align to the divider so they stay on
-  the player's half.)*
+  the player's half. Post-review ergonomics amendment: h/l added as the
+  home-row sign pair and shown in the prompt — "+3 (h) or -3 (l)?" —
+  with +/- and 1/2 kept as undocumented synonyms.)*
   During `AwaitingSignChoice`, the existing turn-text area renders e.g.
   `Play +3 or -3?  [+/-]  (c to cancel)` with the actual magnitude
   (±1 for the tiebreaker). The discoverability requirement is satisfied

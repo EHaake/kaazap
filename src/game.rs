@@ -87,11 +87,13 @@ impl GameState {
     ///
     pub fn game_action_from_key(&self, key: char) -> Option<GameAction> {
         // While a sign choice is pending, the only meaningful keys are
-        // the choice itself and cancel — everything else is ignored
+        // the choice itself and cancel — everything else is ignored.
+        // h/l (higher/lower) are the home-row pair the prompt shows;
+        // +/- and 1/2 work as synonyms.
         if matches!(self.game_phase, GamePhase::AwaitingSignChoice { .. }) {
             return match key {
-                '+' | '1' => Some(GameAction::ChooseSign { positive: true }),
-                '-' | '2' => Some(GameAction::ChooseSign { positive: false }),
+                'h' | '+' | '1' => Some(GameAction::ChooseSign { positive: true }),
+                'l' | '-' | '2' => Some(GameAction::ChooseSign { positive: false }),
                 'c' => Some(GameAction::CancelSignChoice),
                 _ => None,
             };
@@ -1310,6 +1312,15 @@ mod tests {
             gs.game_action_from_key('2'),
             Some(GameAction::ChooseSign { positive: false })
         );
+        // Home-row pair: h = higher (+), l = lower (-)
+        assert_eq!(
+            gs.game_action_from_key('h'),
+            Some(GameAction::ChooseSign { positive: true })
+        );
+        assert_eq!(
+            gs.game_action_from_key('l'),
+            Some(GameAction::ChooseSign { positive: false })
+        );
         assert_eq!(
             gs.game_action_from_key('c'),
             Some(GameAction::CancelSignChoice)
@@ -1332,6 +1343,8 @@ mod tests {
         assert_eq!(gs.game_action_from_key('s'), Some(GameAction::Stand));
         assert_eq!(gs.game_action_from_key('+'), None);
         assert_eq!(gs.game_action_from_key('c'), None);
+        assert_eq!(gs.game_action_from_key('h'), None);
+        assert_eq!(gs.game_action_from_key('l'), None);
     }
 
     #[test]

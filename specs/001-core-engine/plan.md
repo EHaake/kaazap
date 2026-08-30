@@ -68,10 +68,12 @@ All in `game.rs`, extending the existing state machine — no new modules.
 - **New phase**: `GamePhase::AwaitingSignChoice { hand_index: usize }`,
   entered when the player plays a `PlusMinus` or `Tiebreaker` card (card
   stays in hand until committed). `game_action_from_key` is already
-  `&self`, so it becomes phase-aware: in this phase, `+`/`-` (also
-  `1`/`2`) map to a new `GameAction::ChooseSign { positive: bool }`, and
-  a cancel key returns to `PlayerTurn` with the card unspent. All other
-  phases keep the existing key mapping untouched.
+  `&self`, so it becomes phase-aware: in this phase, `h`/`l`
+  (higher/lower — the home-row pair the prompt displays, added by human
+  request after T010 review) plus `+`/`-` and `1`/`2` as synonyms map
+  to a new `GameAction::ChooseSign { positive: bool }`, and a cancel
+  key returns to `PlayerTurn` with the card unspent. All other phases
+  keep the existing key mapping untouched.
 - **One shared commit path**: `commit_play(side, index, value: i8)`
   removes the card from the hand and pushes `PlayedCard`. Fixed-value
   cards commit immediately with their face value; sign-choice cards
