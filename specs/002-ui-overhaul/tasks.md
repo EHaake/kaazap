@@ -249,7 +249,19 @@ Review: after every task.
 
 Review: after the phase.
 
-- [ ] **T008 — Terminal resize handling**
+- [x] **T008 — Terminal resize handling**
+  *`Event::Resize` in the game loop tracks the new size for frame
+  allocation and either `App::resize` (rebuilds board layout + any open
+  overlay, game state untouched) or `App::set_too_small` (paused
+  recovery screen). `render()` detects a frame dimension change and
+  forces a full clear+redraw, with a `force ||` short-circuit so the
+  old-shaped `last_frame` is never indexed (the resize panic that would
+  otherwise happen). Startup-below-min still errors. Driver gained a
+  `resize:WxH` step (SIGWINCH via TIOCSWINSZ) on main, merged back.
+  Verified in-app: shrink to 40x15 → "Terminal too small / Need at least
+  67 x 24 / Now 40 x 15"; grow back → game resumed with score intact and
+  reflowed to the new width; overlay re-centered on resize; no panic.
+  `game.rs`/`player.rs` untouched.*
   `main.rs` handles `Event::Resize`: at/above minimum → rebuild
   `Config`, `App::resize` (layouts + any open overlay), frames
   reallocated, renderer's dimension-mismatch force gives a clean full
