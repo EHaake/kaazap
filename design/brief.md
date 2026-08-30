@@ -99,6 +99,22 @@ recognizably this game and nothing else. Every screen that shows a
 card shows it in this exact frame; nothing else on screen uses a
 card-shaped bordered box, so the shape stays unambiguous.
 
+## Motion
+
+Motion is emphasis, not decoration — the animated corollary of the
+palette rules. The baseline (spec 002): **exactly one thing moves on a
+still screen** — the current selection breathes, a gentle two-phase
+pulse between emphasis states at one shared cadence, on every screen
+that has a selection. Stillness everywhere else is what makes the one
+moving thing legible.
+
+A future, deliberate animation pass (roadmapped) may add sparse
+eye-guiding moments during play — a dealt card arriving, a flip
+resolving, a total changing. Its rule is set now: build on the pulse's
+vocabulary (emphasis transitions over time), never particle effects,
+sweeps, or continuous ambient motion. If everything moves, nothing is
+emphasized.
+
 ## Skeuomorphism boundary
 
 Cards are the only physical metaphor, rendered as bordered rectangles

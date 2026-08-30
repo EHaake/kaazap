@@ -70,8 +70,10 @@ spec exercises that boundary rather than moving it.
 - **Campaign screens** (shop, pack opening, opponent select) — not
   built here; the cursor vocabulary is designed so they can adopt it
   without new interaction invention.
-- **Animations** beyond what already exists (menu selection blink);
-  no dealing/flip animations in this spec.
+- **Eye-guiding gameplay animations** (dealing, flips resolving, score
+  changes, round transitions) — deferred to a dedicated animation pass,
+  now on `ROADMAP.md` (human-requested). This spec ships exactly one
+  piece of motion: the selection pulse below.
 - **Sound** — separate roadmap item.
 - **TUI frameworks** — per the constitution, the custom Frame/renderer
   is extended, never replaced.
@@ -141,6 +143,10 @@ structure. Dismissed the same way the controls overlay is.
   continue listing their keys.
 - The status line owns message precedence (alert beats prompt beats
   turn text) so competing messages never overdraw each other.
+- **Selection breathes**: the selected card and the selected menu item
+  carry a gentle two-phase pulse between emphasis states — the one
+  moving thing on an otherwise still screen, marking "you are here".
+  Nothing else animates in this spec.
 
 ## Acceptance criteria
 
@@ -157,6 +163,9 @@ structure. Dismissed the same way the controls overlay is.
       against the spec-001 behavior.
 - [ ] The selected card (and selected menu item) is visually distinct
       per the brief; unselected cards are unchanged.
+- [ ] The selected card and selected menu item pulse gently between
+      emphasis states; nothing else on screen animates — verified by
+      running.
 - [ ] No text-drawing code can panic from placement: drawing at any
       position, any length, any terminal size ≥ minimum clips safely
       — covered by unit tests on the layout/clipping logic.
@@ -195,3 +204,9 @@ structure. Dismissed the same way the controls overlay is.
 - **Space stays Hit.** Enter is the cursor model's confirm key; space
   is not overloaded, avoiding any conflict with the existing draw
   binding.
+- **Selection animation kept** (amended at plan review, human-ruled):
+  the plan's original call to retire the menu blink was vetoed in favor
+  of a unified selection pulse — the menu's existing animation evolves
+  into the shared vocabulary rather than disappearing. The broader
+  "guide the eye" animation work is a roadmapped future spec, not this
+  one.

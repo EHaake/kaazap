@@ -103,7 +103,23 @@ pub struct HandCursor {
 ```
 
 Owned by `Screen::InGame` alongside the boxed `GameState` — interaction
-state lives with the screen, not in game logic. Behavior: ←/→ move
+state lives with the screen, not in game logic.
+
+### Selection pulse (`app.rs`)
+
+```rust
+pub struct SelectionPulse {
+    acc: Duration,
+    on: bool, // phase A (Strong) vs phase B (Normal)
+}
+```
+
+One pulse, owned by `App`, ticked in `App::tick`, passed read-only into
+draws — a single cadence for every selection on every screen (the
+existing `MENU_ANIMATION_TIME_MS` constant becomes
+`SELECTION_PULSE_MS`). The selected element's *emphasis* breathes
+between `Strong` and `Normal`; the heavy border weight stays constant
+as the stable anchor, so the pulse reads as breathing, not flicker. Behavior: ←/→ move
 across occupied slots (wrapping), ↑/↓ toggle `pending_positive` (reset
 to `+` on every move; only meaningful on sign-choice cards), Enter
 confirms. **Confirm emits existing actions only**: a fixed card or flip
@@ -120,9 +136,9 @@ chars, so the existing char-key routing is untouched by construction.
   "Played", "Hand") in `Muted`; the selected hand card renders via
   `draw_box(.., Heavy)` and — if it's a sign-choice card — its face
   shows the pending signed value (`+3`/`-3`) instead of `±3`, so the
-  choice is visible on the card itself. `BoardView::draw` gains a
-  cursor parameter (`Option<&HandCursor>`); rendering reads it, never
-  mutates. The status line becomes one function choosing exactly one
+  choice is visible on the card itself; the selected card's border
+  emphasis breathes with the shared pulse. `BoardView::draw` gains
+  cursor and pulse parameters (read-only); rendering never mutates. The status line becomes one function choosing exactly one
   message by precedence: alert ("OVER 20 …", rendered `Alert`) >
   sign-prompt > cursor hint ("←/→ card  ↑/↓ sign  Enter play") > turn
   text. Outcome/BUSTED banners render `Alert`; scores `Strong`.
@@ -130,9 +146,11 @@ chars, so the existing char-key routing is untouched by construction.
   emphasis for its text; its hand-rolled ASCII border is replaced by
   `draw_box` + centered clip-safe text. Card size constants unchanged.
 - **`menu.rs`**: selection rendered in the shared vocabulary — the
-  selected item `Strong`, unselected `Normal`. The `++ item ++` blink
-  animation is retired (decoration, against the brief's restraint; the
-  `tick`/animation plumbing goes with it). Layout from `MenuLayout`.
+  selected item breathes `Strong`/`Normal` on the shared pulse,
+  unselected items `Normal`. The `++ item ++` text decoration is
+  retired, but its *animation* survives as the pulse (human-ruled at
+  plan review); `MenuState`'s private timer is replaced by the shared
+  `SelectionPulse`. Layout from `MenuLayout`.
 - **`overlay.rs`**: borders via `draw_box(Single)`; new
   `OverlayKind::HowToPlay` backed by `assets/how_to_play_text.txt`
   (card kinds, over-20/bust recovery incl. d/s accepting the bust,
@@ -164,9 +182,9 @@ chars, so the existing char-key routing is untouched by construction.
 - **Driver can't send arrow keys yet.** `key:` handles literal chars;
   cursor-path smoke tests need escape sequences (`\x1b[C` etc.) — a
   small driver/skill update, done when the cursor tasks land.
-- **Menu blink removal** changes the menu's feel (flagged here since
-  it's a taste call: the brief's restraint rule is the justification,
-  and the human can veto it at review).
+- **The pulse can't be captured by the pty driver** — snapshots are
+  instants, so the breathe is verified by eye in a real terminal; the
+  driver still asserts static structure (which card is heavy-bordered).
 
 ## Testing strategy
 
@@ -186,6 +204,9 @@ Unit tests target the pure logic, not terminal output (constitution):
   via a pure "what attribute should be active" helper — keep it to
   logic, not a mock terminal).
 - Status-line precedence: one pure function, all orderings tested.
+- `SelectionPulse`: accumulation toggles the phase at the cadence and
+  carries remainder time (the same arithmetic the menu timer has
+  today, now shared and tested).
 - Rendering itself (glyphs, emphasis appearance, resize behavior):
   verified by running — driver for structure, real terminal + manual
   resize for attributes and the too-small state.
@@ -219,8 +240,13 @@ the same constants).
   state with the screen; `BoardView::draw` receives it read-only.
 - **`draw_text` deduplicated into `frame.rs`** — three identical
   copies today; one clip-safe implementation replaces them all.
-- **Menu blink animation retired** in favor of `Strong` selection —
-  flagged as vetoable at plan review.
+- **Selection pulse unifies the animation** (human-ruled at plan
+  review, vetoing this plan's original blink-retirement): one shared
+  two-phase breathe — emphasis `Strong` ↔ `Normal` on the selected
+  element, heavy border constant — at the former menu-blink cadence,
+  across menu and board. The broader eye-guiding animation pass is
+  roadmapped as its own future spec, and its design should build on
+  this pulse rather than invent a second motion vocabulary.
 - **Sign resets to `+` on cursor move** — predictable over sticky.
 - **Resize below minimum pauses rather than exits**, and startup
   behavior is deliberately unchanged.
