@@ -168,7 +168,16 @@ Review: after every task.
 
 Review: after every task.
 
-- [ ] **T006 — Hand cursor: logic, routing, action emission**
+- [x] **T006 — Hand cursor: logic, routing, action emission**
+  *`HandCursor` on `Screen::InGame`; pure movement/toggle/normalize over
+  the hand; `cursor_confirm` emits `PlayHand` (+`ChooseSign` for
+  sign-choice cards). Arrow/Enter routing gated to `PlayerTurn`, ahead
+  of the char path; number-key + h/l path untouched. Driver extended on
+  main (`\e` → ESC) and merged back. Verified in-app: right-arrow moved
+  to slot 2 and Enter played the 2&4; down-arrow on a flip correctly
+  no-oped and Enter played it. `game.rs`/`player.rs` untouched. Rendering
+  the selected card (heavy border) is T007 — the cursor drives play now
+  but isn't yet visible on screen.*
   `HandCursor` on `Screen::InGame`: ←/→ move across occupied slots
   (wrapping), ↑/↓ toggle pending sign (reset to `+` on move; only
   meaningful on sign-choice cards), Enter confirms — emitting existing
