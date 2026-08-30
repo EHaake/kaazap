@@ -264,7 +264,7 @@ Review: after the phase (both tasks done).
 
 Review: after the phase.
 
-- [ ] **T011 — Drop `rusty_time`**
+- [x] **T011 — Drop `rusty_time`**
   Remove it from `Cargo.toml` (unused in `src/`, per constitution);
   regenerate `Cargo.lock` via `cargo build` only — never hand-edited.
   *Verify: `rusty_time` absent from `Cargo.toml` and `Cargo.lock`;
