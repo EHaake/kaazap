@@ -70,10 +70,13 @@ impl BoardView {
                     self.draw_text("YOU LOST THE GAME! :(", mid_x - 9, mid_y, frame);
                 }
             }
+            self.draw_text("(g: new game, x: menu)", mid_x - 11, mid_y + 2, frame);
 
             return;
         }
 
+        // Round outcome only renders during AwaitingNextRound, which is
+        // exactly when n is the key that advances
         match state.round_outcome {
             Some(RoundOutcome::PlayerWon) => {
                 self.draw_text("You won this round!", mid_x - 9, mid_y, frame);
@@ -84,8 +87,9 @@ impl BoardView {
             Some(RoundOutcome::OpponentWon) => {
                 self.draw_text("Opponent won the round!", mid_x - 11, mid_y, frame);
             }
-            None => {}
+            None => return,
         }
+        self.draw_text("(n: next round)", mid_x - 7, mid_y + 2, frame);
     }
 
     /// Draw whose turn it is
@@ -96,12 +100,40 @@ impl BoardView {
         let padding_x: usize = 15;
 
         match state.game_phase {
-            GamePhase::PlayerTurn => self.draw_text(
-                "Your Turn",
-                mid - padding_x,
-                self.config.num_rows - padding_y,
-                frame,
-            ),
+            GamePhase::PlayerTurn => {
+                // Over 20 the turn continues but drawing won't: say so.
+                // Long texts right-align to the divider so they stay on
+                // the player's half.
+                if state.player.score() > 20 {
+                    let text = "OVER 20! Play a card (d/s: bust)";
+                    self.draw_text(
+                        text,
+                        mid.saturating_sub(text.chars().count() + 2),
+                        self.config.num_rows - padding_y,
+                        frame,
+                    );
+                } else {
+                    self.draw_text(
+                        "Your Turn",
+                        mid - padding_x,
+                        self.config.num_rows - padding_y,
+                        frame,
+                    );
+                }
+            }
+            GamePhase::AwaitingSignChoice { hand_index } => {
+                if let Some(Some(card)) = state.player.hand.get(hand_index)
+                    && let Some(magnitude) = card.sign_choice_magnitude()
+                {
+                    let prompt = format!("+{magnitude} (h) or -{magnitude} (l)? (c cancels)");
+                    self.draw_text(
+                        &prompt,
+                        mid.saturating_sub(prompt.chars().count() + 2),
+                        self.config.num_rows - padding_y,
+                        frame,
+                    );
+                }
+            }
             GamePhase::OpponentThinking { until: _until } => self.draw_text(
                 "Opponent's Turn",
                 self.config.num_cols - padding_x - 4,
@@ -212,7 +244,7 @@ impl BoardView {
             CardView {
                 x,
                 y,
-                text: c.value.to_string(),
+                text: c.display_text(),
             }
             .draw(frame);
         }
@@ -222,7 +254,7 @@ impl BoardView {
             CardView {
                 x,
                 y: played_y,
-                text: c.value.to_string(),
+                text: c.display_text(),
             }
             .draw(frame);
         }
@@ -233,7 +265,7 @@ impl BoardView {
                 CardView {
                     x,
                     y: hand_y,
-                    text: c.unwrap().value.to_string(),
+                    text: c.unwrap().label(),
                 }
                 .draw(frame);
 
@@ -256,21 +288,19 @@ impl BoardView {
             CardView {
                 x,
                 y,
-                text: c.value.to_string(),
+                text: c.display_text(),
             }
             .draw(frame);
         }
-        // Played Cards
+        // Played Cards — flips sit here at value 0, so no zero-filter
         for (i, c) in state.opponent.played_row.iter().enumerate() {
-            if c.value != 0 {
-                let x = opp_origin_x + i * spacing_x;
-                CardView {
-                    x,
-                    y: played_y,
-                    text: c.value.to_string(),
-                }
-                .draw(frame);
+            let x = opp_origin_x + i * spacing_x;
+            CardView {
+                x,
+                y: played_y,
+                text: c.display_text(),
             }
+            .draw(frame);
         }
         // Opponent hand cards (hidden values)
         for (i, c) in state.opponent.hand.iter().enumerate() {

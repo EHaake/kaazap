@@ -25,6 +25,9 @@ pub const V_PAD: usize = 4;
 // Offsets
 pub const TITLE_X_OFFSET: usize = 21;
 
+// Side-deck cards dealt to each side per game
+pub const HAND_SIZE: usize = 4;
+
 // Opponent Logic
 pub const STAND_THRESHOLD: usize = 17;
 
