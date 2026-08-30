@@ -20,6 +20,11 @@ impl Overlay {
         }
     }
 
+    /// This overlay's kind — used to rebuild it on a terminal resize.
+    pub fn kind(&self) -> OverlayKind {
+        self.overlay_kind
+    }
+
     /// Open a text file and read it into a Vec<String> based on OverlayKind
     ///
     fn read_text_from_file(&self) -> Vec<String> {

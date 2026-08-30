@@ -7,7 +7,7 @@ use crate::{
     board::BoardView,
     card::Card,
     config::Config,
-    frame::{Emphasis, Frame},
+    frame::{Emphasis, Frame, draw_text},
     game::{GameAction, GamePhase, GameState},
     menu::{MenuEvent, MenuItem, MenuState},
     overlay::{Overlay, OverlayKind},
@@ -149,6 +149,27 @@ fn next_occupied(hand: &[Option<Card>], from: usize, dir: isize) -> Option<usize
     None
 }
 
+/// Draw the "terminal too small" recovery screen, centered and clipped
+/// to whatever space exists. Uses the frame's own dimensions so it works
+/// at any size.
+fn draw_too_small(frame: &mut Frame, cols: usize, rows: usize) {
+    let (min_cols, min_rows) = Config::min_size();
+    let lines = [
+        "Terminal too small".to_string(),
+        format!("Need at least {min_cols} x {min_rows}"),
+        format!("Now {cols} x {rows}"),
+    ];
+
+    let mid_x = frame.len() / 2;
+    let mid_y = frame.first().map_or(0, Vec::len) / 2;
+
+    for (i, line) in lines.iter().enumerate() {
+        let x = mid_x.saturating_sub(line.chars().count() / 2);
+        let y = (mid_y + i).saturating_sub(1);
+        draw_text(frame, x, y, line, Emphasis::Alert);
+    }
+}
+
 /// Commit the cursor-selected card: emit PlayHand, and for a sign-choice
 /// card follow immediately with ChooseSign at the pending sign — the
 /// engine passes through AwaitingSignChoice and back within one event.
@@ -180,6 +201,9 @@ pub struct App {
     board_view: BoardView,
     overlay: Option<Overlay>,
     pulse: SelectionPulse,
+    // Some((cols, rows)) while the terminal is below the minimum size:
+    // the game pauses and a recovery message shows until it grows back.
+    too_small: Option<(usize, usize)>,
 }
 
 impl App {
@@ -192,12 +216,40 @@ impl App {
             board_view: BoardView::new(config),
             overlay: None,
             pulse: SelectionPulse::default(),
+            too_small: None,
         }
+    }
+
+    /// Re-lay-out for a new (valid) terminal size and resume play. Game
+    /// state is untouched — only the presentation is rebuilt.
+    pub fn resize(&mut self, config: Config) {
+        self.config = config;
+        self.board_view = BoardView::new(config);
+        if let Some(overlay) = &self.overlay {
+            self.overlay = Some(Overlay::new(overlay.kind(), config));
+        }
+        self.too_small = None;
+    }
+
+    /// Enter the "terminal too small" state, pausing the game. State is
+    /// preserved; `resize` restores it when the terminal grows back.
+    pub fn set_too_small(&mut self, cols: usize, rows: usize) {
+        self.too_small = Some((cols, rows));
+    }
+
+    pub fn is_too_small(&self) -> bool {
+        self.too_small.is_some()
     }
 
     /// Route the input key to the appropriate handler
     ///
     pub fn handle_key(&mut self, key: KeyCode) {
+        // Game paused while the terminal is too small — ignore input
+        // (the global quit key is handled in the game loop)
+        if self.too_small.is_some() {
+            return;
+        }
+
         if self.overlay.is_some() {
             // Handle overlay keybinds
             if let KeyCode::Char(c) = key
@@ -288,6 +340,11 @@ impl App {
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
+        if let Some((cols, rows)) = self.too_small {
+            draw_too_small(frame, cols, rows);
+            return;
+        }
+
         let pulse = self.pulse.emphasis();
         match &self.screen {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
@@ -504,5 +561,23 @@ mod tests {
         let mut p = SelectionPulse::default();
         p.tick(period() * 3); // odd number of toggles
         assert_eq!(p.emphasis(), Emphasis::Normal);
+    }
+
+    // --- resize / too-small state ---
+
+    #[test]
+    fn resize_too_small_pauses_then_a_valid_resize_resumes() {
+        let big = Config { num_cols: 120, num_rows: 40 };
+        let mut app = App::new(big);
+        assert!(!app.is_too_small());
+
+        app.set_too_small(30, 10);
+        assert!(app.is_too_small());
+        // Input is ignored while too small (no panic, no state change)
+        app.handle_key(KeyCode::Enter);
+        assert!(app.is_too_small());
+
+        app.resize(big);
+        assert!(!app.is_too_small());
     }
 }

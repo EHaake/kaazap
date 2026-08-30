@@ -6,6 +6,13 @@ use std::io::{Stdout, Write};
 // Only render what changed between last_frame and curr_frame
 // Have the option to force the rendering (only should need once such as at the beginning)
 pub fn render(stdout: &mut Stdout, last_frame: &Frame, curr_frame: &Frame, force: bool) {
+    // A size change (terminal resize) makes last_frame the wrong shape to
+    // diff against, so force a full redraw — and never index last_frame
+    // below (the `force ||` short-circuits before the comparison).
+    let size_changed = last_frame.len() != curr_frame.len()
+        || last_frame.first().map(Vec::len) != curr_frame.first().map(Vec::len);
+    let force = force || size_changed;
+
     // Start every frame from a known attribute baseline: reset SGR so an
     // attribute left active at the end of the previous frame can't leak
     // into cells we redraw here. This only affects characters we draw
@@ -21,8 +28,10 @@ pub fn render(stdout: &mut Stdout, last_frame: &Frame, curr_frame: &Frame, force
 
     for (x, col) in curr_frame.iter().enumerate() {
         for (y, cell) in col.iter().enumerate() {
-            // If the cell has changed or we're forcing,
-            if *cell != last_frame[x][y] || force {
+            // If we're forcing (incl. a size change) or the cell changed.
+            // `force ||` short-circuits, so last_frame is never indexed
+            // when its shape differs from curr_frame.
+            if force || *cell != last_frame[x][y] {
                 // move to the correct location,
                 stdout.queue(MoveTo(x as u16, y as u16)).unwrap();
 
