@@ -245,7 +245,11 @@ Review: after the phase (both tasks done).
   shows "2&4"/"3&6" and both totals visibly change; dealer cards
   unchanged; opponent hand still shows "?".*
 
-- [ ] **T010 — Sign-choice sub-prompt**
+- [x] **T010 — Sign-choice sub-prompt** *(scope grew per human request:
+  also renders "OVER 20! Play a card or stand" in the same text area
+  while the player is over 20 — pairing the T008a/T008b rules with a
+  visible cue. Long texts right-align to the divider so they stay on
+  the player's half.)*
   During `AwaitingSignChoice`, the existing turn-text area renders e.g.
   `Play +3 or -3?  [+/-]  (c to cancel)` with the actual magnitude
   (±1 for the tiebreaker). The discoverability requirement is satisfied

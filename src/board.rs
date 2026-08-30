@@ -96,12 +96,40 @@ impl BoardView {
         let padding_x: usize = 15;
 
         match state.game_phase {
-            GamePhase::PlayerTurn => self.draw_text(
-                "Your Turn",
-                mid - padding_x,
-                self.config.num_rows - padding_y,
-                frame,
-            ),
+            GamePhase::PlayerTurn => {
+                // Over 20 the turn continues but drawing won't: say so.
+                // Long texts right-align to the divider so they stay on
+                // the player's half.
+                if state.player.score() > 20 {
+                    let text = "OVER 20! Play a card or stand";
+                    self.draw_text(
+                        text,
+                        mid.saturating_sub(text.chars().count() + 2),
+                        self.config.num_rows - padding_y,
+                        frame,
+                    );
+                } else {
+                    self.draw_text(
+                        "Your Turn",
+                        mid - padding_x,
+                        self.config.num_rows - padding_y,
+                        frame,
+                    );
+                }
+            }
+            GamePhase::AwaitingSignChoice { hand_index } => {
+                if let Some(Some(card)) = state.player.hand.get(hand_index)
+                    && let Some(magnitude) = card.sign_choice_magnitude()
+                {
+                    let prompt = format!("+{magnitude} or -{magnitude}?  [+/-]  (c cancels)");
+                    self.draw_text(
+                        &prompt,
+                        mid.saturating_sub(prompt.chars().count() + 2),
+                        self.config.num_rows - padding_y,
+                        frame,
+                    );
+                }
+            }
             GamePhase::OpponentThinking { until: _until } => self.draw_text(
                 "Opponent's Turn",
                 self.config.num_cols - padding_x - 4,
