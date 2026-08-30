@@ -1,6 +1,6 @@
 # Spec: TUI Overhaul — Monochrome Identity, Cursor Selection, Layout Robustness
 
-**Status**: Draft — pending review
+**Status**: Approved
 **Depends on**: 001-core-engine (merged)
 **Design reference**: `design/brief.md`
 
