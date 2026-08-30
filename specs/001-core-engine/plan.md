@@ -85,9 +85,11 @@ All in `game.rs`, extending the existing state machine — no new modules.
   four rows where `value.abs()` matches the kind's pair (2/4 or 3/6),
   skipping zeros. Then run the existing resolution logic for *both*
   players — including the spec's ruling that a standing player pushed
-  over 20 busts. *(Correction at T005: `resolve_after_action` needed no
-  change — its bust checks never consulted `stood`, so a standing player
-  pushed over 20 already busts. Proven by test, not assumed:
+  over 20 busts. *(Correction at T005, since superseded: at the time,
+  `resolve_after_action` busted on any score over 20, so no change was
+  needed. T008a then rewrote the rule to bust only on `stood && over` —
+  see the T008a entry under Resolved decisions for what actually
+  shipped. The standing-flip case still busts immediately, proven by
   `flip_busts_a_standing_player_pushed_over_twenty`.)*
 - **Tiebreaker resolution**: in `finalize_round`'s `Tied` branch, check
   each side's `played_row` for a `Tiebreaker` entry. Exactly one side
@@ -170,9 +172,13 @@ on this branch: drop the unused `rusty_time` dependency from
   index sampling.
 - `PlayerState.played_card` deleted (T002 finding, ruled at T003): the
   flag was never set anywhere, so playing a side card has always kept
-  the turn with the player. That matches real Pazaak (play a card, then
-  still hit or stand), so the behavior stays and the dead flag and its
-  never-taken pass-the-turn branch in `resolve_after_action` are gone.
+  the turn with the player. The behavior stays and the dead flag and
+  its never-taken pass-the-turn branch in `resolve_after_action` are
+  gone. *(Corrected at T012a: real Pazaak keeps the turn but allows only
+  ONE side card per turn; Kaazap places no per-turn limit — a player
+  can chain several cards, including multiple recovery cards while over
+  20. That's an intentional rule variant, recorded in `DECISIONS.md`,
+  not the canon fidelity the original note claimed.)*
 - Bust deferral (T008a, human-ruled): `resolve_after_action` busts a
   side only on `stood && score > 20`, not on any score over 20. A
   player whose draw goes over keeps the turn (`player_hit` no longer

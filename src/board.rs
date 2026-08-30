@@ -101,7 +101,7 @@ impl BoardView {
                 // Long texts right-align to the divider so they stay on
                 // the player's half.
                 if state.player.score() > 20 {
-                    let text = "OVER 20! Play a card or stand";
+                    let text = "OVER 20! Play a card (d/s: bust)";
                     self.draw_text(
                         text,
                         mid.saturating_sub(text.chars().count() + 2),

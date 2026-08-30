@@ -2,6 +2,7 @@
 
     D / space - Draw dealer card and end turn
        S      - Stand and end turn
+        (over 20: D and S accept the bust)
   1, 2, 3, 4  - Play Side Hand Card
        N      - Start next round (at round end)
        G      - Start new game (at game end)

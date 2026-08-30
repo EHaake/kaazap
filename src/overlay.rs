@@ -118,7 +118,7 @@ impl Overlay {
         match self.overlay_kind {
             OverlayKind::GameHelp => {
                 let content_width = 42;
-                let content_height = 8; // fits the 12 lines of game_overlay_text.txt
+                let content_height = 9; // fits the 13 lines of game_overlay_text.txt
 
                 self.draw_overlay(content_width, content_height, frame);
             }

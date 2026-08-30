@@ -135,7 +135,10 @@ impl GameState {
                 }
             }
             GameAction::PlayHand { index } => {
-                if matches!(self.game_phase, GamePhase::PlayerTurn) {
+                // The stood guard matters: after every opponent action
+                // there's one input-before-tick frame where the phase
+                // reads PlayerTurn even though the player has stood
+                if matches!(self.game_phase, GamePhase::PlayerTurn) && !self.player.stood {
                     self.play_card(index);
                     self.resolve_after_action();
                 }
@@ -158,28 +161,9 @@ impl GameState {
                 }
             }
             GameAction::NextGame => {
-                if matches!(self.game_phase, GamePhase::GameOver { winner }) {
+                if matches!(self.game_phase, GamePhase::GameOver { .. }) {
                     self.new_game();
                 }
-            }
-        }
-    }
-
-    /// Take an OpponentAction and perform the action by calling appropriate fn's
-    ///
-    pub fn apply_opponent_action(&mut self, action: OpponentAction) {
-        match action {
-            OpponentAction::Hit => {
-                self.opponent_hit();
-                self.resolve_after_action();
-            }
-            OpponentAction::Stand => {
-                self.opponent_stand();
-                self.resolve_after_action();
-            }
-            OpponentAction::PlayHand { index, value } => {
-                self.commit_play(Player::Opponent, index, value);
-                self.resolve_after_action();
             }
         }
     }
@@ -261,8 +245,24 @@ impl GameState {
         let player_score = self.player.score();
         let opponent_score = self.opponent.score();
 
-        // Check scores and decide round outcome
-        let outcome = if self.player.bust {
+        // Resolution-time ruling (T012a, from skeptical review): any
+        // side over 20 when the round ends is bust, stood or not — a
+        // live over-20 total only survives while its owner can still
+        // act, and the round ending means they no longer can. Without
+        // this, a player sitting at 25 could win by flipping a standing
+        // opponent over 20.
+        if player_score > 20 {
+            self.player.bust = true;
+        }
+        if opponent_score > 20 {
+            self.opponent.bust = true;
+        }
+
+        // Check busts and scores to decide the round outcome; both
+        // sides bust cancels to a tie (explicit ruling)
+        let outcome = if self.player.bust && self.opponent.bust {
+            RoundOutcome::Tied
+        } else if self.player.bust {
             RoundOutcome::OpponentWon
         } else if self.opponent.bust || player_score > opponent_score {
             RoundOutcome::PlayerWon
@@ -574,8 +574,6 @@ impl GameState {
 
         // Set GamePhase to player turn
         self.game_phase = GamePhase::PlayerTurn;
-        // Reset round outcome
-        self.round_outcome = None;
     }
 
     /// If in proper game phase, setup next round
@@ -856,14 +854,91 @@ mod tests {
         gs.player.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(10), 10)];
         gs.player.played_row = vec![pc(Card::Tiebreaker, 1)]; // 21
         gs.player.bust = true;
-        gs.opponent.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(10), 10)];
-        gs.opponent.played_row = vec![pc(Card::Plus(1), 1)]; // also 21 — equal totals
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(9), 9)]; // 19
         gs.opponent.stood = true;
         gs.game_phase = GamePhase::RoundEnd;
 
         gs.update();
 
         assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
+    }
+
+    #[test]
+    fn bust_over_twenty_at_round_end_cannot_win_the_round() {
+        // Skeptical-review finding: a live player at 25 flips a
+        // standing opponent over 20, ending the round. The player must
+        // not win it while over 20 themselves — both over, both bust,
+        // tie (explicit ruling).
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![
+            pc(Card::Dealer(10), 10),
+            pc(Card::Dealer(10), 10),
+            pc(Card::Dealer(5), 5),
+        ]; // 25, live, never stood
+        gs.player.hand = vec![Some(Card::Flip(FlipKind::TwoFour)), None, None, None];
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(10), 10)];
+        gs.opponent.played_row = vec![pc(Card::Minus(2), -2)]; // 18
+        gs.opponent.stood = true;
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+        assert!(gs.opponent.bust); // flipped to 22 while standing
+        assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
+
+        gs.update();
+
+        assert!(gs.player.bust, "a side over 20 at resolution is bust");
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::Tied)));
+        assert_eq!(gs.player.rounds_won, 0);
+        assert_eq!(gs.opponent.rounds_won, 0);
+    }
+
+    #[test]
+    fn bust_stood_player_cannot_play_a_card() {
+        // Skeptical-review finding: after every opponent action there's
+        // one input-before-tick frame where the phase reads PlayerTurn
+        // with the player already stood — a card play must be refused
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(8), 8)];
+        gs.player.hand = vec![Some(Card::Plus(4)), None, None, None];
+        gs.player.stood = true;
+        gs.game_phase = GamePhase::PlayerTurn; // the stale-frame state
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(gs.player.hand[0], Some(Card::Plus(4)));
+        assert!(gs.player.played_row.is_empty());
+        assert_eq!(gs.player.score(), 18);
+    }
+
+    #[test]
+    fn full_match_terminates_within_bounded_updates() {
+        // Headless full match through the production loop: the player
+        // stands every turn; the opponent (incl. its over-20 recovery
+        // loop, the riskiest part of T008a) must drive every round to
+        // an end and the match to GameOver within a bounded number of
+        // steps — by instrumentation, not observation.
+        let mut gs = GameState::new();
+        let mut finished = false;
+
+        for _ in 0..500 {
+            match gs.game_phase {
+                GamePhase::PlayerTurn => gs.apply_game_action(GameAction::Stand),
+                GamePhase::AwaitingSignChoice { .. } => {
+                    unreachable!("standing player never opens the sign prompt")
+                }
+                // Skip the wall-clock thinking delay
+                GamePhase::OpponentThinking { .. } => gs.game_phase = GamePhase::OpponentTurn,
+                GamePhase::OpponentTurn | GamePhase::RoundEnd => gs.update(),
+                GamePhase::AwaitingNextRound => gs.apply_game_action(GameAction::NextRound),
+                GamePhase::GameOver { .. } => {
+                    finished = true;
+                    break;
+                }
+            }
+        }
+
+        assert!(finished, "match did not reach GameOver in 500 steps");
+        assert!(gs.player.rounds_won == 3 || gs.opponent.rounds_won == 3);
     }
 
     /// An opponent sitting on `dealer_total` (split into valid 0-10
@@ -942,11 +1017,12 @@ mod tests {
 
     #[test]
     fn ai_play_reaches_exactly_twenty_end_to_end() {
-        // The value the AI chooses is the value that lands on the table
+        // The value the AI chooses is the value that lands on the
+        // table, driven through the production turn path
         let mut gs = opponent_at(18, vec![Card::PlusMinus(2)]);
+        gs.game_phase = GamePhase::OpponentTurn;
 
-        let action = gs.decide_opponent_move();
-        gs.apply_opponent_action(action);
+        gs.update();
 
         assert_eq!(gs.opponent.score(), 20);
         assert_eq!(gs.opponent.played_row[0].value, 2);
@@ -1060,7 +1136,9 @@ mod tests {
 
         assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
 
-        gs.apply_opponent_action(OpponentAction::Stand);
+        // And through the production path the stand confirms the bust
+        gs.game_phase = GamePhase::OpponentTurn;
+        gs.update();
         assert!(gs.opponent.bust);
         assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
     }
@@ -1206,14 +1284,18 @@ mod tests {
     }
 
     #[test]
-    fn commit_via_opponent_action_carries_the_action_value() {
-        let mut gs = GameState::new();
-        gs.opponent.hand[3] = Some(Card::Plus(4));
-        gs.apply_opponent_action(OpponentAction::PlayHand { index: 3, value: 4 });
+    fn commit_via_opponent_turn_carries_the_decided_value() {
+        // Through the production path: OpponentTurn -> update() ->
+        // decide -> commit. At 18 with a +2, the AI plays it at 2.
+        let mut gs = opponent_at(18, vec![Card::Plus(2)]);
+        gs.game_phase = GamePhase::OpponentTurn;
+
+        gs.update();
 
         let pc = gs.opponent.played_row[0];
-        assert_eq!(pc.card, Card::Plus(4));
-        assert_eq!(pc.value, 4);
+        assert_eq!(pc.card, Card::Plus(2));
+        assert_eq!(pc.value, 2);
+        assert_eq!(gs.opponent.score(), 20);
     }
 
     #[test]

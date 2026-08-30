@@ -36,7 +36,8 @@ personalities, campaign/progression, persistence) builds on top of.
    hand from it, for both player and opponent.
 6. Preserve existing, correct behavior: main deck still draws 0–10
    (intentional variant — see `DECISIONS.md`, unchanged by this spec), no
-   mid-match hand redraw, best-of-3-round match structure.
+   mid-match hand redraw, first-to-3-round-wins match structure
+   (KOTOR canon; earlier drafts loosely called this "best-of-3").
 7. Unit test coverage for all new/changed game logic (scoring, card
    effects, round resolution), per `CLAUDE.md`.
 
@@ -197,12 +198,14 @@ sources don't cover this case).
 - Ruling (canon sources thin): flips recalculate both totals
   immediately, and a standing player whose total is pushed over 20 by a
   flip busts. Revisit in playtesting if it plays badly.
-- Bust timing (ruled mid-implementation, T008a): going over 20 does not
-  bust by itself. A side busts when it stands — or is already standing,
-  as with the flip ruling above — while over 20; drawing is unavailable
-  while over. This is the recovery window that makes minus and ± cards
-  worth holding. The previous instant-bust was an intentional
+- Bust timing (ruled mid-implementation, T008a/T008b): going over 20
+  does not bust by itself — the recovery window that makes minus and ±
+  cards worth holding. A side busts when it stands (or is already
+  standing, as with the flip ruling above) while over 20. While over,
+  no card is drawn: the draw key, like the stand key, accepts the bust
+  and ends the round (T008b, human-requested), so every key keeps a
+  meaning in that state. The previous instant-bust was an intentional
   placeholder from before negative cards existed, not an oversight.
-  Amended (T008b, human-requested): while over 20 the draw key doesn't
-  refuse — it accepts the bust and ends the round, same as standing, so
-  every key keeps a meaning in that state.
+  Follow-up ruling (T012a, from skeptical review): any side still over
+  20 when the round ends for another reason is bust at resolution —
+  and if both sides end up bust, the round is a tie.

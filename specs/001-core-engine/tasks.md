@@ -289,6 +289,31 @@ Review: after the phase.
 
 ---
 
+- [x] **T012a — Address skeptical-review findings** *(review run after
+  T012, per the collaboration workflow; two confirmed defects fixed plus
+  doc corrections)*
+  - Defect: a live over-20 side could win a round ended by the other
+    side's bust (e.g. flipping a standing opponent over while sitting at
+    25). Fixed in `finalize_round`: any side over 20 at resolution is
+    bust; both bust → tie (explicit ruling). Test:
+    `bust_over_twenty_at_round_end_cannot_win_the_round`.
+  - Defect: `PlayHand` lacked a `!stood` guard, exploitable in the
+    one-frame input-before-tick window after every opponent action.
+    Guarded; test: `bust_stood_player_cannot_play_a_card`.
+  - Deleted the production-dead `apply_opponent_action` (tests retargeted
+    through the real `OpponentTurn -> update()` path); added the bounded
+    `full_match_terminates_within_bounded_updates` test; removed the
+    duplicate `round_outcome` reset; `{ .. }` on the GameOver match
+    (clears one pre-existing warning).
+  - UX texts aligned with T008b (over-20 cue now says "d/s: bust";
+    overlay gained the over-20 note); plan.md's superseded T005 note
+    marked as such; the T003 "matches real Pazaak" claim corrected to an
+    intentional variant (canon allows one side card per turn); spec's
+    "best-of-3" wording corrected to first-to-3; variants recorded in
+    `DECISIONS.md` on main.
+  *Verify: full `cargo test` green (68 tests, incl. the three new ones);
+  overlay and cue confirmed in-app via driver.*
+
 ## Handoff note
 
 Read `CLAUDE.md`, then `specs/001-core-engine/spec.md`, `plan.md`, and
