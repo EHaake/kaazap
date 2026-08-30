@@ -81,6 +81,19 @@ pub struct PlayedCard {
     pub value: i8,
 }
 
+impl PlayedCard {
+    /// Table text: flips show their identity, dealer cards their bare
+    /// value, and side cards their current explicitly-signed value —
+    /// so a ± played as -3 reads "-3", and a flipped +4 reads "-4"
+    pub fn display_text(&self) -> String {
+        match self.card {
+            Card::Flip(_) => self.card.label(),
+            Card::Dealer(_) => self.value.to_string(),
+            _ => format!("{:+}", self.value),
+        }
+    }
+}
+
 /// The fixed pool side-deck hands are drawn from. One tunable constant,
 /// expected to be rebalanced by the campaign spec.
 pub const DEFAULT_SIDE_DECK: [Card; 10] = [
@@ -154,18 +167,15 @@ impl Drawable for CardView {
             });
         });
 
-        // centered text
+        // centered text — counted in chars, not bytes, so multi-byte
+        // glyphs like ± don't skew centering or split mid-character
         let inner_width = CARD_WIDTH - 2;
         let text_y = y0 + CARD_HEIGHT / 2;
 
         // clamp to available space
-        let text = if self.text.len() > inner_width {
-            self.text[..inner_width].to_string()
-        } else {
-            self.text.clone()
-        };
+        let text: String = self.text.chars().take(inner_width).collect();
 
-        let start_x = x0 + 1 + (inner_width - text.len()) / 2;
+        let start_x = x0 + 1 + (inner_width - text.chars().count()) / 2;
 
         for (i, ch) in text.chars().enumerate() {
             frame[start_x + i][text_y] = ch;
@@ -221,6 +231,29 @@ mod tests {
         assert!(FlipKind::ThreeSix.flips_value(6));
         assert!(!FlipKind::ThreeSix.flips_value(2));
         assert!(!FlipKind::ThreeSix.flips_value(0));
+    }
+
+    #[test]
+    fn display_text_shows_signed_side_cards_bare_dealer_and_flip_labels() {
+        // Side cards: explicit sign, current value (post-flip aware)
+        let plus = PlayedCard { card: Card::Plus(4), value: 4 };
+        assert_eq!(plus.display_text(), "+4");
+        let flipped_plus = PlayedCard { card: Card::Plus(4), value: -4 };
+        assert_eq!(flipped_plus.display_text(), "-4");
+        let pm = PlayedCard { card: Card::PlusMinus(3), value: -3 };
+        assert_eq!(pm.display_text(), "-3");
+        let tb = PlayedCard { card: Card::Tiebreaker, value: 1 };
+        assert_eq!(tb.display_text(), "+1");
+
+        // Dealer cards: bare value, negative when flipped
+        let dealer = PlayedCard { card: Card::Dealer(7), value: 7 };
+        assert_eq!(dealer.display_text(), "7");
+        let flipped_dealer = PlayedCard { card: Card::Dealer(4), value: -4 };
+        assert_eq!(flipped_dealer.display_text(), "-4");
+
+        // Flips: identity, never their (zero) value
+        let flip = PlayedCard { card: Card::Flip(FlipKind::TwoFour), value: 0 };
+        assert_eq!(flip.display_text(), "2&4");
     }
 
     #[test]

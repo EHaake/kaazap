@@ -225,7 +225,7 @@ Review: after every task.
 
 Review: after the phase (both tasks done).
 
-- [ ] **T009 — Card display rules**
+- [x] **T009 — Card display rules**
   - Hand cards render `Card::label()` — kinds distinguishable before
     play ("±3" vs "+3" vs "2&4"), the spec's design requirement,
     carried by text since `Frame` has no color.

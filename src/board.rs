@@ -212,7 +212,7 @@ impl BoardView {
             CardView {
                 x,
                 y,
-                text: c.value.to_string(),
+                text: c.display_text(),
             }
             .draw(frame);
         }
@@ -222,7 +222,7 @@ impl BoardView {
             CardView {
                 x,
                 y: played_y,
-                text: c.value.to_string(),
+                text: c.display_text(),
             }
             .draw(frame);
         }
@@ -256,21 +256,19 @@ impl BoardView {
             CardView {
                 x,
                 y,
-                text: c.value.to_string(),
+                text: c.display_text(),
             }
             .draw(frame);
         }
-        // Played Cards
+        // Played Cards — flips sit here at value 0, so no zero-filter
         for (i, c) in state.opponent.played_row.iter().enumerate() {
-            if c.value != 0 {
-                let x = opp_origin_x + i * spacing_x;
-                CardView {
-                    x,
-                    y: played_y,
-                    text: c.value.to_string(),
-                }
-                .draw(frame);
+            let x = opp_origin_x + i * spacing_x;
+            CardView {
+                x,
+                y: played_y,
+                text: c.display_text(),
             }
+            .draw(frame);
         }
         // Opponent hand cards (hidden values)
         for (i, c) in state.opponent.hand.iter().enumerate() {
