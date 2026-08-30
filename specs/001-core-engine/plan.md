@@ -171,3 +171,13 @@ on this branch: drop the unused `rusty_time` dependency from
   the turn with the player. That matches real Pazaak (play a card, then
   still hit or stand), so the behavior stays and the dead flag and its
   never-taken pass-the-turn branch in `resolve_after_action` are gone.
+- Bust deferral (T008a, human-ruled): `resolve_after_action` busts a
+  side only on `stood && score > 20`, not on any score over 20. A
+  player whose draw goes over keeps the turn (`player_hit` no longer
+  hands it off, and Hit is refused while over); the opponent mirrors
+  this — `play_opponent_turn` retains the turn while over-and-live, and
+  `decide_opponent_move` gains a recovery branch picking the best
+  (index, value) that fits back within 20 via `Card::playable_values`
+  (the new single source of truth `can_play_as` derives from). The
+  standing-flip ruling is unchanged and its test still passes. Instant
+  bust had been a deliberate placeholder until negative cards existed.

@@ -44,17 +44,21 @@ impl Card {
         }
     }
 
-    /// Can this card be played at exactly this signed value? ± cards and
-    /// the tiebreaker answer to either sign; flips carry no value of
-    /// their own, so they never match.
-    pub fn can_play_as(&self, value: i8) -> bool {
+    /// Every signed value this card can be committed at — empty for
+    /// kinds that don't play a chosen value (flips, dealer cards)
+    pub fn playable_values(&self) -> Vec<i8> {
         match self {
-            Card::Plus(n) => *n as i8 == value,
-            Card::Minus(n) => -(*n as i8) == value,
-            Card::PlusMinus(n) => *n as i8 == value.abs(),
-            Card::Tiebreaker => value.abs() == 1,
-            Card::Flip(_) | Card::Dealer(_) => false,
+            Card::Plus(n) => vec![*n as i8],
+            Card::Minus(n) => vec![-(*n as i8)],
+            Card::PlusMinus(n) => vec![*n as i8, -(*n as i8)],
+            Card::Tiebreaker => vec![1, -1],
+            Card::Flip(_) | Card::Dealer(_) => vec![],
         }
+    }
+
+    /// Can this card be played at exactly this signed value?
+    pub fn can_play_as(&self, value: i8) -> bool {
+        self.playable_values().contains(&value)
     }
 
     /// The magnitude a sign-choice card plays at (± cards and the

@@ -197,3 +197,9 @@ sources don't cover this case).
 - Ruling (canon sources thin): flips recalculate both totals
   immediately, and a standing player whose total is pushed over 20 by a
   flip busts. Revisit in playtesting if it plays badly.
+- Bust timing (ruled mid-implementation, T008a): going over 20 does not
+  bust by itself. A side busts when it stands — or is already standing,
+  as with the flip ruling above — while over 20; drawing is unavailable
+  while over. This is the recovery window that makes minus and ± cards
+  worth holding. The previous instant-bust was an intentional
+  placeholder from before negative cards existed, not an oversight.

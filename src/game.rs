@@ -114,7 +114,11 @@ impl GameState {
     pub fn apply_game_action(&mut self, action: GameAction) {
         match action {
             GameAction::Hit => {
-                if matches!(self.game_phase, GamePhase::PlayerTurn) && !self.player.stood {
+                // No drawing while over 20 — recover with a card or stand
+                if matches!(self.game_phase, GamePhase::PlayerTurn)
+                    && !self.player.stood
+                    && self.player.score() <= 20
+                {
                     self.player_hit();
                     self.resolve_after_action();
                 }
@@ -212,17 +216,18 @@ impl GameState {
         let player_score = self.player.score();
         let opponent_score = self.opponent.score();
 
-        // Check for bust
-        //
-        // If player busts, round ends
-        if player_score > 20 {
+        // Busting resolves when a side can no longer respond: standing
+        // (or already being stood, e.g. pushed over by a flip) with a
+        // total over 20. Merely going over is survivable while cards
+        // can still be played — that window is what makes minus and ±
+        // cards worth holding (T008a ruling).
+        if self.player.stood && player_score > 20 {
             self.player.bust = true;
             self.game_phase = GamePhase::RoundEnd;
             return;
         }
 
-        // If opponent busts, round ends
-        if opponent_score > 20 {
+        if self.opponent.stood && opponent_score > 20 {
             self.opponent.bust = true;
             self.game_phase = GamePhase::RoundEnd;
             return;
@@ -347,8 +352,9 @@ impl GameState {
     fn player_hit(&mut self) {
         self.player.dealer_row.push(draw_dealer_card());
 
-        // Set gamephase to opponent's turn
-        if self.opponent_can_act() {
+        // A draw that goes over 20 keeps the turn: the player may still
+        // recover with a minus card before standing into the bust
+        if self.player.score() <= 20 && self.opponent_can_act() {
             self.game_phase = GamePhase::OpponentThinking {
                 until: Instant::now() + Duration::from_millis(OPPONENT_THINKING_TIME_MS),
             };
@@ -360,6 +366,15 @@ impl GameState {
     ///
     fn decide_opponent_move(&self) -> OpponentAction {
         let score = self.opponent.score();
+
+        // Over 20: play the best recovery card that fits back under, or
+        // stand and accept the bust (T008a)
+        if score > 20 {
+            if let Some((index, value)) = self.best_recovery_play() {
+                return OpponentAction::PlayHand { index, value };
+            }
+            return OpponentAction::Stand;
+        }
 
         // Play any card that lands exactly on 20. A target outside card
         // range isn't reachable at all, so don't bother looking.
@@ -378,6 +393,25 @@ impl GameState {
         }
 
         OpponentAction::Hit
+    }
+
+    /// The play that best recovers the opponent's over-20 total: the
+    /// (index, value) leaving the highest score that fits within 20
+    ///
+    fn best_recovery_play(&self) -> Option<(usize, i8)> {
+        let score = self.opponent.score();
+        let mut best: Option<(usize, i8)> = None;
+
+        for (index, slot) in self.opponent.hand.iter().enumerate() {
+            let Some(card) = slot else { continue };
+            for value in card.playable_values() {
+                if score + value as i32 <= 20 && best.is_none_or(|(_, b)| value > b) {
+                    best = Some((index, value));
+                }
+            }
+        }
+
+        best
     }
 
     /// Helper to finds first occurrence of card in hand that matches predicate
@@ -408,7 +442,16 @@ impl GameState {
             }
         }
 
-        self.game_phase = GamePhase::PlayerTurn;
+        // An over-20 opponent that hasn't stood keeps the turn to try a
+        // recovery play — the mirror of the player's over-20 window
+        if !self.opponent.stood && self.opponent.score() > 20 {
+            self.game_phase = GamePhase::OpponentThinking {
+                until: Instant::now() + Duration::from_millis(OPPONENT_THINKING_TIME_MS),
+            };
+        } else {
+            self.game_phase = GamePhase::PlayerTurn;
+        }
+
         self.resolve_after_action();
     }
 
@@ -818,11 +861,20 @@ mod tests {
         assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
     }
 
-    /// An opponent sitting on `dealer_total` (as one card) with an exact
-    /// hand — hands are dealt randomly, so tests must set their own.
+    /// An opponent sitting on `dealer_total` (split into valid 0-10
+    /// dealer cards) with an exact hand — hands are dealt randomly, so
+    /// tests must set their own.
     fn opponent_at(dealer_total: u8, hand: Vec<Card>) -> GameState {
         let mut gs = GameState::new();
-        gs.opponent.dealer_row = vec![pc(Card::Dealer(dealer_total), dealer_total as i8)];
+        gs.opponent.dealer_row = vec![];
+
+        let mut remaining = dealer_total;
+        while remaining > 0 {
+            let n = remaining.min(10);
+            gs.opponent.dealer_row.push(pc(Card::Dealer(n), n as i8));
+            remaining -= n;
+        }
+
         gs.opponent.hand = hand.into_iter().map(Some).collect();
         gs
     }
@@ -893,6 +945,126 @@ mod tests {
 
         assert_eq!(gs.opponent.score(), 20);
         assert_eq!(gs.opponent.played_row[0].value, 2);
+    }
+
+    /// A player sitting over 20 (23 = 10 + 10 + 3), still live, with an
+    /// exact hand — the state the T008a recovery window exists for
+    fn player_over_at_23(hand: Vec<Option<Card>>) -> GameState {
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![
+            pc(Card::Dealer(10), 10),
+            pc(Card::Dealer(10), 10),
+            pc(Card::Dealer(3), 3),
+        ];
+        gs.player.hand = hand;
+        gs
+    }
+
+    #[test]
+    fn bust_going_over_twenty_no_longer_busts_immediately() {
+        let mut gs = player_over_at_23(vec![None, None, None, None]);
+
+        gs.resolve_after_action();
+
+        assert!(!gs.player.bust);
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+    }
+
+    #[test]
+    fn bust_minus_card_recovers_an_over_twenty_total() {
+        // The whole point of T008a: 23, play the -4, live at 19
+        let mut gs = player_over_at_23(vec![Some(Card::Minus(4)), None, None, None]);
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(gs.player.score(), 19);
+        assert!(!gs.player.bust);
+        assert!(gs.player.hand[0].is_none());
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+    }
+
+    #[test]
+    fn bust_standing_while_over_twenty_confirms_the_bust() {
+        let mut gs = player_over_at_23(vec![None, None, None, None]);
+
+        gs.apply_game_action(GameAction::Stand);
+
+        assert!(gs.player.bust);
+        assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
+
+        gs.update();
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
+        assert_eq!(gs.opponent.rounds_won, 1);
+    }
+
+    #[test]
+    fn bust_hit_is_refused_while_over_twenty() {
+        let mut gs = player_over_at_23(vec![None, None, None, None]);
+        let drawn_before = gs.player.dealer_row.len();
+
+        gs.apply_game_action(GameAction::Hit);
+
+        assert_eq!(gs.player.dealer_row.len(), drawn_before);
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+    }
+
+    #[test]
+    fn bust_flip_pushing_a_live_opponent_over_leaves_them_alive() {
+        let mut gs = GameState::new();
+        // Opponent live at 16: 10 + 10 - 4; the 2&4 flips it to 24
+        gs.opponent.dealer_row = vec![pc(Card::Dealer(10), 10), pc(Card::Dealer(10), 10)];
+        gs.opponent.played_row = vec![pc(Card::Minus(4), -4)];
+        gs.player.dealer_row = vec![pc(Card::Dealer(7), 7)];
+        gs.player.hand = vec![Some(Card::Flip(FlipKind::TwoFour)), None, None, None];
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(gs.opponent.score(), 24);
+        assert!(!gs.opponent.bust);
+        // (A standing opponent in the same spot still busts on the spot —
+        // covered by flip_busts_a_standing_player_pushed_over_twenty)
+    }
+
+    #[test]
+    fn ai_recovers_from_over_twenty_with_the_best_fitting_card() {
+        // At 23: -2 leaves 21 (no), -4 leaves 19 (ok), ±3 as -3 leaves
+        // 20 (best), +2 leaves 25 (no)
+        let gs = opponent_at(23, vec![
+            Card::Minus(2),
+            Card::Minus(4),
+            Card::PlusMinus(3),
+            Card::Plus(2),
+        ]);
+
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 2, value: -3 }
+        );
+    }
+
+    #[test]
+    fn ai_with_no_recovery_stands_into_the_bust() {
+        // At 23 nothing fits back under 20 (tiebreaker's -1 leaves 22)
+        let mut gs = opponent_at(23, vec![Card::Plus(2), Card::Tiebreaker]);
+
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+
+        gs.apply_opponent_action(OpponentAction::Stand);
+        assert!(gs.opponent.bust);
+        assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
+    }
+
+    #[test]
+    fn ai_over_twenty_turn_plays_the_recovery_and_hands_back_the_turn() {
+        let mut gs = opponent_at(23, vec![Card::Minus(4)]);
+        gs.game_phase = GamePhase::OpponentTurn;
+
+        gs.update();
+
+        assert_eq!(gs.opponent.score(), 19);
+        assert!(!gs.opponent.bust);
+        assert_eq!(gs.opponent.played_row[0].value, -4);
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
     }
 
     fn filled_slots(hand: &[Option<Card>]) -> usize {

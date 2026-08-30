@@ -195,22 +195,21 @@ Review: after every task.
   when nothing else is playable.
   *Verify: `cargo test ai_` green; full `cargo test` green.*
 
-- [ ] **T008a — DECISION NEEDED: busting is immediate, so minus cards can
-      never be played** *(discovered at T008 — not yet actioned)*
-  `resolve_after_action` sets `bust` and jumps to `RoundEnd` the instant a
-  score exceeds 20, before the player can respond. A negative card is only
-  ever wanted when you are *over* 20, so minus cards — and the negative
-  half of every ± card — are unreachable for both sides. Verified
-  empirically, not inferred: at 23 with a −4 in hand, the phase is already
-  `RoundEnd` and the play is rejected, leaving the card stuck in hand.
-  In real Pazaak you bust only if you *end your turn* over 20; going over
-  and playing a minus card to come back down is the game's central
-  tension. This is pre-existing behavior, not introduced by this spec, but
-  it hollows out the spec's explicit decision to ship minus cards in v1.
-  Options: (a) defer the bust check to end-of-turn in this spec as a new
-  task, (b) ship v1 as-is and open a follow-up spec, (c) drop minus cards
-  from the v1 deck. Needs a human ruling — do not action unilaterally.
-  *Verify: n/a until a decision is made.*
+- [x] **T008a — Defer busting to stand-time so negative cards are
+      playable** *(discovered at T008; human-ruled option (a): fix
+      mid-spec — instant bust was a deliberate placeholder from before
+      negative cards existed)*
+  Going over 20 no longer busts on contact. `resolve_after_action` busts
+  only on `stood && score > 20` (which keeps the standing-flip ruling
+  intact); a draw that goes over keeps the player's turn and Hit is
+  refused while over — recover with a card or stand into the bust. The
+  opponent mirrors the window: its turn loops while over-and-live, with
+  a recovery branch playing the best value that fits back within 20
+  (`Card::playable_values`, which `can_play_as` now derives from).
+  Ruling recorded in spec.md and plan.md Resolved decisions.
+  *Verify: `cargo test bust_` green (recovery, stand-into-bust, hit
+  refusal, live-flip survival); `ai_recovers…`/`ai_with_no_recovery…`/
+  `ai_over_twenty_turn…` green; hands-off driver rounds terminate.*
 
 ## Phase 3 — Rendering (`board.rs`)
 
