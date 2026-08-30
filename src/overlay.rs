@@ -1,4 +1,4 @@
-use crate::{config::Config, frame::Frame, layout::OverlayLayout};
+use crate::{config::Config, frame::{Emphasis, Frame, draw_text}, layout::OverlayLayout};
 
 #[derive(Debug, Copy, Clone)]
 pub enum OverlayKind {
@@ -35,14 +35,6 @@ impl Overlay {
         }
     }
 
-    /// Draw Text Helper
-    ///
-    fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
-        for (i, ch) in text.chars().enumerate() {
-            frame[x + i][y].ch = ch;
-        }
-    }
-
     /// Read content from text file and call helper to draw it into the overlay
     ///
     fn add_content(&self, layout: OverlayLayout, frame: &mut Frame) {
@@ -53,7 +45,7 @@ impl Overlay {
         let y = layout.inner.y0;
 
         for (i, line) in content.iter().enumerate() {
-            self.draw_text(line, x, y + i, frame);
+            draw_text(frame, x, y + i, line, Emphasis::Normal);
         }
     }
 

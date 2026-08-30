@@ -4,7 +4,7 @@ use crate::{
     CARD_HEIGHT, CARD_WIDTH, H_PAD,
     card::CardView,
     config::Config,
-    frame::{Drawable, Frame},
+    frame::{Drawable, Emphasis, Frame, draw_text},
     game::{GamePhase, GameState, RoundOutcome},
     player::Player,
 };
@@ -47,13 +47,6 @@ impl BoardView {
         }
     }
 
-    /// Draw Text Helper
-    ///
-    fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
-        for (i, ch) in text.chars().enumerate() {
-            frame[x + i][y].ch = ch;
-        }
-    }
 
     /// Draw round/game outcome text in the middle of screen
     ///
@@ -64,13 +57,13 @@ impl BoardView {
         if let GamePhase::GameOver { winner } = state.game_phase {
             match winner {
                 Player::Player => {
-                    self.draw_text("YOU WIN THE GAME! :)", mid_x - 9, mid_y, frame);
+                    draw_text(frame, mid_x - 9, mid_y, "YOU WIN THE GAME! :)", Emphasis::Normal);
                 }
                 Player::Opponent => {
-                    self.draw_text("YOU LOST THE GAME! :(", mid_x - 9, mid_y, frame);
+                    draw_text(frame, mid_x - 9, mid_y, "YOU LOST THE GAME! :(", Emphasis::Normal);
                 }
             }
-            self.draw_text("(g: new game, x: menu)", mid_x - 11, mid_y + 2, frame);
+            draw_text(frame, mid_x - 11, mid_y + 2, "(g: new game, x: menu)", Emphasis::Normal);
 
             return;
         }
@@ -79,17 +72,17 @@ impl BoardView {
         // exactly when n is the key that advances
         match state.round_outcome {
             Some(RoundOutcome::PlayerWon) => {
-                self.draw_text("You won this round!", mid_x - 9, mid_y, frame);
+                draw_text(frame, mid_x - 9, mid_y, "You won this round!", Emphasis::Normal);
             }
             Some(RoundOutcome::Tied) => {
-                self.draw_text("You Tied!", mid_x - 4, mid_y, frame);
+                draw_text(frame, mid_x - 4, mid_y, "You Tied!", Emphasis::Normal);
             }
             Some(RoundOutcome::OpponentWon) => {
-                self.draw_text("Opponent won the round!", mid_x - 11, mid_y, frame);
+                draw_text(frame, mid_x - 11, mid_y, "Opponent won the round!", Emphasis::Normal);
             }
             None => return,
         }
-        self.draw_text("(n: next round)", mid_x - 7, mid_y + 2, frame);
+        draw_text(frame, mid_x - 7, mid_y + 2, "(n: next round)", Emphasis::Normal);
     }
 
     /// Draw whose turn it is
@@ -106,18 +99,20 @@ impl BoardView {
                 // the player's half.
                 if state.player.score() > 20 {
                     let text = "OVER 20! Play a card (d/s: bust)";
-                    self.draw_text(
-                        text,
+                    draw_text(
+                        frame,
                         mid.saturating_sub(text.chars().count() + 2),
                         self.config.num_rows - padding_y,
-                        frame,
+                        text,
+                        Emphasis::Normal,
                     );
                 } else {
-                    self.draw_text(
-                        "Your Turn",
+                    draw_text(
+                        frame,
                         mid - padding_x,
                         self.config.num_rows - padding_y,
-                        frame,
+                        "Your Turn",
+                        Emphasis::Normal,
                     );
                 }
             }
@@ -126,19 +121,21 @@ impl BoardView {
                     && let Some(magnitude) = card.sign_choice_magnitude()
                 {
                     let prompt = format!("+{magnitude} (h) or -{magnitude} (l)? (c cancels)");
-                    self.draw_text(
-                        &prompt,
+                    draw_text(
+                        frame,
                         mid.saturating_sub(prompt.chars().count() + 2),
                         self.config.num_rows - padding_y,
-                        frame,
+                        &prompt,
+                        Emphasis::Normal,
                     );
                 }
             }
-            GamePhase::OpponentThinking { until: _until } => self.draw_text(
-                "Opponent's Turn",
+            GamePhase::OpponentThinking { until: _until } => draw_text(
+                frame,
                 self.config.num_cols - padding_x - 4,
                 self.config.num_rows - padding_y,
-                frame,
+                "Opponent's Turn",
+                Emphasis::Normal,
             ),
             _ => {}
         }
@@ -153,56 +150,36 @@ impl BoardView {
 
         // --- Player Side ---
         let player_name_display = format!("Player: {}", state.player.name);
-        self.draw_text(player_name_display.as_str(), padding_x, padding_y, frame);
+        draw_text(frame, padding_x, padding_y, &player_name_display, Emphasis::Normal);
 
         let player_score_display = format!("Score: {}", state.player.score());
-        self.draw_text(player_score_display.as_str(), mid - 12, padding_y, frame);
+        draw_text(frame, mid - 12, padding_y, &player_score_display, Emphasis::Normal);
 
         let player_round_score_display = format!("Rounds won: {}", state.player.rounds_won);
-        self.draw_text(
-            player_round_score_display.as_str(),
-            mid - 17,
-            padding_y + 1,
-            frame,
-        );
+        draw_text(frame, mid - 17, padding_y + 1, &player_round_score_display, Emphasis::Normal);
 
         // If Bust or stood, display so!
         if state.player.bust {
-            self.draw_text("BUSTED!!", padding_x, padding_y + 1, frame);
+            draw_text(frame, padding_x, padding_y + 1, "BUSTED!!", Emphasis::Normal);
         } else if state.player.stood {
-            self.draw_text("Stood", padding_x, padding_y + 1, frame);
+            draw_text(frame, padding_x, padding_y + 1, "Stood", Emphasis::Normal);
         }
 
         // --- Opponent Side ---
         let opponent_name_display = format!("Opponent: {}", state.opponent.name);
-        self.draw_text(
-            opponent_name_display.as_str(),
-            mid + padding_x,
-            padding_y,
-            frame,
-        );
+        draw_text(frame, mid + padding_x, padding_y, &opponent_name_display, Emphasis::Normal);
 
         let opponent_score_display = format!("Score: {}", state.opponent.score());
-        self.draw_text(
-            opponent_score_display.as_str(),
-            self.config.num_cols - 12,
-            padding_y,
-            frame,
-        );
+        draw_text(frame, self.config.num_cols - 12, padding_y, &opponent_score_display, Emphasis::Normal);
 
         let opponent_round_score_display = format!("Rounds won: {}", state.opponent.rounds_won);
-        self.draw_text(
-            opponent_round_score_display.as_str(),
-            self.config.num_cols - 17,
-            padding_y + 1,
-            frame,
-        );
-        
+        draw_text(frame, self.config.num_cols - 17, padding_y + 1, &opponent_round_score_display, Emphasis::Normal);
+
         // If Bust or stood, display so!
         if state.opponent.bust {
-            self.draw_text("BUSTED!!", mid + padding_x, padding_y + 1, frame);
+            draw_text(frame, mid + padding_x, padding_y + 1, "BUSTED!!", Emphasis::Normal);
         } else if state.opponent.stood {
-            self.draw_text("Stood", mid + padding_x, padding_y + 1, frame);
+            draw_text(frame, mid + padding_x, padding_y + 1, "Stood", Emphasis::Normal);
         }
     }
 

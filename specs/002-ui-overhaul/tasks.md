@@ -60,7 +60,13 @@ Review: after every task.
   `grep -rn "SetForegroundColor\|SetBackgroundColor" src/` shows only
   the pre-existing force-clear background lines or less.*
 
-- [ ] **T002 — Drawing vocabulary: clip-safe text + one box-drawer**
+- [x] **T002 — Drawing vocabulary: clip-safe text + one box-drawer**
+  *Minor plan refinement: `draw_box` takes an `emphasis` param (plan
+  listed `draw_box(frame, rect, weight)`) so T007's selected-card border
+  can breathe without re-touching every call site; borders pass
+  `Normal`. `draw_text_in`/`draw_box` use `layout::Rect` (one-way dep,
+  no cycle). Not yet wired into CardView/overlay borders — that's T003,
+  which is why the driver still shows ASCII `+-|`.*
   `frame.rs` gains the single implementations: `draw_text` (clip-safe:
   writes what fits, drops the rest, cannot panic at any x/y/length),
   `draw_text_in(rect, row, align)` (Left/Center/Right within a Rect),

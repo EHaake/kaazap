@@ -1,6 +1,6 @@
 use crossterm::style::Attribute;
 
-use crate::config::Config;
+use crate::{config::Config, layout::Rect};
 
 /// Monochrome emphasis — one axis at a time, per design/brief.md. Not
 /// bitflags: representable state matches allowed state. Cursor
@@ -63,6 +63,135 @@ pub trait Drawable {
     fn draw(&self, frame: &mut Frame);
 }
 
+/// Horizontal placement of text within a region.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Align {
+    Left,
+    Center,
+    Right,
+}
+
+/// Border line weight. Single is the default chrome everywhere; Heavy
+/// is reserved for cursor selection (design/brief.md).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BorderWeight {
+    Single,
+    Heavy,
+}
+
+/// The six box-drawing glyphs a border needs.
+struct BoxGlyphs {
+    horiz: char,
+    vert: char,
+    tl: char,
+    tr: char,
+    bl: char,
+    br: char,
+}
+
+impl BorderWeight {
+    fn glyphs(self) -> BoxGlyphs {
+        match self {
+            BorderWeight::Single => BoxGlyphs {
+                horiz: '─',
+                vert: '│',
+                tl: '┌',
+                tr: '┐',
+                bl: '└',
+                br: '┘',
+            },
+            BorderWeight::Heavy => BoxGlyphs {
+                horiz: '━',
+                vert: '┃',
+                tl: '┏',
+                tr: '┓',
+                bl: '┗',
+                br: '┛',
+            },
+        }
+    }
+}
+
+/// Frame dimensions as (width, height); (0, 0) for an empty frame.
+fn dims(frame: &Frame) -> (usize, usize) {
+    if frame.is_empty() {
+        (0, 0)
+    } else {
+        (frame.len(), frame[0].len())
+    }
+}
+
+/// Clip-safe single-cell write: silently drops out-of-bounds writes.
+fn put(frame: &mut Frame, x: usize, y: usize, ch: char, emphasis: Emphasis) {
+    let (w, h) = dims(frame);
+    if x < w && y < h {
+        frame[x][y] = Cell { ch, emphasis };
+    }
+}
+
+/// Draw `text` starting at (x, y), left to right. Clip-safe: writes the
+/// characters that fit inside the frame and drops the rest — cannot
+/// panic at any position or length. Counts in chars, not bytes.
+pub fn draw_text(frame: &mut Frame, x: usize, y: usize, text: &str, emphasis: Emphasis) {
+    let (w, _) = dims(frame);
+    for (i, ch) in text.chars().enumerate() {
+        let cx = x + i;
+        if cx >= w {
+            break;
+        }
+        put(frame, cx, y, ch, emphasis);
+    }
+}
+
+/// Draw `text` on `row` (relative to the rect's top) within `rect`,
+/// aligned and clipped to the rect's width. Clip-safe.
+pub fn draw_text_in(
+    frame: &mut Frame,
+    rect: Rect,
+    row: usize,
+    align: Align,
+    text: &str,
+    emphasis: Emphasis,
+) {
+    let rect_w = rect.x1.saturating_sub(rect.x0) + 1;
+    let rect_h = rect.y1.saturating_sub(rect.y0) + 1;
+    if row >= rect_h {
+        return;
+    }
+
+    // Clip the text to the rect width before placing it
+    let clipped: String = text.chars().take(rect_w).collect();
+    let len = clipped.chars().count();
+
+    let x = match align {
+        Align::Left => rect.x0,
+        Align::Center => rect.x0 + (rect_w - len) / 2,
+        Align::Right => rect.x0 + (rect_w - len),
+    };
+
+    draw_text(frame, x, rect.y0 + row, &clipped, emphasis);
+}
+
+/// Draw a border box on `rect`'s perimeter with the given weight and
+/// emphasis. Perimeter only — interior is the caller's to fill. Clip-safe.
+pub fn draw_box(frame: &mut Frame, rect: Rect, weight: BorderWeight, emphasis: Emphasis) {
+    let g = weight.glyphs();
+
+    for x in rect.x0..=rect.x1 {
+        put(frame, x, rect.y0, g.horiz, emphasis);
+        put(frame, x, rect.y1, g.horiz, emphasis);
+    }
+    for y in rect.y0..=rect.y1 {
+        put(frame, rect.x0, y, g.vert, emphasis);
+        put(frame, rect.x1, y, g.vert, emphasis);
+    }
+
+    put(frame, rect.x0, rect.y0, g.tl, emphasis);
+    put(frame, rect.x1, rect.y0, g.tr, emphasis);
+    put(frame, rect.x0, rect.y1, g.bl, emphasis);
+    put(frame, rect.x1, rect.y1, g.br, emphasis);
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -85,5 +214,116 @@ mod tests {
         assert_eq!(Emphasis::Strong.attribute(), Attribute::Bold);
         assert_eq!(Emphasis::Muted.attribute(), Attribute::Dim);
         assert_eq!(Emphasis::Alert.attribute(), Attribute::Reverse);
+    }
+
+    fn blank(w: usize, h: usize) -> Frame {
+        vec![vec![Cell::default(); h]; w]
+    }
+
+    /// Read a horizontal run of `len` chars starting at (x, y).
+    fn read_row(frame: &Frame, x: usize, y: usize, len: usize) -> String {
+        (x..x + len).map(|cx| frame[cx][y].ch).collect()
+    }
+
+    #[test]
+    fn clip_draw_text_places_chars_with_emphasis() {
+        let mut f = blank(10, 3);
+        draw_text(&mut f, 2, 1, "hi", Emphasis::Strong);
+        assert_eq!(read_row(&f, 2, 1, 2), "hi");
+        assert_eq!(f[2][1].emphasis, Emphasis::Strong);
+        assert_eq!(f[4][1].ch, ' '); // nothing past the text
+    }
+
+    #[test]
+    fn clip_draw_text_overrunning_right_edge_writes_only_what_fits() {
+        let mut f = blank(5, 2);
+        draw_text(&mut f, 3, 0, "abcd", Emphasis::Normal);
+        // cols 3,4 fit ("ab"); "cd" is dropped, no panic
+        assert_eq!(f[3][0].ch, 'a');
+        assert_eq!(f[4][0].ch, 'b');
+    }
+
+    #[test]
+    fn clip_draw_text_out_of_bounds_is_a_noop_not_a_panic() {
+        let mut f = blank(4, 4);
+        draw_text(&mut f, 99, 0, "x", Emphasis::Normal); // x past width
+        draw_text(&mut f, 0, 99, "x", Emphasis::Normal); // y past height
+        draw_text(&mut f, 0, 0, "", Emphasis::Normal); // empty
+        // frame untouched
+        for col in &f {
+            for cell in col {
+                assert_eq!(cell.ch, ' ');
+            }
+        }
+    }
+
+    #[test]
+    fn clip_draw_text_on_empty_frame_does_not_panic() {
+        let mut f: Frame = Vec::new();
+        draw_text(&mut f, 0, 0, "x", Emphasis::Normal);
+    }
+
+    #[test]
+    fn clip_draw_text_in_aligns_within_rect() {
+        // rect [2..=7] on row 0 → width 6
+        let rect = Rect::new(2, 7, 0, 2);
+        let mut f = blank(10, 3);
+
+        draw_text_in(&mut f, rect, 0, Align::Left, "ab", Emphasis::Normal);
+        assert_eq!(f[2][0].ch, 'a');
+
+        let mut f = blank(10, 3);
+        draw_text_in(&mut f, rect, 0, Align::Right, "ab", Emphasis::Normal);
+        assert_eq!(f[6][0].ch, 'a');
+        assert_eq!(f[7][0].ch, 'b'); // flush to rect's right edge
+
+        let mut f = blank(10, 3);
+        draw_text_in(&mut f, rect, 1, Align::Center, "ab", Emphasis::Normal);
+        // width 6, len 2 → offset (6-2)/2 = 2 → starts at x0+2 = 4, y0+1 = 1
+        assert_eq!(f[4][1].ch, 'a');
+        assert_eq!(f[5][1].ch, 'b');
+    }
+
+    #[test]
+    fn clip_draw_text_in_clips_to_rect_width_and_ignores_out_of_range_rows() {
+        let rect = Rect::new(0, 2, 0, 1); // width 3, height 2
+        let mut f = blank(10, 3);
+        draw_text_in(&mut f, rect, 0, Align::Left, "abcdef", Emphasis::Normal);
+        assert_eq!(read_row(&f, 0, 0, 3), "abc");
+        assert_eq!(f[3][0].ch, ' '); // clipped at rect edge
+
+        draw_text_in(&mut f, rect, 9, Align::Left, "z", Emphasis::Normal); // row past rect
+        assert_eq!(f[0][2].ch, ' ');
+    }
+
+    #[test]
+    fn box_draws_corners_and_edges_single_weight() {
+        let mut f = blank(6, 5);
+        draw_box(&mut f, Rect::new(1, 4, 1, 3), BorderWeight::Single, Emphasis::Normal);
+        assert_eq!(f[1][1].ch, '┌');
+        assert_eq!(f[4][1].ch, '┐');
+        assert_eq!(f[1][3].ch, '└');
+        assert_eq!(f[4][3].ch, '┘');
+        assert_eq!(f[2][1].ch, '─'); // top edge
+        assert_eq!(f[1][2].ch, '│'); // left edge
+        assert_eq!(f[2][2].ch, ' '); // interior untouched
+    }
+
+    #[test]
+    fn box_heavy_weight_uses_heavy_glyphs_and_carries_emphasis() {
+        let mut f = blank(6, 5);
+        draw_box(&mut f, Rect::new(0, 3, 0, 2), BorderWeight::Heavy, Emphasis::Strong);
+        assert_eq!(f[0][0].ch, '┏');
+        assert_eq!(f[3][0].ch, '┓');
+        assert_eq!(f[1][0].ch, '━');
+        assert_eq!(f[0][0].emphasis, Emphasis::Strong);
+    }
+
+    #[test]
+    fn box_exceeding_frame_bounds_clips_without_panic() {
+        let mut f = blank(3, 3);
+        draw_box(&mut f, Rect::new(0, 10, 0, 10), BorderWeight::Single, Emphasis::Normal);
+        // top-left corner still placed; the rest that fit; no panic
+        assert_eq!(f[0][0].ch, '┌');
     }
 }

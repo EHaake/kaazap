@@ -4,7 +4,7 @@ use strum_macros::EnumIter;
 
 use std::{fmt, time::Duration};
 
-use crate::{MENU_ANIMATION_TIME_MS, TITLE_X_OFFSET, config::Config, frame::Frame};
+use crate::{MENU_ANIMATION_TIME_MS, TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text}};
 
 #[derive(EnumIter, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
@@ -103,21 +103,12 @@ impl MenuState {
         }
     }
 
-    /// Draw Text Helper
-    ///
-    /// Takes the text to draw, location coords and frame to draw into
-    fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
-        for (i, ch) in text.chars().enumerate() {
-            frame[x + i][y].ch = ch;
-        }
-    }
-
     /// Draw the title which is a Vector<&'static str>
     ///
     /// Iterate through each line and send it to draw_text
     fn draw_title(&self, x: usize, y: usize, frame: &mut Frame) {
         for (row, line) in self.title_text.iter().enumerate() {
-            self.draw_text(line, x, y + row, frame);
+            draw_text(frame, x, y + row, line, Emphasis::Normal);
         }
     }
 
@@ -136,17 +127,17 @@ impl MenuState {
                     true => {
                         let selected_text = format!("-- {} --", menu_item_text);
                         let padding_x = x - selected_text.len() / 2;
-                        self.draw_text(&selected_text, padding_x, padding_y, frame);
+                        draw_text(frame, padding_x, padding_y, &selected_text, Emphasis::Normal);
                     }
                     false => {
                         let selected_text = format!("++ {} ++", menu_item_text);
                         let padding_x = x - selected_text.len() / 2;
-                        self.draw_text(&selected_text, padding_x, padding_y, frame);
+                        draw_text(frame, padding_x, padding_y, &selected_text, Emphasis::Normal);
                     }
                 }
             } else {
                 let padding_x = x - menu_item_text.len() / 2;
-                self.draw_text(&menu_item_text, padding_x, padding_y, frame);
+                draw_text(frame, padding_x, padding_y, &menu_item_text, Emphasis::Normal);
             }
         }
     }
