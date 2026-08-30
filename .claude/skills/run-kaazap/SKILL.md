@@ -25,6 +25,7 @@ Steps execute in order:
 | `wait:TEXT[:SECONDS]` | Pump output until TEXT appears on screen (default timeout 15s) |
 | `key:KEYS` | Send KEYS to the app (`\r` = Enter, `\e` = ESC — e.g. `\e[C` right arrow) |
 | `pump:SECONDS` | Let the app run and absorb output for SECONDS |
+| `resize:WxH` | Resize the pty (sends SIGWINCH); e.g. `resize:40x15`. Stay within 180x48. |
 | `snap:LABEL` | Print the current screen grid, labeled |
 
 With no args: waits for the menu and snapshots it. Exits nonzero if a
