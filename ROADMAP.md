@@ -33,6 +33,13 @@ of, not guessed at here in advance.
   screens (shop, pack opening, opponent select) once those exist.
   Deliberately deferred from the core-engine spec so it gets designed
   once, with all its use cases known.
+- **Considered animation pass** — deliberate, sparse animations that
+  guide the eye during play: a dealt card arriving, a flip resolving,
+  a total changing, round transitions. Builds on spec 002's selection
+  pulse and its Motion rule in `design/brief.md` (motion is emphasis;
+  one vocabulary — emphasis transitions over time — never ambient or
+  decorative movement). Designed against the finished UI overhaul, not
+  in advance of it.
 - **Post-v1 rule enhancements** — once the complete game exists as a
   baseline, consider Kaazap-specific rule variants that suit the TUI
   format (a mid-match hand-redraw mechanic is one candidate). Evaluated
