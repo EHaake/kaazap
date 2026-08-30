@@ -12,7 +12,7 @@ from *Star Wars: Knights of the Old Republic* — mostly faithful to the
 original rules, with a bespoke campaign layer standing in for the RPG
 context those rules originally leaned on. The core loop: the player faces
 a series of opponents with distinct personalities and increasing
-difficulty, playing best-of-3-round Pazaak matches (draw dealer cards
+difficulty, playing first-to-3-round-wins Pazaak matches (draw dealer cards
 toward 20 without busting, using side-deck cards to adjust your total).
 Wins earn currency and/or card packs that unlock better side-deck cards
 for future matches. It's a personal project, built with the intent of
