@@ -293,6 +293,23 @@ Review: after the phase.
   intact border; dismiss returns to menu; controls overlay lists the
   cursor keys.*
 
+- [x] **T008a — Narrow-terminal prompt overlap, min width, prompt wording**
+  *(human-reported, decisions confirmed via AskUserQuestion)* Three fixes:
+  (1) The status prompt no longer overlaps the hand at narrow widths —
+  `BoardLayout` computes two positions (`status_right` on the hand band,
+  `status_below` under the board) and board.rs picks between them via
+  `status_fits_right`; the divider stops above the status when it's below.
+  Human chose the conditional (right when it fits, below when narrow)
+  over always-below. (2) Minimum width raised to fit a full hand on each
+  side of the divider (`2*(H_PAD + HAND_SIZE*(CARD_WIDTH+1)) + 1` ≈ 89) —
+  the old 67 let hand cards cross the divider; narrower terminals now show
+  too-small (this excludes classic 80-col terminals, confirmed intended).
+  (3) Unified the prompt: every selected card reads
+  "←/→ card · Play <face>? · [↑/↓ flip · ]Enter" (nav always shown; flip
+  hint only on ± / tiebreaker; fixed cards no longer say "sign"). Verified
+  in-app: right at 180, below at 100, too-small at 80, and the wording per
+  card kind. `game.rs`/`player.rs` untouched.
+
 ## Phase 5 — Acceptance
 
 Review: after the phase.

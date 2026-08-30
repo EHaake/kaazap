@@ -1,6 +1,6 @@
 use std::cmp::max;
 
-use crate::{CARD_HEIGHT, CARD_WIDTH, H_PAD, V_PAD, config::Config};
+use crate::{CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, H_PAD, V_PAD, config::Config};
 
 // A card slot is a card plus one cell of gap, in each axis.
 const CARD_SLOT_W: usize = CARD_WIDTH + 1;
@@ -41,7 +41,8 @@ pub struct BoardLayout {
     pub divider_x: usize,
     pub player: SideLayout,
     pub opponent: SideLayout,
-    pub status: Rect, // player-half strip owning one status message
+    pub status_right: Rect, // to the right of the hand (wide terminals)
+    pub status_below: Rect, // under the board (narrow terminals)
 }
 
 impl BoardLayout {
@@ -50,12 +51,13 @@ impl BoardLayout {
         let rows = config.num_rows;
         let divider_x = cols / 2;
 
-        // Vertical bands, top to bottom — same positions the board has
-        // always used, now named instead of inlined as magic numbers.
+        // Vertical bands, top to bottom. The hand sits one row higher
+        // than the very bottom so two rows are free beneath it for the
+        // "below" status position (used when the terminal is too narrow
+        // to fit the status to the right of the hand).
         let dealer_y = 4;
-        let hand_y = rows.saturating_sub(CARD_HEIGHT + 2);
+        let hand_y = rows.saturating_sub(CARD_HEIGHT + 3);
         let played_y = hand_y.saturating_sub(CARD_HEIGHT + 1);
-        let status_y = rows.saturating_sub(5);
 
         let side = |left: usize, right: usize| SideLayout {
             header: Rect::new(left, right, 1, 2),
@@ -67,23 +69,46 @@ impl BoardLayout {
         let player = side(H_PAD, divider_x.saturating_sub(H_PAD));
         let opponent = side(divider_x + H_PAD, cols.saturating_sub(H_PAD));
 
-        // The status strip shares the hand's vertical band but sits to
-        // the right of the cards, on the player half. Two rows: an alert
-        // line above the base prompt line (so OVER 20 doesn't hide the
-        // controls). A small gap keeps right-aligned text off the divider.
-        let status = Rect::new(
+        // Two candidate status positions, each two rows (alert over
+        // prompt). `status_right` sits to the right of the hand on the
+        // player half; `status_below` spans the bottom, under everything.
+        // board.rs picks between them so the status never overlaps cards.
+        let status_right = Rect::new(
             H_PAD,
             divider_x.saturating_sub(2),
-            status_y.saturating_sub(1),
-            status_y,
+            hand_y + 2,
+            hand_y + 3,
+        );
+        let status_below = Rect::new(
+            H_PAD,
+            cols.saturating_sub(H_PAD),
+            rows.saturating_sub(2),
+            rows.saturating_sub(1),
         );
 
         Self {
             divider_x,
             player,
             opponent,
-            status,
+            status_right,
+            status_below,
         }
+    }
+
+    /// Right edge (column) of the last hand slot's card.
+    fn hand_cards_right(&self) -> usize {
+        self.player.hand.x0 + (HAND_SIZE - 1) * (CARD_WIDTH + 1) + CARD_WIDTH - 1
+    }
+
+    /// Can a status line of `text_len` chars sit to the right of the
+    /// hand (right-aligned near the divider) without overlapping the
+    /// cards? If not, the caller uses `status_below` instead.
+    pub fn status_fits_right(&self, text_len: usize) -> bool {
+        if text_len == 0 {
+            return true;
+        }
+        let left_edge = self.status_right.x1.saturating_sub(text_len.saturating_sub(1));
+        left_edge > self.hand_cards_right() + 1
     }
 }
 
@@ -155,13 +180,26 @@ mod tests {
     #[test]
     fn layout_regions_are_in_bounds_and_stacked_at_several_sizes() {
         // minimum enforced size, a typical size, and an odd one
-        for (cols, rows) in [(67, 24), (180, 48), (91, 33)] {
+        for (cols, rows) in [(89, 24), (180, 48), (91, 33)] {
             let l = BoardLayout::new(cfg(cols, rows));
             assert_eq!(l.divider_x, cols / 2);
             assert_side_sane(l.player, cols, rows);
             assert_side_sane(l.opponent, cols, rows);
-            assert!(in_bounds(l.status, cols, rows));
+            assert!(in_bounds(l.status_right, cols, rows));
+            assert!(in_bounds(l.status_below, cols, rows));
         }
+    }
+
+    #[test]
+    fn layout_status_goes_below_when_it_cannot_fit_right() {
+        // At the minimum width the hand fills the half, so a normal-
+        // length prompt can't sit to the right — it must go below.
+        let narrow = BoardLayout::new(cfg(89, 24));
+        assert!(!narrow.status_fits_right(30));
+
+        // A very wide terminal leaves room to the right for it.
+        let wide = BoardLayout::new(cfg(240, 48));
+        assert!(wide.status_fits_right(30));
     }
 
     #[test]

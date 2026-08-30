@@ -1,6 +1,6 @@
 pub(crate) use crossterm::terminal;
 
-use crate::{CARD_HEIGHT, CARD_WIDTH, H_PAD, MIN_CARD_SIZE_HEIGHT, MIN_CARD_SIZE_WIDTH, V_PAD};
+use crate::{CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, H_PAD, MIN_CARD_SIZE_HEIGHT, V_PAD};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Config {
@@ -10,11 +10,11 @@ pub struct Config {
 
 impl Config {
     /// The smallest terminal the layout supports, as (cols, rows).
+    /// Width must fit a full HAND_SIZE-card hand on each side of the
+    /// divider (~89 cols) — wider than a classic 80-column terminal.
     pub fn min_size() -> (usize, usize) {
-        (
-            CARD_WIDTH * MIN_CARD_SIZE_WIDTH + H_PAD,
-            CARD_HEIGHT * MIN_CARD_SIZE_HEIGHT + V_PAD,
-        )
+        let half = H_PAD + HAND_SIZE * (CARD_WIDTH + 1);
+        (2 * half + 1, CARD_HEIGHT * MIN_CARD_SIZE_HEIGHT + V_PAD)
     }
 
     /// Does a terminal of this size meet the minimum?
