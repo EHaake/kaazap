@@ -169,7 +169,7 @@ Review: after every task.
   *Verify: `cargo test tiebreaker_` green, and the mutation check
   reported (test observed red under the inverted rule).*
 
-- [ ] **T007 — Random hand dealing**
+- [x] **T007 — Random hand dealing**
   - `deal_hand(rng) -> Vec<Option<Card>>` in `card.rs` using `rand`'s
     `choose_multiple`: 4 distinct cards from `DEFAULT_SIDE_DECK`.
   - Called for both sides, independently, in `GameState::new()` and
@@ -208,6 +208,11 @@ Review: after the phase (both tasks done).
   - Remove the stale `c.value != 0` filter on the opponent's played
     row — under the new model a 0-value played card is precisely a flip
     card, which must render, not hide.
+  - *Found at T007: `CardView::draw` centers text by `text.len()`
+    (bytes), so the multi-byte `±` shifts "±1T" one column left of its
+    neighbours — visible in play. Same byte-indexed `text[..inner_width]`
+    truncation would panic on a label longer than the card interior (no
+    current label is, so it's latent). Fix both to use chars.*
 
   *Verify: manual — `cargo run`; across a few games confirm: a ± card
   in hand shows "±N" and, played as minus, shows "-N"; a played flip

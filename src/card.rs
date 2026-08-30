@@ -1,4 +1,6 @@
-use crate::{CARD_HEIGHT, CARD_WIDTH, frame::{Drawable, Frame}};
+use rand::{Rng, seq::IndexedRandom};
+
+use crate::{CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, frame::{Drawable, Frame}};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FlipKind {
@@ -76,6 +78,16 @@ pub const DEFAULT_SIDE_DECK: [Card; 10] = [
     Card::Flip(FlipKind::ThreeSix),
     Card::Tiebreaker,
 ];
+
+/// Draw a fresh hand: HAND_SIZE distinct cards from the default deck.
+/// Each side deals its own hand, independently, once per game.
+pub fn deal_hand<R: Rng + ?Sized>(rng: &mut R) -> Vec<Option<Card>> {
+    DEFAULT_SIDE_DECK
+        .choose_multiple(rng, HAND_SIZE)
+        .copied()
+        .map(Some)
+        .collect()
+}
 
 pub struct CardView {
     pub x: usize,
@@ -202,6 +214,52 @@ mod tests {
         assert_eq!(Card::Minus(2).sign_choice_magnitude(), None);
         assert_eq!(Card::Flip(FlipKind::TwoFour).sign_choice_magnitude(), None);
         assert_eq!(Card::Dealer(5).sign_choice_magnitude(), None);
+    }
+
+    #[test]
+    fn deal_hand_is_four_distinct_cards_from_the_deck() {
+        for _ in 0..200 {
+            let hand = deal_hand(&mut rand::rng());
+            assert_eq!(hand.len(), HAND_SIZE);
+
+            let cards: Vec<Card> = hand
+                .iter()
+                .map(|slot| slot.expect("every dealt slot must be filled"))
+                .collect();
+
+            for card in &cards {
+                assert!(
+                    DEFAULT_SIDE_DECK.contains(card),
+                    "dealt a card that isn't in the deck: {card:?}"
+                );
+            }
+
+            for i in 0..cards.len() {
+                for j in (i + 1)..cards.len() {
+                    assert_ne!(cards[i], cards[j], "hand contains a duplicate card");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn deal_can_reach_every_card_in_the_deck() {
+        // Catches sampling that silently favors part of the deck — every
+        // card must be reachable, including the flips and the tiebreaker
+        let mut unseen = DEFAULT_SIDE_DECK.to_vec();
+
+        for _ in 0..500 {
+            for slot in deal_hand(&mut rand::rng()) {
+                if let Some(card) = slot {
+                    unseen.retain(|c| *c != card);
+                }
+            }
+            if unseen.is_empty() {
+                break;
+            }
+        }
+
+        assert!(unseen.is_empty(), "never dealt: {unseen:?}");
     }
 
     #[test]

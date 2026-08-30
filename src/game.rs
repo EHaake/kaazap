@@ -1,5 +1,5 @@
 use crate::{
-    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::{Card, FlipKind, PlayedCard}, player::{Player, PlayerState}
+    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::{Card, FlipKind, PlayedCard, deal_hand}, player::{Player, PlayerState}
 };
 use std::time::{Duration, Instant};
 
@@ -58,14 +58,7 @@ impl GameState {
                 name: "Your Name".to_string(),
                 dealer_row: vec![],
                 played_row: vec![],
-                // Interim fixed hand, same values as before — random
-                // dealing from DEFAULT_SIDE_DECK arrives in T007
-                hand: vec![
-                    Some(Card::Plus(5)),
-                    Some(Card::Plus(3)),
-                    Some(Card::Plus(6)),
-                    Some(Card::Plus(2)),
-                ],
+                hand: deal_hand(&mut rand::rng()),
                 bust: false,
                 stood: false,
                 rounds_won: 0,
@@ -74,12 +67,7 @@ impl GameState {
                 name: "Opponent".to_string(),
                 dealer_row: vec![],
                 played_row: vec![],
-                hand: vec![
-                    Some(Card::Plus(2)),
-                    Some(Card::Plus(6)),
-                    Some(Card::Plus(1)),
-                    Some(Card::Plus(4)),
-                ],
+                hand: deal_hand(&mut rand::rng()),
                 bust: false,
                 stood: false,
                 rounds_won: 0,
@@ -552,12 +540,18 @@ impl GameState {
         }
     }
 
-    /// Reset all game stats
+    /// Reset all game stats and deal each side a fresh hand
     ///
     fn new_game(&mut self) {
         if let GamePhase::GameOver { winner: _ } = self.game_phase {
             self.player.rounds_won = 0;
             self.opponent.rounds_won = 0;
+
+            // New game, new hands — drawn independently for each side
+            let mut rng = rand::rng();
+            self.player.hand = deal_hand(&mut rng);
+            self.opponent.hand = deal_hand(&mut rng);
+
             self.setup_next_round();
         }
     }
@@ -593,6 +587,7 @@ fn fixed_face_value(card: Card) -> Option<i8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::HAND_SIZE;
 
     fn pc(card: Card, value: i8) -> PlayedCard {
         PlayedCard { card, value }
@@ -825,6 +820,70 @@ mod tests {
         assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
     }
 
+    fn filled_slots(hand: &[Option<Card>]) -> usize {
+        hand.iter().filter(|slot| slot.is_some()).count()
+    }
+
+    #[test]
+    fn deal_new_game_starts_both_sides_with_full_hands() {
+        let gs = GameState::new();
+
+        assert_eq!(filled_slots(&gs.player.hand), HAND_SIZE);
+        assert_eq!(filled_slots(&gs.opponent.hand), HAND_SIZE);
+    }
+
+    #[test]
+    fn deal_gives_the_two_sides_independent_hands() {
+        // A shared draw copied to both sides would make these always
+        // equal; independent draws must sometimes differ
+        let differed = (0..50).any(|_| {
+            let gs = GameState::new();
+            gs.player.hand != gs.opponent.hand
+        });
+
+        assert!(
+            differed,
+            "player and opponent hands were identical in 50 consecutive deals"
+        );
+    }
+
+    #[test]
+    fn deal_new_game_redeals_spent_hands() {
+        let mut gs = GameState::new();
+        gs.player.hand[0] = None;
+        gs.player.hand[2] = None;
+        gs.opponent.hand[1] = None;
+        gs.player.rounds_won = 3;
+        gs.game_phase = GamePhase::GameOver {
+            winner: Player::Player,
+        };
+
+        gs.apply_game_action(GameAction::NextGame);
+
+        assert_eq!(filled_slots(&gs.player.hand), HAND_SIZE);
+        assert_eq!(filled_slots(&gs.opponent.hand), HAND_SIZE);
+        assert_eq!(gs.player.rounds_won, 0);
+        assert_eq!(gs.opponent.rounds_won, 0);
+    }
+
+    #[test]
+    fn deal_next_round_leaves_spent_hands_untouched() {
+        // Regression: no mid-match redraw — a played card stays gone
+        // until the next game deals fresh hands
+        let mut gs = GameState::new();
+        gs.player.hand[0] = None;
+        gs.player.hand[2] = None;
+        gs.opponent.hand[3] = None;
+        let player_before = gs.player.hand.clone();
+        let opponent_before = gs.opponent.hand.clone();
+        gs.game_phase = GamePhase::AwaitingNextRound;
+
+        gs.apply_game_action(GameAction::NextRound);
+
+        assert_eq!(gs.player.hand, player_before);
+        assert_eq!(gs.opponent.hand, opponent_before);
+    }
+
     #[test]
     fn dealer_draw_stays_within_bounds_and_hits_both_ends() {
         let mut seen_zero = false;
@@ -852,7 +911,7 @@ mod tests {
     #[test]
     fn commit_play_empties_slot_and_records_card_with_value() {
         let mut gs = GameState::new();
-        // Player hand slot 0 holds Plus(5)
+        gs.player.hand[0] = Some(Card::Plus(5));
         gs.commit_play(Player::Player, 0, 5);
 
         assert!(gs.player.hand[0].is_none());
@@ -866,8 +925,9 @@ mod tests {
     #[test]
     fn commit_play_negative_value_lands_negative() {
         let mut gs = GameState::new();
-        // Opponent hand slot 1 holds Plus(6); a negative committed value
-        // must land as passed — this is the path ± signs ride on
+        // A negative committed value must land as passed — this is the
+        // path ± signs ride on
+        gs.opponent.hand[1] = Some(Card::Plus(6));
         gs.commit_play(Player::Opponent, 1, -6);
 
         assert!(gs.opponent.hand[1].is_none());
@@ -890,7 +950,7 @@ mod tests {
     #[test]
     fn commit_via_opponent_action_carries_the_action_value() {
         let mut gs = GameState::new();
-        // Opponent hand slot 3 holds Plus(4)
+        gs.opponent.hand[3] = Some(Card::Plus(4));
         gs.apply_opponent_action(OpponentAction::PlayHand { index: 3, value: 4 });
 
         let pc = gs.opponent.played_row[0];
