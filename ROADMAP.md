@@ -33,6 +33,14 @@ of, not guessed at here in advance.
   screens (shop, pack opening, opponent select) once those exist.
   Deliberately deferred from the core-engine spec so it gets designed
   once, with all its use cases known.
+- **Play log / move history** — a running record of every move both
+  players make during a game (dealer draws, cards played with their
+  chosen sign, flips, stands, busts, round outcomes), shown as it
+  happens. Presentation is open for future discussion: a side panel, a
+  toggleable pane, or a separate popup the player invokes with a
+  keypress. Would build on spec 002's overlay frame and monochrome
+  vocabulary. The engine already routes all state changes through
+  apply_*_action, so those are the natural points to record from.
 - **Considered animation pass** — deliberate, sparse animations that
   guide the eye during play: a dealt card arriving, a flip resolving,
   a total changing, round transitions. Builds on spec 002's selection
