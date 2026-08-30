@@ -209,7 +209,17 @@ Review: after every task.
   play" instead of "Your Turn" — flagged, vetoable.*
   *Deviation note: menu selection uses a `▸` marker anchor because a menu
   item has no border to anchor the breathe; without it the item would be
-  indistinguishable at the Normal phase. `selected_face` lives on `Card`.*
+  indistinguishable at the Normal phase.*
+
+- [x] **T007a — Selected ± keeps its face; unselected cards recede**
+  *(human-reported)* A selected sign-choice card no longer mutates its
+  face to `+3`/`-3` (the ± "minus" appeared to vanish); it keeps its
+  `±N`/`±1T` label, and the pending sign moved to the status line
+  ("Play +3? (↑/↓ flip · Enter play)", flipping with the toggle) — so
+  the sign is visible without the card losing its ±. `Card::selected_face`
+  removed. Also: unselected hand cards now render `Muted` so the heavy
+  breathing selection stands out more. Verified in-app: selected ±3
+  kept its face, status flipped +3↔-3. `game.rs`/`player.rs` untouched.
   `SelectionPulse` owned by `App`, ticked in `App::tick`
   (`MENU_ANIMATION_TIME_MS` renamed `SELECTION_PULSE_MS`); passed
   read-only into draws. Board: selected card renders heavy border,

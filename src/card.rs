@@ -65,19 +65,6 @@ impl Card {
         self.playable_values().contains(&value)
     }
 
-    /// Face text for this card while it's the cursor selection: a
-    /// sign-choice card shows its pending signed value (+3 / -3, or
-    /// +1T / -1T for the tiebreaker) so the choice is visible before
-    /// playing; every other kind shows its normal label.
-    pub fn selected_face(&self, positive: bool) -> String {
-        let sign = if positive { '+' } else { '-' };
-        match self {
-            Card::PlusMinus(n) => format!("{sign}{n}"),
-            Card::Tiebreaker => format!("{sign}1T"),
-            _ => self.label(),
-        }
-    }
-
     /// The magnitude a sign-choice card plays at (± cards and the
     /// tiebreaker), or None for kinds needing no play-time choice.
     /// One source of truth for both the commit logic and the prompt.
@@ -304,17 +291,6 @@ mod tests {
             assert!(!Card::Flip(FlipKind::ThreeSix).can_play_as(value));
             assert!(!Card::Dealer(5).can_play_as(value));
         }
-    }
-
-    #[test]
-    fn selected_face_shows_pending_sign_for_choice_cards_only() {
-        assert_eq!(Card::PlusMinus(3).selected_face(true), "+3");
-        assert_eq!(Card::PlusMinus(3).selected_face(false), "-3");
-        assert_eq!(Card::Tiebreaker.selected_face(true), "+1T");
-        assert_eq!(Card::Tiebreaker.selected_face(false), "-1T");
-        // Fixed / flip cards ignore the sign and show their label
-        assert_eq!(Card::Plus(4).selected_face(false), "+4");
-        assert_eq!(Card::Flip(FlipKind::TwoFour).selected_face(false), "2&4");
     }
 
     #[test]

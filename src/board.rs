@@ -1,7 +1,7 @@
 use crate::{
     CARD_HEIGHT, CARD_WIDTH,
     app::HandCursor,
-    card::CardView,
+    card::{Card, CardView},
     config::Config,
     frame::{Align, BorderWeight, Drawable, Emphasis, Frame, draw_text, draw_text_in},
     game::{GamePhase, GameState, RoundOutcome},
@@ -64,8 +64,9 @@ impl BoardView {
 
     /// Draw the single status message (if any) right-aligned in the
     /// player-half status strip.
-    fn draw_status(&self, state: &GameState, frame: &mut Frame) {
-        if let Some((msg, emphasis)) = status_message(state) {
+    fn draw_status(&self, state: &GameState, cursor: &HandCursor, frame: &mut Frame) {
+        let selected = state.player.hand.get(cursor.index()).copied().flatten();
+        if let Some((msg, emphasis)) = status_message(state, selected, cursor.pending_positive()) {
             draw_text_in(frame, self.layout.status, 0, Align::Right, &msg, emphasis);
         }
     }
@@ -126,15 +127,21 @@ impl BoardView {
             let (x, y) = card_slot(side.hand, i, 0);
 
             let view = match selection {
-                // Selected player card: heavy breathing border, pending face
+                // Selected player card: heavy breathing border — the
+                // face keeps its ± label; the pending sign shows in the
+                // status line, not by mutating the card's own text
                 Some(sel) if sel.index == i => {
-                    let mut v = CardView::new(x, y, card.selected_face(sel.pending_positive));
+                    let mut v = CardView::new(x, y, card.label());
                     v.weight = BorderWeight::Heavy;
                     v.emphasis = sel.pulse;
                     v
                 }
-                // Other player card: real face
-                Some(_) => CardView::new(x, y, card.label()),
+                // Other player cards recede (Muted) so the selection pops
+                Some(_) => {
+                    let mut v = CardView::new(x, y, card.label());
+                    v.emphasis = Emphasis::Muted;
+                    v
+                }
                 // Opponent card: hidden
                 None => CardView::new(x, y, "?".to_string()),
             };
@@ -162,14 +169,13 @@ impl BoardView {
 
         let selection = Selection {
             index: cursor.index(),
-            pending_positive: cursor.pending_positive(),
             pulse,
         };
         self.draw_side(&self.layout.player, &state.player, Some(selection), frame);
         self.draw_side(&self.layout.opponent, &state.opponent, None, frame);
 
         // Draw the status line (turn / prompt / alert / cursor hint)
-        self.draw_status(state, frame);
+        self.draw_status(state, cursor, frame);
 
         // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
@@ -180,20 +186,27 @@ impl BoardView {
 #[derive(Clone, Copy)]
 struct Selection {
     index: usize,
-    pending_positive: bool,
     pulse: Emphasis,
 }
 
 /// The single status message for the current game state, with its
-/// emphasis — precedence: over-20 alert > sign prompt > (cursor hint,
-/// T007) > turn text. Pure, so precedence is unit-testable.
-pub fn status_message(state: &GameState) -> Option<(String, Emphasis)> {
+/// emphasis. `selected` / `positive` describe the cursor's current hand
+/// card so a sign-choice card's pending sign shows here (keeping the
+/// card's own face as its ± label). Precedence: over-20 alert > awaiting
+/// sign prompt (number-key path) > selected-± pending sign > cursor hint
+/// > opponent turn. Pure, so precedence is unit-testable.
+pub fn status_message(
+    state: &GameState,
+    selected: Option<Card>,
+    positive: bool,
+) -> Option<(String, Emphasis)> {
     // Alert: over 20 during the player's turn (drawing is disabled)
     if matches!(state.game_phase, GamePhase::PlayerTurn) && state.player.score() > 20 {
         return Some(("OVER 20! Play a card (d/s: bust)".to_string(), Emphasis::Alert));
     }
 
     // Sign prompt while a plus-or-minus / tiebreaker card waits to commit
+    // (this is the direct number-key play path, answered with h/l)
     if let GamePhase::AwaitingSignChoice { hand_index } = state.game_phase {
         if let Some(Some(card)) = state.player.hand.get(hand_index)
             && let Some(magnitude) = card.sign_choice_magnitude()
@@ -206,13 +219,27 @@ pub fn status_message(state: &GameState) -> Option<(String, Emphasis)> {
         return None;
     }
 
-    // Otherwise, whose turn it is — the player's turn teaches the cursor
-    // controls (the hint implies it's your move)
-    match state.game_phase {
-        GamePhase::PlayerTurn => Some((
+    if matches!(state.game_phase, GamePhase::PlayerTurn) {
+        // A sign-choice card is selected: show the pending sign here so
+        // the ↑/↓ toggle is visible without the card face losing its ±
+        if let Some(card) = selected
+            && let Some(magnitude) = card.sign_choice_magnitude()
+        {
+            let value = if positive { magnitude } else { -magnitude };
+            return Some((
+                format!("Play {value:+}?  (↑/↓ flip · Enter play)"),
+                Emphasis::Strong,
+            ));
+        }
+
+        // Otherwise the generic cursor hint (implies it's your move)
+        return Some((
             "←/→ card  ↑/↓ sign  Enter play".to_string(),
             Emphasis::Strong,
-        )),
+        ));
+    }
+
+    match state.game_phase {
         GamePhase::OpponentThinking { .. } => {
             Some(("Opponent's Turn".to_string(), Emphasis::Muted))
         }
@@ -226,8 +253,9 @@ mod tests {
     use crate::card::Card;
     use crate::game::GameState;
 
+    // No card selected (or a non-sign card) — the common case
     fn msg(state: &GameState) -> Option<(String, Emphasis)> {
-        status_message(state)
+        status_message(state, None, true)
     }
 
     #[test]
@@ -236,6 +264,30 @@ mod tests {
         let (text, emphasis) = msg(&gs).unwrap();
         assert!(text.contains("Enter play"));
         assert_eq!(emphasis, Emphasis::Strong);
+    }
+
+    #[test]
+    fn status_selected_sign_card_shows_pending_sign_and_flips() {
+        let gs = GameState::new(); // PlayerTurn
+        let card = Some(Card::PlusMinus(3));
+
+        let (pos, _) = status_message(&gs, card, true).unwrap();
+        assert_eq!(pos, "Play +3?  (↑/↓ flip · Enter play)");
+
+        let (neg, _) = status_message(&gs, card, false).unwrap();
+        assert_eq!(neg, "Play -3?  (↑/↓ flip · Enter play)");
+
+        // The tiebreaker (magnitude 1) works the same way
+        let (tb, _) = status_message(&gs, Some(Card::Tiebreaker), false).unwrap();
+        assert_eq!(tb, "Play -1?  (↑/↓ flip · Enter play)");
+    }
+
+    #[test]
+    fn status_selected_fixed_card_still_shows_the_generic_hint() {
+        let gs = GameState::new();
+        let (text, _) = status_message(&gs, Some(Card::Plus(4)), true).unwrap();
+        assert!(text.contains("Enter play"));
+        assert!(!text.contains("Play +"));
     }
 
     #[test]
