@@ -251,8 +251,13 @@ impl App {
         }
 
         if self.overlay.is_some() {
-            // Any overlay is dismissed with ?, Esc, or Enter
-            if matches!(key, KeyCode::Char('?') | KeyCode::Esc | KeyCode::Enter) {
+            // Any overlay is dismissed with ?, Esc, Enter, or Space — the
+            // last so How to Play (opened from the menu with Space) closes
+            // with the same key it opened on.
+            if matches!(
+                key,
+                KeyCode::Char('?') | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter
+            ) {
                 self.overlay = None;
             }
         } else {
@@ -286,7 +291,8 @@ impl App {
                 Screen::InGame { game_state, cursor } => {
                     let player_turn = matches!(game_state.game_phase, GamePhase::PlayerTurn);
                     match key {
-                        KeyCode::Char('x') => {
+                        // Esc or X quits the game back to the main menu
+                        KeyCode::Char('x') | KeyCode::Esc => {
                             self.screen = Screen::StartMenu {
                                 menu_state: MenuState::new(),
                             }

@@ -8,7 +8,7 @@
   S          Stand (ends turn)
   N          Next round
   G          New game
-  X          Back to menu
+  Esc / X    Back to the menu
   Q          Quit
   ?          Close this overlay
 
