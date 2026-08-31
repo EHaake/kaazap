@@ -37,6 +37,18 @@ impl PlayerState {
             .iter()
             .any(|pc| pc.card == Card::Tiebreaker)
     }
+
+    /// Cards this side holds on the table this round: dealer draws plus
+    /// played side cards. Bounded by MAX_TABLE_CARDS.
+    pub fn table_card_count(&self) -> usize {
+        self.dealer_row.len() + self.played_row.len()
+    }
+
+    /// Has this side filled every table slot? A full side can hold no
+    /// more cards and auto-stands (game.rs `resolve_after_action`).
+    pub fn table_full(&self) -> bool {
+        self.table_card_count() >= crate::MAX_TABLE_CARDS
+    }
 }
 
 #[cfg(test)]

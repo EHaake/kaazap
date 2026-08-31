@@ -28,6 +28,12 @@ pub const TITLE_X_OFFSET: usize = 21;
 // Side-deck cards dealt to each side per game
 pub const HAND_SIZE: usize = 4;
 
+// Max cards one side may hold on the table in a round (dealer draws +
+// played cards). Reaching it auto-stands that side. One source of truth
+// for the rule (game.rs), the board grid (layout.rs), and the minimum
+// terminal height (config.rs).
+pub const MAX_TABLE_CARDS: usize = 12;
+
 // Opponent Logic
 pub const STAND_THRESHOLD: usize = 17;
 

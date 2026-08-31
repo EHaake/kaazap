@@ -205,6 +205,20 @@ impl GameState {
         let player_score = self.player.score();
         let opponent_score = self.opponent.score();
 
+        // A side that has filled the table can hold no more cards, so it
+        // stands on its current total. The over-20 checks below then bust
+        // it if that total is over — exactly as a manual stand would
+        // (001's over-20-at-stand rule). The recovery window survives
+        // while a slot remains: an 11-card side over 20 keeps its turn and
+        // can play its 12th as a recovery, which fills the table and
+        // auto-stands it at the recovered total.
+        if self.player.table_full() {
+            self.player.stood = true;
+        }
+        if self.opponent.table_full() {
+            self.opponent.stood = true;
+        }
+
         // Busting resolves when a side can no longer respond: standing
         // (or already being stood, e.g. pushed over by a flip) with a
         // total over 20. Merely going over is survivable while cards
@@ -631,10 +645,15 @@ fn fixed_face_value(card: Card) -> Option<i8> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::HAND_SIZE;
+    use crate::{HAND_SIZE, MAX_TABLE_CARDS};
 
     fn pc(card: Card, value: i8) -> PlayedCard {
         PlayedCard { card, value }
+    }
+
+    /// A run of `n` dealer cards each worth `v` (0-10), as table cards.
+    fn dealer_run(n: usize, v: i8) -> Vec<PlayedCard> {
+        (0..n).map(|_| pc(Card::Dealer(v as u8), v)).collect()
     }
 
     #[test]
@@ -1460,5 +1479,99 @@ mod tests {
             fixed_face_value(Card::Flip(crate::card::FlipKind::TwoFour)),
             None
         );
+    }
+
+    #[test]
+    fn cap_full_table_at_or_under_twenty_auto_stands() {
+        let mut gs = GameState::new();
+        gs.player.dealer_row = dealer_run(MAX_TABLE_CARDS, 1); // 12 cards, score 12
+        assert!(gs.player.table_full());
+
+        gs.resolve_after_action();
+
+        assert!(gs.player.stood);
+        assert!(!gs.player.bust);
+        // opponent still live, so the turn simply passes — not a round end
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+    }
+
+    #[test]
+    fn cap_full_opponent_table_auto_stands() {
+        // The auto-stand insertion covers both sides at the shared choke
+        let mut gs = GameState::new();
+        gs.opponent.dealer_row = dealer_run(MAX_TABLE_CARDS, 1); // 12, score 12
+
+        gs.resolve_after_action();
+
+        assert!(gs.opponent.stood);
+        assert!(!gs.opponent.bust);
+    }
+
+    #[test]
+    fn cap_twelfth_card_over_twenty_busts() {
+        let mut gs = GameState::new();
+        gs.player.dealer_row = dealer_run(MAX_TABLE_CARDS, 2); // 12 cards, score 24
+
+        gs.resolve_after_action();
+
+        assert!(gs.player.stood);
+        assert!(gs.player.bust);
+        assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
+
+        gs.update();
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::OpponentWon)));
+    }
+
+    #[test]
+    fn cap_recovery_as_the_twelfth_card_holds() {
+        // 11 dealer cards at 23 (over 20), still live — the recovery
+        // window is open because a slot remains. The -4 lands as the
+        // 12th card, fills the table, and auto-stands the recovered 19.
+        let mut gs = GameState::new();
+        let mut row = dealer_run(10, 2); // 20
+        row.push(pc(Card::Dealer(3), 3)); // 23, 11 cards
+        gs.player.dealer_row = row;
+        gs.player.hand = vec![Some(Card::Minus(4)), None, None, None];
+        assert!(!gs.player.table_full());
+
+        gs.apply_game_action(GameAction::PlayHand { index: 0 });
+
+        assert_eq!(gs.player.table_card_count(), MAX_TABLE_CARDS);
+        assert_eq!(gs.player.score(), 19);
+        assert!(gs.player.stood); // auto-stood on fill
+        assert!(!gs.player.bust); // 19 holds, not a bust
+    }
+
+    #[test]
+    fn cap_full_table_refuses_further_cards() {
+        // The auto-stand is what blocks a 13th card: once stood, the Hit
+        // guard refuses. (Remove the auto-stand line and this goes red —
+        // stood stays false and a 13th dealer card lands.)
+        let mut gs = GameState::new();
+        gs.player.dealer_row = dealer_run(MAX_TABLE_CARDS, 1); // full, score 12
+        gs.resolve_after_action();
+        assert!(gs.player.stood);
+
+        let before = gs.player.table_card_count();
+        gs.apply_game_action(GameAction::Hit);
+
+        assert_eq!(gs.player.table_card_count(), before); // no 13th card
+    }
+
+    #[test]
+    fn cap_both_tables_full_without_bust_resolves_by_totals() {
+        // Both sides fill at ≤ 20: both auto-stand, and the round resolves
+        // by the existing totals rule — a full table is just a stand.
+        let mut gs = GameState::new();
+        gs.player.dealer_row = dealer_run(MAX_TABLE_CARDS, 1); // 12 cards, 12
+        let mut opp = dealer_run(10, 1);
+        opp.extend(dealer_run(2, 0));
+        gs.opponent.dealer_row = opp; // 12 cards, 10
+
+        gs.resolve_after_action();
+        assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
+
+        gs.update();
+        assert!(matches!(gs.round_outcome, Some(RoundOutcome::PlayerWon)));
     }
 }

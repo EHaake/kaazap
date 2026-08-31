@@ -36,7 +36,15 @@ other use references it.
 
 Review: after every task.
 
-- [ ] **T001 — Card cap constant, `table_full`, auto-stand on fill**
+- [x] **T001 — Card cap constant, `table_full`, auto-stand on fill**
+  *Done. `MAX_TABLE_CARDS = 12` in lib.rs; `table_card_count`/`table_full`
+  on `PlayerState`; the auto-stand for either full side inserted in
+  `resolve_after_action` before the over-20 checks. Six `cap_` tests:
+  hold at ≤20, opponent-side branch, over-20 bust, recovery-as-the-12th,
+  refuse-a-13th, and both-full-resolves-by-totals. Mutation check run:
+  neutralizing the auto-stand turns all six red; restored to green. 121
+  tests pass (115 → +6), 0 warnings. Production diff vs main is the
+  auto-stand insertion (game.rs) and the two queries (player.rs) only.*
   `lib.rs`: `pub const MAX_TABLE_CARDS: usize = 12;`. `player.rs`:
   `table_card_count()` (dealer_row + played_row lengths) and
   `table_full()`. `game.rs`: in `resolve_after_action`, after scores are
