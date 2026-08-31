@@ -1,11 +1,11 @@
 use crate::{
-    CARD_HEIGHT, CARD_WIDTH,
+    CARD_HEIGHT, CARD_WIDTH, MAX_TABLE_CARDS,
     app::HandCursor,
     card::{Card, CardView},
     config::Config,
-    frame::{Align, BorderWeight, Drawable, Emphasis, Frame, draw_text, draw_text_in},
+    frame::{Align, BorderWeight, Drawable, Emphasis, Frame, draw_ghost_slot, draw_text, draw_text_in},
     game::{GamePhase, GameState, RoundOutcome},
-    layout::{BoardLayout, Rect, SideLayout, card_slot, cards_per_row},
+    layout::{BoardLayout, Rect, SideLayout, card_slot, grid_cols},
     player::{Player, PlayerState},
 };
 
@@ -103,7 +103,10 @@ impl BoardView {
         if p.bust {
             draw_text_in(frame, side.header, 1, Align::Left, "BUSTED!!", Emphasis::Alert);
         } else if p.stood {
-            draw_text_in(frame, side.header, 1, Align::Left, "Stood", Emphasis::Muted);
+            // A full table stood this side involuntarily — say so, since
+            // the turn passes too fast for a status-line message to land.
+            let note = if p.table_full() { "Stood — table full" } else { "Stood" };
+            draw_text_in(frame, side.header, 1, Align::Left, note, Emphasis::Muted);
         }
     }
 
@@ -114,10 +117,13 @@ impl BoardView {
         self.draw_side_header(&self.layout.opponent, "Opponent", &state.opponent, frame);
     }
 
-    /// Draw one side's zones: Muted labels, dealer grid (wraps), played
-    /// row, and hand. The player's side passes `selection` (the cursor's
-    /// slot, pending sign, and pulse emphasis) and reveals hand faces +
-    /// number keys; the opponent's side passes None and hides its hand.
+    /// Draw one side's grid and hand. Dealer draws fill the grid from the
+    /// front (Single border, bare value), played cards from the back
+    /// (Double border, signed value), and dim ghost outlines mark the
+    /// unfilled slots between — filling from opposite ends so a new dealer
+    /// draw never shifts an already-played card. The player's side passes
+    /// `selection` and reveals its hand + number keys; the opponent's side
+    /// passes None and hides its hand.
     fn draw_side(
         &self,
         side: &SideLayout,
@@ -125,25 +131,45 @@ impl BoardView {
         selection: Option<Selection>,
         frame: &mut Frame,
     ) {
-        // Zone labels sit one row above each zone (clip-safe if tight)
-        draw_text(frame, side.dealer.x0, side.dealer.y0.saturating_sub(1), "Dealer", Emphasis::Muted);
-        draw_text(frame, side.played.x0, side.played.y0.saturating_sub(1), "Played", Emphasis::Muted);
-        draw_text(frame, side.hand.x0, side.hand.y0.saturating_sub(1), "Hand", Emphasis::Muted);
+        // per-row for the grid: the same width-driven count board_grid_rows
+        // uses, so cards, ghosts, and the reserved height always agree.
+        let per = grid_cols(self.config.num_cols);
+        let dealers = ps.dealer_row.len();
+        let played = ps.played_row.len();
 
-        // Dealer draws wrap into rows within the zone
-        let per = cards_per_row(side.dealer);
+        // Slot counter above the grid — doubles as its label and shows how
+        // close this side is to the cap.
+        draw_text(
+            frame,
+            side.grid.x0,
+            side.grid.y0.saturating_sub(1),
+            &format!("{}/{}", dealers + played, MAX_TABLE_CARDS),
+            Emphasis::Muted,
+        );
+
+        // Dealer draws: grid index i, Single border, bare value.
         for (i, c) in ps.dealer_row.iter().enumerate() {
-            let (x, y) = card_slot(side.dealer, i % per, i / per);
+            let (x, y) = card_slot(side.grid, i % per, i / per);
             CardView::new(x, y, c.display_text()).draw(frame);
         }
 
-        // Played cards — one row; flips sit here at value 0 (no filter)
-        for (i, c) in ps.played_row.iter().enumerate() {
-            let (x, y) = card_slot(side.played, i, 0);
-            CardView::new(x, y, c.display_text()).draw(frame);
+        // Played cards: filled from the back, Double border, signed value.
+        for (j, c) in ps.played_row.iter().enumerate() {
+            let idx = MAX_TABLE_CARDS - 1 - j;
+            let (x, y) = card_slot(side.grid, idx % per, idx / per);
+            let mut v = CardView::new(x, y, c.display_text());
+            v.weight = BorderWeight::Double;
+            v.draw(frame);
+        }
+
+        // Ghost placeholders for the unfilled middle slots.
+        for idx in dealers..(MAX_TABLE_CARDS - played) {
+            let (x, y) = card_slot(side.grid, idx % per, idx / per);
+            draw_ghost_slot(frame, Rect::new(x, x + CARD_WIDTH - 1, y, y + CARD_HEIGHT - 1));
         }
 
         // Hand — faces + number keys for the player, hidden for the opponent
+        draw_text(frame, side.hand.x0, side.hand.y0.saturating_sub(1), "Hand", Emphasis::Muted);
         for (i, c) in ps.hand.iter().enumerate() {
             let Some(card) = c else { continue };
             let (x, y) = card_slot(side.hand, i, 0);
@@ -189,15 +215,13 @@ impl BoardView {
             .unwrap_or(0);
         let below = !self.layout.status_fits_right(max_len);
 
-        // Vertical divider. When the status is below, stop it above those
-        // two rows so it doesn't run through the status bar.
+        // Vertical divider spans the block: from the header down through
+        // the hand. It stops above the status band, so a below-status
+        // never collides with it.
         let divider_x = self.layout.divider_x;
-        let divider_bottom = if below {
-            self.config.num_rows.saturating_sub(2)
-        } else {
-            self.config.num_rows
-        };
-        for y in 0..divider_bottom {
+        let divider_top = self.layout.player.header.y0;
+        let divider_bottom = self.layout.player.hand.y1;
+        for y in divider_top..=divider_bottom {
             if divider_x < frame.len() && y < frame[0].len() {
                 frame[divider_x][y].ch = '│';
             }

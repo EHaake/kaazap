@@ -72,8 +72,7 @@ impl Rect {
 #[derive(Debug, Copy, Clone)]
 pub struct SideLayout {
     pub header: Rect, // name / score / rounds
-    pub dealer: Rect, // dealer-draw grid (wraps into rows)
-    pub played: Rect, // side cards played (single row)
+    pub grid: Rect,   // one capped card grid: dealer draws + played cards
     pub hand: Rect,   // hand (single row; numbers drawn just below)
 }
 
@@ -94,40 +93,40 @@ impl BoardLayout {
         let rows = config.num_rows;
         let divider_x = cols / 2;
 
-        // Vertical bands, top to bottom. The hand sits one row higher
-        // than the very bottom so two rows are free beneath it for the
-        // "below" status position (used when the terminal is too narrow
-        // to fit the status to the right of the hand).
-        let dealer_y = 4;
-        let hand_y = rows.saturating_sub(CARD_HEIGHT + 3);
-        let played_y = hand_y.saturating_sub(CARD_HEIGHT + 1);
+        // The board is one fixed-height block, centered vertically so it
+        // doesn't spread across a tall terminal. Every band position
+        // derives from `top` and the shared band constants — the same
+        // constants board_block_height sums, so the reserve and the
+        // layout can't drift.
+        let block_h = board_block_height(cols);
+        let top = rows.saturating_sub(block_h) / 2;
+        let per_row = grid_cols(cols);
+        let grid_h = board_grid_height(cols);
 
+        let y_header = top;
+        let y_grid = y_header + HEADER_H + BAND_GAP;
+        let y_hand = y_grid + grid_h + BAND_GAP;
+        let y_status = y_hand + HAND_H + BAND_GAP;
+
+        // header/hand span the half to the pad; the grid is exactly
+        // `per_row` slots wide so cards_per_row of it equals grid_cols.
         let side = |left: usize, right: usize| SideLayout {
-            header: Rect::new(left, right, 1, 2),
-            dealer: Rect::new(left, right, dealer_y, played_y.saturating_sub(1)),
-            played: Rect::new(left, right, played_y, played_y + CARD_HEIGHT - 1),
-            hand: Rect::new(left, right, hand_y, hand_y + CARD_HEIGHT - 1),
+            header: Rect::new(left, right, y_header, y_header + HEADER_H - 1),
+            grid: Rect::new(left, left + per_row * CARD_SLOT_W - 1, y_grid, y_grid + grid_h - 1),
+            hand: Rect::new(left, right, y_hand, y_hand + CARD_HEIGHT - 1),
         };
 
         let player = side(H_PAD, divider_x.saturating_sub(H_PAD));
         let opponent = side(divider_x + H_PAD, cols.saturating_sub(H_PAD));
 
         // Two candidate status positions, each two rows (alert over
-        // prompt). `status_right` sits to the right of the hand on the
-        // player half; `status_below` spans the bottom, under everything.
-        // board.rs picks between them so the status never overlaps cards.
-        let status_right = Rect::new(
-            H_PAD,
-            divider_x.saturating_sub(2),
-            hand_y + 2,
-            hand_y + 3,
-        );
-        let status_below = Rect::new(
-            H_PAD,
-            cols.saturating_sub(H_PAD),
-            rows.saturating_sub(2),
-            rows.saturating_sub(1),
-        );
+        // prompt), both inside the reserved block. `status_right` sits to
+        // the right of the player's hand on wide terminals; `status_below`
+        // spans the block's bottom band. board.rs picks between them so
+        // the status never overlaps cards.
+        let status_right = Rect::new(H_PAD, divider_x.saturating_sub(2), y_hand + 2, y_hand + 3);
+        let status_below =
+            Rect::new(H_PAD, cols.saturating_sub(H_PAD), y_status, y_status + STATUS_H - 1);
 
         Self {
             divider_x,
@@ -179,11 +178,6 @@ impl MenuLayout {
     }
 }
 
-/// How many cards fit across a zone before wrapping to the next row.
-pub fn cards_per_row(zone: Rect) -> usize {
-    max(1, zone.width() / CARD_SLOT_W)
-}
-
 /// Top-left (x, y) of the card at grid position (col, row) within a zone.
 /// Callers pass col/row directly: dealer wraps (col = i % per_row), the
 /// played/hand rows don't (col = i, row = 0).
@@ -211,19 +205,19 @@ mod tests {
     }
 
     fn assert_side_sane(side: SideLayout, cols: usize, rows: usize) {
-        for r in [side.header, side.dealer, side.played, side.hand] {
+        for r in [side.header, side.grid, side.hand] {
             assert!(in_bounds(r, cols, rows), "region {r:?} out of bounds");
         }
-        // The card zones stack without overlapping each other
-        assert!(vertically_disjoint(side.header, side.dealer));
-        assert!(vertically_disjoint(side.dealer, side.played));
-        assert!(vertically_disjoint(side.played, side.hand));
+        // The bands stack without overlapping each other
+        assert!(vertically_disjoint(side.header, side.grid));
+        assert!(vertically_disjoint(side.grid, side.hand));
     }
 
     #[test]
     fn layout_regions_are_in_bounds_and_stacked_at_several_sizes() {
-        // minimum enforced size, a typical size, and an odd one
-        for (cols, rows) in [(89, 24), (180, 48), (91, 33)] {
+        // minimum enforced size, a typical size, and an odd one — all now
+        // at or above the raised minimum height (~30)
+        for (cols, rows) in [(89, 30), (180, 48), (120, 40)] {
             let l = BoardLayout::new(cfg(cols, rows));
             assert_eq!(l.divider_x, cols / 2);
             assert_side_sane(l.player, cols, rows);
@@ -234,10 +228,23 @@ mod tests {
     }
 
     #[test]
+    fn layout_block_is_vertically_centered() {
+        let (cols, rows) = (120, 50);
+        let l = BoardLayout::new(cfg(cols, rows));
+        let top_margin = l.player.header.y0;
+        let bottom_margin = rows - (top_margin + board_block_height(cols));
+        // centered to within the one row integer division can leave over
+        assert!(
+            top_margin.abs_diff(bottom_margin) <= 1,
+            "block not centered: top {top_margin}, bottom {bottom_margin}"
+        );
+    }
+
+    #[test]
     fn layout_status_goes_below_when_it_cannot_fit_right() {
         // At the minimum width the hand fills the half, so a normal-
         // length prompt can't sit to the right — it must go below.
-        let narrow = BoardLayout::new(cfg(89, 24));
+        let narrow = BoardLayout::new(cfg(89, 30));
         assert!(!narrow.status_fits_right(30));
 
         // A very wide terminal leaves room to the right for it.
@@ -253,23 +260,39 @@ mod tests {
     }
 
     #[test]
-    fn card_slot_wraps_rows_by_cards_per_row() {
-        let zone = Rect::new(4, 43, 4, 20); // width 40 → 4 slots per row
-        assert_eq!(cards_per_row(zone), 4);
+    fn layout_grid_holds_twelve_slots_within_the_frame_and_halves() {
+        // Every one of the MAX_TABLE_CARDS slot positions lands inside the
+        // frame, and each side's cards stay on its side of the divider —
+        // reflowing by width (4 per row at the minimum).
+        let (min_cols, min_rows) = Config::min_size();
+        let l = BoardLayout::new(cfg(min_cols, min_rows));
+        let per = grid_cols(min_cols);
+        assert_eq!(per, 4);
 
-        let per = cards_per_row(zone);
-        // slot 0 at the origin
-        assert_eq!(card_slot(zone, 0 % per, 0 / per), (4, 4));
-        // slot 3 is the last on row 0
-        assert_eq!(card_slot(zone, 3 % per, 3 / per), (4 + 3 * CARD_SLOT_W, 4));
-        // slot 4 wraps to the next row
-        assert_eq!(card_slot(zone, 4 % per, 4 / per), (4, 4 + CARD_SLOT_H));
+        for i in 0..MAX_TABLE_CARDS {
+            let (x, y) = card_slot(l.player.grid, i % per, i / per);
+            assert!(x + CARD_WIDTH <= min_cols && y + CARD_HEIGHT <= min_rows, "player {i} off-frame");
+            assert!(x + CARD_WIDTH - 1 < l.divider_x, "player {i} crosses divider");
+
+            let (ox, oy) = card_slot(l.opponent.grid, i % per, i / per);
+            assert!(ox > l.divider_x, "opponent {i} not right of divider");
+            assert!(ox + CARD_WIDTH <= min_cols && oy + CARD_HEIGHT <= min_rows, "opponent {i} off-frame");
+        }
     }
 
     #[test]
-    fn cards_per_row_is_at_least_one_even_when_narrow() {
-        let zone = Rect::new(0, 3, 0, 0); // narrower than a card
-        assert_eq!(cards_per_row(zone), 1);
+    fn card_slot_wraps_rows_by_column_and_row() {
+        let zone = Rect::new(4, 43, 4, 20);
+        let per = 4;
+        assert_eq!(card_slot(zone, 0 % per, 0 / per), (4, 4)); // first slot
+        assert_eq!(card_slot(zone, 3 % per, 3 / per), (4 + 3 * CARD_SLOT_W, 4)); // last on row 0
+        assert_eq!(card_slot(zone, 4 % per, 4 / per), (4, 4 + CARD_SLOT_H)); // wraps
+    }
+
+    #[test]
+    fn grid_cols_is_at_least_one_even_when_absurdly_narrow() {
+        assert_eq!(grid_cols(1), 1);
+        assert!(grid_cols(0) >= 1);
     }
 
     #[test]

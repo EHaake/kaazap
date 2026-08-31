@@ -139,7 +139,25 @@ Review: after every task.
   *Verify: `cargo test layout_ config_` green; full suite green (the
   existing `config_fits_*` test still passes against the new minimum).*
 
-- [ ] **T005 — Single grid: `SideLayout` collapse, centered block, board render**
+- [x] **T005 — Single grid: `SideLayout` collapse, centered block, board render**
+  *Done. `SideLayout` collapsed to `{ header, grid, hand }`;
+  `BoardLayout::new` centers the fixed block (`top = (rows - block_h)/2`),
+  laying every band from `top` off the shared constants; grid Rect sized to
+  `grid_cols` slots. `board.rs` fills the one grid: dealer draws front
+  (Single, bare value), played cards back (`MAX-1-j`, Double, signed),
+  dim ghosts between — verified in-terminal at 180×48 (centered, 12-row
+  margins, played `-4` Double at the back) and 89×30 (4/row × 3 rows, no
+  dealer overflow — the 002-review artifact gone; status drops below).
+  A `n/12` slot counter labels the grid and shows the cap. Divider now
+  spans the block (header→hand). `cards_per_row` removed — the grid uses
+  `grid_cols`, the same source `board_grid_rows` uses (single per-row
+  truth). All four border weights + the dashed ghost render correctly,
+  closing T003's deferred font check. 131 tests pass, 0 warnings.*
+  *Flagged deviation: the full-table auto-stand feedback went to the
+  header ("Stood — table full") rather than the status line the spec
+  named — the turn passes too fast after the 12th card for a PlayerTurn
+  status message to be seen, and per-side stood/bust state already lives
+  in the header. Vetoable.*
   The coupled change (struct + its consumer, together so it compiles).
   `layout.rs`: `SideLayout { header, grid, hand }` (drop `dealer` /
   `played`); `BoardLayout::new` centers the block —
