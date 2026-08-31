@@ -72,11 +72,14 @@ pub enum Align {
 }
 
 /// Border line weight. Single is the default chrome everywhere; Heavy
-/// is reserved for cursor selection (design/brief.md).
+/// is reserved for cursor selection; Double marks a played side card on
+/// the board grid (dealer draws stay Single) — three distinct weights,
+/// three distinct meanings (design/brief.md, spec 003).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BorderWeight {
     Single,
     Heavy,
+    Double,
 }
 
 /// The six box-drawing glyphs a border needs.
@@ -107,6 +110,14 @@ impl BorderWeight {
                 tr: '┓',
                 bl: '┗',
                 br: '┛',
+            },
+            BorderWeight::Double => BoxGlyphs {
+                horiz: '═',
+                vert: '║',
+                tl: '╔',
+                tr: '╗',
+                bl: '╚',
+                br: '╝',
             },
         }
     }
@@ -175,8 +186,36 @@ pub fn draw_text_in(
 /// Draw a border box on `rect`'s perimeter with the given weight and
 /// emphasis. Perimeter only — interior is the caller's to fill. Clip-safe.
 pub fn draw_box(frame: &mut Frame, rect: Rect, weight: BorderWeight, emphasis: Emphasis) {
-    let g = weight.glyphs();
+    draw_box_glyphs(frame, rect, weight.glyphs(), emphasis);
+}
 
+/// Draw an empty grid slot as four dim corner ticks — a light, unbusy
+/// marker for a reserved-but-unfilled slot (a full dashed box read too
+/// heavy). Always Muted so it reads as absent, not a card. Clip-safe.
+pub fn draw_ghost_slot(frame: &mut Frame, rect: Rect) {
+    put(frame, rect.x0, rect.y0, '┌', Emphasis::Muted);
+    put(frame, rect.x1, rect.y0, '┐', Emphasis::Muted);
+    put(frame, rect.x0, rect.y1, '└', Emphasis::Muted);
+    put(frame, rect.x1, rect.y1, '┘', Emphasis::Muted);
+}
+
+/// Blank a rectangular region back to default cells (space, Normal).
+/// Clip-safe. Clears the ground under a popup/overlay so the content
+/// behind it doesn't show through — resetting emphasis too, so no stray
+/// attribute is left on a blanked cell.
+pub fn clear_rect(frame: &mut Frame, rect: Rect) {
+    let (w, h) = dims(frame);
+    for x in rect.x0..=rect.x1 {
+        for y in rect.y0..=rect.y1 {
+            if x < w && y < h {
+                frame[x][y] = Cell::default();
+            }
+        }
+    }
+}
+
+/// Shared perimeter drawer: corners drawn last so they win at overlaps.
+fn draw_box_glyphs(frame: &mut Frame, rect: Rect, g: BoxGlyphs, emphasis: Emphasis) {
     for x in rect.x0..=rect.x1 {
         put(frame, x, rect.y0, g.horiz, emphasis);
         put(frame, x, rect.y1, g.horiz, emphasis);
@@ -325,5 +364,60 @@ mod tests {
         draw_box(&mut f, Rect::new(0, 10, 0, 10), BorderWeight::Single, Emphasis::Normal);
         // top-left corner still placed; the rest that fit; no panic
         assert_eq!(f[0][0].ch, '┌');
+    }
+
+    #[test]
+    fn box_double_weight_uses_double_glyphs_and_carries_emphasis() {
+        let mut f = blank(6, 5);
+        draw_box(&mut f, Rect::new(0, 3, 0, 2), BorderWeight::Double, Emphasis::Strong);
+        assert_eq!(f[0][0].ch, '╔');
+        assert_eq!(f[3][0].ch, '╗');
+        assert_eq!(f[0][2].ch, '╚');
+        assert_eq!(f[3][2].ch, '╝');
+        assert_eq!(f[1][0].ch, '═'); // top edge
+        assert_eq!(f[0][1].ch, '║'); // left edge
+        assert_eq!(f[0][0].emphasis, Emphasis::Strong);
+    }
+
+    #[test]
+    fn ghost_slot_draws_muted_corner_ticks_only() {
+        let mut f = blank(6, 5);
+        draw_ghost_slot(&mut f, Rect::new(1, 4, 1, 3));
+        // Just the four corners, Muted
+        assert_eq!(f[1][1].ch, '┌');
+        assert_eq!(f[4][1].ch, '┐');
+        assert_eq!(f[1][3].ch, '└');
+        assert_eq!(f[4][3].ch, '┘');
+        assert_eq!(f[1][1].emphasis, Emphasis::Muted);
+        // No edges and no interior — that's what makes it unbusy
+        assert_eq!(f[2][1].ch, ' '); // top edge blank
+        assert_eq!(f[1][2].ch, ' '); // left edge blank
+        assert_eq!(f[2][2].ch, ' '); // interior blank
+    }
+
+    #[test]
+    fn ghost_slot_exceeding_bounds_clips_without_panic() {
+        let mut f = blank(3, 3);
+        draw_ghost_slot(&mut f, Rect::new(0, 10, 0, 10));
+        assert_eq!(f[0][0].ch, '┌'); // corner placed, rest clipped, no panic
+    }
+
+    #[test]
+    fn clear_rect_blanks_region_to_default_cells() {
+        let mut f = blank(6, 5);
+        draw_box(&mut f, Rect::new(1, 4, 1, 3), BorderWeight::Heavy, Emphasis::Alert);
+        clear_rect(&mut f, Rect::new(1, 4, 1, 3));
+        for x in 1..=4 {
+            for y in 1..=3 {
+                assert_eq!(f[x][y], Cell::default()); // ch and emphasis both reset
+            }
+        }
+    }
+
+    #[test]
+    fn clear_rect_out_of_bounds_is_a_noop_not_a_panic() {
+        let mut f = blank(3, 3);
+        clear_rect(&mut f, Rect::new(0, 10, 0, 10)); // clips, no panic
+        clear_rect(&mut Vec::new(), Rect::new(0, 0, 0, 0)); // empty frame
     }
 }

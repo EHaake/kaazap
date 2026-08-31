@@ -1,13 +1,17 @@
 use crate::{
-    CARD_HEIGHT, CARD_WIDTH,
+    CARD_HEIGHT, CARD_WIDTH, MAX_TABLE_CARDS,
     app::HandCursor,
     card::{Card, CardView},
     config::Config,
-    frame::{Align, BorderWeight, Drawable, Emphasis, Frame, draw_text, draw_text_in},
+    frame::{Align, BorderWeight, Drawable, Emphasis, Frame, clear_rect, draw_box, draw_ghost_slot, draw_text, draw_text_in},
     game::{GamePhase, GameState, RoundOutcome},
-    layout::{BoardLayout, Rect, SideLayout, card_slot, cards_per_row},
+    layout::{BoardLayout, GRID_COLS, Rect, SideLayout, card_slot},
     player::{Player, PlayerState},
 };
+
+// Interior padding around a popup's text, inside its border.
+const POPUP_PAD_X: usize = 3;
+const POPUP_PAD_Y: usize = 1;
 
 pub struct BoardView {
     pub config: Config,
@@ -25,41 +29,65 @@ impl BoardView {
     }
 
 
-    /// Draw round/game outcome text in the middle of screen
-    ///
+    /// Draw the round/game outcome as a bordered popup centered on the
+    /// board — nothing to draw mid-play.
     fn draw_round_outcome_text(&self, state: &GameState, frame: &mut Frame) {
-        let mid_x = self.config.num_cols / 2;
-        let mid_y = self.config.num_rows / 2;
+        let (title, hint) = match state.game_phase {
+            GamePhase::GameOver { winner } => match winner {
+                Player::Player => ("YOU WIN THE GAME! :)", "g: new game · x: menu"),
+                Player::Opponent => ("YOU LOST THE GAME! :(", "g: new game · x: menu"),
+            },
+            // Round outcome shows during AwaitingNextRound, when n advances
+            _ => match state.round_outcome {
+                Some(RoundOutcome::PlayerWon) => ("You won this round!", "n: next round"),
+                Some(RoundOutcome::Tied) => ("You tied!", "n: next round"),
+                Some(RoundOutcome::OpponentWon) => ("Opponent won the round!", "n: next round"),
+                None => return,
+            },
+        };
 
-        if let GamePhase::GameOver { winner } = state.game_phase {
-            match winner {
-                Player::Player => {
-                    draw_text(frame, mid_x - 9, mid_y, "YOU WIN THE GAME! :)", Emphasis::Alert);
-                }
-                Player::Opponent => {
-                    draw_text(frame, mid_x - 9, mid_y, "YOU LOST THE GAME! :(", Emphasis::Alert);
-                }
-            }
-            draw_text(frame, mid_x - 11, mid_y + 2, "(g: new game, x: menu)", Emphasis::Muted);
+        self.draw_popup(
+            &[(title, Emphasis::Alert), ("", Emphasis::Normal), (hint, Emphasis::Muted)],
+            frame,
+        );
+    }
 
-            return;
+    /// The outer Rect for a popup of `content_w` × `n_lines`, centered on
+    /// the board and clamped to the frame so it never inverts or runs off-
+    /// screen. (A popup is only drawn at or above the minimum size, but the
+    /// clamp is cheap defense-in-depth, matching OverlayLayout.)
+    fn popup_rect(&self, content_w: usize, n_lines: usize) -> Rect {
+        let (cols, rows) = (self.config.num_cols, self.config.num_rows);
+        let box_w = content_w + 2 * POPUP_PAD_X + 2; // + left/right borders
+        let box_h = n_lines + 2 * POPUP_PAD_Y + 2; // + top/bottom borders
+
+        // Center on the board: its divider, and the middle of header..hand.
+        let cx = self.layout.divider_x;
+        let cy = (self.layout.player.header.y0 + self.layout.player.hand.y1) / 2;
+        let x0 = cx.saturating_sub(box_w / 2);
+        let y0 = cy.saturating_sub(box_h / 2);
+        let x1 = (x0 + box_w.saturating_sub(1)).min(cols.saturating_sub(1));
+        let y1 = (y0 + box_h.saturating_sub(1)).min(rows.saturating_sub(1));
+        // Clamp the origin so a box larger than the frame never inverts.
+        Rect::new(x0.min(x1), x1, y0.min(y1), y1)
+    }
+
+    /// Draw a small bordered popup centered on the board: clear the ground
+    /// behind it, frame it, and center each line with its own emphasis, so
+    /// a message sits above the board instead of overlaying the cards.
+    fn draw_popup(&self, lines: &[(&str, Emphasis)], frame: &mut Frame) {
+        let content_w = lines.iter().map(|(t, _)| t.chars().count()).max().unwrap_or(0);
+        let outer = self.popup_rect(content_w, lines.len());
+
+        clear_rect(frame, outer);
+        draw_box(frame, outer, BorderWeight::Single, Emphasis::Normal);
+
+        // Lines start below the top border + vertical pad, centered across
+        // the full interior so the horizontal padding stays symmetric.
+        let inner = Rect::new(outer.x0 + 1, outer.x1.saturating_sub(1), outer.y0 + 1 + POPUP_PAD_Y, outer.y1);
+        for (i, (text, emphasis)) in lines.iter().enumerate() {
+            draw_text_in(frame, inner, i, Align::Center, text, *emphasis);
         }
-
-        // Round outcome only renders during AwaitingNextRound, which is
-        // exactly when n is the key that advances
-        match state.round_outcome {
-            Some(RoundOutcome::PlayerWon) => {
-                draw_text(frame, mid_x - 9, mid_y, "You won this round!", Emphasis::Alert);
-            }
-            Some(RoundOutcome::Tied) => {
-                draw_text(frame, mid_x - 4, mid_y, "You Tied!", Emphasis::Alert);
-            }
-            Some(RoundOutcome::OpponentWon) => {
-                draw_text(frame, mid_x - 11, mid_y, "Opponent won the round!", Emphasis::Alert);
-            }
-            None => return,
-        }
-        draw_text(frame, mid_x - 7, mid_y + 2, "(n: next round)", Emphasis::Muted);
     }
 
     /// The two status lines for the current state: an optional over-20
@@ -103,7 +131,10 @@ impl BoardView {
         if p.bust {
             draw_text_in(frame, side.header, 1, Align::Left, "BUSTED!!", Emphasis::Alert);
         } else if p.stood {
-            draw_text_in(frame, side.header, 1, Align::Left, "Stood", Emphasis::Muted);
+            // A full table stood this side involuntarily — say so, since
+            // the turn passes too fast for a status-line message to land.
+            let note = if p.table_full() { "Stood — table full" } else { "Stood" };
+            draw_text_in(frame, side.header, 1, Align::Left, note, Emphasis::Muted);
         }
     }
 
@@ -114,10 +145,13 @@ impl BoardView {
         self.draw_side_header(&self.layout.opponent, "Opponent", &state.opponent, frame);
     }
 
-    /// Draw one side's zones: Muted labels, dealer grid (wraps), played
-    /// row, and hand. The player's side passes `selection` (the cursor's
-    /// slot, pending sign, and pulse emphasis) and reveals hand faces +
-    /// number keys; the opponent's side passes None and hides its hand.
+    /// Draw one side's grid and hand. Dealer draws fill the grid from the
+    /// front (Single border, bare value), played cards from the back
+    /// (Double border, signed value), and dim ghost outlines mark the
+    /// unfilled slots between — filling from opposite ends so a new dealer
+    /// draw never shifts an already-played card. The player's side passes
+    /// `selection` and reveals its hand + number keys; the opponent's side
+    /// passes None and hides its hand.
     fn draw_side(
         &self,
         side: &SideLayout,
@@ -125,25 +159,44 @@ impl BoardView {
         selection: Option<Selection>,
         frame: &mut Frame,
     ) {
-        // Zone labels sit one row above each zone (clip-safe if tight)
-        draw_text(frame, side.dealer.x0, side.dealer.y0.saturating_sub(1), "Dealer", Emphasis::Muted);
-        draw_text(frame, side.played.x0, side.played.y0.saturating_sub(1), "Played", Emphasis::Muted);
-        draw_text(frame, side.hand.x0, side.hand.y0.saturating_sub(1), "Hand", Emphasis::Muted);
+        // Fixed grid: GRID_COLS per row, the same count the layout reserves.
+        let per = GRID_COLS;
+        let dealers = ps.dealer_row.len();
+        let played = ps.played_row.len();
 
-        // Dealer draws wrap into rows within the zone
-        let per = cards_per_row(side.dealer);
+        // Slot counter above the grid — doubles as its label and shows how
+        // close this side is to the cap.
+        draw_text(
+            frame,
+            side.grid.x0,
+            side.grid.y0.saturating_sub(1),
+            &format!("{}/{}", dealers + played, MAX_TABLE_CARDS),
+            Emphasis::Muted,
+        );
+
+        // Dealer draws: grid index i, Single border, bare value.
         for (i, c) in ps.dealer_row.iter().enumerate() {
-            let (x, y) = card_slot(side.dealer, i % per, i / per);
+            let (x, y) = card_slot(side.grid, i % per, i / per);
             CardView::new(x, y, c.display_text()).draw(frame);
         }
 
-        // Played cards — one row; flips sit here at value 0 (no filter)
-        for (i, c) in ps.played_row.iter().enumerate() {
-            let (x, y) = card_slot(side.played, i, 0);
-            CardView::new(x, y, c.display_text()).draw(frame);
+        // Played cards: filled from the back, Double border, signed value.
+        for (j, c) in ps.played_row.iter().enumerate() {
+            let idx = MAX_TABLE_CARDS - 1 - j;
+            let (x, y) = card_slot(side.grid, idx % per, idx / per);
+            let mut v = CardView::new(x, y, c.display_text());
+            v.weight = BorderWeight::Double;
+            v.draw(frame);
+        }
+
+        // Ghost placeholders for the unfilled middle slots.
+        for idx in dealers..(MAX_TABLE_CARDS - played) {
+            let (x, y) = card_slot(side.grid, idx % per, idx / per);
+            draw_ghost_slot(frame, Rect::new(x, x + CARD_WIDTH - 1, y, y + CARD_HEIGHT - 1));
         }
 
         // Hand — faces + number keys for the player, hidden for the opponent
+        draw_text(frame, side.hand.x0, side.hand.y0.saturating_sub(1), "Hand", Emphasis::Muted);
         for (i, c) in ps.hand.iter().enumerate() {
             let Some(card) = c else { continue };
             let (x, y) = card_slot(side.hand, i, 0);
@@ -179,25 +232,14 @@ impl BoardView {
     /// Draw the current game state
     ///
     pub fn draw(&self, state: &GameState, cursor: &HandCursor, pulse: Emphasis, frame: &mut Frame) {
-        // Decide where the status goes: to the right of the hand if the
-        // widest line fits there, otherwise below the board.
         let (alert, base) = self.status_lines(state, cursor);
-        let max_len = [&alert, &base]
-            .iter()
-            .filter_map(|m| m.as_ref().map(|(t, _)| t.chars().count()))
-            .max()
-            .unwrap_or(0);
-        let below = !self.layout.status_fits_right(max_len);
 
-        // Vertical divider. When the status is below, stop it above those
-        // two rows so it doesn't run through the status bar.
+        // Vertical divider spans the block: from the header down through
+        // the hand, stopping above the status band below it.
         let divider_x = self.layout.divider_x;
-        let divider_bottom = if below {
-            self.config.num_rows.saturating_sub(2)
-        } else {
-            self.config.num_rows
-        };
-        for y in 0..divider_bottom {
+        let divider_top = self.layout.player.header.y0;
+        let divider_bottom = self.layout.player.hand.y1;
+        for y in divider_top..=divider_bottom {
             if divider_x < frame.len() && y < frame[0].len() {
                 frame[divider_x][y].ch = '│';
             }
@@ -212,13 +254,8 @@ impl BoardView {
         self.draw_side(&self.layout.player, &state.player, Some(selection), frame);
         self.draw_side(&self.layout.opponent, &state.opponent, None, frame);
 
-        // Status: right of the hand (right-aligned) or below (left-aligned)
-        let (rect, align) = if below {
-            (self.layout.status_below, Align::Left)
-        } else {
-            (self.layout.status_right, Align::Right)
-        };
-        self.draw_status(&alert, &base, rect, align, frame);
+        // Status: the two-row band below the hand, left-aligned.
+        self.draw_status(&alert, &base, self.layout.status, Align::Left, frame);
 
         // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
@@ -415,5 +452,29 @@ mod tests {
         let mut gs = GameState::new();
         gs.game_phase = GamePhase::RoundEnd;
         assert_eq!(msg(&gs), None);
+    }
+
+    #[test]
+    fn popup_rect_is_sized_centered_and_in_bounds() {
+        let config = Config { num_cols: 89, num_rows: 31 };
+        let bv = BoardView::new(config);
+        let r = bv.popup_rect(23, 3); // widest outcome string, 3 lines
+        // 23 content + 2*3 pad + 2 border = 31 wide; 3 + 2*1 + 2 = 7 tall
+        assert_eq!((r.x1 - r.x0 + 1, r.y1 - r.y0 + 1), (31, 7));
+        assert!(r.x1 < 89 && r.y1 < 31, "in bounds");
+        assert!(
+            ((r.x0 + r.x1) / 2).abs_diff(bv.layout.divider_x) <= 1,
+            "centered on the divider"
+        );
+    }
+
+    #[test]
+    fn popup_rect_clamps_to_a_tiny_frame_without_inverting() {
+        // A frame smaller than the box (below the enforced minimum): clamp
+        // to the frame, never invert or overrun.
+        let bv = BoardView::new(Config { num_cols: 20, num_rows: 8 });
+        let r = bv.popup_rect(23, 3); // wants 31x7 in a 20x8 frame
+        assert!(r.x0 <= r.x1 && r.y0 <= r.y1, "never inverted");
+        assert!(r.x1 < 20 && r.y1 < 8, "clamped in bounds");
     }
 }

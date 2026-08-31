@@ -1,6 +1,6 @@
 pub(crate) use crossterm::terminal;
 
-use crate::{CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, H_PAD, MIN_CARD_SIZE_HEIGHT, V_PAD};
+use crate::layout::{BOARD_BLOCK_HEIGHT, BOARD_WIDTH};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Config {
@@ -9,12 +9,12 @@ pub struct Config {
 }
 
 impl Config {
-    /// The smallest terminal the layout supports, as (cols, rows).
-    /// Width must fit a full HAND_SIZE-card hand on each side of the
-    /// divider (~89 cols) — wider than a classic 80-column terminal.
+    /// The smallest terminal the layout supports, as (cols, rows). The
+    /// board is a fixed-size block, so the minimum terminal is exactly big
+    /// enough to hold it — ~89 × 30, wider than a classic 80×24 terminal.
+    /// Larger terminals center the same block and pad the margins.
     pub fn min_size() -> (usize, usize) {
-        let half = H_PAD + HAND_SIZE * (CARD_WIDTH + 1);
-        (2 * half + 1, CARD_HEIGHT * MIN_CARD_SIZE_HEIGHT + V_PAD)
+        (BOARD_WIDTH, BOARD_BLOCK_HEIGHT)
     }
 
     /// Does a terminal of this size meet the minimum?
@@ -60,5 +60,15 @@ mod tests {
         assert!(Config::fits(mc + 50, mr + 20));
         assert!(!Config::fits(mc - 1, mr)); // one col short
         assert!(!Config::fits(mc, mr - 1)); // one row short
+    }
+
+    #[test]
+    fn config_min_size_is_the_fixed_board_size() {
+        // The minimum terminal is exactly the fixed board — one source of
+        // truth, no independent guess.
+        let (min_cols, min_rows) = Config::min_size();
+        assert_eq!(min_cols, BOARD_WIDTH);
+        assert_eq!(min_rows, BOARD_BLOCK_HEIGHT);
+        assert_eq!((min_cols, min_rows), (89, 31)); // pins the concrete size
     }
 }
