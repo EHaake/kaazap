@@ -223,7 +223,16 @@ Review: after every task.
 
 Review: after the phase.
 
-- [ ] **T006 — Acceptance sweep + close-out**
+- [x] **T006 — Acceptance sweep + close-out**
+  *Done. Every spec.md acceptance box checked with evidence (130→133
+  tests, 0 warnings; arrows-only play, draw-heavy round bounded at 89×31,
+  below-min recovery showing "Need at least 89 x 31" and restoring, the
+  How-to-Play overlay fitting at the minimum with the cap rule added).
+  Skeptical-reviewer run — found the code sound; its real findings became
+  T006a (two tests + record reconciliation). Merge-gate close-out on main:
+  ROADMAP Backlog→Shipped, a DECISIONS.md rule-variant entry, and the
+  stale run-kaazap skill-doc minimum fixed (67×24→89×31). PR #3 marked
+  ready and merged (4dd528c); merged main builds clean, 133 tests pass.*
   Walk every `spec.md` acceptance box with evidence: `cargo build` (no
   new warnings vs `main`), full `cargo test` (report count), a live game
   at a tall terminal showing the centered block, the dealer-overflow
