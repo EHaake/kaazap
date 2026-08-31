@@ -66,9 +66,11 @@ Menu: arrows/`w`/`s` navigate, Enter/space select.
 
 - Opponent turns take ~1s each (`OPPONENT_THINKING_TIME_MS`); after an
   action that hands them the turn, `pump:3` before snapshotting.
-- Minimum terminal 67×24 (`Config::from_terminal` errors below that);
-  the driver uses 180×48.
-- The app reads terminal size once at startup — don't resize mid-run.
+- Minimum terminal 89×31 (`Config::from_terminal` errors below that at
+  startup); the driver uses 180×48.
+- The app handles live resize (spec 002): the `resize:WxH` step works
+  mid-run, and below the minimum it shows a "too small" recovery screen,
+  restoring when the terminal grows back.
 
 ## Run (direct, for humans)
 

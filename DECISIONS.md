@@ -43,6 +43,17 @@ enterprise-grade process for a solo effort.
   a *live* player pushed over gets their recovery window; any side
   still over 20 when the round ends for another reason is bust at
   resolution; and if both sides end up bust, the round is a tie.
+- **Table cap of 12, filling it holds (not "filled table wins").** Each
+  side's table holds at most 12 cards per round (dealer draws + played,
+  combined). Real Pazaak caps at 9 and a side that *fills* the table
+  without busting wins the round outright; Kaazap uses 12 and filling it
+  simply **auto-stands** you on your current total (which then wins,
+  loses, or ties by the normal rules). Deliberately simpler for now — it
+  reuses the existing stand/resolve path instead of adding a special
+  win condition. The over-20 recovery window still applies while a slot
+  remains (an 11-card side over 20 can play its 12th as a recovery).
+  Human-ruled for spec 003; revisit the canonical "fill wins" as a
+  possible post-v1 variant.
 
 ## Why a campaign/progression system exists at all
 

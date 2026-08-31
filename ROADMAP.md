@@ -22,6 +22,15 @@ of, not guessed at here in advance.
     pack opening, opponent select) will reuse this model once they exist.
   - **Wire up "How to Play"** — the previously dead menu item now opens
     the self-sizing rules overlay.
+- **Board slot cap & vertical centering** (spec 003) — cap each side's
+  table at 12 cards per round (dealer draws + played, combined); filling
+  it auto-stands (holds its total — not the canonical "filled table
+  wins", see DECISIONS.md). Merged the separate dealer/played zones into
+  one fixed 4×3 grid per side and made the whole board a fixed-size block
+  centered in both axes, fixing the tall-monitor spread and the
+  short-terminal dealer-overflow artifact spec 002's review surfaced.
+  First engine-touching spec since 001; the cap + auto-stand reuse the
+  existing stand/resolve path, no new phase.
 
 ## Backlog
 
@@ -47,18 +56,6 @@ of, not guessed at here in advance.
   keypress. Would build on spec 002's overlay frame and monochrome
   vocabulary. The engine already routes all state changes through
   apply_*_action, so those are the natural points to record from.
-- **Board slot cap & vertical centering** — cap the cards per side per
-  round (dealer draws + hand cards) at 12 slots; a side that fills all
-  slots without busting auto-stands (holds at its total — not the
-  canonical "filled table wins", deliberately simpler for now). This
-  bounds the board's height so it can be laid out as a fixed block and
-  centered vertically in the terminal — fixing the spread on tall /
-  vertical monitors where the header pins to the top and the hand to the
-  bottom. (Also fixes a min/short-terminal artifact surfaced by spec
-  002's review: with no dealer cap, a 4th+ dealer card wraps out of
-  the one-row-tall dealer zone into the Played area at ~24-29 rows.) A small rules + layout spec: it changes the engine (game.rs),
-  so it was kept out of the UI-overhaul spec (002), which held the engine
-  untouched. Decisions (12 slots, auto-stand) confirmed with the human.
 - **Considered animation pass** — deliberate, sparse animations that
   guide the eye during play: a dealt card arriving, a flip resolving,
   a total changing, round transitions. Builds on spec 002's selection
