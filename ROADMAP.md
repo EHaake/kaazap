@@ -48,7 +48,9 @@ of, not guessed at here in advance.
   bounds the board's height so it can be laid out as a fixed block and
   centered vertically in the terminal — fixing the spread on tall /
   vertical monitors where the header pins to the top and the hand to the
-  bottom. A small rules + layout spec: it changes the engine (game.rs),
+  bottom. (Also fixes a min/short-terminal artifact surfaced by spec
+  002's review: with no dealer cap, a 4th+ dealer card wraps out of
+  the one-row-tall dealer zone into the Played area at ~24-29 rows.) A small rules + layout spec: it changes the engine (game.rs),
   so it was kept out of the UI-overhaul spec (002), which held the engine
   untouched. Decisions (12 slots, auto-stand) confirmed with the human.
 - **Considered animation pass** — deliberate, sparse animations that
