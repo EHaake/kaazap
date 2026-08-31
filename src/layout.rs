@@ -228,6 +228,23 @@ mod tests {
         let zone = Rect::new(0, 3, 0, 0); // narrower than a card
         assert_eq!(cards_per_row(zone), 1);
     }
+
+    #[test]
+    fn overlay_layout_stays_in_bounds_even_when_content_exceeds_the_frame() {
+        // A box taller/wider than the terminal must clamp, never underflow
+        // or run off-screen (the min-terminal overlay panic the review
+        // flagged). Try content bigger than the frame in both axes.
+        for (cols, rows) in [(89, 24), (67, 20), (30, 10)] {
+            let cfg = Config { num_cols: cols, num_rows: rows };
+            for (cw, ch) in [(20, 5), (200, 200), (0, 0)] {
+                let l = OverlayLayout::new(cfg, cw, ch);
+                for r in [l.outer, l.inner] {
+                    assert!(r.x0 <= r.x1 && r.y0 <= r.y1, "inverted rect {r:?}");
+                    assert!(r.x1 < cols && r.y1 < rows, "out of bounds {r:?}");
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -238,28 +255,33 @@ pub struct OverlayLayout {
 
 impl OverlayLayout {
     pub fn new(config: Config, content_width: usize, content_height: usize) -> Self {
-        let mid_x = config.num_cols / 2;
-        let mid_y = config.num_rows / 2;
+        let cols = config.num_cols;
+        let rows = config.num_rows;
+        let mid_x = cols / 2;
+        let mid_y = rows / 2;
 
-        // Compute outer box dimensions
-        let box_width = content_width + 2 * H_PAD;
-        let box_height = content_height + 2 * V_PAD;
+        // Box sized to content + padding, but never larger than the frame
+        // — an overlay taller/wider than the terminal is clamped rather
+        // than letting the centering math underflow (panic) or the box
+        // run off-screen. Positions saturate for the same reason.
+        let box_width = (content_width + 2 * H_PAD).min(cols);
+        let box_height = (content_height + 2 * V_PAD).min(rows);
 
-        // get box corners
-        let mut x0 = mid_x - box_width / 2;
-        let mut y0 = mid_y - box_height / 2;
-        let mut x1 = mid_x + box_width / 2;
-        let mut y1 = mid_y + box_height / 2;
+        let x0 = mid_x.saturating_sub(box_width / 2);
+        let y0 = mid_y.saturating_sub(box_height / 2);
+        let x1 = (x0 + box_width.saturating_sub(1)).min(cols.saturating_sub(1));
+        let y1 = (y0 + box_height.saturating_sub(1)).min(rows.saturating_sub(1));
 
         let outer = Rect::new(x0, x1, y0, y1);
-        
-        // Inner box dimensions
-        x0 += H_PAD / 2;
-        y0 += V_PAD / 2;
-        x1 -= H_PAD / 2;
-        y1 -= V_PAD / 2;
 
-        let inner = Rect::new(x0, x1, y0, y1);
+        // Inner box: shrink by half the padding, clamped so it never
+        // inverts (x0 > x1) on a box squeezed down to the frame.
+        let inner = Rect::new(
+            (x0 + H_PAD / 2).min(x1),
+            x1.saturating_sub(H_PAD / 2),
+            (y0 + V_PAD / 2).min(y1),
+            y1.saturating_sub(V_PAD / 2),
+        );
 
         Self { outer, inner }
     }

@@ -123,8 +123,11 @@ impl MenuState {
         let layout = MenuLayout::new(*config, self.title_text.len());
 
         // Title art keeps its own centering (leading-whitespace aware),
-        // anchored on the layout's center.
-        let title_x = layout.center_x - (self.title_text[1].len() / 2 - TITLE_X_OFFSET);
+        // anchored on the layout's center. Saturating so an edited art
+        // asset can't underflow-panic.
+        let title_x = layout
+            .center_x
+            .saturating_sub((self.title_text[1].len() / 2).saturating_sub(TITLE_X_OFFSET));
         self.draw_title(title_x, layout.title_top, frame);
 
         self.draw_menu_items(&layout, pulse, frame);

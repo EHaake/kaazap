@@ -136,8 +136,17 @@ Review: after every task.
   (67x24), typical (180x48), and odd sizes; slot math wraps rows
   correctly.
   *Verify: `cargo test layout_` green; driver — zones labeled, cards
-  and headers land in their regions at 180x48; a second driver run at
-  the minimum size renders without artifacts.*
+  and headers land in their regions at 180x48; minimum-size run renders
+  without artifacts on a near-empty board.*
+  *Correction (T010 review): the "no artifacts at min size" check only
+  exercised a near-empty board. At short terminals (≈24–29 rows) the
+  dealer zone is one card-row tall, so a 4th+ dealer card wraps down
+  into the Played zone (`card_slot` has no vertical clamp). Not a panic
+  (clip-safe) and not a spec acceptance criterion, but a real visual
+  artifact at/near the minimum — its root cause (unbounded dealer row)
+  is exactly what spec 003's slot cap + fixed-height centered board
+  fixes. Deferred there; the ROADMAP 003 entry notes short terminals
+  are affected too, not just tall ones.*
 
 - [x] **T005 — Status line, menu/overlay layout, self-sizing overlays**
   *`status_message` is one pure precedence function (over-20 Alert >
@@ -338,6 +347,24 @@ Review: after the phase.
   violating the no-panic criterion and DECISIONS.md's no-crashes bar.
   Made `clear_overlay_box` clip-safe. Verified: How to Play opens and
   closes at 89x24 without panic (box clips gracefully).
+
+- [x] **T010b — Skeptical-review fixes: overlay geometry underflow + guards**
+  *(from the T010 skeptical review)* The top finding: T010a fixed
+  `clear_overlay_box` but the root was `OverlayLayout::new`'s unguarded
+  `usize` subtraction — an overlay taller/wider than the terminal would
+  underflow-panic in the geometry itself (How to Play was one text line
+  from triggering it at min height). Now clamps the box to the frame and
+  saturates all positions; a new `overlay_layout_stays_in_bounds…` test
+  constructs overlays (incl. oversized) at several min-ish sizes. Also
+  guarded the menu title-centering subtraction against a future art edit
+  (`saturating_sub`). Other review findings triaged: the dealer-overflow
+  artifact deferred to spec 003 with corrected wording (see T004 note);
+  the two independent `>20` checks left as-is (different conditions —
+  live-over-20 vs stood-bust — sharing only the fundamental 20 constant,
+  and DRY-ing them would touch player.rs, which this spec must not).
+  Reviewer's process caveats (couldn't run cargo/git) resolved
+  independently: 115 tests green, 0 warnings, `git diff main` on
+  game.rs/player.rs empty.
 
 ## Handoff note
 
