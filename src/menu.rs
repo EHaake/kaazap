@@ -120,7 +120,7 @@ impl MenuState {
     /// Main draw fn figures out where to render each element, then sends it out
     ///
     pub fn draw(&self, frame: &mut Frame, config: &Config, pulse: Emphasis) {
-        let layout = MenuLayout::new(*config, self.title_text.len());
+        let layout = MenuLayout::new(*config, self.title_text.len(), MenuItem::iter().count());
 
         // Title art keeps its own centering (leading-whitespace aware),
         // anchored on the layout's center. Saturating so an edited art
