@@ -11,6 +11,7 @@ const HEADER_H: usize = 2; // name / score / rounds
 const HAND_H: usize = CARD_HEIGHT + 1; // hand cards + the number-labels row
 const STATUS_H: usize = 2; // over-20 alert stacked over the prompt
 const BAND_GAP: usize = 1; // one blank row between bands
+const HAND_GAP: usize = 2; // a touch more separation above the hand
 
 // The board is a fixed-size block, centered in both axes. The grid is a
 // constant GRID_COLS × GRID_ROWS so its rows are always full (no ragged
@@ -23,7 +24,7 @@ const GRID_H: usize = GRID_ROWS * CARD_HEIGHT + (GRID_ROWS - 1); // card rows + 
 /// Fixed height of the centered board block (header, grid, hand, status,
 /// and the gaps between). config's minimum terminal height is exactly this.
 pub const BOARD_BLOCK_HEIGHT: usize =
-    HEADER_H + BAND_GAP + GRID_H + BAND_GAP + HAND_H + BAND_GAP + STATUS_H;
+    HEADER_H + BAND_GAP + GRID_H + HAND_GAP + HAND_H + BAND_GAP + STATUS_H;
 
 /// Fixed inner width of the board (both halves + the divider) — the same
 /// on every terminal; wider terminals center it and pad the margins. It is
@@ -82,7 +83,7 @@ impl BoardLayout {
 
         let y_header = top;
         let y_grid = y_header + HEADER_H + BAND_GAP;
-        let y_hand = y_grid + GRID_H + BAND_GAP;
+        let y_hand = y_grid + GRID_H + HAND_GAP;
         let y_status = y_hand + HAND_H + BAND_GAP;
 
         // header/hand span the half to the pad; the grid is exactly
@@ -183,7 +184,7 @@ mod tests {
     fn layout_regions_are_in_bounds_and_stacked_at_several_sizes() {
         // The fixed board fits the frame and its bands stack — at the
         // minimum size and larger (where it's centered with margin).
-        for (cols, rows) in [(89, 30), (180, 48), (120, 40)] {
+        for (cols, rows) in [(89, 31), (180, 48), (120, 40)] {
             let l = BoardLayout::new(cfg(cols, rows));
             assert_side_sane(l.player, cols, rows);
             assert_side_sane(l.opponent, cols, rows);
@@ -227,7 +228,7 @@ mod tests {
     fn layout_grid_holds_twelve_slots_within_the_frame_and_halves() {
         // Every slot position lands inside the frame with each side's cards
         // on its own side of the divider — at the minimum size and larger.
-        for (cols, rows) in [(89, 30), (180, 48)] {
+        for (cols, rows) in [(89, 31), (180, 48)] {
             let l = BoardLayout::new(cfg(cols, rows));
             for i in 0..MAX_TABLE_CARDS {
                 let (x, y) = card_slot(l.player.grid, i % GRID_COLS, i / GRID_COLS);

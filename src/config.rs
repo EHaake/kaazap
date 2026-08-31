@@ -69,6 +69,6 @@ mod tests {
         let (min_cols, min_rows) = Config::min_size();
         assert_eq!(min_cols, BOARD_WIDTH);
         assert_eq!(min_rows, BOARD_BLOCK_HEIGHT);
-        assert_eq!((min_cols, min_rows), (89, 30)); // pins the concrete size
+        assert_eq!((min_cols, min_rows), (89, 31)); // pins the concrete size
     }
 }

@@ -189,19 +189,14 @@ pub fn draw_box(frame: &mut Frame, rect: Rect, weight: BorderWeight, emphasis: E
     draw_box_glyphs(frame, rect, weight.glyphs(), emphasis);
 }
 
-/// Draw an empty grid slot as a dim, dashed placeholder — the reserved-
-/// but-unfilled slots in the board grid. Solid corners, dashed edges,
-/// always Muted so it reads as an absent slot, not a card. Clip-safe.
+/// Draw an empty grid slot as four dim corner ticks — a light, unbusy
+/// marker for a reserved-but-unfilled slot (a full dashed box read too
+/// heavy). Always Muted so it reads as absent, not a card. Clip-safe.
 pub fn draw_ghost_slot(frame: &mut Frame, rect: Rect) {
-    let dashed = BoxGlyphs {
-        horiz: '╌',
-        vert: '╎',
-        tl: '┌',
-        tr: '┐',
-        bl: '└',
-        br: '┘',
-    };
-    draw_box_glyphs(frame, rect, dashed, Emphasis::Muted);
+    put(frame, rect.x0, rect.y0, '┌', Emphasis::Muted);
+    put(frame, rect.x1, rect.y0, '┐', Emphasis::Muted);
+    put(frame, rect.x0, rect.y1, '└', Emphasis::Muted);
+    put(frame, rect.x1, rect.y1, '┘', Emphasis::Muted);
 }
 
 /// Shared perimeter drawer: corners drawn last so they win at overlaps.
@@ -370,21 +365,19 @@ mod tests {
     }
 
     #[test]
-    fn ghost_slot_draws_dashed_muted_outline() {
+    fn ghost_slot_draws_muted_corner_ticks_only() {
         let mut f = blank(6, 5);
         draw_ghost_slot(&mut f, Rect::new(1, 4, 1, 3));
-        // Solid corners so the slot still reads as a rectangle
+        // Just the four corners, Muted
         assert_eq!(f[1][1].ch, '┌');
         assert_eq!(f[4][1].ch, '┐');
         assert_eq!(f[1][3].ch, '└');
         assert_eq!(f[4][3].ch, '┘');
-        // Dashed edges
-        assert_eq!(f[2][1].ch, '╌'); // top edge
-        assert_eq!(f[1][2].ch, '╎'); // left edge
-        // Always Muted, and the interior stays empty
         assert_eq!(f[1][1].emphasis, Emphasis::Muted);
-        assert_eq!(f[2][1].emphasis, Emphasis::Muted);
-        assert_eq!(f[2][2].ch, ' ');
+        // No edges and no interior — that's what makes it unbusy
+        assert_eq!(f[2][1].ch, ' '); // top edge blank
+        assert_eq!(f[1][2].ch, ' '); // left edge blank
+        assert_eq!(f[2][2].ch, ' '); // interior blank
     }
 
     #[test]

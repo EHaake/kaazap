@@ -200,6 +200,14 @@ Review: after every task.
   in-terminal at 89×30, 130×36, and 180×48: identical centered board, full
   4×3 grid, no ragged row. 128 tests pass, 0 warnings.*
 
+- [x] **T005b — Lighter ghost slots; a little grid/hand separation**
+  *(human-requested polish after T005a.)* Empty slots now draw four dim
+  corner ticks (`┌ ┐ └ ┘`) instead of a full dashed box — much less busy,
+  still marks the slot. Added a `HAND_GAP` (one blank row) between the
+  grid and the hand so they no longer butt together; this nudges
+  `BOARD_BLOCK_HEIGHT` and the minimum terminal height 30 → 31. Verified
+  in-terminal. 128 tests pass, 0 warnings.*
+
 ## Phase 3 — Acceptance
 
 Review: after the phase.
