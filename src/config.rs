@@ -1,6 +1,6 @@
 pub(crate) use crossterm::terminal;
 
-use crate::{CARD_WIDTH, HAND_SIZE, H_PAD};
+use crate::layout::{BOARD_BLOCK_HEIGHT, BOARD_WIDTH};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Config {
@@ -9,15 +9,12 @@ pub struct Config {
 }
 
 impl Config {
-    /// The smallest terminal the layout supports, as (cols, rows).
-    /// Width must fit a full HAND_SIZE-card hand on each side of the
-    /// divider (~89 cols) — wider than a classic 80-column terminal.
-    /// Height must fit the fixed board block at that (worst-case, tallest)
-    /// width — the single source is `layout::board_block_height` (~30).
+    /// The smallest terminal the layout supports, as (cols, rows). The
+    /// board is a fixed-size block, so the minimum terminal is exactly big
+    /// enough to hold it — ~89 × 30, wider than a classic 80×24 terminal.
+    /// Larger terminals center the same block and pad the margins.
     pub fn min_size() -> (usize, usize) {
-        let half = H_PAD + HAND_SIZE * (CARD_WIDTH + 1);
-        let min_cols = 2 * half + 1;
-        (min_cols, crate::layout::board_block_height(min_cols))
+        (BOARD_WIDTH, BOARD_BLOCK_HEIGHT)
     }
 
     /// Does a terminal of this size meet the minimum?
@@ -66,11 +63,12 @@ mod tests {
     }
 
     #[test]
-    fn config_min_height_matches_board_block_height_at_min_width() {
-        // Single source of truth: the minimum height is exactly the board
-        // block at the minimum (tallest) width, not an independent guess.
+    fn config_min_size_is_the_fixed_board_size() {
+        // The minimum terminal is exactly the fixed board — one source of
+        // truth, no independent guess.
         let (min_cols, min_rows) = Config::min_size();
-        assert_eq!(min_rows, crate::layout::board_block_height(min_cols));
-        assert_eq!(min_rows, 30); // 3 grid rows + header/hand/status/gaps
+        assert_eq!(min_cols, BOARD_WIDTH);
+        assert_eq!(min_rows, BOARD_BLOCK_HEIGHT);
+        assert_eq!((min_cols, min_rows), (89, 30)); // pins the concrete size
     }
 }

@@ -184,6 +184,22 @@ Review: after every task.
   into a lower band (the 002-review artifact, gone); driver snapshot
   confirms `╔`/`═` on played cards and grid rows never exceeded.*
 
+- [x] **T005a — Fix the grid at 4×3; center the board in both axes**
+  *(human-requested after seeing T005: the width-reflowed grid left a
+  ragged partial row on wide terminals.)* The grid is now a constant
+  `GRID_COLS`(4) × `GRID_ROWS`(3) — always full rows, columns aligned with
+  the hand — and the whole board is a fixed `BOARD_WIDTH`×`BOARD_BLOCK_HEIGHT`
+  block centered horizontally as well as vertically. This collapsed the
+  width-driven machinery to constants: `grid_cols`/`board_grid_rows`/
+  `board_grid_height`/`board_block_height` functions → `GRID_COLS`/
+  `BOARD_BLOCK_HEIGHT`/`BOARD_WIDTH` consts; `config::min_size` is now just
+  the fixed board size (89×30). The status_right/status_below conditional
+  (and `status_fits_right`/`hand_cards_right`) is gone — status is always
+  the band below the hand, since a fixed narrow board has no room beside
+  it (this retires spec 002's T008a conditional, human-approved). Verified
+  in-terminal at 89×30, 130×36, and 180×48: identical centered board, full
+  4×3 grid, no ragged row. 128 tests pass, 0 warnings.*
+
 ## Phase 3 — Acceptance
 
 Review: after the phase.

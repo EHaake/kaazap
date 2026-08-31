@@ -5,7 +5,7 @@ use crate::{
     config::Config,
     frame::{Align, BorderWeight, Drawable, Emphasis, Frame, draw_ghost_slot, draw_text, draw_text_in},
     game::{GamePhase, GameState, RoundOutcome},
-    layout::{BoardLayout, Rect, SideLayout, card_slot, grid_cols},
+    layout::{BoardLayout, GRID_COLS, Rect, SideLayout, card_slot},
     player::{Player, PlayerState},
 };
 
@@ -131,9 +131,8 @@ impl BoardView {
         selection: Option<Selection>,
         frame: &mut Frame,
     ) {
-        // per-row for the grid: the same width-driven count board_grid_rows
-        // uses, so cards, ghosts, and the reserved height always agree.
-        let per = grid_cols(self.config.num_cols);
+        // Fixed grid: GRID_COLS per row, the same count the layout reserves.
+        let per = GRID_COLS;
         let dealers = ps.dealer_row.len();
         let played = ps.played_row.len();
 
@@ -205,19 +204,10 @@ impl BoardView {
     /// Draw the current game state
     ///
     pub fn draw(&self, state: &GameState, cursor: &HandCursor, pulse: Emphasis, frame: &mut Frame) {
-        // Decide where the status goes: to the right of the hand if the
-        // widest line fits there, otherwise below the board.
         let (alert, base) = self.status_lines(state, cursor);
-        let max_len = [&alert, &base]
-            .iter()
-            .filter_map(|m| m.as_ref().map(|(t, _)| t.chars().count()))
-            .max()
-            .unwrap_or(0);
-        let below = !self.layout.status_fits_right(max_len);
 
         // Vertical divider spans the block: from the header down through
-        // the hand. It stops above the status band, so a below-status
-        // never collides with it.
+        // the hand, stopping above the status band below it.
         let divider_x = self.layout.divider_x;
         let divider_top = self.layout.player.header.y0;
         let divider_bottom = self.layout.player.hand.y1;
@@ -236,13 +226,8 @@ impl BoardView {
         self.draw_side(&self.layout.player, &state.player, Some(selection), frame);
         self.draw_side(&self.layout.opponent, &state.opponent, None, frame);
 
-        // Status: right of the hand (right-aligned) or below (left-aligned)
-        let (rect, align) = if below {
-            (self.layout.status_below, Align::Left)
-        } else {
-            (self.layout.status_right, Align::Right)
-        };
-        self.draw_status(&alert, &base, rect, align, frame);
+        // Status: the two-row band below the hand, left-aligned.
+        self.draw_status(&alert, &base, self.layout.status, Align::Left, frame);
 
         // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
