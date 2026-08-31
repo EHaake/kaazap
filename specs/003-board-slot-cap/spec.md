@@ -16,9 +16,9 @@ game board.
   canonical "fill the table to win"; holding is simpler and reuses the
   existing stand/resolve path.
 - **Layout:** merge today's separate dealer-draw and played-card zones
-  into a **single fixed-height 12-slot grid per side**, and lay the
-  whole board out as one bounded block **centered vertically** in the
-  terminal.
+  into a **single fixed 12-slot grid per side**, and lay the whole board
+  out as one fixed-size block **centered in the terminal** (both axes;
+  see Goal 4).
 
 Bounding the card count is what lets the board be a fixed block, and the
 fixed block is the visible payoff of the cap — hence one spec. Together
@@ -49,17 +49,20 @@ phase or parallel flag — and ships fully tested per the constitution.
    and played cards fill. Dealer-drawn and hand-played cards are
    **visually differentiated without color** (weight/emphasis from the
    spec-002 vocabulary); card faces continue to identify kind.
-4. **Fixed-height, vertically centered board.** The board reserves the
-   full grid height and renders as one fixed block, centered vertically
-   as a unit (header, grid, hand, status keep their relative spacing).
-   On a tall or vertical terminal the board is a centered island, not a
-   top-and-bottom spread.
-5. **Raised minimum terminal height.** The bounded block needs more rows
-   than today's minimum; the minimum height rises from 24 to roughly 30
-   rows (exact value derived in the plan from the grid geometry; width
-   is unchanged). Spec 002's below-minimum handling already covers this
-   gracefully — startup errors out, mid-game shows the "too small"
-   recovery state — so only the threshold changes.
+4. **Fixed-size board, centered in both axes.** The board renders as one
+   fixed-size block (header, grid, hand, status keep their relative
+   spacing), centered both vertically and horizontally. On a wide or tall
+   terminal it is a centered island rather than stretching to fill —
+   killing the top-and-bottom spread and any left-and-right spread alike.
+   *(Refined during implementation from the original vertical-only intent:
+   T005a made the grid a constant 4×3 and the whole board a fixed-width
+   island, human-requested — see Resolved decisions.)*
+5. **Raised minimum terminal size.** The fixed block needs more rows than
+   today's minimum; the minimum terminal size becomes the board's own
+   fixed size, ~89×31 (height up from 24; width ~89 unchanged from spec
+   002). Spec 002's below-minimum handling already covers this gracefully
+   — startup errors out, mid-game shows the "too small" recovery state —
+   so only the threshold changes.
 6. **Test coverage** for the new logic per `CLAUDE.md`: the cap ceiling,
    auto-stand-at-fill resolving as hold vs bust, the AI standing when
    full, and the grid/board region computation. Rendered output is
@@ -108,9 +111,8 @@ As you draw and play, cards fill your grid in order. When your 12th card
 lands you can no longer draw or play: you auto-stand on your total. If
 that total is 20 or under you hold and the turn passes to the opponent;
 if it is over 20 you bust and lose the round (there is no free slot left
-for a recovery card). The status line tells you the table is full and
-that you have stood — the same way the over-20 alert already announces a
-forced state.
+for a recovery card). Your header shows `Stood — table full`, so you can
+see why your turn ended.
 
 ### The opponent filling its table
 
@@ -125,12 +127,12 @@ but are visually distinct — you can tell at a glance which cards the
 dealer dealt you and which you played, without color. The running total
 reads exactly as before.
 
-### A tall or vertical terminal
+### A wide or tall terminal
 
-The whole board is a fixed-height block centered vertically. Instead of
-the header hugging the top and the hand hugging the bottom with a large
-empty gap between them, the board sits as one centered composition with
-balanced margins above and below.
+The whole board is a fixed-size block centered in both axes. Instead of
+the header hugging the top and the hand the bottom (or the halves
+stretching wide) with empty gaps between, the board sits as one centered
+composition with balanced margins all around.
 
 ## Design requirements
 
@@ -144,12 +146,15 @@ balanced margins above and below.
 - Whether unfilled slots show as faint placeholders (a Pazaak-style
   table of empty slots filling up) or stay blank within the reserved
   block is an open design detail for the plan, resolved with a mockup.
-- The full-table / auto-stand state is discoverable on the status line,
-  consistent with the over-20 alert pattern — the player is told why
-  their turn ended.
+- The full-table / auto-stand state is discoverable in the header (the
+  side's `Stood — table full` note), where per-side stood/bust state
+  already lives — the player is told why their turn ended. *(Originally
+  specced for the status line; moved to the header because after the 12th
+  card the turn passes within a frame, so a PlayerTurn status message
+  would never be seen. Flagged in T005, reconciled here.)*
 - The board is centered as a unit; relative spacing of header, grid,
-  hand, and status is preserved, only the block's vertical position
-  changes with terminal height.
+  hand, and status is preserved — only the block's position (both axes)
+  changes with terminal size, never its size.
 
 ## Acceptance criteria
 
@@ -166,9 +171,9 @@ balanced margins above and below.
       and are visually differentiated without color; card faces still
       identify kind. Verified in the running game. *(T005: dealer Single
       front, played Double back; faces bare vs signed.)*
-- [x] The board renders as one fixed block centered vertically (and, from
-      T005a, horizontally); on a tall terminal there is no top/bottom
-      spread. Verified running at 180×48 and 130×36.
+- [x] The board renders as one fixed-size block centered in both axes
+      (T005a); on a wide/tall terminal there is no spread. Verified
+      running at 180×48 and 130×36.
 - [x] The dealer-overflow artifact (a 4th+ dealer card wrapping into the
       played area at ~24–29 rows) no longer occurs. Verified driving a
       draw-heavy round at 89×31 — cards stay within the fixed 4×3 grid.
@@ -201,3 +206,23 @@ balanced margins above and below.
   auto-stand that reuses `stood` and the existing resolve path, no new
   `GamePhase` and no parallel ad-hoc flag, per the constitution's state-
   machine rule. The two-vector card model is retained.
+
+### Refined during implementation (human-requested)
+
+- **Fixed 4×3 grid; board fixed-width and centered in both axes** (T005a).
+  The width-reflowing grid left a ragged partial row on wide terminals;
+  fixing it to a constant 4×3 (columns aligned with the hand) and pinning
+  the whole board to a fixed width, centered horizontally as well as
+  vertically, both looks cleaner and collapses the layout to constants.
+  This retired spec 002's status-right/-below conditional (status is now
+  always below the hand) and set the minimum to the fixed board size,
+  ~89×31.
+- **Lighter ghosts; a gap above the hand** (T005b). Empty slots are four
+  dim corner ticks, not a full dashed box; a blank row separates the grid
+  from the hand (min height 30 → 31).
+- **Outcome in a bordered popup** (T005c). The round/game outcome renders
+  in a small bordered popup centered on the board, clearing its footprint,
+  rather than loose text overlaying the cards.
+- **Auto-stand feedback lives in the header, not the status line** — see
+  the Design requirements note; the turn passes too fast after the 12th
+  card for a status-line message to land.

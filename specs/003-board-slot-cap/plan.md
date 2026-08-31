@@ -99,6 +99,18 @@ fn decide_opponent_move(&self) -> OpponentAction {
 
 ## Layout: one grid, one fixed centered block (`layout.rs`)
 
+> **Superseded in part by T005a–b (human-requested during implementation;
+> see `tasks.md` and `spec.md`'s "Refined during implementation").** This
+> section's *width-reflowed* grid — `grid_cols`/`board_grid_rows`/
+> `board_block_height` as width-driven functions, the `status_right`/
+> `status_below` conditional, and the ~30-row minimum — was replaced by a
+> **fixed** 4×3 grid and a fixed-size board centered in both axes:
+> `GRID_COLS`/`GRID_ROWS`/`BOARD_WIDTH`/`BOARD_BLOCK_HEIGHT` are now
+> constants, status is always the band below the hand, and the minimum is
+> the board's own size (89×31). The `SideLayout` collapse, the single-grid
+> fill order, and the single-source-of-truth intent below all still hold;
+> only the reflow mechanism changed. Kept here as the design record.
+
 ### SideLayout collapses dealer + played into one grid
 
 ```rust

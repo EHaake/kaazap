@@ -9,6 +9,10 @@ use crate::{
     player::{Player, PlayerState},
 };
 
+// Interior padding around a popup's text, inside its border.
+const POPUP_PAD_X: usize = 3;
+const POPUP_PAD_Y: usize = 1;
+
 pub struct BoardView {
     pub config: Config,
     layout: BoardLayout,
@@ -48,17 +52,14 @@ impl BoardView {
         );
     }
 
-    /// Draw a small bordered popup centered on the board: clear the ground
-    /// behind it, frame it, and center each line with its own emphasis, so
-    /// a message sits above the board instead of overlaying the cards.
-    fn draw_popup(&self, lines: &[(&str, Emphasis)], frame: &mut Frame) {
-        const PAD_X: usize = 3;
-        const PAD_Y: usize = 1;
+    /// The outer Rect for a popup of `content_w` × `n_lines`, centered on
+    /// the board and clamped to the frame so it never inverts or runs off-
+    /// screen. (A popup is only drawn at or above the minimum size, but the
+    /// clamp is cheap defense-in-depth, matching OverlayLayout.)
+    fn popup_rect(&self, content_w: usize, n_lines: usize) -> Rect {
         let (cols, rows) = (self.config.num_cols, self.config.num_rows);
-
-        let content_w = lines.iter().map(|(t, _)| t.chars().count()).max().unwrap_or(0);
-        let box_w = content_w + 2 * PAD_X + 2; // + left/right borders
-        let box_h = lines.len() + 2 * PAD_Y + 2; // + top/bottom borders
+        let box_w = content_w + 2 * POPUP_PAD_X + 2; // + left/right borders
+        let box_h = n_lines + 2 * POPUP_PAD_Y + 2; // + top/bottom borders
 
         // Center on the board: its divider, and the middle of header..hand.
         let cx = self.layout.divider_x;
@@ -67,14 +68,23 @@ impl BoardView {
         let y0 = cy.saturating_sub(box_h / 2);
         let x1 = (x0 + box_w.saturating_sub(1)).min(cols.saturating_sub(1));
         let y1 = (y0 + box_h.saturating_sub(1)).min(rows.saturating_sub(1));
-        let outer = Rect::new(x0, x1, y0, y1);
+        // Clamp the origin so a box larger than the frame never inverts.
+        Rect::new(x0.min(x1), x1, y0.min(y1), y1)
+    }
+
+    /// Draw a small bordered popup centered on the board: clear the ground
+    /// behind it, frame it, and center each line with its own emphasis, so
+    /// a message sits above the board instead of overlaying the cards.
+    fn draw_popup(&self, lines: &[(&str, Emphasis)], frame: &mut Frame) {
+        let content_w = lines.iter().map(|(t, _)| t.chars().count()).max().unwrap_or(0);
+        let outer = self.popup_rect(content_w, lines.len());
 
         clear_rect(frame, outer);
         draw_box(frame, outer, BorderWeight::Single, Emphasis::Normal);
 
         // Lines start below the top border + vertical pad, centered across
         // the full interior so the horizontal padding stays symmetric.
-        let inner = Rect::new(x0 + 1, x1.saturating_sub(1), y0 + 1 + PAD_Y, y1);
+        let inner = Rect::new(outer.x0 + 1, outer.x1.saturating_sub(1), outer.y0 + 1 + POPUP_PAD_Y, outer.y1);
         for (i, (text, emphasis)) in lines.iter().enumerate() {
             draw_text_in(frame, inner, i, Align::Center, text, *emphasis);
         }
@@ -442,5 +452,29 @@ mod tests {
         let mut gs = GameState::new();
         gs.game_phase = GamePhase::RoundEnd;
         assert_eq!(msg(&gs), None);
+    }
+
+    #[test]
+    fn popup_rect_is_sized_centered_and_in_bounds() {
+        let config = Config { num_cols: 89, num_rows: 31 };
+        let bv = BoardView::new(config);
+        let r = bv.popup_rect(23, 3); // widest outcome string, 3 lines
+        // 23 content + 2*3 pad + 2 border = 31 wide; 3 + 2*1 + 2 = 7 tall
+        assert_eq!((r.x1 - r.x0 + 1, r.y1 - r.y0 + 1), (31, 7));
+        assert!(r.x1 < 89 && r.y1 < 31, "in bounds");
+        assert!(
+            ((r.x0 + r.x1) / 2).abs_diff(bv.layout.divider_x) <= 1,
+            "centered on the divider"
+        );
+    }
+
+    #[test]
+    fn popup_rect_clamps_to_a_tiny_frame_without_inverting() {
+        // A frame smaller than the box (below the enforced minimum): clamp
+        // to the frame, never invert or overrun.
+        let bv = BoardView::new(Config { num_cols: 20, num_rows: 8 });
+        let r = bv.popup_rect(23, 3); // wants 31x7 in a 20x8 frame
+        assert!(r.x0 <= r.x1 && r.y0 <= r.y1, "never inverted");
+        assert!(r.x1 < 20 && r.y1 < 8, "clamped in bounds");
     }
 }

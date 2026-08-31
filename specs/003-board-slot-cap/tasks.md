@@ -244,6 +244,23 @@ Review: after the phase.
 
 ---
 
+- [x] **T006a — Skeptical-review follow-ups: tests + record reconciliation**
+  *(from the T006 skeptical-reviewer pass.)* The reviewer found the **code
+  sound** — it traced flip-as-12th, ±-as-12th, opponent-busts-mid-turn, and
+  both-sides-full and found no 13th card, wrong bust/hold, or unresolved
+  round; single-source-of-truth and layout bounds all confirmed. Addressed
+  its real findings: added `cap_opponent_hitting_its_twelfth_card_auto_stands_and_busts_if_over`
+  (S1 — the play_opponent_turn ordering, deterministic in structure) and
+  extracted `board::popup_rect` with a below-min clamp + two geometry tests
+  (S4). Reconciled the record to the T005a–c refinements: spec.md (both-axes
+  fixed-size centering; the auto-stand feedback documented in the header,
+  not the status line — the T005 deviation, flagged and now reconciled;
+  pending human confirmation) and a "superseded" annotation on plan.md's
+  layout section (S2). Deferred to the merge gate: ROADMAP Backlog→Shipped,
+  a DECISIONS.md rule-variant entry (S3), and the stale `67×24` → `89×31`
+  fix in the run-kaazap skill doc (B3). Left as-is: the minor divider-gap
+  asymmetry (S5, cosmetic, eye-verified). 133 tests pass (+3), 0 warnings.*
+
 ## Handoff note
 
 Read `CLAUDE.md`, `design/brief.md`, then this spec's `spec.md`,

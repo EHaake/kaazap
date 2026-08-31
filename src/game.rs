@@ -1613,4 +1613,32 @@ mod tests {
         assert!(gs.opponent.stood);
         assert_eq!(gs.opponent.table_card_count(), before); // no 13th card
     }
+
+    #[test]
+    fn cap_opponent_hitting_its_twelfth_card_auto_stands_and_busts_if_over() {
+        // The subtle ordering in play_opponent_turn: the over-20-keeps-turn
+        // check runs BEFORE resolve_after_action. 11 cards at 16 with an
+        // empty hand → the AI hits its 12th (below threshold, nothing to
+        // play). Whatever it draws, the table is now full, so it auto-stands
+        // — and if the draw pushed it over 20, resolve overrides the kept
+        // turn into a bust. Deterministic in structure: always full + stood,
+        // and bust iff over 20.
+        let mut gs = GameState::new();
+        let mut row = dealer_run(8, 2); // 16
+        row.extend(dealer_run(3, 0));
+        gs.opponent.dealer_row = row; // 11 cards, score 16
+        gs.opponent.hand = vec![None, None, None, None];
+        gs.game_phase = GamePhase::OpponentTurn;
+
+        gs.update(); // AI hits its 12th card
+
+        assert_eq!(gs.opponent.table_card_count(), MAX_TABLE_CARDS, "the hit filled the table");
+        assert!(gs.opponent.stood, "a full table auto-stands");
+        if gs.opponent.score() > 20 {
+            assert!(gs.opponent.bust, "full and over 20 must bust");
+            assert!(matches!(gs.game_phase, GamePhase::RoundEnd));
+        } else {
+            assert!(!gs.opponent.bust, "full and <= 20 holds");
+        }
+    }
 }
