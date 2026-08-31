@@ -4,12 +4,27 @@ Deliberately unordered — this is a backlog, not a schedule. Priorities get
 set once there's a working, correct core engine to actually build on top
 of, not guessed at here in advance.
 
-- **Core Pazaak engine completion** — give the card system real types
-  instead of the current placeholder `LogicCard { value: i32 }`: minus
-  cards, flip (±) cards, and special cards (2&4, 3&6, tiebreaker-style).
-  The main deck's 0–10 draw range is an intentional rule variant (see
-  DECISIONS.md), not something to fix. Everything else below depends on
-  this existing first.
+## Shipped
+
+- **Core Pazaak engine** (spec 001) — replaced the placeholder
+  `LogicCard { value: i32 }` with a real card-type system: plus, minus,
+  flip (±), special 2&4 / 3&6, and tiebreaker cards, plus scoring,
+  round/game resolution, and opponent decision-making. The main deck's
+  0–10 draw range is an intentional rule variant (see DECISIONS.md), not
+  something to fix. Everything in the backlog depends on this existing.
+- **Terminal UI overhaul** (spec 002) — monochrome visual identity,
+  box-drawing borders, a layout layer that replaced magic numbers with
+  computed regions, terminal-resize handling, and the two backlog items
+  below folded in:
+  - **Cursor-selection interaction model** — arrow-key navigation, ±
+    sign toggling, confirm-to-play, translated into the existing engine
+    actions so the game logic stayed untouched. Campaign screens (shop,
+    pack opening, opponent select) will reuse this model once they exist.
+  - **Wire up "How to Play"** — the previously dead menu item now opens
+    the self-sizing rules overlay.
+
+## Backlog
+
 - **Opponent personalities** — distinct opponents with different
   strategies/decks, not just one generic AI.
 - **Campaign & progression** — currency earned from wins, card packs that
@@ -21,18 +36,9 @@ of, not guessed at here in advance.
 - **Sound** — wire up the already-present `rusty_audio` dependency.
 - **Settings screen** — volume and any other runtime-configurable options
   that come out of the above.
-- **Wire up "How to Play"** — currently a dead menu item
-  (`MenuItem::HowToPlay => {}` in `app.rs`); the help-overlay text assets
-  already exist and just need to be reachable from the menu too.
 - **Full side-deck customization** — collecting/building your own 10-card
   side deck, KOTOR-vendor style. Explicitly deferred out of v1 in favor
   of a simple default deck; revisit once the core campaign loop exists.
-- **Cursor-selection interaction model** — replace direct-keypress card
-  play with a unified selection model (arrow-key navigation, value
-  toggling on ± cards, confirm-to-play), shared with the campaign
-  screens (shop, pack opening, opponent select) once those exist.
-  Deliberately deferred from the core-engine spec so it gets designed
-  once, with all its use cases known.
 - **Play log / move history** — a running record of every move both
   players make during a game (dealer draws, cards played with their
   chosen sign, flips, stands, busts, round outcomes), shown as it

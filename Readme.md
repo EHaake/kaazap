@@ -13,9 +13,10 @@ toward 20 without busting, using your side-deck hand to push your total
 up or down. Wins earn currency and card packs that unlock better
 side-deck cards for tougher matchups ahead.
 
-> **Status:** actively being rebuilt. The core engine, campaign, and
-> save/resume systems are in progress — see `ROADMAP.md` for what's done
-> and what's next.
+> **Status:** actively being built. The core Pazaak engine and a terminal
+> UI overhaul are in place; opponent personalities, campaign progression,
+> and save/resume are next — see `ROADMAP.md` for what's shipped and
+> what's ahead.
 
 ## Building & running
 
