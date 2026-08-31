@@ -153,28 +153,32 @@ balanced margins above and below.
 
 ## Acceptance criteria
 
-- [ ] A side can never exceed 12 cards (dealer + played) in a round; the
+- [x] A side can never exceed 12 cards (dealer + played) in a round; the
       12th card ends that side's ability to draw or play. Unit-tested.
-- [ ] Reaching 12 cards with a total ≤ 20 auto-stands and holds; with a
+      *(T001 `cap_` tests, incl. refuse-a-13th; mutation-checked.)*
+- [x] Reaching 12 cards with a total ≤ 20 auto-stands and holds; with a
       total > 20 busts. The over-20 recovery still works while a free
       slot remains. Unit-tested, including the hold and bust branches.
-- [ ] The AI stands when its table is full instead of drawing.
-      Unit-tested.
-- [ ] Dealer draws and played cards render together in one per-side grid
+      *(T001: hold, over-20 bust, recovery-as-the-12th.)*
+- [x] The AI stands when its table is full instead of drawing.
+      Unit-tested. *(T002: unit + end-to-end through play_opponent_turn.)*
+- [x] Dealer draws and played cards render together in one per-side grid
       and are visually differentiated without color; card faces still
-      identify kind. Verified in the running game.
-- [ ] The board renders as one fixed-height block centered vertically;
-      on a tall terminal there is no top/bottom spread. Verified by
-      running at a tall size.
-- [ ] The dealer-overflow artifact (a 4th+ dealer card wrapping into the
-      played area at ~24–29 rows) no longer occurs. Verified by driving
-      a many-low-draw round near the minimum height.
-- [ ] The minimum terminal height is updated to fit the fixed block;
-      below-minimum still shows the spec-002 recovery state mid-game and
-      still errors at startup. Any user-facing size text (help/README)
-      reflects the new minimum.
-- [ ] `cargo test` green with the new coverage; `cargo build` introduces
-      no new warnings.
+      identify kind. Verified in the running game. *(T005: dealer Single
+      front, played Double back; faces bare vs signed.)*
+- [x] The board renders as one fixed block centered vertically (and, from
+      T005a, horizontally); on a tall terminal there is no top/bottom
+      spread. Verified running at 180×48 and 130×36.
+- [x] The dealer-overflow artifact (a 4th+ dealer card wrapping into the
+      played area at ~24–29 rows) no longer occurs. Verified driving a
+      draw-heavy round at 89×31 — cards stay within the fixed 4×3 grid.
+- [x] The minimum terminal size is updated to fit the fixed block (89×31);
+      below-minimum shows the spec-002 recovery state mid-game (verified:
+      70×22 → "Need at least 89 x 31", restores with state intact) and
+      startup still errors (`Config::from_terminal` unchanged). How-to-Play
+      carries the cap rule and fits at the minimum.
+- [x] `cargo test` green (130) with the new coverage; `cargo build`
+      introduces no new warnings (0).
 
 ## Resolved decisions
 

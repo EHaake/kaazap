@@ -4,7 +4,8 @@ Beat the opponent's total without passing
 20. First to 3 round wins takes the match.
 
 Draw a card (0-10) each turn; play side
-cards to adjust, then Stand.
+cards to adjust, then Stand. Your table
+holds 12 cards; filling it stands you.
 
  +N / -N   add or subtract N
  ±N        pick + or - when played
