@@ -64,7 +64,13 @@ Review: after every task.
   count); `git diff main -- src/game.rs` shows only the auto-stand
   insertion, `src/player.rs` only the two new queries.*
 
-- [ ] **T002 — AI stands when its table is full**
+- [x] **T002 — AI stands when its table is full**
+  *Done. Early-return guard at the top of `decide_opponent_move`: a full
+  opponent table stands. Two `ai_` tests — one unit (full table at 14
+  with a +6 that would land on 20 returns `Stand`, not the winning play),
+  one end-to-end through `play_opponent_turn` (a full opponent below
+  threshold stands instead of drawing a 13th). Mutation-checked: both go
+  red with the guard neutralized. 123 tests pass (+2), 0 warnings.*
   `game.rs`: guard at the top of `decide_opponent_move` —
   `if self.opponent.table_full() { return OpponentAction::Stand; }` — so
   the AI never *chooses* an impossible hit (the T001 auto-stand is the

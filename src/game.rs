@@ -384,6 +384,13 @@ impl GameState {
     /// Return an OpponentAction based on opponent's hand and state
     ///
     fn decide_opponent_move(&self) -> OpponentAction {
+        // A full table can hold no more cards: stand rather than choose an
+        // impossible hit or play. The resolve_after_action auto-stand is
+        // the real enforcement; this keeps the decision itself honest.
+        if self.opponent.table_full() {
+            return OpponentAction::Stand;
+        }
+
         let score = self.opponent.score();
 
         // Over 20: play the best recovery card that fits back under, or
@@ -1573,5 +1580,37 @@ mod tests {
 
         gs.update();
         assert!(matches!(gs.round_outcome, Some(RoundOutcome::PlayerWon)));
+    }
+
+    #[test]
+    fn ai_full_table_stands_over_a_winning_card() {
+        // 12 cards at 14, and a +6 in hand that would land exactly on 20.
+        // Without the full-table guard the AI plays the winner; with it,
+        // the impossible 13th play is refused and it stands.
+        let mut gs = GameState::new();
+        let mut row = dealer_run(10, 1);
+        row.extend(dealer_run(2, 2));
+        gs.opponent.dealer_row = row; // 12 cards, score 14
+        gs.opponent.hand = vec![Some(Card::Plus(6)), None, None, None];
+        assert!(gs.opponent.table_full());
+
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+    }
+
+    #[test]
+    fn ai_full_table_stands_through_the_turn_without_drawing() {
+        // End to end: a full-table opponent below the stand threshold with
+        // nothing playable would Hit and draw a 13th card without the
+        // guard; instead it stands and the table stays at 12.
+        let mut gs = GameState::new();
+        gs.opponent.dealer_row = dealer_run(MAX_TABLE_CARDS, 1); // 12, score 12
+        gs.opponent.hand = vec![None, None, None, None];
+        gs.game_phase = GamePhase::OpponentTurn;
+        let before = gs.opponent.table_card_count();
+
+        gs.update();
+
+        assert!(gs.opponent.stood);
+        assert_eq!(gs.opponent.table_card_count(), before); // no 13th card
     }
 }
