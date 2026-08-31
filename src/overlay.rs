@@ -1,9 +1,10 @@
-use crate::{config::Config, frame::Frame, layout::OverlayLayout};
+use crate::{config::Config, frame::{Align, BorderWeight, Emphasis, Frame, draw_box, draw_text_in}, layout::OverlayLayout};
 
 #[derive(Debug, Copy, Clone)]
 pub enum OverlayKind {
     GameHelp,
     MenuHelp,
+    HowToPlay,
 }
 
 #[derive(Debug)]
@@ -20,6 +21,11 @@ impl Overlay {
         }
     }
 
+    /// This overlay's kind — used to rebuild it on a terminal resize.
+    pub fn kind(&self) -> OverlayKind {
+        self.overlay_kind
+    }
+
     /// Open a text file and read it into a Vec<String> based on OverlayKind
     ///
     fn read_text_from_file(&self) -> Vec<String> {
@@ -32,43 +38,38 @@ impl Overlay {
                 let s: &'static str = include_str!("../assets/menu_overlay_text.txt");
                 s.lines().map(|line| line.to_string()).collect()
             }
+            OverlayKind::HowToPlay => {
+                let s: &'static str = include_str!("../assets/how_to_play_text.txt");
+                s.lines().map(|line| line.to_string()).collect()
+            }
         }
     }
 
-    /// Draw Text Helper
-    ///
-    fn draw_text(&self, text: &str, x: usize, y: usize, frame: &mut Frame) {
-        for (i, ch) in text.chars().enumerate() {
-            frame[x + i][y] = ch;
-        }
-    }
-
-    /// Read content from text file and call helper to draw it into the overlay
-    ///
-    fn add_content(&self, layout: OverlayLayout, frame: &mut Frame) {
-        let content = self.read_text_from_file();
-
-        // get inner box corners
-        let x = layout.inner.x0;
-        let y = layout.inner.y0;
-
+    /// Draw already-loaded content into the overlay's inner box. The
+    /// first line is treated as a title and centered; the rest are
+    /// left-aligned so lists and columns stay lined up.
+    fn add_content(&self, content: &[String], layout: OverlayLayout, frame: &mut Frame) {
         for (i, line) in content.iter().enumerate() {
-            self.draw_text(line, x, y + i, frame);
+            if i == 0 {
+                draw_text_in(frame, layout.inner, 0, Align::Center, line.trim(), Emphasis::Normal);
+            } else {
+                draw_text_in(frame, layout.inner, i, Align::Left, line, Emphasis::Normal);
+            }
         }
     }
 
-    /// Clear any existing chars from the overlay box
-    ///
+    /// Clear any existing chars from the overlay box. Clip-safe: a box
+    /// sized larger than the terminal (e.g. a tall overlay at the minimum
+    /// height) is clipped rather than panicking on an out-of-bounds write.
     fn clear_overlay_box(&self, layout: OverlayLayout, frame: &mut Frame) {
-        // get box corners
-        let x0 = layout.outer.x0;
-        let x1 = layout.outer.x1;
-        let y0 = layout.outer.y0;
-        let y1 = layout.outer.y1;
+        let w = frame.len();
+        let h = frame.first().map_or(0, Vec::len);
 
-        (x0..=x1).for_each(|x| {
-            (y0..=y1).for_each(|y| {
-                frame[x][y] = ' ';
+        (layout.outer.x0..=layout.outer.x1).for_each(|x| {
+            (layout.outer.y0..=layout.outer.y1).for_each(|y| {
+                if x < w && y < h {
+                    frame[x][y].ch = ' ';
+                }
             });
         });
     }
@@ -76,58 +77,58 @@ impl Overlay {
     /// Draw border helper
     ///
     fn draw_border(&self, layout: OverlayLayout, frame: &mut Frame) {
-        // get box corners
-        let x0 = layout.outer.x0;
-        let x1 = layout.outer.x1;
-        let y0 = layout.outer.y0;
-        let y1 = layout.outer.y1;
-
-        // borders
-        (x0..=x1).for_each(|x| {
-            frame[x][y0] = '-';
-            frame[x][y1] = '-';
-        });
-
-        (y0..=y1).for_each(|y| {
-            frame[x0][y] = '|';
-            frame[x1][y] = '|';
-        });
-
-        // corners
-        frame[x0][y0] = '+';
-        frame[x1][y0] = '+';
-        frame[x0][y1] = '+';
-        frame[x1][y1] = '+';
+        draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
     }
 
-    /// Take the content size and call the functions necessary to draw the overlay
+    /// Size the box to the content, then draw box and text
     ///
-    fn draw_overlay(&self, content_width: usize, content_height: usize, frame: &mut Frame) {
-        // Compute the layout based on content width and config
-        let layout = OverlayLayout::new(self.config, content_width, content_height);
-        // Draw spaces inside of entire box
+    fn draw_overlay(&self, content: &[String], frame: &mut Frame) {
+        let (width, height) = measure(content);
+        let layout = OverlayLayout::new(self.config, width, height);
+
         self.clear_overlay_box(layout, frame);
-        // Draw the borders
         self.draw_border(layout, frame);
-        // Draw the text content
-        self.add_content(layout, frame);
+        self.add_content(content, layout, frame);
     }
 
-    // TODO: Stop using magic numbers of content size
     pub fn draw(&self, frame: &mut Frame) {
-        match self.overlay_kind {
-            OverlayKind::GameHelp => {
-                let content_width = 42;
-                let content_height = 9; // fits the 13 lines of game_overlay_text.txt
+        // The box sizes itself to whatever text the overlay carries — no
+        // per-kind width/height constants to keep in sync with the files
+        let content = self.read_text_from_file();
+        self.draw_overlay(&content, frame);
+    }
+}
 
-                self.draw_overlay(content_width, content_height, frame);
-            }
-            OverlayKind::MenuHelp => {
-                let content_width = 32;
-                let content_height = 4;
+/// Content dimensions of an overlay's text: widest line (in chars) and
+/// number of lines.
+fn measure(content: &[String]) -> (usize, usize) {
+    let width = content.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+    (width, content.len())
+}
 
-                self.draw_overlay(content_width, content_height, frame);
-            }
-        }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn overlay_measure_uses_widest_line_and_line_count() {
+        let content = vec![
+            "short".to_string(),
+            "a much longer line".to_string(),
+            "mid".to_string(),
+        ];
+        assert_eq!(measure(&content), (18, 3));
+    }
+
+    #[test]
+    fn overlay_measure_counts_chars_not_bytes() {
+        // "±" is multi-byte; width must be char count (3), not byte len
+        let content = vec!["±1T".to_string()];
+        assert_eq!(measure(&content), (3, 1));
+    }
+
+    #[test]
+    fn overlay_measure_of_empty_content_is_zero() {
+        assert_eq!(measure(&[]), (0, 0));
     }
 }

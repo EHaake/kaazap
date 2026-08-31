@@ -1,6 +1,10 @@
 use rand::{Rng, seq::IndexedRandom};
 
-use crate::{CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, frame::{Drawable, Frame}};
+use crate::{
+    CARD_HEIGHT, CARD_WIDTH, HAND_SIZE,
+    frame::{Align, BorderWeight, Cell, Drawable, Emphasis, Frame, draw_box, draw_text_in},
+    layout::Rect,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FlipKind {
@@ -89,6 +93,10 @@ impl PlayedCard {
         match self.card {
             Card::Flip(_) => self.card.label(),
             Card::Dealer(_) => self.value.to_string(),
+            // The tiebreaker keeps its T marker once played, so a tie it
+            // decides is legible on the table — otherwise it's an
+            // indistinguishable +1/-1 and losing the tie looks arbitrary
+            Card::Tiebreaker => format!("{:+}T", self.value),
             _ => format!("{:+}", self.value),
         }
     }
@@ -122,64 +130,57 @@ pub fn deal_hand<R: Rng + ?Sized>(rng: &mut R) -> Vec<Option<Card>> {
 pub struct CardView {
     pub x: usize,
     pub y: usize,
-    // pub width: usize,
-    // pub height: usize,
     pub text: String,
+    pub weight: BorderWeight, // Heavy marks cursor selection (T007)
+    pub emphasis: Emphasis,   // applied to border and face text
+}
+
+impl CardView {
+    /// A card at (x, y) with default chrome: single border, no emphasis.
+    pub fn new(x: usize, y: usize, text: String) -> Self {
+        Self {
+            x,
+            y,
+            text,
+            weight: BorderWeight::Single,
+            emphasis: Emphasis::Normal,
+        }
+    }
 }
 
 impl Drawable for CardView {
     fn draw(&self, frame: &mut Frame) {
-        let x0 = self.x;
-        let y0 = self.y;
+        if frame.is_empty() {
+            return;
+        }
+        let (w, h) = (frame.len(), frame[0].len());
 
-        if x0 >= frame.len() || y0 >= frame[0].len() {
+        // All-or-nothing: only draw when the whole card fits (unchanged)
+        if self.x + CARD_WIDTH > w || self.y + CARD_HEIGHT > h {
             return;
         }
 
-        if x0 + CARD_WIDTH > frame.len() || y0 + CARD_HEIGHT > frame[0].len() {
-            return;
+        let rect = Rect::new(self.x, self.x + CARD_WIDTH - 1, self.y, self.y + CARD_HEIGHT - 1);
+
+        // Blank the interior (defensive: card may overdraw other content)
+        for cx in (rect.x0 + 1)..rect.x1 {
+            for cy in (rect.y0 + 1)..rect.y1 {
+                frame[cx][cy] = Cell::default();
+            }
         }
 
-        let x1 = x0 + CARD_WIDTH - 1;
-        let y1 = y0 + CARD_HEIGHT - 1;
+        draw_box(frame, rect, self.weight, self.emphasis);
 
-        // borders
-        (x0..=x1).for_each(|x| {
-            frame[x][y0] = '-';
-            frame[x][y1] = '-';
-        });
-
-        (y0..=y1).for_each(|y| {
-            frame[x0][y] = '|';
-            frame[x1][y] = '|';
-        });
-
-        // corners
-        frame[x0][y0] = '+';
-        frame[x1][y0] = '+';
-        frame[x0][y1] = '+';
-        frame[x1][y1] = '+';
-
-        // interior
-        ((x0 + 1)..x1).for_each(|x| {
-            ((y0 + 1)..y1).for_each(|y| {
-                frame[x][y] = ' ';
-            });
-        });
-
-        // centered text — counted in chars, not bytes, so multi-byte
-        // glyphs like ± don't skew centering or split mid-character
-        let inner_width = CARD_WIDTH - 2;
-        let text_y = y0 + CARD_HEIGHT / 2;
-
-        // clamp to available space
-        let text: String = self.text.chars().take(inner_width).collect();
-
-        let start_x = x0 + 1 + (inner_width - text.chars().count()) / 2;
-
-        for (i, ch) in text.chars().enumerate() {
-            frame[start_x + i][text_y] = ch;
-        }
+        // Centered face text on the card's middle interior row
+        let interior = Rect::new(rect.x0 + 1, rect.x1 - 1, rect.y0 + 1, rect.y1 - 1);
+        draw_text_in(
+            frame,
+            interior,
+            CARD_HEIGHT / 2 - 1,
+            Align::Center,
+            &self.text,
+            self.emphasis,
+        );
     }
 }
 
@@ -242,8 +243,12 @@ mod tests {
         assert_eq!(flipped_plus.display_text(), "-4");
         let pm = PlayedCard { card: Card::PlusMinus(3), value: -3 };
         assert_eq!(pm.display_text(), "-3");
+        // A played tiebreaker keeps its T marker (both signs) so a tie it
+        // decides is legible — not an indistinguishable +1/-1
         let tb = PlayedCard { card: Card::Tiebreaker, value: 1 };
-        assert_eq!(tb.display_text(), "+1");
+        assert_eq!(tb.display_text(), "+1T");
+        let tb_neg = PlayedCard { card: Card::Tiebreaker, value: -1 };
+        assert_eq!(tb_neg.display_text(), "-1T");
 
         // Dealer cards: bare value, negative when flipped
         let dealer = PlayedCard { card: Card::Dealer(7), value: 7 };

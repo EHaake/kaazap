@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
     // audio.play("startup");
 
     // Terminal Initialization
-    let config = Config::from_terminal()?;
+    let mut config = Config::from_terminal()?;
     let mut stdout = io::stdout();
     terminal::enable_raw_mode()?;
     stdout.execute(EnterAlternateScreen)?;
@@ -65,20 +65,37 @@ fn main() -> anyhow::Result<()> {
     // Game loop
     //
     'gameloop: loop {
-        let mut curr_frame = new_frame(&config);
-
         // Input handling:
         //
         // Poll for input events with default input,
         // which returns immediately if nothing to act upon
-        if event::poll(Duration::from_millis(0))?
-            && let Event::Key(key_event) = event::read()?
-        {
-            match key_event.code {
-                KeyCode::Char('q') => break 'gameloop,
-                _ => app.handle_key(key_event.code),
+        if event::poll(Duration::from_millis(0))? {
+            match event::read()? {
+                Event::Key(key_event) => match key_event.code {
+                    KeyCode::Char('q') => break 'gameloop,
+                    _ => app.handle_key(key_event.code),
+                },
+                // Terminal resized: track the new size for frame
+                // allocation, and either re-lay-out or show the
+                // too-small screen (game state is preserved either way).
+                Event::Resize(cols, rows) => {
+                    let (cols, rows) = (cols as usize, rows as usize);
+                    config = Config {
+                        num_cols: cols,
+                        num_rows: rows,
+                    };
+                    if Config::fits(cols, rows) {
+                        app.resize(config);
+                    } else {
+                        app.set_too_small(cols, rows);
+                    }
+                }
+                _ => {}
             }
         }
+
+        // Allocate the frame at the current (possibly just-resized) size
+        let mut curr_frame = new_frame(&config);
 
         // Updates
         //
