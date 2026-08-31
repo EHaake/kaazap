@@ -111,7 +111,19 @@ Review: after every task.
   badly, fall back to a dim `Single` outline (one call to change) and
   record it here.*
 
-- [ ] **T004 — Board geometry functions + minimum height**
+- [x] **T004 — Board geometry functions + minimum height**
+  *Done. `layout.rs` gains `grid_cols` / `board_grid_rows` /
+  `board_block_height` (with private `side_card_span` / `board_grid_height`
+  helpers and band constants HEADER/HAND/STATUS/GAP as the single source).
+  At min width the grid packs HAND_SIZE (4) per row → 3 rows → block 30;
+  monotonic non-increasing in width. `config::min_size` height now reads
+  `board_block_height(min_cols)` (24 → 30); imports trimmed. Removed the
+  now-dead `MIN_CARD_SIZE_HEIGHT` (obsoleted by the new formula) and its
+  already-dead sibling `MIN_CARD_SIZE_WIDTH` from lib.rs. Three tests
+  (reflow 4/row→3, 6/row→2, 12/row→1; monotonicity of rows and height;
+  min-height == block-height == 30). Additive — `SideLayout` and
+  `BoardLayout::new` unchanged, board still renders as before until T005.
+  129 tests pass (+3), 0 warnings.*
   `layout.rs`: `board_grid_rows(cols)` = `MAX_TABLE_CARDS.div_ceil(cards
   per row over one side's span at `cols`)`, and `board_block_height(cols)`
   = `grid_rows*CARD_HEIGHT + (grid_rows-1) + 13` (header + gaps + hand +

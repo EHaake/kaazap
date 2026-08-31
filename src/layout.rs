@@ -1,10 +1,53 @@
 use std::cmp::max;
 
-use crate::{CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, H_PAD, V_PAD, config::Config};
+use crate::{CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, H_PAD, MAX_TABLE_CARDS, V_PAD, config::Config};
 
 // A card slot is a card plus one cell of gap, in each axis.
 const CARD_SLOT_W: usize = CARD_WIDTH + 1;
 const CARD_SLOT_H: usize = CARD_HEIGHT + 1;
+
+// Vertical bands of the board block, top to bottom. `board_block_height`
+// is the single source these — and config's minimum terminal height —
+// derive from, so a change here moves the centered block and the minimum
+// size together rather than drifting apart.
+const HEADER_H: usize = 2; // name / score / rounds
+const HAND_H: usize = CARD_HEIGHT + 1; // hand cards + the number-labels row
+const STATUS_H: usize = 2; // over-20 alert stacked over the prompt
+const BAND_GAP: usize = 1; // one blank row between bands
+
+/// Columns available to one side's cards: from the pad to the divider.
+fn side_card_span(cols: usize) -> usize {
+    (cols / 2).saturating_sub(H_PAD)
+}
+
+/// Cards per row in one side's board grid at this width. At the minimum
+/// width this is exactly HAND_SIZE (the hand fits that many by
+/// construction of `Config::min_size`); wider terminals fit more.
+pub fn grid_cols(cols: usize) -> usize {
+    max(1, side_card_span(cols) / CARD_SLOT_W)
+}
+
+/// Grid rows needed to show all MAX_TABLE_CARDS slots at this width — the
+/// one width-driven number that card placement, ghost placement, block
+/// height, and the min-size check all share, so filled cards, empty
+/// slots, and the reserved height always agree and reflow together.
+pub fn board_grid_rows(cols: usize) -> usize {
+    MAX_TABLE_CARDS.div_ceil(grid_cols(cols))
+}
+
+/// Height in rows of the grid zone: its card rows plus the gaps between.
+fn board_grid_height(cols: usize) -> usize {
+    let rows = board_grid_rows(cols);
+    rows * CARD_HEIGHT + rows.saturating_sub(1)
+}
+
+/// Total height of the fixed board block (header, grid, hand, status, and
+/// the gaps between). Non-increasing in width — wider terminals pack more
+/// cards per row and so need fewer grid rows — which is what lets config
+/// gate the minimum height on the single worst case (minimum width).
+pub fn board_block_height(cols: usize) -> usize {
+    HEADER_H + BAND_GAP + board_grid_height(cols) + BAND_GAP + HAND_H + BAND_GAP + STATUS_H
+}
 
 #[derive(Debug, Copy, Clone)]
 pub struct Rect {
@@ -227,6 +270,37 @@ mod tests {
     fn cards_per_row_is_at_least_one_even_when_narrow() {
         let zone = Rect::new(0, 3, 0, 0); // narrower than a card
         assert_eq!(cards_per_row(zone), 1);
+    }
+
+    #[test]
+    fn layout_board_grid_rows_reflow_by_width() {
+        let (min_cols, _) = Config::min_size();
+        // At the minimum width the grid packs HAND_SIZE (4) per row, so
+        // the 12 slots need 3 rows; wider terminals need fewer.
+        assert_eq!(grid_cols(min_cols), HAND_SIZE);
+        assert_eq!(board_grid_rows(min_cols), 3);
+        assert_eq!(board_grid_rows(130), 2); // ~6 per row → 2 rows
+        assert_eq!(board_grid_rows(248), 1); // ~12 per row → 1 row
+        // Never zero, even absurdly narrow
+        assert!(board_grid_rows(1) >= 1);
+    }
+
+    #[test]
+    fn layout_grid_rows_and_block_height_are_non_increasing_in_width() {
+        // Monotonicity is what makes config's single worst-case (minimum
+        // width) minimum-height gate sound: no wider terminal ever needs
+        // a taller block than the minimum-width one.
+        let mut prev_rows = usize::MAX;
+        let mut prev_h = usize::MAX;
+        for cols in (10..400).step_by(1) {
+            let r = board_grid_rows(cols);
+            let h = board_block_height(cols);
+            assert!(r >= 1);
+            assert!(r <= prev_rows, "grid rows grew with width at cols={cols}");
+            assert!(h <= prev_h, "block height grew with width at cols={cols}");
+            prev_rows = r;
+            prev_h = h;
+        }
     }
 
     #[test]
