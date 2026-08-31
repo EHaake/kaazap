@@ -121,7 +121,8 @@ impl BoardLayout {
     }
 }
 
-/// Start-menu geometry from terminal size and the title art's height.
+/// Start-menu geometry from terminal size, the title art's height, and
+/// the number of menu items.
 #[derive(Debug, Copy, Clone)]
 pub struct MenuLayout {
     pub center_x: usize,
@@ -131,16 +132,21 @@ pub struct MenuLayout {
 }
 
 impl MenuLayout {
-    pub fn new(config: Config, title_height: usize) -> Self {
-        let title_top = 5;
-        // Gap below the title art, then the menu items — no longer the
-        // scattered y+15/+2 magic the menu used to inline.
-        const TITLE_GAP: usize = 3;
+    pub fn new(config: Config, title_height: usize, num_items: usize) -> Self {
+        const TITLE_GAP: usize = 3; // blank rows between the title art and items
+        const ITEM_SPACING: usize = 2;
+
+        // The whole menu (title art, gap, items) is one block centered
+        // vertically, to match the board. Items span (n-1)*spacing + 1 rows.
+        let items_height = num_items.saturating_sub(1) * ITEM_SPACING + 1;
+        let block_height = title_height + TITLE_GAP + items_height;
+        let title_top = config.num_rows.saturating_sub(block_height) / 2;
+
         Self {
             center_x: config.num_cols / 2,
             title_top,
             items_top: title_top + title_height + TITLE_GAP,
-            item_spacing: 2,
+            item_spacing: ITEM_SPACING,
         }
     }
 }
@@ -213,6 +219,18 @@ mod tests {
         let l = BoardLayout::new(cfg(180, 48));
         assert!(l.player.hand.x1 < l.divider_x);
         assert!(l.opponent.hand.x0 > l.divider_x);
+    }
+
+    #[test]
+    fn menu_layout_centers_the_menu_block_vertically() {
+        // Title art 8 rows + 3-row gap + 2 items (spacing 2 → 3 rows) = 14,
+        // centered in 48 rows → title_top = 17.
+        let l = MenuLayout::new(cfg(89, 48), 8, 2);
+        let block_height = 8 + 3 + ((2 - 1) * 2 + 1); // = 14
+        assert_eq!(l.title_top, (48 - block_height) / 2);
+        // equal margin above the title art and below the last item
+        let last_item_row = l.items_top + (2 - 1) * l.item_spacing;
+        assert!(l.title_top.abs_diff(48 - (last_item_row + 1)) <= 1);
     }
 
     #[test]
