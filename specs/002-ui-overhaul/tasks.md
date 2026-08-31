@@ -329,6 +329,16 @@ Review: after the phase.
 
 ---
 
+- [x] **T010a — Fix overlay crash at minimum terminal height**
+  *(found during the T010 acceptance audit)* `clear_overlay_box`
+  raw-indexed the frame while the border and content were already
+  clip-safe. At the minimum height the self-sized How to Play box (16
+  lines → 24 rows) centered to `y1 = 24`, one past the last valid row,
+  so opening it panicked (`index out of bounds: len 24, index 24`) —
+  violating the no-panic criterion and DECISIONS.md's no-crashes bar.
+  Made `clear_overlay_box` clip-safe. Verified: How to Play opens and
+  closes at 89x24 without panic (box clips gracefully).
+
 ## Handoff note
 
 Read `CLAUDE.md`, `design/brief.md`, then this spec's `spec.md`,

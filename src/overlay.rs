@@ -58,18 +58,18 @@ impl Overlay {
         }
     }
 
-    /// Clear any existing chars from the overlay box
-    ///
+    /// Clear any existing chars from the overlay box. Clip-safe: a box
+    /// sized larger than the terminal (e.g. a tall overlay at the minimum
+    /// height) is clipped rather than panicking on an out-of-bounds write.
     fn clear_overlay_box(&self, layout: OverlayLayout, frame: &mut Frame) {
-        // get box corners
-        let x0 = layout.outer.x0;
-        let x1 = layout.outer.x1;
-        let y0 = layout.outer.y0;
-        let y1 = layout.outer.y1;
+        let w = frame.len();
+        let h = frame.first().map_or(0, Vec::len);
 
-        (x0..=x1).for_each(|x| {
-            (y0..=y1).for_each(|y| {
-                frame[x][y].ch = ' ';
+        (layout.outer.x0..=layout.outer.x1).for_each(|x| {
+            (layout.outer.y0..=layout.outer.y1).for_each(|y| {
+                if x < w && y < h {
+                    frame[x][y].ch = ' ';
+                }
             });
         });
     }
