@@ -199,6 +199,21 @@ pub fn draw_ghost_slot(frame: &mut Frame, rect: Rect) {
     put(frame, rect.x1, rect.y1, '┘', Emphasis::Muted);
 }
 
+/// Blank a rectangular region back to default cells (space, Normal).
+/// Clip-safe. Clears the ground under a popup/overlay so the content
+/// behind it doesn't show through — resetting emphasis too, so no stray
+/// attribute is left on a blanked cell.
+pub fn clear_rect(frame: &mut Frame, rect: Rect) {
+    let (w, h) = dims(frame);
+    for x in rect.x0..=rect.x1 {
+        for y in rect.y0..=rect.y1 {
+            if x < w && y < h {
+                frame[x][y] = Cell::default();
+            }
+        }
+    }
+}
+
 /// Shared perimeter drawer: corners drawn last so they win at overlaps.
 fn draw_box_glyphs(frame: &mut Frame, rect: Rect, g: BoxGlyphs, emphasis: Emphasis) {
     for x in rect.x0..=rect.x1 {
@@ -385,5 +400,24 @@ mod tests {
         let mut f = blank(3, 3);
         draw_ghost_slot(&mut f, Rect::new(0, 10, 0, 10));
         assert_eq!(f[0][0].ch, '┌'); // corner placed, rest clipped, no panic
+    }
+
+    #[test]
+    fn clear_rect_blanks_region_to_default_cells() {
+        let mut f = blank(6, 5);
+        draw_box(&mut f, Rect::new(1, 4, 1, 3), BorderWeight::Heavy, Emphasis::Alert);
+        clear_rect(&mut f, Rect::new(1, 4, 1, 3));
+        for x in 1..=4 {
+            for y in 1..=3 {
+                assert_eq!(f[x][y], Cell::default()); // ch and emphasis both reset
+            }
+        }
+    }
+
+    #[test]
+    fn clear_rect_out_of_bounds_is_a_noop_not_a_panic() {
+        let mut f = blank(3, 3);
+        clear_rect(&mut f, Rect::new(0, 10, 0, 10)); // clips, no panic
+        clear_rect(&mut Vec::new(), Rect::new(0, 0, 0, 0)); // empty frame
     }
 }

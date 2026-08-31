@@ -1,4 +1,4 @@
-use crate::{config::Config, frame::{Align, BorderWeight, Emphasis, Frame, draw_box, draw_text_in}, layout::OverlayLayout};
+use crate::{config::Config, frame::{Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text_in}, layout::OverlayLayout};
 
 #[derive(Debug, Copy, Clone)]
 pub enum OverlayKind {
@@ -58,22 +58,6 @@ impl Overlay {
         }
     }
 
-    /// Clear any existing chars from the overlay box. Clip-safe: a box
-    /// sized larger than the terminal (e.g. a tall overlay at the minimum
-    /// height) is clipped rather than panicking on an out-of-bounds write.
-    fn clear_overlay_box(&self, layout: OverlayLayout, frame: &mut Frame) {
-        let w = frame.len();
-        let h = frame.first().map_or(0, Vec::len);
-
-        (layout.outer.x0..=layout.outer.x1).for_each(|x| {
-            (layout.outer.y0..=layout.outer.y1).for_each(|y| {
-                if x < w && y < h {
-                    frame[x][y].ch = ' ';
-                }
-            });
-        });
-    }
-
     /// Draw border helper
     ///
     fn draw_border(&self, layout: OverlayLayout, frame: &mut Frame) {
@@ -86,7 +70,7 @@ impl Overlay {
         let (width, height) = measure(content);
         let layout = OverlayLayout::new(self.config, width, height);
 
-        self.clear_overlay_box(layout, frame);
+        clear_rect(frame, layout.outer);
         self.draw_border(layout, frame);
         self.add_content(content, layout, frame);
     }

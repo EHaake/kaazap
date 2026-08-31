@@ -3,7 +3,7 @@ use crate::{
     app::HandCursor,
     card::{Card, CardView},
     config::Config,
-    frame::{Align, BorderWeight, Drawable, Emphasis, Frame, draw_ghost_slot, draw_text, draw_text_in},
+    frame::{Align, BorderWeight, Drawable, Emphasis, Frame, clear_rect, draw_box, draw_ghost_slot, draw_text, draw_text_in},
     game::{GamePhase, GameState, RoundOutcome},
     layout::{BoardLayout, GRID_COLS, Rect, SideLayout, card_slot},
     player::{Player, PlayerState},
@@ -25,41 +25,59 @@ impl BoardView {
     }
 
 
-    /// Draw round/game outcome text in the middle of screen
-    ///
+    /// Draw the round/game outcome as a bordered popup centered on the
+    /// board — nothing to draw mid-play.
     fn draw_round_outcome_text(&self, state: &GameState, frame: &mut Frame) {
-        let mid_x = self.config.num_cols / 2;
-        let mid_y = self.config.num_rows / 2;
+        let (title, hint) = match state.game_phase {
+            GamePhase::GameOver { winner } => match winner {
+                Player::Player => ("YOU WIN THE GAME! :)", "g: new game · x: menu"),
+                Player::Opponent => ("YOU LOST THE GAME! :(", "g: new game · x: menu"),
+            },
+            // Round outcome shows during AwaitingNextRound, when n advances
+            _ => match state.round_outcome {
+                Some(RoundOutcome::PlayerWon) => ("You won this round!", "n: next round"),
+                Some(RoundOutcome::Tied) => ("You tied!", "n: next round"),
+                Some(RoundOutcome::OpponentWon) => ("Opponent won the round!", "n: next round"),
+                None => return,
+            },
+        };
 
-        if let GamePhase::GameOver { winner } = state.game_phase {
-            match winner {
-                Player::Player => {
-                    draw_text(frame, mid_x - 9, mid_y, "YOU WIN THE GAME! :)", Emphasis::Alert);
-                }
-                Player::Opponent => {
-                    draw_text(frame, mid_x - 9, mid_y, "YOU LOST THE GAME! :(", Emphasis::Alert);
-                }
-            }
-            draw_text(frame, mid_x - 11, mid_y + 2, "(g: new game, x: menu)", Emphasis::Muted);
+        self.draw_popup(
+            &[(title, Emphasis::Alert), ("", Emphasis::Normal), (hint, Emphasis::Muted)],
+            frame,
+        );
+    }
 
-            return;
+    /// Draw a small bordered popup centered on the board: clear the ground
+    /// behind it, frame it, and center each line with its own emphasis, so
+    /// a message sits above the board instead of overlaying the cards.
+    fn draw_popup(&self, lines: &[(&str, Emphasis)], frame: &mut Frame) {
+        const PAD_X: usize = 3;
+        const PAD_Y: usize = 1;
+        let (cols, rows) = (self.config.num_cols, self.config.num_rows);
+
+        let content_w = lines.iter().map(|(t, _)| t.chars().count()).max().unwrap_or(0);
+        let box_w = content_w + 2 * PAD_X + 2; // + left/right borders
+        let box_h = lines.len() + 2 * PAD_Y + 2; // + top/bottom borders
+
+        // Center on the board: its divider, and the middle of header..hand.
+        let cx = self.layout.divider_x;
+        let cy = (self.layout.player.header.y0 + self.layout.player.hand.y1) / 2;
+        let x0 = cx.saturating_sub(box_w / 2);
+        let y0 = cy.saturating_sub(box_h / 2);
+        let x1 = (x0 + box_w.saturating_sub(1)).min(cols.saturating_sub(1));
+        let y1 = (y0 + box_h.saturating_sub(1)).min(rows.saturating_sub(1));
+        let outer = Rect::new(x0, x1, y0, y1);
+
+        clear_rect(frame, outer);
+        draw_box(frame, outer, BorderWeight::Single, Emphasis::Normal);
+
+        // Lines start below the top border + vertical pad, centered across
+        // the full interior so the horizontal padding stays symmetric.
+        let inner = Rect::new(x0 + 1, x1.saturating_sub(1), y0 + 1 + PAD_Y, y1);
+        for (i, (text, emphasis)) in lines.iter().enumerate() {
+            draw_text_in(frame, inner, i, Align::Center, text, *emphasis);
         }
-
-        // Round outcome only renders during AwaitingNextRound, which is
-        // exactly when n is the key that advances
-        match state.round_outcome {
-            Some(RoundOutcome::PlayerWon) => {
-                draw_text(frame, mid_x - 9, mid_y, "You won this round!", Emphasis::Alert);
-            }
-            Some(RoundOutcome::Tied) => {
-                draw_text(frame, mid_x - 4, mid_y, "You Tied!", Emphasis::Alert);
-            }
-            Some(RoundOutcome::OpponentWon) => {
-                draw_text(frame, mid_x - 11, mid_y, "Opponent won the round!", Emphasis::Alert);
-            }
-            None => return,
-        }
-        draw_text(frame, mid_x - 7, mid_y + 2, "(n: next round)", Emphasis::Muted);
     }
 
     /// The two status lines for the current state: an optional over-20

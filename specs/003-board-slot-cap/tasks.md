@@ -208,6 +208,17 @@ Review: after every task.
   `BOARD_BLOCK_HEIGHT` and the minimum terminal height 30 → 31. Verified
   in-terminal. 128 tests pass, 0 warnings.*
 
+- [x] **T005c — Round/game outcome in a bordered popup**
+  *(human-requested: the outcome text overlaid the cards awkwardly.)* The
+  round and game-over text now render in a small single-bordered popup
+  centered on the board (`draw_popup`): it clears its own footprint so the
+  board shows around it, not through it, with the outcome (Alert) over a
+  blank line over the advance hint (Muted). Added a shared clip-safe
+  `frame::clear_rect` for the clear and deduped `overlay.rs`'s own clear
+  onto it (which also now resets emphasis, not just the char). Verified
+  in-terminal for a round loss and a game over. 130 tests pass (+2
+  clear_rect), 0 warnings.*
+
 ## Phase 3 — Acceptance
 
 Review: after the phase.
