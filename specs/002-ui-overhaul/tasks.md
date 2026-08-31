@@ -323,7 +323,13 @@ Review: after the phase.
 
 Review: after the phase.
 
-- [ ] **T010 — Acceptance sweep + skeptical review**
+- [x] **T010 — Acceptance sweep + skeptical review**
+  *All spec.md acceptance boxes ticked with evidence (0 warnings, 115
+  tests, no color codes, box-drawing, arrows-only + keys-only rounds,
+  resize recovery, How to Play). Skeptical-reviewer run over the branch;
+  findings triaged and fixed in T010a/T010b (overlay crash + geometry
+  underflow) with the rest deferred/left with recorded rationale. PR
+  ready to mark non-draft — human's call.*
   Walk every spec.md acceptance box with evidence: full build (no new
   warnings vs `main`), full test suite, a complete game played with
   arrows-only and another with direct-keys-only, the no-color check
