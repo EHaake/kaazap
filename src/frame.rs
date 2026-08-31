@@ -72,11 +72,14 @@ pub enum Align {
 }
 
 /// Border line weight. Single is the default chrome everywhere; Heavy
-/// is reserved for cursor selection (design/brief.md).
+/// is reserved for cursor selection; Double marks a played side card on
+/// the board grid (dealer draws stay Single) — three distinct weights,
+/// three distinct meanings (design/brief.md, spec 003).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BorderWeight {
     Single,
     Heavy,
+    Double,
 }
 
 /// The six box-drawing glyphs a border needs.
@@ -107,6 +110,14 @@ impl BorderWeight {
                 tr: '┓',
                 bl: '┗',
                 br: '┛',
+            },
+            BorderWeight::Double => BoxGlyphs {
+                horiz: '═',
+                vert: '║',
+                tl: '╔',
+                tr: '╗',
+                bl: '╚',
+                br: '╝',
             },
         }
     }
@@ -175,8 +186,26 @@ pub fn draw_text_in(
 /// Draw a border box on `rect`'s perimeter with the given weight and
 /// emphasis. Perimeter only — interior is the caller's to fill. Clip-safe.
 pub fn draw_box(frame: &mut Frame, rect: Rect, weight: BorderWeight, emphasis: Emphasis) {
-    let g = weight.glyphs();
+    draw_box_glyphs(frame, rect, weight.glyphs(), emphasis);
+}
 
+/// Draw an empty grid slot as a dim, dashed placeholder — the reserved-
+/// but-unfilled slots in the board grid. Solid corners, dashed edges,
+/// always Muted so it reads as an absent slot, not a card. Clip-safe.
+pub fn draw_ghost_slot(frame: &mut Frame, rect: Rect) {
+    let dashed = BoxGlyphs {
+        horiz: '╌',
+        vert: '╎',
+        tl: '┌',
+        tr: '┐',
+        bl: '└',
+        br: '┘',
+    };
+    draw_box_glyphs(frame, rect, dashed, Emphasis::Muted);
+}
+
+/// Shared perimeter drawer: corners drawn last so they win at overlaps.
+fn draw_box_glyphs(frame: &mut Frame, rect: Rect, g: BoxGlyphs, emphasis: Emphasis) {
     for x in rect.x0..=rect.x1 {
         put(frame, x, rect.y0, g.horiz, emphasis);
         put(frame, x, rect.y1, g.horiz, emphasis);
@@ -325,5 +354,43 @@ mod tests {
         draw_box(&mut f, Rect::new(0, 10, 0, 10), BorderWeight::Single, Emphasis::Normal);
         // top-left corner still placed; the rest that fit; no panic
         assert_eq!(f[0][0].ch, '┌');
+    }
+
+    #[test]
+    fn box_double_weight_uses_double_glyphs_and_carries_emphasis() {
+        let mut f = blank(6, 5);
+        draw_box(&mut f, Rect::new(0, 3, 0, 2), BorderWeight::Double, Emphasis::Strong);
+        assert_eq!(f[0][0].ch, '╔');
+        assert_eq!(f[3][0].ch, '╗');
+        assert_eq!(f[0][2].ch, '╚');
+        assert_eq!(f[3][2].ch, '╝');
+        assert_eq!(f[1][0].ch, '═'); // top edge
+        assert_eq!(f[0][1].ch, '║'); // left edge
+        assert_eq!(f[0][0].emphasis, Emphasis::Strong);
+    }
+
+    #[test]
+    fn ghost_slot_draws_dashed_muted_outline() {
+        let mut f = blank(6, 5);
+        draw_ghost_slot(&mut f, Rect::new(1, 4, 1, 3));
+        // Solid corners so the slot still reads as a rectangle
+        assert_eq!(f[1][1].ch, '┌');
+        assert_eq!(f[4][1].ch, '┐');
+        assert_eq!(f[1][3].ch, '└');
+        assert_eq!(f[4][3].ch, '┘');
+        // Dashed edges
+        assert_eq!(f[2][1].ch, '╌'); // top edge
+        assert_eq!(f[1][2].ch, '╎'); // left edge
+        // Always Muted, and the interior stays empty
+        assert_eq!(f[1][1].emphasis, Emphasis::Muted);
+        assert_eq!(f[2][1].emphasis, Emphasis::Muted);
+        assert_eq!(f[2][2].ch, ' ');
+    }
+
+    #[test]
+    fn ghost_slot_exceeding_bounds_clips_without_panic() {
+        let mut f = blank(3, 3);
+        draw_ghost_slot(&mut f, Rect::new(0, 10, 0, 10));
+        assert_eq!(f[0][0].ch, '┌'); // corner placed, rest clipped, no panic
     }
 }

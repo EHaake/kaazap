@@ -86,7 +86,16 @@ Review: after every task.
 
 Review: after every task.
 
-- [ ] **T003 — Frame: double border weight + ghost slot**
+- [x] **T003 — Frame: double border weight + ghost slot**
+  *Done. `BorderWeight::Double` (`╔═╗ ║ ╚═╝`) added; the perimeter loop
+  extracted to a private `draw_box_glyphs` so `draw_box` and the new
+  `draw_ghost_slot` share it. `draw_ghost_slot` draws solid corners with
+  dashed `╌`/`╎` edges, always `Muted`, clip-safe. Three tests (double
+  glyphs + emphasis; ghost dashed/muted/interior-empty; ghost clips off-
+  frame). 126 tests pass (+3), 0 warnings. Additive only — nothing draws
+  them yet, so the definitive in-terminal font eyeball happens in T005
+  where they first render on the board (spec-002 precedent); dim `Single`
+  is the ready ghost fallback if the dashes read poorly there.*
   `frame.rs`: add `BorderWeight::Double`; teach `draw_box` the
   `╔ ═ ╗ ║ ╚ ╝` glyph set (dealer stays `Single`, the hand's selected
   card stays `Heavy` — three distinct weights, no collision). Add
