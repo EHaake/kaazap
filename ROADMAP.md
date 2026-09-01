@@ -31,6 +31,16 @@ of, not guessed at here in advance.
   short-terminal dealer-overflow artifact spec 002's review surfaced.
   First engine-touching spec since 001; the cap + auto-stand reuse the
   existing stand/resolve path, no new phase.
+- **Audio & settings** (spec 004) — looping background music and generated
+  retro sound effects via `rodio` (which replaced the unused `rusty_audio`
+  dependency), gated by user preference. A **Settings** overlay over the
+  start menu (per-channel Music/SFX volume sliders) and a global `m` mute,
+  with preferences persisted to a JSON config file — the first slice of the
+  save/persistence layer. The bundled track (Kevin MacLeod's CC-BY "Chipper
+  Doodle") is a licensed placeholder; SFX are synthesized by
+  `scripts/gen_sfx.py`, so nothing carries third-party encumbrance. The
+  engine stays audio-free — SFX are derived at the app layer by diffing
+  game state. An original cantina-vibe track is a follow-up (below).
 
 ## Backlog
 
@@ -42,9 +52,6 @@ of, not guessed at here in advance.
 - **Save/resume persistence** — full mid-game save/resume, plus
   persisting campaign progress, currency, and unlocked cards between
   sessions.
-- **Sound** — wire up the already-present `rusty_audio` dependency.
-- **Settings screen** — volume and any other runtime-configurable options
-  that come out of the above.
 - **Full side-deck customization** — collecting/building your own 10-card
   side deck, KOTOR-vendor style. Explicitly deferred out of v1 in favor
   of a simple default deck; revisit once the core campaign loop exists.
