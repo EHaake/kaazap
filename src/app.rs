@@ -4,13 +4,13 @@ use crossterm::event::KeyCode;
 
 use crate::{
     SELECTION_PULSE_MS,
-    audio::Audio,
+    audio::{Audio, AudioSnapshot, Sfx, audio_cues},
     board::BoardView,
     card::Card,
     config::Config,
     frame::{Emphasis, Frame, draw_text},
     game::{GameAction, GamePhase, GameState},
-    menu::{MenuEvent, MenuItem, MenuState},
+    menu::{MenuAction, MenuEvent, MenuItem, MenuState},
     overlay::{Overlay, OverlayKind},
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
@@ -205,6 +205,9 @@ pub struct App {
     pulse: SelectionPulse,
     settings: Settings,
     audio: Audio,
+    // The last in-game audio snapshot; the next one is diffed against it to
+    // decide which SFX to play. None outside a game.
+    prev_audio: Option<AudioSnapshot>,
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
@@ -223,8 +226,25 @@ impl App {
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
+            prev_audio: None,
             too_small: None,
         }
+    }
+
+    /// Play the SFX for whatever just changed in the game, by diffing the
+    /// current state against the previous snapshot. A no-op outside a game.
+    /// The engine never makes a sound; this observes it from the outside.
+    fn emit_audio_cues(&mut self) {
+        let curr = match &self.screen {
+            Screen::InGame { game_state, .. } => AudioSnapshot::of(game_state),
+            _ => return,
+        };
+        if let Some(prev) = self.prev_audio {
+            for sfx in audio_cues(prev, curr) {
+                self.audio.play(sfx);
+            }
+        }
+        self.prev_audio = Some(curr);
     }
 
     /// Open the audio device. Called once from the game loop *after* the
@@ -263,6 +283,12 @@ impl App {
             return;
         }
 
+        // Global mute — works on every screen and under an overlay.
+        if key == KeyCode::Char('m') {
+            self.audio.toggle_mute();
+            return;
+        }
+
         if self.overlay.is_some() {
             // Any overlay is dismissed with ?, Esc, Enter, or Space — the
             // last so How to Play (opened from the menu with Space) closes
@@ -293,10 +319,15 @@ impl App {
             match &mut self.screen {
                 // Route the Menu inputs only to Menu
                 Screen::StartMenu { menu_state } => {
-                    if let Some(menu_action) = menu_state.handle_menu_input(key)
-                        && let Some(menu_event) = menu_state.apply_menu_action(menu_action)
-                    {
-                        self.apply_menu_event(menu_event);
+                    if let Some(menu_action) = menu_state.handle_menu_input(key) {
+                        let event = menu_state.apply_menu_action(menu_action);
+                        self.audio.play(match menu_action {
+                            MenuAction::Select => Sfx::MenuSelect,
+                            _ => Sfx::MenuMove,
+                        });
+                        if let Some(menu_event) = event {
+                            self.apply_menu_event(menu_event);
+                        }
                     }
                 }
 
@@ -333,8 +364,14 @@ impl App {
                 Screen::Settings { settings_state } => {
                     if let Some(action) = settings_state.handle_input(key) {
                         match action {
-                            SettingsAction::Up => settings_state.move_up(),
-                            SettingsAction::Down => settings_state.move_down(),
+                            SettingsAction::Up => {
+                                settings_state.move_up();
+                                self.audio.play(Sfx::MenuMove);
+                            }
+                            SettingsAction::Down => {
+                                settings_state.move_down();
+                                self.audio.play(Sfx::MenuMove);
+                            }
                             SettingsAction::Toggle => {
                                 match settings_state.selected() {
                                     SettingRow::Music => self.settings.music = !self.settings.music,
@@ -342,6 +379,9 @@ impl App {
                                 }
                                 self.audio.set_settings(self.settings);
                                 self.settings.save();
+                                // After set_settings, so turning SFX off
+                                // correctly silences its own confirm sound.
+                                self.audio.play(Sfx::MenuSelect);
                             }
                             SettingsAction::Back => {
                                 self.screen = Screen::StartMenu {
@@ -353,6 +393,9 @@ impl App {
                 }
             }
         }
+
+        // After any input, sound whatever just changed in the game.
+        self.emit_audio_cues();
     }
 
     /// MenuEvent will contain one of the screens to switch to
@@ -366,6 +409,9 @@ impl App {
                     game_state: Box::new(GameState::new()),
                     cursor: HandCursor::default(),
                 };
+                // Fresh game — the first snapshot seeds silently, so the
+                // empty starting board plays no cues.
+                self.prev_audio = None;
             }
             MenuItem::HowToPlay => {
                 self.overlay = Some(Overlay::new(OverlayKind::HowToPlay, self.config));
@@ -387,6 +433,10 @@ impl App {
         if let Screen::InGame { game_state, .. } = &mut self.screen {
             game_state.update();
         }
+
+        // Sound the opponent's moves and round/game resolutions, which
+        // happen here in the update rather than from a player keypress.
+        self.emit_audio_cues();
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {

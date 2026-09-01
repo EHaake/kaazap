@@ -201,7 +201,20 @@ Review: after the phase.
 
 Review: after the phase.
 
-- [ ] **T007 — Global mute + in-game audio cues**
+- [x] **T007 — Global mute + in-game audio cues**
+  *Done. `App` intercepts `m` before per-screen routing → `audio.toggle_mute`
+  (works on every screen and under an overlay). `App` keeps
+  `prev_audio: Option<AudioSnapshot>` and calls `emit_audio_cues` after
+  every input (`handle_key`) and every `tick` update — diffing the snapshot
+  and playing `audio_cues`, so both the player's and the opponent's moves
+  (and round/game resolutions from `update`) sound. `prev_audio` resets to
+  None on a fresh game so the empty starting board is silent. Menu and
+  settings navigation play `MenuMove`/`MenuSelect` (the settings toggle
+  sound comes after `set_settings`, so muting SFX silences its own
+  confirm). Disjoint-field borrows kept it inside the existing match arms.
+  Smoke-tested: a full round plays to the outcome popup with SFX firing in
+  the pty, stable. By-ear verification (do they sound right, does `m`
+  silence) is the human's. Engine untouched. 147 tests pass, 0 warnings.*
   `App` intercepts `m` **before** per-screen routing (global mute on every
   screen → `audio.toggle_mute`). `App` keeps `prev_audio: AudioSnapshot`
   and, after every state-changing step (a player action in `handle_key`,
