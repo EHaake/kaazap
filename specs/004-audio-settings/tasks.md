@@ -249,7 +249,7 @@ Review: after the phase.
 
 Review: after the phase.
 
-- [ ] **T008 — Music track, credits, README, acceptance sweep + review**
+- [x] **T008 — Music track, credits, README, acceptance sweep + review**
   *In progress. **Music:** human chose (from sourced, license-verified
   candidates) Kevin MacLeod's CC-BY "Chipper Doodle" — bundled as
   `assets/music/theme.mp3` (MUSIC_PATH updated; MP3 is a default rodio
@@ -269,9 +269,9 @@ Review: after the phase.
   embedded via `include_bytes!` (was cwd-relative → silent outside repo
   root), cold-start SFX backlog drained (no barrage), dead `rusty_audio`
   stubs removed from `main.rs`, `Option<Sender>` simplified, and plan/spec
-  docs reconciled to the shipped types. Remaining: fold the ROADMAP
-  "Shipped" entry + drop the stale `rusty_audio`/Settings backlog lines,
-  and mark the PR ready — both on the human's word.*
+  docs reconciled to the shipped types. Close-out (on the human's word):
+  ROADMAP folded (spec 004 → Shipped, stale `rusty_audio`/Settings backlog
+  lines dropped), PR marked ready and merged.*
   Source a **CC0 / royalty-free chiptune** track (spacey-cantina feel),
   **verify its license**, and present a couple of candidates for the
   human to pick; drop the chosen one into `assets/music/` and confirm it
@@ -333,6 +333,13 @@ Review: after the phase.
   *Verify: `cargo test` green (148); 0 new warnings; engine untouched;
   driver snapshots show the overlay open, a slider adjusting, and the menu
   selection preserved on close.*
+  *Skeptical-review of T010: YELLOW → GREEN after fixes. Code verified sound
+  (modal priority, `unwrap` safety, `draw_overlay` on min terminals, no dead
+  code, constitution amendment coherent). Fixed: a `plan.md` self-contradiction
+  that still showed `Screen::Settings` (`35b7566`); dismiss-key parity —
+  Settings now closes on Enter/Space too, like How to Play, with a test
+  (`316a6ed`); and the panel title emphasis matched to the other overlays
+  (`Normal`) for consistency. `cargo test` 149 pass.*
 
 ---
 

@@ -180,7 +180,9 @@ impl SettingsState {
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
 
-        draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Strong);
+        // Title emphasis matches the other overlays (How to Play, `?` help),
+        // which draw their centered title line `Normal`.
+        draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Normal);
         for (i, (row, _, _)) in rows.iter().enumerate() {
             let emphasis = if self.selected == *row { pulse } else { Emphasis::Normal };
             draw_text_in(frame, layout.inner, 2 + i, Align::Center, &row_texts[i], emphasis);
