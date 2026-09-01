@@ -240,8 +240,8 @@ impl App {
             _ => return,
         };
         if let Some(prev) = self.prev_audio {
-            for sfx in audio_cues(prev, curr) {
-                self.audio.play(sfx);
+            for cue in audio_cues(prev, curr) {
+                self.audio.play_cue(cue);
             }
         }
         self.prev_audio = Some(curr);

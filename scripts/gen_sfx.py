@@ -102,6 +102,8 @@ def main():
         "bust": mix(sweep(300, 90, 0.35, 0.5), noise(0.35, 0.15)),
         "round_win": arpeggio([C5, E5, G5], 0.07, 0.45),
         "round_loss": arpeggio([G4, E4, C4], 0.09, 0.45),
+        # A tie: up-down-back-to-start, so it resolves nowhere ("even").
+        "round_tie": arpeggio([E5, C5, E5], 0.07, 0.42),
         "game_win": arpeggio([C5, E5, G5, C6, E6], 0.09, 0.5),
         "game_loss": arpeggio([G4, E4, C4, A3], 0.13, 0.5),
         "menu_move": tone(660, 0.04, 0.3, triangle),

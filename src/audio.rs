@@ -8,7 +8,7 @@ use std::io::{BufReader, Cursor};
 use std::sync::mpsc;
 use std::thread;
 
-use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
+use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player, Source};
 
 use crate::{
     card::Card,
@@ -28,6 +28,7 @@ pub enum Sfx {
     Bust,
     RoundWin,
     RoundLoss,
+    RoundTie,
     GameWin,
     GameLoss,
     MenuMove,
@@ -45,6 +46,7 @@ impl Sfx {
             Sfx::Bust => include_bytes!("../assets/sfx/bust.wav"),
             Sfx::RoundWin => include_bytes!("../assets/sfx/round_win.wav"),
             Sfx::RoundLoss => include_bytes!("../assets/sfx/round_loss.wav"),
+            Sfx::RoundTie => include_bytes!("../assets/sfx/round_tie.wav"),
             Sfx::GameWin => include_bytes!("../assets/sfx/game_win.wav"),
             Sfx::GameLoss => include_bytes!("../assets/sfx/game_loss.wav"),
             Sfx::MenuMove => include_bytes!("../assets/sfx/menu_move.wav"),
@@ -61,7 +63,7 @@ const MUSIC_PATH: &str = "assets/music/theme.ogg";
 /// Commands the main thread sends to the audio thread. Everything the game
 /// does audibly becomes one of these; sending is non-blocking.
 enum AudioCommand {
-    PlaySfx(Sfx),
+    PlaySfx { sfx: Sfx, pitch: f32 },
     SetSettings(Settings),
     ToggleMute,
 }
@@ -116,9 +118,14 @@ impl Audio {
         Self { tx: Some(tx) }
     }
 
-    /// Play a one-shot effect.
+    /// Play a one-shot effect at normal pitch (menu/settings clicks).
     pub fn play(&self, sfx: Sfx) {
-        self.send(AudioCommand::PlaySfx(sfx));
+        self.send(AudioCommand::PlaySfx { sfx, pitch: 1.0 });
+    }
+
+    /// Play an in-game cue — an SFX with its per-side pitch.
+    pub fn play_cue(&self, cue: Cue) {
+        self.send(AudioCommand::PlaySfx { sfx: cue.sfx, pitch: cue.pitch });
     }
 
     /// Adopt new settings (the Music/SFX toggles) and reconcile music.
@@ -149,7 +156,7 @@ fn audio_thread(rx: mpsc::Receiver<AudioCommand>, settings: Settings) {
     state.apply_music();
     while let Ok(cmd) = rx.recv() {
         match cmd {
-            AudioCommand::PlaySfx(sfx) => state.play(sfx),
+            AudioCommand::PlaySfx { sfx, pitch } => state.play(sfx, pitch),
             AudioCommand::SetSettings(s) => {
                 state.settings = s;
                 state.apply_music();
@@ -173,13 +180,14 @@ struct AudioState {
 }
 
 impl AudioState {
-    fn play(&self, sfx: Sfx) {
+    fn play(&self, sfx: Sfx, pitch: f32) {
         if !should_play_sfx(self.muted, self.settings) {
             return;
         }
         let Some(backend) = &self.backend else { return };
         if let Ok(source) = Decoder::new(Cursor::new(sfx.bytes())) {
-            backend.sink.mixer().add(source);
+            // `speed` changes playback rate and thus pitch (1.0 = normal).
+            backend.sink.mixer().add(source.speed(pitch));
         }
     }
 
@@ -206,6 +214,19 @@ fn should_play_sfx(muted: bool, settings: Settings) -> bool {
 fn should_music_sound(muted: bool, settings: Settings) -> bool {
     !muted && settings.music
 }
+
+/// A SFX plus a playback-speed factor (1.0 = normal). Speeding a clip up
+/// or down shifts its pitch, so the opponent's actions can sound a touch
+/// lower than the player's — telling the two apart by ear.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Cue {
+    pub sfx: Sfx,
+    pub pitch: f32,
+}
+
+/// How much lower the opponent's action sounds play than the player's.
+/// Subtle on purpose — "very similar but slightly different." Easy to tune.
+pub const OPPONENT_PITCH: f32 = 0.92;
 
 /// A minimal snapshot of the game state's audible facts, for both sides.
 /// `App` diffs successive snapshots to decide which SFX to play — the
@@ -258,11 +279,14 @@ impl AudioSnapshot {
 /// truth table is unit-tested with no audio device. Covers both sides (so
 /// the opponent's moves are heard); a bust suppresses that side's stand,
 /// and a game-over replaces the round outcome cue.
-pub fn audio_cues(prev: AudioSnapshot, curr: AudioSnapshot) -> Vec<Sfx> {
+pub fn audio_cues(prev: AudioSnapshot, curr: AudioSnapshot) -> Vec<Cue> {
     let mut cues = Vec::new();
 
+    // (pitch, dealer_up, played_up, last_flip, bust_new, stood_new) — the
+    // player at normal pitch, the opponent a touch lower.
     let per_side = [
         (
+            1.0,
             curr.p_dealer > prev.p_dealer,
             curr.p_played > prev.p_played,
             curr.p_last_flip,
@@ -270,6 +294,7 @@ pub fn audio_cues(prev: AudioSnapshot, curr: AudioSnapshot) -> Vec<Sfx> {
             curr.p_stood && !prev.p_stood,
         ),
         (
+            OPPONENT_PITCH,
             curr.o_dealer > prev.o_dealer,
             curr.o_played > prev.o_played,
             curr.o_last_flip,
@@ -277,32 +302,36 @@ pub fn audio_cues(prev: AudioSnapshot, curr: AudioSnapshot) -> Vec<Sfx> {
             curr.o_stood && !prev.o_stood,
         ),
     ];
-    for (dealer_up, played_up, last_flip, bust_new, stood_new) in per_side {
+    for (pitch, dealer_up, played_up, last_flip, bust_new, stood_new) in per_side {
         if dealer_up {
-            cues.push(Sfx::CardDraw);
+            cues.push(Cue { sfx: Sfx::CardDraw, pitch });
         }
         if played_up {
-            cues.push(if last_flip { Sfx::Flip } else { Sfx::CardPlay });
+            let sfx = if last_flip { Sfx::Flip } else { Sfx::CardPlay };
+            cues.push(Cue { sfx, pitch });
         }
         if bust_new {
-            cues.push(Sfx::Bust); // bust suppresses this side's stand
+            cues.push(Cue { sfx: Sfx::Bust, pitch }); // bust suppresses this side's stand
         } else if stood_new {
-            cues.push(Sfx::Stand);
+            cues.push(Cue { sfx: Sfx::Stand, pitch });
         }
     }
 
-    if curr.game_over && !prev.game_over {
-        cues.push(if curr.player_won_game {
-            Sfx::GameWin
-        } else {
-            Sfx::GameLoss
-        });
+    // Outcomes are from the player's perspective — no per-side pitch. A
+    // game-over replaces the round cue; a tie now has its own sound.
+    let outcome = if curr.game_over && !prev.game_over {
+        Some(if curr.player_won_game { Sfx::GameWin } else { Sfx::GameLoss })
     } else if curr.outcome.is_some() && prev.outcome.is_none() {
-        match curr.outcome {
-            Some(RoundOutcome::PlayerWon) => cues.push(Sfx::RoundWin),
-            Some(RoundOutcome::OpponentWon) => cues.push(Sfx::RoundLoss),
-            _ => {} // a tie is silent
-        }
+        Some(match curr.outcome {
+            Some(RoundOutcome::PlayerWon) => Sfx::RoundWin,
+            Some(RoundOutcome::OpponentWon) => Sfx::RoundLoss,
+            _ => Sfx::RoundTie,
+        })
+    } else {
+        None
+    };
+    if let Some(sfx) = outcome {
+        cues.push(Cue { sfx, pitch: 1.0 });
     }
 
     cues
@@ -342,28 +371,37 @@ mod tests {
         assert!(!should_music_sound(false, Settings { music: false, sfx: true }));
     }
 
+    // A player cue (normal pitch) and an opponent cue (lower pitch).
+    fn pc(sfx: Sfx) -> Cue {
+        Cue { sfx, pitch: 1.0 }
+    }
+    fn oc(sfx: Sfx) -> Cue {
+        Cue { sfx, pitch: OPPONENT_PITCH }
+    }
+
     #[test]
     fn cues_no_change_is_silent() {
         assert!(audio_cues(base(), base()).is_empty());
     }
 
     #[test]
-    fn cues_draw_and_play_for_either_side() {
+    fn cues_draw_and_play_pitched_by_side() {
         let mut c = base();
         c.p_dealer = 1;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::CardDraw]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::CardDraw)]);
 
+        // The opponent's action is the same sound, a touch lower.
         let mut c = base();
         c.o_dealer = 1;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::CardDraw]);
+        assert_eq!(audio_cues(base(), c), vec![oc(Sfx::CardDraw)]);
 
         let mut c = base();
         c.p_played = 1;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::CardPlay]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::CardPlay)]);
 
         let mut c = base();
         c.o_played = 1;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::CardPlay]);
+        assert_eq!(audio_cues(base(), c), vec![oc(Sfx::CardPlay)]);
     }
 
     #[test]
@@ -371,35 +409,36 @@ mod tests {
         let mut c = base();
         c.p_played = 1;
         c.p_last_flip = true;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::Flip]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::Flip)]);
     }
 
     #[test]
     fn cues_stand_and_bust_suppresses_stand() {
         let mut c = base();
         c.p_stood = true;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::Stand]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::Stand)]);
 
         // Standing into a bust: only the bust sounds, not the stand.
         let mut c = base();
         c.p_stood = true;
         c.p_bust = true;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::Bust]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::Bust)]);
     }
 
     #[test]
-    fn cues_round_outcomes_and_tie_silence() {
+    fn cues_round_outcomes_include_a_distinct_tie() {
         let mut c = base();
         c.outcome = Some(RoundOutcome::PlayerWon);
-        assert_eq!(audio_cues(base(), c), vec![Sfx::RoundWin]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::RoundWin)]);
 
         let mut c = base();
         c.outcome = Some(RoundOutcome::OpponentWon);
-        assert_eq!(audio_cues(base(), c), vec![Sfx::RoundLoss]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::RoundLoss)]);
 
+        // A tie now has its own sound (it used to be silent).
         let mut c = base();
         c.outcome = Some(RoundOutcome::Tied);
-        assert!(audio_cues(base(), c).is_empty()); // tie is silent
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::RoundTie)]);
     }
 
     #[test]
@@ -410,13 +449,13 @@ mod tests {
         c.outcome = Some(RoundOutcome::PlayerWon);
         c.game_over = true;
         c.player_won_game = true;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::GameWin]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::GameWin)]);
 
         let mut c = base();
         c.outcome = Some(RoundOutcome::OpponentWon);
         c.game_over = true;
         c.player_won_game = false;
-        assert_eq!(audio_cues(base(), c), vec![Sfx::GameLoss]);
+        assert_eq!(audio_cues(base(), c), vec![pc(Sfx::GameLoss)]);
     }
 
     #[test]
@@ -426,6 +465,6 @@ mod tests {
         prev.outcome = Some(RoundOutcome::PlayerWon);
         let mut curr = prev;
         curr.p_dealer = 1; // some unrelated change
-        assert_eq!(audio_cues(prev, curr), vec![Sfx::CardDraw]);
+        assert_eq!(audio_cues(prev, curr), vec![pc(Sfx::CardDraw)]);
     }
 }
