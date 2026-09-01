@@ -184,6 +184,19 @@ Review: after the phase.
   starts/stops), the toggle persists across relaunch, Esc returns to the
   menu; `git diff main -- src/game.rs src/player.rs src/card.rs` empty.*
 
+- [x] **T006a — Fix startup blank: defer the audio device open past the first paint**
+  *(human-reported: blank screen at launch, "noticeably longer than
+  before".)* T006 opened the rodio device inside `App::new`, which runs
+  *before* the render thread and first paint in `main.rs` — so startup sat
+  on a blank alternate screen until device init finished (longer on some
+  machines). Split `Audio::new` (instant, no device) from `Audio::open`
+  (opens the device + reconciles music); `main.rs` now draws and sends the
+  first menu frame, then calls `app.open_audio()`. The menu paints
+  instantly; the device opens right after. Bonus: `cargo test` no longer
+  opens any device (only `open` does, and tests only call `new`) — test
+  time dropped 0.75s → 0.01s. Verified in-terminal: menu appears
+  immediately, game plays. 147 tests pass, 0 warnings.*
+
 ## Phase 5 — Cues & mute wiring (`app.rs`)
 
 Review: after the phase.

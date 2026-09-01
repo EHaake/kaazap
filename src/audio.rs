@@ -61,6 +61,7 @@ const MUSIC_PATH: &str = "assets/music/theme.ogg";
 /// sound card — so the game always runs.
 pub struct Audio {
     backend: Option<Backend>,
+    attempted: bool,
     settings: Settings,
     muted: bool,
 }
@@ -97,16 +98,29 @@ fn load_music(music: &Player) -> bool {
 }
 
 impl Audio {
-    /// Open the audio backend (or a silent stub if none is available) and
-    /// bring the music into line with the initial settings.
+    /// Create the player *without* opening the audio device — instant, so
+    /// startup can paint the first frame before paying the device-open
+    /// cost (opening it in `new` blanked the screen until it finished).
+    /// Call `open` once that first frame is on its way.
     pub fn new(settings: Settings) -> Self {
-        let audio = Self {
-            backend: Backend::open(),
+        Self {
+            backend: None,
+            attempted: false,
             settings,
             muted: false,
-        };
-        audio.apply_music();
-        audio
+        }
+    }
+
+    /// Open the audio device (once) and bring the music into line with the
+    /// settings — a no-op if there's no device (silent stub). Deferred out
+    /// of `new` so it never stalls startup, and skipped entirely by tests
+    /// (which only ever call `new`), so `cargo test` needs no audio device.
+    pub fn open(&mut self) {
+        if !self.attempted {
+            self.attempted = true;
+            self.backend = Backend::open();
+        }
+        self.apply_music();
     }
 
     /// Play a one-shot effect — a no-op unless SFX are on and not muted.
