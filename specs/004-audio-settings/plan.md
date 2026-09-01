@@ -183,13 +183,29 @@ Toggling a row updates `App.settings`, calls `audio.set_settings(..)`
   settings-screen input + draw.
 - **`audio.rs`** (new): `Audio`, `Sfx`, `audio_cues`, snapshot.
 - **`main.rs`**: unchanged in shape — the game loop already owns `App`;
-  audio lives inside it. (One check: `App`/`Audio` stay on the game-loop
-  thread; `OutputStream` is not `Send`, which is fine — it's never moved
-  across threads.)
+  audio lives inside it. (*Revised in T007a:* the plan first kept the rodio
+  backend on the game-loop thread, but the device open blocked input on a
+  cold start. The backend now lives on its **own** thread — `Audio` is a
+  `Send` handle over an `mpsc::Sender<AudioCommand>` — so the `!Send`
+  backend stays put on that one thread and never stalls the loop.)
 - **Untouched: `game.rs`, `player.rs`, `card.rs`** — the engine makes no
   sound. `board.rs`/`frame.rs`/`layout.rs` unchanged (settings screen is
   its own small view; if it reuses a centered-block helper, that's a
   read-only borrow of existing layout).
+
+### Startup audio latency (investigated, T009 follow-up)
+
+The one blocking cost before sound starts is `open_default_sink()` — the OS
+handing the process an output stream. Instrumented: `connect_new` and
+`load_music` (the streamed 7.5MB MP3) are ~0ms/6ms; a **warm** open is
+~0.5s. A **cold** open can take up to ~10s, and the dominant cause is
+environmental, not ours: a **Bluetooth default output** (e.g. AirPods) has
+to wake and connect its audio link on the first open — confirmed, the
+delay is present on AirPods and gone on wired/built-in output. (CoreAudio
+warming after idle is a smaller secondary factor.) There is no code fix —
+nothing can play before the OS opens the stream — so the mitigation is the
+T007a off-thread move: the wait never blocks input, only delays first
+sound, cold-only. A normally-launched shipped build warms like any app.
 
 ## Assets
 
