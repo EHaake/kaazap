@@ -45,8 +45,15 @@ standing instruction to Claude Code as much as a note to the human.
 - `App` (`app.rs`) owns a `Screen` enum and routes input to whichever
   screen is active. `Screen::StartMenu` and `Screen::InGame` each own
   their own state (`MenuState`, `GameState`). New top-level modes
-  (campaign map, shop/pack-opening, settings) should become new `Screen`
-  variants — don't bolt them onto existing ones.
+  (campaign map, shop/pack-opening) should become new `Screen`
+  variants — don't bolt them onto existing ones. *Menu sub-panels*
+  (How to Play, Settings), by contrast, are overlays shown over
+  `StartMenu` — `App` holds their transient state and routes input to
+  them while open, and the underlying menu (and its selection) is
+  preserved. The line: a full mode the player navigates *to* is a
+  `Screen`; a panel opened *over* the menu and dismissed back to it is
+  an overlay. (Settings was a `Screen` in spec 004 and moved to an
+  overlay in spec 004's UI pass, for consistency with How to Play.)
 - Game logic (`game.rs`, `player.rs`, `card.rs`) stays decoupled from
   rendering (`board.rs`, `frame.rs`, `render.rs`). State mutation always
   goes through `apply_*_action` methods that centralize validation;
