@@ -97,8 +97,11 @@ Mirrors `settings.rs`, so the failure behavior is identical and already
 proven:
 
 - **Location.** `directories::ProjectDirs::from("", "", "kaazap")` →
-  `data_dir()` (a savegame is per-user *data*, not config; `settings.json`
-  stays in `config_dir()`), file `savegame.json`.
+  `data_dir().join("saves")`, file `savegame.json` — a dedicated **`saves/`**
+  subdirectory under the app's per-user data dir (created on first write;
+  human-ruled). Settings stay in `config_dir()`; on platforms that don't
+  split data from config (macOS, where both resolve to Application Support)
+  the savegame still sits apart in its own `saves/` folder.
 - **`save(game: &GameState)`** — `to_saved(game)`: `Some(sg)` → write pretty
   JSON (create the dir first); `None` (GameOver) → `clear()`. Best-effort:
   a write failure is swallowed, never fatal (a save you can't write isn't
@@ -187,10 +190,10 @@ enforced by the type), routing to the active modal; `draw` matches
 discard the save and start a fresh match; No / Esc → back to the menu, save
 intact.
 
-*(Alternative, if you'd rather not touch spec-004 code: add
-`confirm: Option<ConfirmState>` as a third parallel field. It's less
-refactoring but keeps the implicit "only one is ever Some" invariant the
-review flagged. I recommend the enum — flagged for your call in review.)*
+*(Human-ruled: the enum. The considered alternative — a third parallel
+`confirm: Option<ConfirmState>` field — is less refactoring but keeps the
+implicit "only one is ever Some" invariant the T010 review flagged, so it's
+not taken.)*
 
 ## Architecture / flow changes (file-by-file)
 
@@ -272,9 +275,9 @@ Per `CLAUDE.md`, the logic gets unit tests; disk I/O is verified by running.
   simplification we chose, a fact of the engine.
 - **Save on state-change, clear on `GameOver`, no `main.rs` quit hook** —
   the file is always current, so quit/close need no special path.
-- **Savegame in `data_dir`**, `settings.json` stays in `config_dir` —
-  recommended; trivially changed to one directory if you'd prefer them
-  together (flag in review).
-- **Consolidate the three modals into one `Modal` enum** — recommended (the
-  T010 review anticipated it); the parallel-field alternative is noted above
-  for your call.
+- **Savegame in a dedicated `saves/` subdir of `data_dir`** (human-ruled),
+  `settings.json` stays in `config_dir` — a save is per-user data, kept in
+  its own folder rather than loose alongside config.
+- **Consolidate the three modals into one `Modal` enum** (human-ruled; the
+  T010 review anticipated it) — replaces spec 004's parallel `overlay` +
+  `settings_panel` fields.
