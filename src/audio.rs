@@ -33,6 +33,7 @@ pub enum Sfx {
     GameLoss,
     MenuMove,
     MenuSelect,
+    MenuBack,
 }
 
 impl Sfx {
@@ -51,6 +52,7 @@ impl Sfx {
             Sfx::GameLoss => include_bytes!("../assets/sfx/game_loss.wav"),
             Sfx::MenuMove => include_bytes!("../assets/sfx/menu_move.wav"),
             Sfx::MenuSelect => include_bytes!("../assets/sfx/menu_select.wav"),
+            Sfx::MenuBack => include_bytes!("../assets/sfx/menu_back.wav"),
         }
     }
 }

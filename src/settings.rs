@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     config::Config,
-    frame::{Emphasis, Frame, draw_text},
+    frame::{Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text_in},
+    layout::OverlayLayout,
 };
 
 /// Persisted user preferences — the seed of the save format. The future
@@ -135,48 +136,55 @@ impl SettingsState {
         self.selected = SettingRow::Sfx;
     }
 
-    /// Draw the settings screen: a centered title, the two volume rows
-    /// (each a labelled bar + percentage; the selected one carries the `▸`
-    /// marker and breathes with the pulse), and a controls hint.
-    pub fn draw(&self, frame: &mut Frame, config: &Config, settings: Settings, pulse: Emphasis) {
-        let center_x = config.num_cols / 2;
-        const BLOCK_H: usize = 7;
-        let top = config.num_rows.saturating_sub(BLOCK_H) / 2;
-
-        let title = "Settings";
-        draw_text(
-            frame,
-            center_x.saturating_sub(title.chars().count() / 2),
-            top,
-            title,
-            Emphasis::Strong,
-        );
-
-        // Rows left-aligned: label, a volume bar, then the percentage.
-        let row_x = center_x.saturating_sub(14);
-        for (i, (row, label, vol)) in [
+    /// Draw the settings panel as a bordered overlay over the menu: a
+    /// centered title, the two volume rows (each a labelled bar +
+    /// percentage; the selected one carries the `▸` marker and breathes
+    /// with the pulse), and a controls hint. Sized and boxed like How to
+    /// Play, so the two menu panels read the same.
+    pub fn draw_overlay(
+        &self,
+        frame: &mut Frame,
+        config: &Config,
+        settings: Settings,
+        pulse: Emphasis,
+    ) {
+        let rows = [
             (SettingRow::Music, "Music", settings.music_volume),
             (SettingRow::Sfx, "Sound FX", settings.sfx_volume),
-        ]
-        .into_iter()
-        .enumerate()
-        {
-            let selected = self.selected == row;
-            let marker = if selected { "▸ " } else { "  " };
-            let emphasis = if selected { pulse } else { Emphasis::Normal };
-            let pct = (vol * 100.0).round() as u32;
-            let text = format!("{marker}{label:<9}{} {pct:>3}%", volume_bar(vol));
-            draw_text(frame, row_x, top + 2 + i * 2, &text, emphasis);
-        }
+        ];
+        // "▸ " on the selected row, two spaces otherwise, so every row is
+        // the same width and the bars stay column-aligned.
+        let row_texts: Vec<String> = rows
+            .iter()
+            .map(|(row, label, vol)| {
+                let marker = if self.selected == *row { "▸ " } else { "  " };
+                let pct = (vol * 100.0).round() as u32;
+                format!("{marker}{label:<9}{} {pct:>3}%", volume_bar(*vol))
+            })
+            .collect();
 
+        let title = "Settings";
         let hint = "↑/↓ select  ·  ←/→ volume  ·  Esc back";
-        draw_text(
-            frame,
-            center_x.saturating_sub(hint.chars().count() / 2),
-            top + 6,
-            hint,
-            Emphasis::Muted,
-        );
+
+        // Box sized to the widest line; a fixed 6-row content column:
+        // title, gap, the two rows, gap, hint.
+        let content_width = row_texts
+            .iter()
+            .map(|s| s.chars().count())
+            .chain([title.chars().count(), hint.chars().count()])
+            .max()
+            .unwrap_or(0);
+        let layout = OverlayLayout::new(*config, content_width, 6);
+
+        clear_rect(frame, layout.outer);
+        draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
+
+        draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Strong);
+        for (i, (row, _, _)) in rows.iter().enumerate() {
+            let emphasis = if self.selected == *row { pulse } else { Emphasis::Normal };
+            draw_text_in(frame, layout.inner, 2 + i, Align::Center, &row_texts[i], emphasis);
+        }
+        draw_text_in(frame, layout.inner, 5, Align::Center, hint, Emphasis::Muted);
     }
 }
 

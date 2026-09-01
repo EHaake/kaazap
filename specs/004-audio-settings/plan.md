@@ -150,16 +150,20 @@ processes those actions — they need no snapshot.
 Because `audio_cues` is pure, its whole truth table is unit-tested with
 no audio device.
 
-## Settings screen (`settings.rs`)
+## Settings panel (`settings.rs`)
 
-Mirrors `menu.rs`: `SettingsState` owns the selected row; input maps
-arrows ↑/↓ (and `w`/`s`) to move, Enter/Space to toggle the selected row,
-Esc to return to the menu. Drawing reuses the shared vocabulary — a
-centered block (same vertical-centering as the menu/board), the `▸`
-marker + pulse on the selected row, monochrome. Each row reads
-`Music    ◄ On ►` / `◄ Off ►` (or similar) so the state is unmistakable.
-Toggling a row updates `App.settings`, calls `audio.set_settings(..)`
-(music starts/stops immediately), and saves to disk.
+*(Revised T009/T010 — see the Refinements at the end. Originally a
+toggle-based full `Screen`; now a volume-slider **overlay**.)*
+
+`SettingsState` owns the selected row; input maps arrows ↑/↓ (and `w`/`s`)
+to move between rows, ←/→ (and `a`/`d`) to adjust the selected channel's
+volume, Esc to close back to the menu. Drawing reuses the shared
+vocabulary — the `▸` marker + pulse on the selected row, monochrome —
+inside a bordered overlay box (`OverlayLayout`, sized like How to Play, via
+`draw_overlay`), drawn over the still-visible start menu. Each row reads
+`Music    [█████░░░░░]  50%` so the level is unmistakable. Adjusting a row
+updates `App.settings`, calls `audio.set_settings(..)` (music volume
+changes immediately), and saves to disk.
 
 ## Start menu changes (`menu.rs`)
 
@@ -168,8 +172,9 @@ Toggling a row updates `App.settings`, calls `audio.set_settings(..)`
   `MenuItem::iter()` (the file's own TODO) — clamp or wrap across N items.
   `MenuLayout` already takes the item count (spec 003), so centering just
   works with three.
-- `MenuEvent::Activate { Settings }` routes in `App` to
-  `Screen::Settings { settings_state: SettingsState::default() }`.
+- `MenuEvent::Activate { Settings }` routes in `App` to open the settings
+  overlay — `self.settings_panel = Some(SettingsState::default())` — rather
+  than switching screens, so the menu stays put underneath (T010).
 
 ## Persistence (`settings.rs`)
 
@@ -180,18 +185,22 @@ Toggling a row updates `App.settings`, calls `audio.set_settings(..)`
   never panic, never block startup. `settings.save()` → create the config
   dir if needed, serialize, write; a write failure is logged/ignored, not
   fatal (audio prefs aren't worth crashing over).
-- Loaded once in `App::new`; saved on every toggle change.
+- Loaded once in `App::new`; saved on every volume change.
 
 ## Architecture / flow changes
 
 - **`app.rs`**: `App` gains `settings: Settings` and `audio: Audio`
-  (loaded/constructed in `new`) and `prev_audio: AudioSnapshot`. New
-  `Screen::Settings` arm in `handle_key` (nav/toggle/Esc) and `draw`.
-  `handle_key` also intercepts `m` **before** per-screen routing (global
-  mute), on every screen. After each state-changing action (player action;
-  each `tick` `update`), emit `audio_cues`. Menu/settings actions play
-  their `MenuMove`/`MenuSelect` directly.
-- **`screen.rs`**: add the `Settings` variant.
+  (loaded/constructed in `new`) and `prev_audio: AudioSnapshot`. *(T010:*
+  also `settings_panel: Option<SettingsState>` — the open settings overlay;
+  `handle_key` checks it first as a modal over the menu, `handle_settings_input`
+  serves nav/volume/Esc, and `draw` paints it over the menu via
+  `draw_overlay`.) `handle_key` also intercepts `m` **before** per-screen
+  routing (global mute), on every screen, and closing any overlay/panel
+  plays `MenuBack`. After each state-changing action (player action; each
+  `tick` `update`), emit `audio_cues`. Menu/settings actions play their
+  `MenuMove`/`MenuSelect` directly.
+- **`screen.rs`**: ~~add the `Settings` variant.~~ *(T010: no Settings
+  variant — it's an overlay in `App`, not a `Screen`.)*
 - **`menu.rs`**: `Settings` item + N-item navigation (above).
 - **`settings.rs`** (new): `Settings`, load/save, `SettingsState`, the
   settings-screen input + draw.

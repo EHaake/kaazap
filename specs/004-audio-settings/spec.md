@@ -9,9 +9,9 @@
 Give Kaazap a voice: looping background music and a set of retro sound
 effects for the key moments of play — all gated by user preference and,
 for the first time, **persisted between launches**. This spec introduces
-the project's first **Settings** screen (a new `Screen::Settings`,
-reached from the start menu) with independent **Music** and **SFX**
-toggles, plus a global mute keypress. Settings save to a JSON config file
+the project's first **Settings** panel (an overlay over the start menu,
+reached from a new start-menu item) with independent **Music** and **SFX**
+controls, plus a global mute keypress. Settings save to a JSON config file
 via `serde`/`directories`, making this spec the first slice of the
 persistence layer the campaign will later build on.
 
@@ -37,13 +37,14 @@ never a barrage.
    card play, stand, bust, round win / loss, game win / loss, menu move /
    select, and a flip effect — CC0 or generated, gated by the SFX
    setting. Tasteful and sparse; **no per-cursor-move blip.**
-4. **Settings screen.** A new `Screen::Settings`, reached via a new
-   **Settings** item on the start menu, with independent Music and SFX
+4. **Settings panel.** An overlay over the start menu (like How to Play),
+   reached via a new **Settings** item, with independent Music and SFX
    volume sliders navigated with the established cursor vocabulary (arrows
    to select a row and adjust its level, the `▸` marker and pulse) and an
-   Escape back to the menu. Monochrome, consistent with the menu — no new
-   interaction invention. *(Sliders refined in from on/off toggles during
-   implementation — see Resolved decisions.)*
+   Escape back to the menu with the selection preserved. Monochrome,
+   consistent with the menu — no new interaction invention. *(Refined
+   during implementation: sliders in from on/off toggles, and overlay in
+   from a full `Screen` — see Resolved decisions.)*
 5. **Global mute keypress.** `m` from any screen instantly silences all
    audio and restores it — a session master mute layered over the
    persisted per-channel volumes.
@@ -152,9 +153,12 @@ underneath, all subject to the toggles and the mute key.
 - [x] `m` from any screen instantly silences all audio and restores it to
       the saved per-channel state. *(T007: global `m` → `toggle_mute`;
       verified in-app.)*
-- [x] Menu → Settings opens the settings screen; the cursor vocabulary
-      selects a row and adjusts its level; Escape returns to the menu.
-      *(T006/T009: verified in-app.)*
+- [x] Menu → Settings opens the settings panel as an overlay over the menu;
+      the cursor vocabulary selects a row and adjusts its level; Escape
+      closes it back to the menu with the selection preserved, and closing
+      (Settings or How to Play) plays the `MenuBack` cue.
+      *(T006/T009/T010: verified in-app — box over the menu, slider adjust,
+      selection on `▸ Settings` after close.)*
 - [x] Settings persist: changing a level writes the config file, a
       relaunch loads it, and a missing/corrupt file falls back to defaults
       without crashing. Unit-tested. *(T002/T009 five `settings_` tests over
@@ -189,8 +193,11 @@ underneath, all subject to the toggles and the mute key.
   beside them.
 - **Global mute (`m`) is a session master** over the persisted per-channel
   volumes — one quick key, plus the granular sliders.
-- **Settings is a new `Screen::Settings`** (per the architecture rule for
-  new top-level modes), reached from a new start-menu item.
+- ~~**Settings is a new `Screen::Settings`** (per the architecture rule for
+  new top-level modes), reached from a new start-menu item.~~ *Superseded
+  (T010): Settings is an **overlay** over the start menu, like How to Play,
+  not a `Screen`. Reached from the same start-menu item. See "Refined
+  during implementation" — the constitution was amended to match.*
 - **SFX set chosen by the implementer** (human-delegated): card draw, card
   play, stand, bust, round win/loss, game win/loss, menu move/select,
   flip; cursor movement and sign toggling stay silent.
@@ -212,3 +219,15 @@ underneath, all subject to the toggles and the mute key.
   the global `m` mute still overrides both. Legacy `{music, sfx}` bool
   config files are read as unknown fields and fall back to the default
   volumes rather than erroring.
+- **Settings became an overlay, not a `Screen`** (human-requested UI pass,
+  T010). Originally a full-screen `Screen::Settings`; now an overlay panel
+  drawn over the start menu (a bordered box, sized like How to Play), so
+  the two menu panels are consistent and the menu selection is preserved
+  when you close Settings (it was resetting to "Start Game"). `App` holds
+  the transient `Option<SettingsState>` and routes input to it while open;
+  Esc closes back to the menu. This contradicted the constitution's
+  "settings → `Screen` variant" line, so the constitution was amended first
+  (its own commit on `main`) to classify menu sub-panels (How to Play,
+  Settings) as overlays and reserve `Screen` variants for full modes
+  (campaign, shop). Also added a distinct `MenuBack` SFX played when
+  closing either menu panel (there was an enter sound but no exit sound).

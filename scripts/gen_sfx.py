@@ -108,6 +108,9 @@ def main():
         "game_loss": arpeggio([G4, E4, C4, A3], 0.13, 0.5),
         "menu_move": tone(660, 0.04, 0.3, triangle),
         "menu_select": tone(880, 0.07, 0.4),
+        # Closing a panel: a descending two-note, the "back" counterpart to
+        # select's single higher blip.
+        "menu_back": arpeggio([G5, C5], 0.05, 0.35),
     }
     for name, samples in sounds.items():
         write_wav(name, samples)

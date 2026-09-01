@@ -205,6 +205,9 @@ pub struct App {
     screen: Screen,
     board_view: BoardView,
     overlay: Option<Overlay>,
+    // The settings panel, when open — an overlay over the start menu (like
+    // How to Play), so the menu and its selection are preserved underneath.
+    settings_panel: Option<SettingsState>,
     pulse: SelectionPulse,
     settings: Settings,
     audio: Audio,
@@ -226,6 +229,7 @@ impl App {
             },
             board_view: BoardView::new(config),
             overlay: None,
+            settings_panel: None,
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
@@ -286,15 +290,21 @@ impl App {
             return;
         }
 
-        if self.overlay.is_some() {
+        // The settings panel is a modal overlay over the menu: while it's
+        // open it takes all input, and Esc closes it back to the menu with
+        // the selection intact.
+        if self.settings_panel.is_some() {
+            self.handle_settings_input(key);
+        } else if self.overlay.is_some() {
             // Any overlay is dismissed with ?, Esc, Enter, or Space — the
             // last so How to Play (opened from the menu with Space) closes
-            // with the same key it opened on.
+            // with the same key it opened on. Closing sounds the back cue.
             if matches!(
                 key,
                 KeyCode::Char('?') | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter
             ) {
                 self.overlay = None;
+                self.audio.play(Sfx::MenuBack);
             }
         } else {
             // If overlay is not enabled, if ? is pressed, enable overlay
@@ -308,8 +318,6 @@ impl App {
                     Screen::InGame { .. } => {
                         Some(Overlay::new(OverlayKind::GameHelp, self.config))
                     }
-                    // The settings screen carries its own on-screen hint.
-                    Screen::Settings { .. } => None,
                 };
             }
 
@@ -356,49 +364,55 @@ impl App {
                     }
                 }
 
-                // Settings: move between rows, toggle the selected one
-                // (updating audio + persisting immediately), or go back.
-                Screen::Settings { settings_state } => {
-                    if let Some(action) = settings_state.handle_input(key) {
-                        match action {
-                            SettingsAction::Up => {
-                                settings_state.move_up();
-                                self.audio.play(Sfx::MenuMove);
-                            }
-                            SettingsAction::Down => {
-                                settings_state.move_down();
-                                self.audio.play(Sfx::MenuMove);
-                            }
-                            SettingsAction::Louder | SettingsAction::Quieter => {
-                                let delta = if matches!(action, SettingsAction::Louder) {
-                                    VOLUME_STEP
-                                } else {
-                                    -VOLUME_STEP
-                                };
-                                let vol = match settings_state.selected() {
-                                    SettingRow::Music => &mut self.settings.music_volume,
-                                    SettingRow::Sfx => &mut self.settings.sfx_volume,
-                                };
-                                *vol = (*vol + delta).clamp(0.0, 1.0);
-                                self.audio.set_settings(self.settings);
-                                self.settings.save();
-                                // A tick after set_settings so you hear the
-                                // new SFX level (the music change is live).
-                                self.audio.play(Sfx::MenuMove);
-                            }
-                            SettingsAction::Back => {
-                                self.screen = Screen::StartMenu {
-                                    menu_state: MenuState::new(),
-                                };
-                            }
-                        }
-                    }
-                }
             }
         }
 
         // After any input, sound whatever just changed in the game.
         self.emit_audio_cues();
+    }
+
+    /// Route a key to the open settings panel: move between rows, adjust the
+    /// selected channel's volume (updating audio + persisting immediately),
+    /// or close the panel back to the menu with the back cue. The menu
+    /// underneath is untouched, so its selection survives.
+    fn handle_settings_input(&mut self, key: KeyCode) {
+        let Some(settings_state) = self.settings_panel.as_ref() else {
+            return;
+        };
+        let Some(action) = settings_state.handle_input(key) else {
+            return;
+        };
+        match action {
+            SettingsAction::Up => {
+                self.settings_panel.as_mut().unwrap().move_up();
+                self.audio.play(Sfx::MenuMove);
+            }
+            SettingsAction::Down => {
+                self.settings_panel.as_mut().unwrap().move_down();
+                self.audio.play(Sfx::MenuMove);
+            }
+            SettingsAction::Louder | SettingsAction::Quieter => {
+                let delta = if matches!(action, SettingsAction::Louder) {
+                    VOLUME_STEP
+                } else {
+                    -VOLUME_STEP
+                };
+                let vol = match self.settings_panel.as_ref().unwrap().selected() {
+                    SettingRow::Music => &mut self.settings.music_volume,
+                    SettingRow::Sfx => &mut self.settings.sfx_volume,
+                };
+                *vol = (*vol + delta).clamp(0.0, 1.0);
+                self.audio.set_settings(self.settings);
+                self.settings.save();
+                // A tick after set_settings so you hear the new SFX level
+                // (the music change is already live).
+                self.audio.play(Sfx::MenuMove);
+            }
+            SettingsAction::Back => {
+                self.settings_panel = None;
+                self.audio.play(Sfx::MenuBack);
+            }
+        }
     }
 
     /// MenuEvent will contain one of the screens to switch to
@@ -420,9 +434,9 @@ impl App {
                 self.overlay = Some(Overlay::new(OverlayKind::HowToPlay, self.config));
             }
             MenuItem::Settings => {
-                self.screen = Screen::Settings {
-                    settings_state: SettingsState::default(),
-                };
+                // Open Settings as an overlay over the menu — the menu (and
+                // its selection) stays put underneath, like How to Play.
+                self.settings_panel = Some(SettingsState::default());
             }
         }
     }
@@ -454,11 +468,13 @@ impl App {
             Screen::InGame { game_state, cursor } => {
                 self.board_view.draw(game_state, cursor, pulse, frame)
             }
-            Screen::Settings { settings_state } => {
-                settings_state.draw(frame, &self.config, self.settings, pulse)
-            }
         }
 
+        // The settings panel and any help overlay draw over the screen —
+        // mutually exclusive in practice (settings takes input priority).
+        if let Some(settings_state) = &self.settings_panel {
+            settings_state.draw_overlay(frame, &self.config, self.settings, pulse);
+        }
         if let Some(overlay) = &self.overlay {
             overlay.draw(frame);
         }

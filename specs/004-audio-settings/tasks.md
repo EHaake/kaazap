@@ -310,6 +310,30 @@ Review: after the phase.
   (`game.rs`/`player.rs`/`card.rs`) untouched; slider render + adjust shown
   in a driver snapshot.*
 
+- [x] **T010 — Settings becomes a menu overlay; exit SFX for both panels**
+  *Human-requested UI pass after the review. Two inconsistencies vs How to
+  Play: Settings was a full `Screen` (How to Play is an overlay), and
+  closing it reset the menu selection to "Start Game" (How to Play keeps
+  its selection). Fixed by making Settings an **overlay** over `StartMenu`,
+  like How to Play. `Screen::Settings` removed; `App` gains
+  `settings_panel: Option<SettingsState>`, checked first in `handle_key` as
+  a modal (`handle_settings_input` serves nav/volume, Esc closes) and drawn
+  over the menu via a new `SettingsState::draw_overlay` (bordered
+  `OverlayLayout` box sized like How to Play). The menu underneath is
+  untouched, so its selection survives the close. **Constitution amended
+  first** (its own commit on `main`, `ec4875a`): menu sub-panels (How to
+  Play, Settings) are overlays; `Screen` variants are reserved for full
+  modes (campaign, shop). Also added a distinct **`MenuBack`** SFX (a
+  descending two-note `arpeggio([G5, C5], …)` in `gen_sfx.py`) played when
+  closing How to Play, Settings, or the `?` help — there was an enter sound
+  but no exit sound. Verified in-app via the driver: Settings opens as a box
+  over the menu, `→` adjusts a slider, Esc closes it and the menu returns
+  with `▸ Settings` still selected; How to Play still opens/closes the same
+  way.*
+  *Verify: `cargo test` green (148); 0 new warnings; engine untouched;
+  driver snapshots show the overlay open, a slider adjusting, and the menu
+  selection preserved on close.*
+
 ---
 
 ## Handoff note
