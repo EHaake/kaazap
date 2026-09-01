@@ -13,23 +13,27 @@ use crate::{
 /// save/resume spec extends this struct rather than rebuilding it, so the
 /// fields carry `#[serde(default)]`: an older or partial settings file
 /// still loads, with any missing field falling back to its default.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+/// Volumes are 0.0–1.0; 0.0 means that channel is off.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub struct Settings {
-    #[serde(default = "on")]
-    pub music: bool,
-    #[serde(default = "on")]
-    pub sfx: bool,
+    #[serde(default = "default_music_volume")]
+    pub music_volume: f32,
+    #[serde(default = "default_sfx_volume")]
+    pub sfx_volume: f32,
 }
 
-fn on() -> bool {
-    true
+fn default_music_volume() -> f32 {
+    0.5 // background music sits a little under the effects
+}
+fn default_sfx_volume() -> f32 {
+    0.8
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            music: true,
-            sfx: true,
+            music_volume: default_music_volume(),
+            sfx_volume: default_sfx_volume(),
         }
     }
 }
@@ -86,7 +90,8 @@ pub enum SettingRow {
 pub enum SettingsAction {
     Up,
     Down,
-    Toggle,
+    Louder,
+    Quieter,
     Back,
 }
 
@@ -108,13 +113,14 @@ impl SettingsState {
         self.selected
     }
 
-    /// Map a key to a settings action (or nothing). Mirrors the menu's
-    /// vocabulary: ↑/↓ (w/s) move, Enter/Space toggle, Esc goes back.
+    /// Map a key to a settings action: ↑/↓ (w/s) move between rows, ←/→
+    /// (a/d) adjust the selected row's volume, Esc goes back.
     pub fn handle_input(&self, key: KeyCode) -> Option<SettingsAction> {
         match key {
             KeyCode::Up | KeyCode::Char('w') => Some(SettingsAction::Up),
             KeyCode::Down | KeyCode::Char('s') => Some(SettingsAction::Down),
-            KeyCode::Enter | KeyCode::Char(' ') => Some(SettingsAction::Toggle),
+            KeyCode::Right | KeyCode::Char('d') => Some(SettingsAction::Louder),
+            KeyCode::Left | KeyCode::Char('a') => Some(SettingsAction::Quieter),
             KeyCode::Esc => Some(SettingsAction::Back),
             _ => None,
         }
@@ -129,9 +135,9 @@ impl SettingsState {
         self.selected = SettingRow::Sfx;
     }
 
-    /// Draw the settings screen: a centered title, the toggle rows (the
-    /// selected one carries the `▸` marker and breathes with the pulse),
-    /// and a controls hint — reading like the start menu.
+    /// Draw the settings screen: a centered title, the two volume rows
+    /// (each a labelled bar + percentage; the selected one carries the `▸`
+    /// marker and breathes with the pulse), and a controls hint.
     pub fn draw(&self, frame: &mut Frame, config: &Config, settings: Settings, pulse: Emphasis) {
         let center_x = config.num_cols / 2;
         const BLOCK_H: usize = 7;
@@ -146,24 +152,24 @@ impl SettingsState {
             Emphasis::Strong,
         );
 
-        // Rows left-aligned as a list; values line up in a column.
-        let row_x = center_x.saturating_sub(7);
-        for (i, (row, label, on)) in [
-            (SettingRow::Music, "Music", settings.music),
-            (SettingRow::Sfx, "Sound FX", settings.sfx),
+        // Rows left-aligned: label, a volume bar, then the percentage.
+        let row_x = center_x.saturating_sub(14);
+        for (i, (row, label, vol)) in [
+            (SettingRow::Music, "Music", settings.music_volume),
+            (SettingRow::Sfx, "Sound FX", settings.sfx_volume),
         ]
         .into_iter()
         .enumerate()
         {
             let selected = self.selected == row;
             let marker = if selected { "▸ " } else { "  " };
-            let value = if on { "On" } else { "Off" };
             let emphasis = if selected { pulse } else { Emphasis::Normal };
-            let text = format!("{marker}{label:<9}{value}");
+            let pct = (vol * 100.0).round() as u32;
+            let text = format!("{marker}{label:<9}{} {pct:>3}%", volume_bar(vol));
             draw_text(frame, row_x, top + 2 + i * 2, &text, emphasis);
         }
 
-        let hint = "↑/↓ select  ·  Enter toggle  ·  Esc back";
+        let hint = "↑/↓ select  ·  ←/→ volume  ·  Esc back";
         draw_text(
             frame,
             center_x.saturating_sub(hint.chars().count() / 2),
@@ -174,23 +180,37 @@ impl SettingsState {
     }
 }
 
+/// A fixed-width volume bar like `[██████░░░░]` for a 0.0–1.0 level.
+fn volume_bar(vol: f32) -> String {
+    const SEGMENTS: usize = 10;
+    let filled = (vol * SEGMENTS as f32).round().clamp(0.0, SEGMENTS as f32) as usize;
+    let mut bar = String::with_capacity(SEGMENTS + 2);
+    bar.push('[');
+    for i in 0..SEGMENTS {
+        bar.push(if i < filled { '█' } else { '░' });
+    }
+    bar.push(']');
+    bar
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn settings_default_is_music_and_sfx_on() {
+    fn settings_default_volumes_are_audible() {
         let d = Settings::default();
-        assert!(d.music && d.sfx);
+        assert!(d.music_volume > 0.0 && d.music_volume <= 1.0);
+        assert!(d.sfx_volume > 0.0 && d.sfx_volume <= 1.0);
     }
 
     #[test]
     fn settings_json_round_trips() {
+        // Exact-in-f32 levels so the JSON round-trip compares equal.
         for s in [
-            Settings { music: true, sfx: true },
-            Settings { music: false, sfx: true },
-            Settings { music: true, sfx: false },
-            Settings { music: false, sfx: false },
+            Settings { music_volume: 0.0, sfx_volume: 1.0 },
+            Settings { music_volume: 0.5, sfx_volume: 0.5 },
+            Settings { music_volume: 1.0, sfx_volume: 0.0 },
         ] {
             let json = serde_json::to_string(&s).unwrap();
             assert_eq!(Settings::from_json_or_default(&json), s);
@@ -205,17 +225,25 @@ mod tests {
     }
 
     #[test]
-    fn settings_missing_fields_default_to_on() {
-        // Forward/backward compatibility: an empty object or a partial one
-        // still loads, with absent fields defaulting to on.
+    fn settings_missing_or_legacy_fields_use_defaults() {
+        // A partial object, or an older file with the retired bool fields,
+        // still loads — absent volumes fall back to their defaults.
         assert_eq!(Settings::from_json_or_default("{}"), Settings::default());
         assert_eq!(
-            Settings::from_json_or_default(r#"{"music": false}"#),
-            Settings { music: false, sfx: true }
+            Settings::from_json_or_default(r#"{"music_volume": 0.0}"#),
+            Settings { music_volume: 0.0, sfx_volume: default_sfx_volume() }
         );
+        // Legacy {"music","sfx"} bools are unknown now → ignored, defaults.
         assert_eq!(
-            Settings::from_json_or_default(r#"{"sfx": false}"#),
-            Settings { music: true, sfx: false }
+            Settings::from_json_or_default(r#"{"music": true, "sfx": false}"#),
+            Settings::default()
         );
+    }
+
+    #[test]
+    fn settings_volume_bar_reflects_the_level() {
+        assert_eq!(volume_bar(0.0), "[░░░░░░░░░░]");
+        assert_eq!(volume_bar(1.0), "[██████████]");
+        assert_eq!(volume_bar(0.5), "[█████░░░░░]");
     }
 }

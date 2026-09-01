@@ -186,8 +186,9 @@ impl AudioState {
         }
         let Some(backend) = &self.backend else { return };
         if let Ok(source) = Decoder::new(Cursor::new(sfx.bytes())) {
-            // `speed` changes playback rate and thus pitch (1.0 = normal).
-            backend.sink.mixer().add(source.speed(pitch));
+            // `speed` shifts pitch (1.0 = normal); `amplify` sets volume.
+            let source = source.speed(pitch).amplify(self.settings.sfx_volume);
+            backend.sink.mixer().add(source);
         }
     }
 
@@ -198,6 +199,7 @@ impl AudioState {
             return;
         }
         if should_music_sound(self.muted, self.settings) {
+            backend.music.set_volume(self.settings.music_volume);
             backend.music.play();
         } else {
             backend.music.pause();
@@ -205,14 +207,15 @@ impl AudioState {
     }
 }
 
-/// Pure gating: should a SFX sound in this state? (Testable without a device.)
+/// Pure gating: should a SFX sound in this state? (Testable without a
+/// device.) A zero volume is off, like the mute.
 fn should_play_sfx(muted: bool, settings: Settings) -> bool {
-    !muted && settings.sfx
+    !muted && settings.sfx_volume > 0.0
 }
 
 /// Pure gating: should the music be playing in this state?
 fn should_music_sound(muted: bool, settings: Settings) -> bool {
-    !muted && settings.music
+    !muted && settings.music_volume > 0.0
 }
 
 /// A SFX plus a playback-speed factor (1.0 = normal). Speeding a clip up
@@ -360,15 +363,15 @@ mod tests {
     }
 
     #[test]
-    fn audio_gating_respects_mute_and_channels() {
-        let on = Settings { music: true, sfx: true };
-        let off = Settings { music: false, sfx: false };
+    fn audio_gating_respects_mute_and_volume() {
+        let on = Settings { music_volume: 0.5, sfx_volume: 0.8 };
+        let silent = Settings { music_volume: 0.0, sfx_volume: 0.0 };
         assert!(should_play_sfx(false, on));
         assert!(!should_play_sfx(true, on)); // muted
-        assert!(!should_play_sfx(false, off)); // sfx off
+        assert!(!should_play_sfx(false, silent)); // sfx volume 0
         assert!(should_music_sound(false, on));
         assert!(!should_music_sound(true, on)); // muted
-        assert!(!should_music_sound(false, Settings { music: false, sfx: true }));
+        assert!(!should_music_sound(false, Settings { music_volume: 0.0, sfx_volume: 0.8 }));
     }
 
     // A player cue (normal pitch) and an opponent cue (lower pitch).

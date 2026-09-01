@@ -16,6 +16,9 @@ use crate::{
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
 };
 
+/// How much one ←/→ press moves a volume slider on the settings screen.
+const VOLUME_STEP: f32 = 0.1;
+
 /// The one shared selection animation: a gentle two-phase breathe that
 /// modulates the emphasis of whatever is currently selected (a hand
 /// card's heavy border, the highlighted menu item). One cadence across
@@ -366,16 +369,22 @@ impl App {
                                 settings_state.move_down();
                                 self.audio.play(Sfx::MenuMove);
                             }
-                            SettingsAction::Toggle => {
-                                match settings_state.selected() {
-                                    SettingRow::Music => self.settings.music = !self.settings.music,
-                                    SettingRow::Sfx => self.settings.sfx = !self.settings.sfx,
-                                }
+                            SettingsAction::Louder | SettingsAction::Quieter => {
+                                let delta = if matches!(action, SettingsAction::Louder) {
+                                    VOLUME_STEP
+                                } else {
+                                    -VOLUME_STEP
+                                };
+                                let vol = match settings_state.selected() {
+                                    SettingRow::Music => &mut self.settings.music_volume,
+                                    SettingRow::Sfx => &mut self.settings.sfx_volume,
+                                };
+                                *vol = (*vol + delta).clamp(0.0, 1.0);
                                 self.audio.set_settings(self.settings);
                                 self.settings.save();
-                                // After set_settings, so turning SFX off
-                                // correctly silences its own confirm sound.
-                                self.audio.play(Sfx::MenuSelect);
+                                // A tick after set_settings so you hear the
+                                // new SFX level (the music change is live).
+                                self.audio.play(Sfx::MenuMove);
                             }
                             SettingsAction::Back => {
                                 self.screen = Screen::StartMenu {

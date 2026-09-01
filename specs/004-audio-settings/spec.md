@@ -39,27 +39,31 @@ never a barrage.
    setting. Tasteful and sparse; **no per-cursor-move blip.**
 4. **Settings screen.** A new `Screen::Settings`, reached via a new
    **Settings** item on the start menu, with independent Music and SFX
-   toggles navigated with the established cursor vocabulary (arrows +
-   Enter/Space, the `▸` marker and pulse) and an Escape back to the menu.
-   Monochrome, consistent with the menu — no new interaction invention.
+   volume sliders navigated with the established cursor vocabulary (arrows
+   to select a row and adjust its level, the `▸` marker and pulse) and an
+   Escape back to the menu. Monochrome, consistent with the menu — no new
+   interaction invention. *(Sliders refined in from on/off toggles during
+   implementation — see Resolved decisions.)*
 5. **Global mute keypress.** `m` from any screen instantly silences all
    audio and restores it — a session master mute layered over the
-   persisted per-channel toggles.
+   persisted per-channel volumes.
 6. **Persisted preferences.** A `Settings` struct saved as JSON in the
    platform config directory (`serde_json` + `directories`): loaded on
    startup (defaults if the file is missing or corrupt), saved on every
    change. The first, deliberately small slice of the persistence layer.
 7. **Housekeeping.** Document the Linux ALSA build dependency in the
    README (per the constitution, now that sound work has started).
-8. **Test coverage** for the logic per `CLAUDE.md`: settings toggle
+8. **Test coverage** for the logic per `CLAUDE.md`: settings volume
    behavior, mute gating (what plays in each state), and settings
    load/save round-trip including the missing/corrupt-file fallback.
    Audio output itself is a side effect — verified by running, not mocked.
 
 ## Non-goals (explicitly deferred)
 
-- **Volume levels / sliders.** On/off toggles only for now; a volume
-  control is a future settings addition.
+- ~~**Volume levels / sliders.** On/off toggles only for now.~~
+  *Un-deferred (human-requested, T009): per-channel volume sliders replace
+  the on/off toggles — a slider at 0 is that channel off. See "Refined
+  during implementation" below.*
 - **Actual Star Wars / KOTOR music.** Copyrighted; explicitly not shipped
   (see Summary). No fan "8-bit cover" of those either — still derivative.
 - **Runtime music synthesis / procedural audio.** We bundle a track file,
@@ -75,7 +79,8 @@ never a barrage.
 
 ## Entities
 
-- **Settings** — the persisted preferences: `music: bool`, `sfx: bool`.
+- **Settings** — the persisted preferences: `music_volume: f32`,
+  `sfx_volume: f32` (0.0–1.0; 0.0 is off).
   Serializable; the seed of the save format.
 - **Audio player** — owns the loaded SFX clips and the music stream;
   exposes "play this SFX" and music start/stop/pause; applies the
@@ -91,10 +96,10 @@ never a barrage.
 
 ### Changing a sound setting
 
-Menu → **Settings** → arrow to **Music** or **SFX** → Enter/Space toggles
-it On/Off. The change takes effect immediately — music starts or stops,
-SFX begin or stop sounding — and is written to the config file. Escape
-returns to the menu.
+Menu → **Settings** → `↑`/`↓` to **Music** or **SFX** → `←`/`→` adjusts
+that channel's volume by 10%. The change takes effect immediately — the
+music sink and SFX loudness follow the level, a channel at 0% is off — and
+is written to the config file. Escape returns to the menu.
 
 ### Quick mute
 
@@ -122,8 +127,8 @@ underneath, all subject to the toggles and the mute key.
 - **The Settings screen speaks the established vocabulary** — monochrome,
   cursor selection (arrows + Enter/Space), the `▸` marker and the shared
   pulse — reading like the start menu, not a new dialect.
-- **Toggle state is legible at a glance** (e.g. `Music   ◄ On ►` / `Off`),
-  the current value unmistakable.
+- **Volume level is legible at a glance** (a filled bar plus a percentage,
+  e.g. `Music [█████░░░░░] 50%`), the current level unmistakable.
 - **All shipped audio is license-clean and credited.** The music track is
   CC0 or CC-BY (license-verified, credited when CC-BY); SFX are generated.
   The track's source and license are recorded (`assets/CREDITS.md` and
@@ -133,23 +138,28 @@ underneath, all subject to the toggles and the mute key.
 
 ## Acceptance criteria
 
-- [x] Background music loops while the app runs and starts/stops with the
-      Music toggle. *(Chipper Doodle loops via rodio `new_looped`; the
-      Music toggle drives `set_settings` → play/pause of the sink. Audible
-      confirmation is the human's.)*
-- [x] SFX play for the defined moments and are silenced by the SFX toggle.
-      *(T007: a full round fires draw/play/stand/bust/outcome cues, gated
-      by the SFX toggle.)*
+- [x] Background music loops while the app runs and follows the Music
+      volume level (0% pauses it). *(Chipper Doodle loops via rodio
+      `new_looped`; `set_settings` → the sink's `set_volume` / pause.
+      Audible confirmation is the human's.)*
+- [x] SFX play for the defined moments and scale with the SFX volume level
+      (0% silences them). *(T007: a full round fires
+      draw/play/stand/bust/outcome cues, amplified by `sfx_volume`.)*
+- [x] Music and SFX each carry an independent volume slider on the Settings
+      screen; `←`/`→` adjust the selected row by 10%, shown as a bar +
+      percentage. *(T009: verified in-app — Music 50%→70%, SFX adjusts
+      independently; `volume_bar` unit-tested.)*
 - [x] `m` from any screen instantly silences all audio and restores it to
       the saved per-channel state. *(T007: global `m` → `toggle_mute`;
       verified in-app.)*
-- [x] Menu → Settings opens the settings screen; Music and SFX toggle
-      independently with the cursor vocabulary; Escape returns to the menu.
-      *(T006: verified in-app.)*
-- [x] Settings persist: changing a toggle writes the config file, a
+- [x] Menu → Settings opens the settings screen; the cursor vocabulary
+      selects a row and adjusts its level; Escape returns to the menu.
+      *(T006/T009: verified in-app.)*
+- [x] Settings persist: changing a level writes the config file, a
       relaunch loads it, and a missing/corrupt file falls back to defaults
-      without crashing. Unit-tested. *(T002 four `settings_` tests; T006
-      relaunch showed persisted `{"music":false,"sfx":true}`.)*
+      without crashing. Unit-tested. *(T002/T009 five `settings_` tests over
+      the `{music_volume, sfx_volume}` schema; legacy bool files fall back
+      to defaults.)*
 - [x] The bundled music track is license-clean (CC-BY, credited — human
       OK'd attribution) with its license recorded; no copyrighted (Star
       Wars / KOTOR) audio ships. *(Chipper Doodle CC-BY 4.0 in
@@ -157,7 +167,7 @@ underneath, all subject to the toggles and the mute key.
       filenames.)*
 - [x] README documents the Linux ALSA build dependency. *(Building
       section, refreshed for rodio.)*
-- [x] `cargo test` green (147) with the new coverage; `cargo build`
+- [x] `cargo test` green (148) with the new coverage; `cargo build`
       introduces no new warnings (0).
 
 ## Resolved decisions
@@ -172,9 +182,13 @@ underneath, all subject to the toggles and the mute key.
 - **Settings persist now**, to a JSON config file via `serde_json` +
   `directories` (human-ruled) — the first slice of the persistence layer,
   extended later by the save/resume spec rather than rebuilt.
-- **On/off toggles only** for the first settings; volume is deferred.
+- **Per-channel volume sliders, not on/off toggles** (human-requested,
+  refined during implementation — see below). Each channel (Music, SFX)
+  carries a 0.0–1.0 volume; a slider dragged to 0 is that channel off, so
+  the sliders subsume the originally-planned toggles rather than sitting
+  beside them.
 - **Global mute (`m`) is a session master** over the persisted per-channel
-  toggles — one quick key, plus the granular settings.
+  volumes — one quick key, plus the granular sliders.
 - **Settings is a new `Screen::Settings`** (per the architecture rule for
   new top-level modes), reached from a new start-menu item.
 - **SFX set chosen by the implementer** (human-delegated): card draw, card
@@ -185,3 +199,16 @@ underneath, all subject to the toggles and the mute key.
   shape; if the plan finds an all-`rodio` backend cleaner, that contradicts
   the constitution's "keep rusty_audio" note and will be raised as an
   explicit constitution amendment first, per the constitution's own rule.
+
+### Refined during implementation
+
+- **Volume sliders replaced the on/off toggles** (human-requested after the
+  audio system was working, T009). Each channel gets a 0.0–1.0 volume shown
+  as a 10-segment bar plus a percentage; `←`/`→` (or `a`/`d`) adjust the
+  selected row by 10%, clamped to 0–100%. A channel at 0% is off, so this
+  strictly subsumes the toggle: `Settings` now stores `music_volume` /
+  `sfx_volume` floats instead of two bools, the SFX path amplifies by
+  `sfx_volume` and the music sink's `set_volume` tracks `music_volume`, and
+  the global `m` mute still overrides both. Legacy `{music, sfx}` bool
+  config files are read as unknown fields and fall back to the default
+  volumes rather than erroring.

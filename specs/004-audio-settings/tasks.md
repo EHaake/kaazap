@@ -277,6 +277,29 @@ Review: after the phase.
   audio filenames; build/test output reported verbatim; reviewer findings
   resolved or ruled.*
 
+- [x] **T009 — Per-channel volume sliders (refined in from on/off toggles)**
+  *Human-requested after the audio system was working: replace the planned
+  Music/SFX on-off toggles with per-channel volume sliders. `Settings` now
+  stores `music_volume` / `sfx_volume` floats (0.0–1.0, defaults 0.5/0.8;
+  dropped `Eq` since f32 has none) instead of two bools — a slider at 0 is
+  that channel off, so it subsumes the toggle rather than adding to it. The
+  Settings screen draws each row as a 10-segment `volume_bar` + percentage
+  (`▸ Music    [█████░░░░░]  50%`), `SettingsAction` gains `Louder`/`Quieter`
+  mapped to `←`/`→` (`a`/`d`), and `App` adjusts the selected row by a
+  `VOLUME_STEP` of 0.1 clamped to 0–1, then `set_settings` + `save` + a
+  `MenuMove` blip. Audio applies the levels: SFX `.amplify(sfx_volume)`, the
+  music sink `set_volume(music_volume)`, gating is `volume > 0.0`. Legacy
+  `{music, sfx}` bool config files parse as unknown fields → default
+  volumes (no crash). spec.md reconciled (volume un-deferred; toggles →
+  sliders across goals, flow, design, entities, acceptance). Verified
+  in-app via the driver: Settings shows `Music [█████░░░░░] 50%` /
+  `Sound FX [████████░░] 80%`, `→` took Music to 70%, SFX adjusts
+  independently.*
+  *Verify: `cargo test` green (148, incl. `settings_volume_bar_reflects_the_level`
+  and the volume round-trip/legacy-fallback tests); 0 new warnings; engine
+  (`game.rs`/`player.rs`/`card.rs`) untouched; slider render + adjust shown
+  in a driver snapshot.*
+
 ---
 
 ## Handoff note
