@@ -4,7 +4,7 @@
 //! makes no sound — SFX are derived at the `App` layer from state changes
 //! (`audio_cues`), so `game.rs` stays audio-free.
 
-use std::io::{BufReader, Cursor};
+use std::io::Cursor;
 use std::sync::mpsc;
 use std::thread;
 
@@ -55,10 +55,11 @@ impl Sfx {
     }
 }
 
-/// Where the looping music track is loaded from at runtime. Kept a runtime
-/// path (not embedded) so the audio core builds and tests before the CC0
-/// track is sourced (spec 004 T008); absent → silent.
-const MUSIC_PATH: &str = "assets/music/theme.mp3";
+/// The looping background track, embedded like the SFX so the binary is
+/// self-contained — no runtime asset dependency, so it plays no matter what
+/// directory the binary is launched from. "Chipper Doodle" by Kevin MacLeod,
+/// CC-BY 4.0, credited in `assets/CREDITS.md`.
+const MUSIC_BYTES: &[u8] = include_bytes!("../assets/music/theme.mp3");
 
 /// Commands the main thread sends to the audio thread. Everything the game
 /// does audibly becomes one of these; sending is non-blocking.
@@ -73,7 +74,7 @@ enum AudioCommand {
 /// time a fresh binary touches the OS audio stack) happens on that thread,
 /// so it never freezes the input loop. Every method just sends a command.
 pub struct Audio {
-    tx: Option<mpsc::Sender<AudioCommand>>,
+    tx: mpsc::Sender<AudioCommand>,
 }
 
 /// The live rodio backend. The device sink is kept alive for the program
@@ -93,13 +94,11 @@ impl Backend {
     }
 }
 
-/// Load the looping track into the music player (silent if the file is
-/// absent). Starts paused; `apply_music` decides whether it plays.
+/// Load the looping track into the music player (silent only if the
+/// embedded track somehow fails to decode). Starts paused; `apply_music`
+/// decides whether it plays.
 fn load_music(music: &Player) -> bool {
-    let Ok(file) = std::fs::File::open(MUSIC_PATH) else {
-        return false;
-    };
-    let Ok(source) = Decoder::new_looped(BufReader::new(file)) else {
+    let Ok(source) = Decoder::new_looped(Cursor::new(MUSIC_BYTES)) else {
         return false;
     };
     music.append(source);
@@ -115,7 +114,7 @@ impl Audio {
     pub fn new(settings: Settings) -> Self {
         let (tx, rx) = mpsc::channel();
         thread::spawn(move || audio_thread(rx, settings));
-        Self { tx: Some(tx) }
+        Self { tx }
     }
 
     /// Play a one-shot effect at normal pitch (menu/settings clicks).
@@ -128,7 +127,7 @@ impl Audio {
         self.send(AudioCommand::PlaySfx { sfx: cue.sfx, pitch: cue.pitch });
     }
 
-    /// Adopt new settings (the Music/SFX toggles) and reconcile music.
+    /// Adopt new settings (the Music/SFX volumes) and reconcile music.
     pub fn set_settings(&self, settings: Settings) {
         self.send(AudioCommand::SetSettings(settings));
     }
@@ -139,9 +138,9 @@ impl Audio {
     }
 
     fn send(&self, cmd: AudioCommand) {
-        if let Some(tx) = &self.tx {
-            let _ = tx.send(cmd); // audio thread gone → silently drop
-        }
+        // The audio thread only ends at program exit, so a send error just
+        // means we're shutting down — drop it silently.
+        let _ = self.tx.send(cmd);
     }
 }
 
@@ -153,6 +152,18 @@ fn audio_thread(rx: mpsc::Receiver<AudioCommand>, settings: Settings) {
         settings,
         muted: false,
     };
+    // Opening the device can take seconds on a cold start (e.g. a Bluetooth
+    // output waking — see plan.md). SFX cues the player queued by tapping
+    // menu keys during that wait would otherwise all fire at once when it
+    // finishes — a barrage against the spec's restraint rule. Drain and drop
+    // that backlog now, but honor any settings/mute changes that queued.
+    while let Ok(cmd) = rx.try_recv() {
+        match cmd {
+            AudioCommand::PlaySfx { .. } => {}
+            AudioCommand::SetSettings(s) => state.settings = s,
+            AudioCommand::ToggleMute => state.muted = !state.muted,
+        }
+    }
     state.apply_music();
     while let Ok(cmd) = rx.recv() {
         match cmd {

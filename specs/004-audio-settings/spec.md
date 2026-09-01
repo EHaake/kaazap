@@ -16,8 +16,8 @@ via `serde`/`directories`, making this spec the first slice of the
 persistence layer the campaign will later build on.
 
 Two ground rules shape it. **Licensing:** the actual Star Wars / KOTOR
-Pazaak music is copyrighted, so we bundle a **CC0 / royalty-free
-chiptune** track that *evokes* the spacey-cantina vibe instead — no
+Pazaak music is copyrighted, so we bundle a **license-clean chiptune**
+track (CC-BY, credited) that *evokes* the spacey-cantina vibe instead — no
 copyrighted audio ships. **Restraint:** audio follows the brief's
 aesthetic the way the visuals do — purposeful and sparse, mixed low,
 never a barrage.

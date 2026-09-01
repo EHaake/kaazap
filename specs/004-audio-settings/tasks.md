@@ -53,6 +53,9 @@ Review: after the task.
   *Verify: `cargo build` resolves the new deps with no errors; `grep
   rusty_audio Cargo.toml src/` is empty; `cargo test` still green;
   `git log main -1` shows the amendment commit on main.*
+  *(Correction, pre-merge sweep: the grep was **not** quite empty at T001 —
+  two commented-out `rusty_audio`/TODO stubs lingered in `main.rs`. Removed
+  during the T008 review sweep; the grep is empty now.)*
 
 ## Phase 2 — Persistence (`settings.rs`)
 

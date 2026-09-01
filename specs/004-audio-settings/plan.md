@@ -37,16 +37,19 @@ in its own commit straight to `main`, per the constitution's own rule.
 ### Settings (`settings.rs`, persisted)
 
 ```rust
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+// T009 evolved this from on/off bools to per-channel volumes.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)] // no Eq: f32
 pub struct Settings {
-    pub music: bool,
-    pub sfx: bool,
+    pub music_volume: f32, // 0.0–1.0; 0.0 = that channel off
+    pub sfx_volume: f32,
 }
-impl Default for Settings { /* music: true, sfx: true */ }
+impl Default for Settings { /* music_volume: 0.5, sfx_volume: 0.8 */ }
 ```
 
 Load/save helpers (persistence section). This struct is the seed of the
-save format — the campaign spec extends it, it doesn't rebuild it.
+save format — the campaign spec extends it, it doesn't rebuild it. Legacy
+`{music, sfx}` bool files parse as unknown fields and fall back to the
+default volumes.
 
 ### Sfx (`audio.rs`)
 
@@ -54,41 +57,49 @@ save format — the campaign spec extends it, it doesn't rebuild it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sfx {
     CardDraw, CardPlay, Flip, Stand, Bust,
-    RoundWin, RoundLoss, GameWin, GameLoss,
+    RoundWin, RoundLoss, RoundTie, GameWin, GameLoss,
     MenuMove, MenuSelect,
 }
 ```
 
-Each maps to one bundled clip. (Round tie plays nothing — a non-event.)
+Each maps to one embedded WAV clip. (T008 gave a round tie its own distinct
+`RoundTie` sound rather than the original silence — otherwise a double-stand
+to a tie just played the stand sound twice.)
 
 ### Audio (`audio.rs`)
 
+*(T007a reshaped this. The rodio backend is `!Send` and its device-open
+blocks for seconds on a cold start, so it can't live on the game-loop
+thread. It now lives on a dedicated **audio thread**; `Audio` is just a
+handle that sends it commands.)*
+
 ```rust
-pub struct Audio {
-    _stream: OutputStream,          // kept alive; dropping it kills sound
-    handle: OutputStreamHandle,
-    music: Sink,                    // the looping music sink
-    sfx: HashMap<Sfx, &'static [u8]>, // embedded clip bytes, decoded per play
-    settings: Settings,
-    muted: bool,                    // session master mute (the `m` key)
-}
+// Held by the game-loop thread — a non-blocking sender.
+pub struct Audio { tx: Option<mpsc::Sender<AudioCommand>> }
+enum AudioCommand { PlaySfx { sfx: Sfx, pitch: f32 }, SetSettings(Settings), ToggleMute }
+
+// Owned by the audio thread; never crosses threads (rodio 0.22 is !Send).
+struct AudioState { backend: Option<Backend>, settings: Settings, muted: bool }
+struct Backend { sink: MixerDeviceSink, music: Player, has_music: bool }
 ```
 
-- `play(Sfx)` — no-op unless `!muted && settings.sfx`; else decode the
-  clip bytes (`Decoder::new(Cursor::new(bytes))`) and play on a fresh
-  detached sink so SFX can overlap and never block.
-- `apply_music()` — the single place that reconciles the music sink with
-  state: play/resume the looping track when `!muted && settings.music`,
-  pause it otherwise. Called after any settings or mute change.
-- `set_settings(Settings)` / `toggle_mute()` — update state, then
-  `apply_music()`.
-- Music loops via `Decoder…repeat_infinite()` appended to `music` once at
-  construction; muting/disabling just pauses the sink (cheap, resumes in
-  place).
-- **Graceful no-audio fallback:** if `OutputStream::try_default()` fails
-  (no device, headless CI), `Audio::new` returns a silent stub whose
-  methods are no-ops — the game still runs. (Kept as an internal `Option`
-  or an enum; the app never has to care.)
+- `Audio::new` spawns the audio thread and returns instantly; `play` /
+  `set_settings` / `toggle_mute` just `tx.send(..)` a command (non-blocking).
+- `play(Sfx, pitch)` (on the audio thread) — no-op unless `!muted &&
+  settings.sfx_volume > 0.0`; else decode the embedded clip
+  (`Decoder::new(Cursor::new(bytes))`), `.speed(pitch).amplify(sfx_volume)`,
+  and add it straight to the device mixer so SFX overlap and never block.
+- `apply_music()` — the single place that reconciles the music `Player`
+  with state: `set_volume(music_volume)` + play when `!muted &&
+  music_volume > 0.0`, pause otherwise. Called after every settings/mute
+  change (`SetSettings` applies music volume live).
+- Music loops via `Decoder::new_looped(Cursor::new(MUSIC_BYTES))` appended
+  once at construction; muting/zeroing just pauses (cheap, resumes in place).
+  The track is **embedded via `include_bytes!`** (finding-1 fix), so the
+  binary is self-contained and plays from any working directory.
+- **Graceful no-audio fallback:** if `DeviceSinkBuilder::open_default_sink()`
+  fails (no device, headless CI), `backend` stays `None` and every method
+  is a no-op — the game still runs, and `cargo test` opens no device.
 
 ### Screen + SettingsState
 
@@ -105,13 +116,16 @@ The engine stays audio-free. `App` derives SFX from what *changed* in
 game state, via a pure, unit-testable function over a small snapshot:
 
 ```rust
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy)] // no Eq: RoundOutcome isn't Eq — the diff runs through audio_cues
 struct AudioSnapshot {
     p_dealer: usize, p_played: usize, p_bust: bool, p_stood: bool, p_last_flip: bool,
     o_dealer: usize, o_played: usize, o_bust: bool, o_stood: bool, o_last_flip: bool,
     outcome: Option<RoundOutcome>, game_over: bool,
 }
-fn audio_cues(prev: AudioSnapshot, curr: AudioSnapshot) -> Vec<Sfx>;
+// A Cue is an Sfx plus a playback-speed factor, so the opponent's actions
+// sound a touch lower (OPPONENT_PITCH = 0.92) than the player's.
+pub struct Cue { sfx: Sfx, pitch: f32 }
+fn audio_cues(prev: AudioSnapshot, curr: AudioSnapshot) -> Vec<Cue>;
 ```
 
 Rules (cover both sides, so you hear the opponent play too), with
