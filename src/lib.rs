@@ -10,6 +10,8 @@ pub mod menu;
 pub mod overlay;
 pub mod layout;
 pub mod app;
+pub mod settings;
+pub mod audio;
 
 // Card size
 pub const CARD_WIDTH: usize = 9;

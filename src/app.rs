@@ -4,15 +4,20 @@ use crossterm::event::KeyCode;
 
 use crate::{
     SELECTION_PULSE_MS,
+    audio::{Audio, AudioSnapshot, Sfx, audio_cues},
     board::BoardView,
     card::Card,
     config::Config,
     frame::{Emphasis, Frame, draw_text},
     game::{GameAction, GamePhase, GameState},
-    menu::{MenuEvent, MenuItem, MenuState},
+    menu::{MenuAction, MenuEvent, MenuItem, MenuState},
     overlay::{Overlay, OverlayKind},
     screen::Screen,
+    settings::{SettingRow, Settings, SettingsAction, SettingsState},
 };
+
+/// How much one ←/→ press moves a volume slider on the settings screen.
+const VOLUME_STEP: f32 = 0.1;
 
 /// The one shared selection animation: a gentle two-phase breathe that
 /// modulates the emphasis of whatever is currently selected (a hand
@@ -200,7 +205,15 @@ pub struct App {
     screen: Screen,
     board_view: BoardView,
     overlay: Option<Overlay>,
+    // The settings panel, when open — an overlay over the start menu (like
+    // How to Play), so the menu and its selection are preserved underneath.
+    settings_panel: Option<SettingsState>,
     pulse: SelectionPulse,
+    settings: Settings,
+    audio: Audio,
+    // The last in-game audio snapshot; the next one is diffed against it to
+    // decide which SFX to play. None outside a game.
+    prev_audio: Option<AudioSnapshot>,
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
@@ -208,6 +221,7 @@ pub struct App {
 
 impl App {
     pub fn new(config: Config) -> Self {
+        let settings = Settings::load();
         Self {
             config,
             screen: Screen::StartMenu {
@@ -215,9 +229,29 @@ impl App {
             },
             board_view: BoardView::new(config),
             overlay: None,
+            settings_panel: None,
             pulse: SelectionPulse::default(),
+            audio: Audio::new(settings),
+            settings,
+            prev_audio: None,
             too_small: None,
         }
+    }
+
+    /// Play the SFX for whatever just changed in the game, by diffing the
+    /// current state against the previous snapshot. A no-op outside a game.
+    /// The engine never makes a sound; this observes it from the outside.
+    fn emit_audio_cues(&mut self) {
+        let curr = match &self.screen {
+            Screen::InGame { game_state, .. } => AudioSnapshot::of(game_state),
+            _ => return,
+        };
+        if let Some(prev) = self.prev_audio {
+            for cue in audio_cues(prev, curr) {
+                self.audio.play_cue(cue);
+            }
+        }
+        self.prev_audio = Some(curr);
     }
 
     /// Re-lay-out for a new (valid) terminal size and resume play. Game
@@ -250,15 +284,27 @@ impl App {
             return;
         }
 
-        if self.overlay.is_some() {
+        // Global mute — works on every screen and under an overlay.
+        if key == KeyCode::Char('m') {
+            self.audio.toggle_mute();
+            return;
+        }
+
+        // The settings panel is a modal overlay over the menu: while it's
+        // open it takes all input, and Esc closes it back to the menu with
+        // the selection intact.
+        if self.settings_panel.is_some() {
+            self.handle_settings_input(key);
+        } else if self.overlay.is_some() {
             // Any overlay is dismissed with ?, Esc, Enter, or Space — the
             // last so How to Play (opened from the menu with Space) closes
-            // with the same key it opened on.
+            // with the same key it opened on. Closing sounds the back cue.
             if matches!(
                 key,
                 KeyCode::Char('?') | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter
             ) {
                 self.overlay = None;
+                self.audio.play(Sfx::MenuBack);
             }
         } else {
             // If overlay is not enabled, if ? is pressed, enable overlay
@@ -278,10 +324,15 @@ impl App {
             match &mut self.screen {
                 // Route the Menu inputs only to Menu
                 Screen::StartMenu { menu_state } => {
-                    if let Some(menu_action) = menu_state.handle_menu_input(key)
-                        && let Some(menu_event) = menu_state.apply_menu_action(menu_action)
-                    {
-                        self.apply_menu_event(menu_event);
+                    if let Some(menu_action) = menu_state.handle_menu_input(key) {
+                        let event = menu_state.apply_menu_action(menu_action);
+                        self.audio.play(match menu_action {
+                            MenuAction::Select => Sfx::MenuSelect,
+                            _ => Sfx::MenuMove,
+                        });
+                        if let Some(menu_event) = event {
+                            self.apply_menu_event(menu_event);
+                        }
                     }
                 }
 
@@ -312,6 +363,54 @@ impl App {
                         _ => {}
                     }
                 }
+
+            }
+        }
+
+        // After any input, sound whatever just changed in the game.
+        self.emit_audio_cues();
+    }
+
+    /// Route a key to the open settings panel: move between rows, adjust the
+    /// selected channel's volume (updating audio + persisting immediately),
+    /// or close the panel back to the menu with the back cue. The menu
+    /// underneath is untouched, so its selection survives.
+    fn handle_settings_input(&mut self, key: KeyCode) {
+        let Some(settings_state) = self.settings_panel.as_ref() else {
+            return;
+        };
+        let Some(action) = settings_state.handle_input(key) else {
+            return;
+        };
+        match action {
+            SettingsAction::Up => {
+                self.settings_panel.as_mut().unwrap().move_up();
+                self.audio.play(Sfx::MenuMove);
+            }
+            SettingsAction::Down => {
+                self.settings_panel.as_mut().unwrap().move_down();
+                self.audio.play(Sfx::MenuMove);
+            }
+            SettingsAction::Louder | SettingsAction::Quieter => {
+                let delta = if matches!(action, SettingsAction::Louder) {
+                    VOLUME_STEP
+                } else {
+                    -VOLUME_STEP
+                };
+                let vol = match self.settings_panel.as_ref().unwrap().selected() {
+                    SettingRow::Music => &mut self.settings.music_volume,
+                    SettingRow::Sfx => &mut self.settings.sfx_volume,
+                };
+                *vol = (*vol + delta).clamp(0.0, 1.0);
+                self.audio.set_settings(self.settings);
+                self.settings.save();
+                // A tick after set_settings so you hear the new SFX level
+                // (the music change is already live).
+                self.audio.play(Sfx::MenuMove);
+            }
+            SettingsAction::Back => {
+                self.settings_panel = None;
+                self.audio.play(Sfx::MenuBack);
             }
         }
     }
@@ -327,9 +426,17 @@ impl App {
                     game_state: Box::new(GameState::new()),
                     cursor: HandCursor::default(),
                 };
+                // Fresh game — the first snapshot seeds silently, so the
+                // empty starting board plays no cues.
+                self.prev_audio = None;
             }
             MenuItem::HowToPlay => {
                 self.overlay = Some(Overlay::new(OverlayKind::HowToPlay, self.config));
+            }
+            MenuItem::Settings => {
+                // Open Settings as an overlay over the menu — the menu (and
+                // its selection) stays put underneath, like How to Play.
+                self.settings_panel = Some(SettingsState::default());
             }
         }
     }
@@ -343,6 +450,10 @@ impl App {
         if let Screen::InGame { game_state, .. } = &mut self.screen {
             game_state.update();
         }
+
+        // Sound the opponent's moves and round/game resolutions, which
+        // happen here in the update rather than from a player keypress.
+        self.emit_audio_cues();
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
@@ -359,6 +470,11 @@ impl App {
             }
         }
 
+        // The settings panel and any help overlay draw over the screen —
+        // mutually exclusive in practice (settings takes input priority).
+        if let Some(settings_state) = &self.settings_panel {
+            settings_state.draw_overlay(frame, &self.config, self.settings, pulse);
+        }
         if let Some(overlay) = &self.overlay {
             overlay.draw(frame);
         }

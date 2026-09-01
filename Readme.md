@@ -13,10 +13,11 @@ toward 20 without busting, using your side-deck hand to push your total
 up or down. Wins earn currency and card packs that unlock better
 side-deck cards for tougher matchups ahead.
 
-> **Status:** actively being built. The core Pazaak engine and a terminal
-> UI overhaul are in place; opponent personalities, campaign progression,
-> and save/resume are next — see `ROADMAP.md` for what's shipped and
-> what's ahead.
+> **Status:** actively being built. The core Pazaak engine, a terminal
+> UI overhaul, and audio with a settings menu (music/SFX volume, a global
+> mute) are in place; opponent personalities, campaign progression, and
+> save/resume are next — see `ROADMAP.md` for what's shipped and what's
+> ahead.
 
 ## Building & running
 
@@ -26,8 +27,8 @@ cargo run
 ```
 
 Requires a stable Rust toolchain (2024 edition). On Linux, the ALSA
-development libraries are required to build (a transitive dependency of
-the audio library used for sound effects):
+development libraries are required to build (a dependency of `rodio`, the
+audio library used for the music and sound effects):
 
 ```
 # Debian/Ubuntu
@@ -58,3 +59,8 @@ Kaazap is an unofficial, non-commercial fan project inspired by Pazaak
 as it appears in *Star Wars: Knights of the Old Republic*. It is not
 affiliated with, endorsed by, or sponsored by Lucasfilm, Disney, BioWare,
 or Aspyr.
+
+Bundled music is licensed under Creative Commons Attribution — see
+`assets/CREDITS.md` for the required attribution. Sound effects are
+generated from scratch (`scripts/gen_sfx.py`) and carry no third-party
+licensing.

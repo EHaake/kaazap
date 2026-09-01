@@ -17,15 +17,8 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-// use rusty_audio::Audio;
 
 fn main() -> anyhow::Result<()> {
-
-    // TODO: Setup Audio
-    // let mut audio = Audio::new();
-    // audio.add("startup", "startup.wav");
-    // audio.play("startup");
-
     // Terminal Initialization
     let mut config = Config::from_terminal()?;
     let mut stdout = io::stdout();
@@ -121,9 +114,6 @@ fn main() -> anyhow::Result<()> {
     // First make sure threads are cleaned up
     drop(render_tx);
     render_handle.join().unwrap();
-
-    // TODO: Cleanup audio once implemented
-    // audio.wait(); // wait for audio to finish so it isn't cut off
 
     stdout.execute(Show)?; // Re-show the cursor (since hidden in alternate screen)
     stdout.execute(LeaveAlternateScreen)?;
