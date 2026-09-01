@@ -79,6 +79,25 @@ unrelated features.
   the TUI format get considered as a deliberate post-v1 pass (see
   `ROADMAP.md`), and a redraw mechanic is a candidate there.
 
+## Audio & music (spec 004)
+
+- **No copyrighted Star Wars / KOTOR music, even 8-bit covers.** The
+  Cantina Band theme and the KOTOR Pazaak music are copyrighted
+  (Lucasfilm/Disney and John Williams; BioWare/LucasArts), and a fan
+  chiptune *cover* of them is still a derivative work — not licensable for
+  a project meant to be shared. Attribution is not a license: only a
+  license grants the right to use, and none exists for fan use. So Kaazap
+  ships none of it.
+- **Bundled track is CC-BY, credited.** v1 ships Kevin MacLeod's "Chipper
+  Doodle" (CC-BY 4.0) as the background loop — properly licensed for reuse
+  with attribution (`assets/CREDITS.md`). It's a placeholder: the target
+  vibe (the *Star Wars* cantina-jazz feel, evoked not copied) isn't well
+  matched by anything in the CC0/CC-BY libraries surveyed, so generating
+  an original is roadmapped (see `ROADMAP.md`).
+- **Sound effects are generated, not sourced.** All SFX are synthesized by
+  `scripts/gen_sfx.py` (square/triangle blips), so they carry no
+  third-party licensing.
+
 ## Testing
 
 No tests exist in the codebase as of the project's pickup (last commit
