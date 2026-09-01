@@ -84,7 +84,11 @@ Review: after every task.
 
 Review: after every task.
 
-- [ ] **T003 — SFX assets + `Sfx` enum**
+- [x] **T003 — SFX assets + `Sfx` enum**
+  *Done. `scripts/gen_sfx.py` (stdlib `wave`, deterministic) synthesizes
+  11 short square/triangle-wave WAVs into `assets/sfx/` (~200 KB total,
+  license-free). `Sfx` enum + `Sfx::bytes()` embeds each via
+  `include_bytes!`. Tuning by ear deferred to T008.*
   Add a small committed generator (`scripts/gen_sfx.py`, stdlib `wave` —
   short square/triangle blips with envelopes, license-free) that writes
   one WAV per effect into `assets/sfx/`. Add the `Sfx` enum in `audio.rs`
@@ -96,7 +100,17 @@ Review: after every task.
   `ls assets/sfx/` shows a WAV per `Sfx` variant; the generator script
   is committed and re-runnable.*
 
-- [ ] **T004 — `Audio` player: rodio backend, music loop, gating, fallback**
+- [x] **T004 — `Audio` player: rodio backend, music loop, gating, fallback**
+  *Done. Pinned to the rodio 0.22 API (`DeviceSinkBuilder::open_default_sink`
+  → `MixerDeviceSink`; `mixer().add(source)` for fire-and-forget SFX; a
+  `Player` via `connect_new`/`append`/`play`/`pause` for the loop;
+  `Decoder::new` / `new_looped`). `Audio` holds `Option<Backend>` — a
+  silent stub when `open_default_sink` fails (headless/no device), so the
+  game always runs. Music loads from the runtime path `assets/music/
+  theme.ogg` (silent if absent, until T008). `play`/`apply_music` gate on
+  pure `should_play_sfx`/`should_music_sound(muted, settings)`, unit-tested
+  across the mute × channel matrix. No `OutputStream` constructed in tests
+  — device-free.*
   `Audio` owns a rodio `OutputStream` + handle, a looping music `Sink`,
   the embedded SFX bytes, the current `Settings`, and a `muted` flag.
   `play(Sfx)` decodes the clip and plays it on a fresh detached sink,
@@ -114,7 +128,15 @@ Review: after every task.
   *Verify: `cargo test audio_` green; `cargo build` clean; real-terminal
   smoke deferred to T007/T008 (nothing calls `Audio` yet).*
 
-- [ ] **T005 — `audio_cues`: the pure state-diff → SFX mapping**
+- [x] **T005 — `audio_cues`: the pure state-diff → SFX mapping**
+  *Done. `AudioSnapshot::of(&GameState)` captures both sides' dealer/played
+  counts, bust/stood, last-played-is-flip, plus round outcome and game-over
+  (with winner). `audio_cues(prev, curr) -> Vec<Sfx>` implements the
+  priority rules — draw; play/flip; bust suppresses that side's stand;
+  game-over replaces the round cue; tie is silent; both sides covered.
+  Seven `cues_` tests cover the truth table (incl. no-repeat once a flag is
+  set). Pure, no audio, `game.rs`/`player.rs`/`card.rs` diff vs main empty.
+  146 tests pass (+8 across T004/T005), 0 warnings.*
   `AudioSnapshot` (per-side dealer/played counts, bust/stood, last-played-
   is-flip; plus `outcome` and `game_over`) with a `from(&GameState)`
   constructor, and `audio_cues(prev, curr) -> Vec<Sfx>` implementing the
