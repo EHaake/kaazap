@@ -5,6 +5,8 @@
 //! (`audio_cues`), so `game.rs` stays audio-free.
 
 use std::io::{BufReader, Cursor};
+use std::sync::mpsc;
+use std::thread;
 
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player};
 
@@ -56,14 +58,20 @@ impl Sfx {
 /// track is sourced (spec 004 T008); absent → silent.
 const MUSIC_PATH: &str = "assets/music/theme.ogg";
 
-/// The audio player. Holds the rodio backend when a device is available,
-/// or `None` (a silent stub) when there is no device — headless CI, no
-/// sound card — so the game always runs.
+/// Commands the main thread sends to the audio thread. Everything the game
+/// does audibly becomes one of these; sending is non-blocking.
+enum AudioCommand {
+    PlaySfx(Sfx),
+    SetSettings(Settings),
+    ToggleMute,
+}
+
+/// Handle to the audio thread. Constructing it is instant — it spawns the
+/// thread and returns; the device open (which can take seconds the first
+/// time a fresh binary touches the OS audio stack) happens on that thread,
+/// so it never freezes the input loop. Every method just sends a command.
 pub struct Audio {
-    backend: Option<Backend>,
-    attempted: bool,
-    settings: Settings,
-    muted: bool,
+    tx: Option<mpsc::Sender<AudioCommand>>,
 }
 
 /// The live rodio backend. The device sink is kept alive for the program
@@ -98,33 +106,74 @@ fn load_music(music: &Player) -> bool {
 }
 
 impl Audio {
-    /// Create the player *without* opening the audio device — instant, so
-    /// startup can paint the first frame before paying the device-open
-    /// cost (opening it in `new` blanked the screen until it finished).
-    /// Call `open` once that first frame is on its way.
+    /// Spawn the audio thread and return a handle — instant. The device
+    /// open happens on that thread, so it never freezes the input loop.
+    /// Tests only construct this and drop it, so `cargo test` opens no
+    /// audio device.
     pub fn new(settings: Settings) -> Self {
-        Self {
-            backend: None,
-            attempted: false,
-            settings,
-            muted: false,
-        }
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || audio_thread(rx, settings));
+        Self { tx: Some(tx) }
     }
 
-    /// Open the audio device (once) and bring the music into line with the
-    /// settings — a no-op if there's no device (silent stub). Deferred out
-    /// of `new` so it never stalls startup, and skipped entirely by tests
-    /// (which only ever call `new`), so `cargo test` needs no audio device.
-    pub fn open(&mut self) {
-        if !self.attempted {
-            self.attempted = true;
-            self.backend = Backend::open();
-        }
-        self.apply_music();
-    }
-
-    /// Play a one-shot effect — a no-op unless SFX are on and not muted.
+    /// Play a one-shot effect.
     pub fn play(&self, sfx: Sfx) {
+        self.send(AudioCommand::PlaySfx(sfx));
+    }
+
+    /// Adopt new settings (the Music/SFX toggles) and reconcile music.
+    pub fn set_settings(&self, settings: Settings) {
+        self.send(AudioCommand::SetSettings(settings));
+    }
+
+    /// Flip the session master mute and reconcile music.
+    pub fn toggle_mute(&self) {
+        self.send(AudioCommand::ToggleMute);
+    }
+
+    fn send(&self, cmd: AudioCommand) {
+        if let Some(tx) = &self.tx {
+            let _ = tx.send(cmd); // audio thread gone → silently drop
+        }
+    }
+}
+
+/// The audio thread body: open the device (blocking here is fine — it's
+/// off the main thread), then serve commands until the handle is dropped.
+fn audio_thread(rx: mpsc::Receiver<AudioCommand>, settings: Settings) {
+    let mut state = AudioState {
+        backend: Backend::open(),
+        settings,
+        muted: false,
+    };
+    state.apply_music();
+    while let Ok(cmd) = rx.recv() {
+        match cmd {
+            AudioCommand::PlaySfx(sfx) => state.play(sfx),
+            AudioCommand::SetSettings(s) => {
+                state.settings = s;
+                state.apply_music();
+            }
+            AudioCommand::ToggleMute => {
+                state.muted = !state.muted;
+                state.apply_music();
+            }
+        }
+    }
+}
+
+/// The live audio state, owned entirely by the audio thread — the rodio
+/// backend is `!Send`, so it must never leave that thread. A `None` backend
+/// is a silent stub (no device: headless CI, no sound card) so the game
+/// always runs.
+struct AudioState {
+    backend: Option<Backend>,
+    settings: Settings,
+    muted: bool,
+}
+
+impl AudioState {
+    fn play(&self, sfx: Sfx) {
         if !should_play_sfx(self.muted, self.settings) {
             return;
         }
@@ -134,20 +183,7 @@ impl Audio {
         }
     }
 
-    /// Adopt new settings (e.g. the Music/SFX toggles) and reconcile music.
-    pub fn set_settings(&mut self, settings: Settings) {
-        self.settings = settings;
-        self.apply_music();
-    }
-
-    /// Flip the session master mute and reconcile music.
-    pub fn toggle_mute(&mut self) {
-        self.muted = !self.muted;
-        self.apply_music();
-    }
-
-    /// The one place that reconciles the music sink with the current state:
-    /// play the loop when music should sound, pause it otherwise.
+    /// Play the music when it should sound, pause it otherwise.
     fn apply_music(&self) {
         let Some(backend) = &self.backend else { return };
         if !backend.has_music {

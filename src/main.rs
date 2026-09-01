@@ -62,15 +62,6 @@ fn main() -> anyhow::Result<()> {
         }
     });
 
-    // Paint the first frame (the start menu) and hand it to the render
-    // thread *before* opening the audio device. Device init can take a
-    // moment; doing it here rather than in `App::new` keeps startup from
-    // sitting on a blank screen until it finishes.
-    let mut first_frame = new_frame(&config);
-    app.draw(&mut first_frame);
-    let _ = render_tx.try_send(first_frame);
-    app.open_audio();
-
     // Game loop
     //
     'gameloop: loop {

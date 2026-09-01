@@ -226,6 +226,22 @@ Review: after the phase.
   moves), `m` instantly silences all audio and restores it, menu/settings
   navigation clicks; `git diff main -- src/game.rs …` still empty.*
 
+- [x] **T007a — Move audio onto its own thread (fix the first-run freeze)**
+  *(human-reported: first run after a rebuild froze the menu ~10s with
+  inputs queuing, then firing all at once; later runs fast.)* T006a's
+  `open_audio` still ran on the main thread, so the device open — which
+  cold-starts for seconds the first time a fresh binary touches the OS
+  audio stack — froze the input loop after the menu painted. Fixed
+  properly: `Audio` is now a thin handle over an `mpsc::Sender<AudioCommand>`;
+  a dedicated **audio thread** owns the rodio backend (which is `!Send`, so
+  it must stay on one thread), opens the device there, and serves
+  PlaySfx/SetSettings/ToggleMute commands. `Audio::new` just spawns the
+  thread and returns instantly; every call is a non-blocking send. Removed
+  the `open`/`attempted` split and the `main.rs` paint-first-frame
+  workaround. Verified in-app: navigating the menu the instant it appears
+  works (no freeze), a game plays, `m` mutes. 147 tests pass, 0 warnings;
+  tests still open no device (they construct the handle and drop it).*
+
 ## Phase 6 — Assets & acceptance
 
 Review: after the phase.

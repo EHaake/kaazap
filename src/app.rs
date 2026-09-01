@@ -247,12 +247,6 @@ impl App {
         self.prev_audio = Some(curr);
     }
 
-    /// Open the audio device. Called once from the game loop *after* the
-    /// first frame is drawn, so the device-open cost never stalls startup.
-    pub fn open_audio(&mut self) {
-        self.audio.open();
-    }
-
     /// Re-lay-out for a new (valid) terminal size and resume play. Game
     /// state is untouched — only the presentation is rebuilt.
     pub fn resize(&mut self, config: Config) {
