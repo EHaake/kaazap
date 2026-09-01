@@ -263,8 +263,15 @@ Review: after the phase.
   "original cantina-vibe music" item (human-requested). **Acceptance
   sweep:** every spec.md box checked with evidence — 147 tests, 0 warnings,
   no copyrighted audio filenames, engine untouched, end-to-end (menu →
-  settings → game → mute) verified in-app. Remaining: the skeptical-
-  reviewer pass (offered) and marking the PR ready, on the human's word.*
+  settings → game → mute) verified in-app. **Skeptical-reviewer pass: done**
+  — came back YELLOW (logic/tests/cue-table/mute-coherence/persistence/
+  licensing all verified sound). Findings fixed in `97872b4`: music now
+  embedded via `include_bytes!` (was cwd-relative → silent outside repo
+  root), cold-start SFX backlog drained (no barrage), dead `rusty_audio`
+  stubs removed from `main.rs`, `Option<Sender>` simplified, and plan/spec
+  docs reconciled to the shipped types. Remaining: fold the ROADMAP
+  "Shipped" entry + drop the stale `rusty_audio`/Settings backlog lines,
+  and mark the PR ready — both on the human's word.*
   Source a **CC0 / royalty-free chiptune** track (spacey-cantina feel),
   **verify its license**, and present a couple of candidates for the
   human to pick; drop the chosen one into `assets/music/` and confirm it
