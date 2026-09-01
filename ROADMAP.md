@@ -63,6 +63,14 @@ of, not guessed at here in advance.
   one vocabulary — emphasis transitions over time — never ambient or
   decorative movement). Designed against the finished UI overhaul, not
   in advance of it.
+- **Original cantina-vibe music** — the bundled track (Kevin MacLeod's
+  CC-BY "Chipper Doodle", spec 004) is a good placeholder but not the
+  target vibe. Generate or commission an original chiptune track closer
+  to the *Star Wars* cantina-jazz feel — jazzy, swingy, a little exotic —
+  **without** copying the copyrighted theme (which, along with the KOTOR
+  Pazaak music, can't be used; see DECISIONS.md). Nothing in the CC0/CC-BY
+  libraries surveyed got close to that specific flavor, so an original is
+  the path. Human-requested during spec 004.
 - **Post-v1 rule enhancements** — once the complete game exists as a
   baseline, consider Kaazap-specific rule variants that suit the TUI
   format (a mid-match hand-redraw mechanic is one candidate). Evaluated
