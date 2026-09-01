@@ -115,14 +115,15 @@ impl SettingsState {
     }
 
     /// Map a key to a settings action: ↑/↓ (w/s) move between rows, ←/→
-    /// (a/d) adjust the selected row's volume, Esc goes back.
+    /// (a/d) adjust the selected row's volume; Esc — and Enter/Space, the
+    /// keys that opened the panel — close it, matching How to Play.
     pub fn handle_input(&self, key: KeyCode) -> Option<SettingsAction> {
         match key {
             KeyCode::Up | KeyCode::Char('w') => Some(SettingsAction::Up),
             KeyCode::Down | KeyCode::Char('s') => Some(SettingsAction::Down),
             KeyCode::Right | KeyCode::Char('d') => Some(SettingsAction::Louder),
             KeyCode::Left | KeyCode::Char('a') => Some(SettingsAction::Quieter),
-            KeyCode::Esc => Some(SettingsAction::Back),
+            KeyCode::Esc | KeyCode::Enter | KeyCode::Char(' ') => Some(SettingsAction::Back),
             _ => None,
         }
     }
@@ -253,5 +254,15 @@ mod tests {
         assert_eq!(volume_bar(0.0), "[░░░░░░░░░░]");
         assert_eq!(volume_bar(1.0), "[██████████]");
         assert_eq!(volume_bar(0.5), "[█████░░░░░]");
+    }
+
+    #[test]
+    fn settings_closes_on_esc_enter_or_space() {
+        // Esc — and the Enter/Space that open the panel — all close it, so
+        // it dismisses like How to Play (close with the key you opened on).
+        let s = SettingsState::default();
+        for key in [KeyCode::Esc, KeyCode::Enter, KeyCode::Char(' ')] {
+            assert!(matches!(s.handle_input(key), Some(SettingsAction::Back)));
+        }
     }
 }
