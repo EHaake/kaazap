@@ -35,7 +35,14 @@ reported; all the *logic* (cues, gating, persistence) is unit-tested.
 
 Review: after the task.
 
-- [ ] **T001 — Constitution amendment + dependency swap**
+- [x] **T001 — Constitution amendment + dependency swap**
+  *Done. CLAUDE.md dependency note amended (rusty_audio → rodio; dropped
+  the obsolete rusty_time line) and committed straight to main, then
+  merged into the branch. Cargo.toml (via cargo add/remove): removed
+  rusty_audio; added rodio 0.22.2, serde 1 (derive), serde_json 1,
+  directories 6. Deps compile (rodio via coreaudio on macOS), 134 tests
+  pass, 0 warnings. Note: rodio 0.22 is recent — its exact OutputStream/
+  Sink API is pinned at T004.*
   Two parts. (a) Amend `CLAUDE.md`'s dependency note: `rusty_audio` is
   dropped in favor of `rodio` (looping music + pause/volume need it
   directly; one backend beats two contending output streams) — commit
