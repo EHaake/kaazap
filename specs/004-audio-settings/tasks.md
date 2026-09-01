@@ -58,7 +58,16 @@ Review: after the task.
 
 Review: after every task.
 
-- [ ] **T002 — `Settings` struct + JSON load/save**
+- [x] **T002 — `Settings` struct + JSON load/save**
+  *Done. `settings.rs`: `Settings { music, sfx }` (serde derive, both
+  default on) with `#[serde(default)]` per field so partial/older files
+  still load (forward-compat for the save format). `load()` reads the
+  `directories` config dir's settings.json and defaults on any error;
+  `save()` is best-effort (creates the dir, swallows write failures);
+  neither panics. A filesystem-free `from_json_or_default` core makes the
+  fallback testable without touching the real config dir. Four
+  `settings_` tests (default, round-trip, malformed→default, missing
+  fields→on). Not yet wired to App (T006). 138 tests pass (+4), 0 warnings.*
   New `settings.rs`: `Settings { music: bool, sfx: bool }` with
   `serde` derive and `Default` (both true). `Settings::load()` reads
   `directories::ProjectDirs::from("", "", "kaazap")` → `config_dir()/
