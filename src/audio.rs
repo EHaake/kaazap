@@ -58,7 +58,7 @@ impl Sfx {
 /// Where the looping music track is loaded from at runtime. Kept a runtime
 /// path (not embedded) so the audio core builds and tests before the CC0
 /// track is sourced (spec 004 T008); absent → silent.
-const MUSIC_PATH: &str = "assets/music/theme.ogg";
+const MUSIC_PATH: &str = "assets/music/theme.mp3";
 
 /// Commands the main thread sends to the audio thread. Everything the game
 /// does audibly becomes one of these; sending is non-blocking.
