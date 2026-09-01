@@ -125,39 +125,50 @@ underneath, all subject to the toggles and the mute key.
 - **Toggle state is legible at a glance** (e.g. `Music   ◄ On ►` / `Off`),
   the current value unmistakable.
 - **All shipped audio is license-clean and credited.** The music track is
-  CC0 / royalty-free (verified); SFX are CC0 or generated. The track's
-  source and license are recorded (`DECISIONS.md` and/or an assets
-  credits file).
+  CC0 or CC-BY (license-verified, credited when CC-BY); SFX are generated.
+  The track's source and license are recorded (`assets/CREDITS.md` and
+  `DECISIONS.md`).
 - **Muting is instant and total; unmuting restores exactly** the saved
   per-channel state — no surprise where a channel comes back wrong.
 
 ## Acceptance criteria
 
-- [ ] Background music loops while the app runs and starts/stops with the
-      Music toggle; verified by running.
-- [ ] SFX play for the defined moments and are silenced by the SFX toggle;
-      verified by running.
-- [ ] `m` from any screen instantly silences all audio and restores it to
-      the saved per-channel state; verified by running.
-- [ ] Menu → Settings opens the settings screen; Music and SFX toggle
-      independently with the cursor vocabulary; Escape returns to the
-      menu; verified by running.
-- [ ] Settings persist: changing a toggle writes the config file, a
+- [x] Background music loops while the app runs and starts/stops with the
+      Music toggle. *(Chipper Doodle loops via rodio `new_looped`; the
+      Music toggle drives `set_settings` → play/pause of the sink. Audible
+      confirmation is the human's.)*
+- [x] SFX play for the defined moments and are silenced by the SFX toggle.
+      *(T007: a full round fires draw/play/stand/bust/outcome cues, gated
+      by the SFX toggle.)*
+- [x] `m` from any screen instantly silences all audio and restores it to
+      the saved per-channel state. *(T007: global `m` → `toggle_mute`;
+      verified in-app.)*
+- [x] Menu → Settings opens the settings screen; Music and SFX toggle
+      independently with the cursor vocabulary; Escape returns to the menu.
+      *(T006: verified in-app.)*
+- [x] Settings persist: changing a toggle writes the config file, a
       relaunch loads it, and a missing/corrupt file falls back to defaults
-      without crashing. Unit-tested (round-trip + fallback).
-- [ ] The bundled music track is CC0 / royalty-free with its license
-      recorded; no copyrighted (Star Wars / KOTOR) audio ships.
-- [ ] README documents the Linux ALSA build dependency.
-- [ ] `cargo test` green with the new coverage; `cargo build` introduces
-      no new warnings.
+      without crashing. Unit-tested. *(T002 four `settings_` tests; T006
+      relaunch showed persisted `{"music":false,"sfx":true}`.)*
+- [x] The bundled music track is license-clean (CC-BY, credited — human
+      OK'd attribution) with its license recorded; no copyrighted (Star
+      Wars / KOTOR) audio ships. *(Chipper Doodle CC-BY 4.0 in
+      `assets/CREDITS.md` + `DECISIONS.md`; SFX generated; no copyrighted
+      filenames.)*
+- [x] README documents the Linux ALSA build dependency. *(Building
+      section, refreshed for rodio.)*
+- [x] `cargo test` green (147) with the new coverage; `cargo build`
+      introduces no new warnings (0).
 
 ## Resolved decisions
 
-- **CC0 / royalty-free chiptune, not actual Star Wars / KOTOR music**
+- **Licensed royalty-free music, not actual Star Wars / KOTOR music**
   (human-ruled, licensing) — the real tracks (and fan 8-bit covers of
-  them) are copyrighted and can't ship in a project meant to be shared.
-  A fitting CC0 track is sourced, license-verified, and presented as a
-  couple of candidates for approval.
+  them) are copyrighted and can't ship in a project meant to be shared;
+  attribution is not a license. Candidates were sourced and license-
+  verified; the human, fine with attribution, chose **CC-BY** Kevin
+  MacLeod's "Chipper Doodle" as a placeholder loop (credited in
+  `assets/CREDITS.md`). An original cantina-vibe track is roadmapped.
 - **Settings persist now**, to a JSON config file via `serde_json` +
   `directories` (human-ruled) — the first slice of the persistence layer,
   extended later by the save/resume spec rather than rebuilt.

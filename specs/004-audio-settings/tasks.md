@@ -247,6 +247,21 @@ Review: after the phase.
 Review: after the phase.
 
 - [ ] **T008 — Music track, credits, README, acceptance sweep + review**
+  *In progress. **Music:** human chose (from sourced, license-verified
+  candidates) Kevin MacLeod's CC-BY "Chipper Doodle" — bundled as
+  `assets/music/theme.mp3` (MUSIC_PATH updated; MP3 is a default rodio
+  decoder, verified it decodes), with `assets/CREDITS.md` + a
+  `DECISIONS.md` note recording the attribution. Actual Star Wars/KOTOR
+  music (and 8-bit covers) declined as copyrighted — attribution isn't a
+  license. **SFX** tuned per human feedback: a distinct `RoundTie` sound
+  (was silent) and the opponent's actions pitched down (`OPPONENT_PITCH`)
+  so player/opponent read apart by ear; kept the bust. **Docs:** README
+  ALSA note refreshed for rodio + credits pointer; ROADMAP (main) gains an
+  "original cantina-vibe music" item (human-requested). **Acceptance
+  sweep:** every spec.md box checked with evidence — 147 tests, 0 warnings,
+  no copyrighted audio filenames, engine untouched, end-to-end (menu →
+  settings → game → mute) verified in-app. Remaining: the skeptical-
+  reviewer pass (offered) and marking the PR ready, on the human's word.*
   Source a **CC0 / royalty-free chiptune** track (spacey-cantina feel),
   **verify its license**, and present a couple of candidates for the
   human to pick; drop the chosen one into `assets/music/` and confirm it
