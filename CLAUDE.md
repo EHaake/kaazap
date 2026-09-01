@@ -75,12 +75,12 @@ standing instruction to Claude Code as much as a note to the human.
 - Default: no new third-party crates without discussing it first. The
   existing set (`crossterm`, `rand`, `anyhow`, `strum`/`strum_macros`) is
   already earning its place.
-- `rusty_time` is declared in `Cargo.toml` but unused anywhere in `src/`
-  — drop it.
-- Keep `rusty_audio` for sound. It's scoped for exactly this kind of
-  small project's SFX needs (its own docs point to `rodio` if needs ever
-  outgrow it). Linux builds need ALSA dev libraries installed — document
-  this in the README once sound work starts.
+- Audio uses `rodio` (spec 004). `rusty_audio` was dropped: it's
+  fire-and-forget SFX with no looping or pause, and running it alongside
+  rodio would mean two output streams contending for the device — a
+  single rodio backend (one output stream, a looping music sink, detached
+  sinks for overlapping SFX) is cleaner. Linux builds need ALSA dev
+  libraries installed to compile rodio — documented in the README.
 - Persistence (save/resume, campaign state, currency, unlocked cards):
   `serde` + `serde_json` for the save format — human-inspectable while
   debugging — and the `directories` crate for a proper cross-platform
