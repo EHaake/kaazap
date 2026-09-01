@@ -101,14 +101,18 @@ struct Backend { sink: MixerDeviceSink, music: Player, has_music: bool }
   fails (no device, headless CI), `backend` stays `None` and every method
   is a no-op — the game still runs, and `cargo test` opens no device.
 
-### Screen + SettingsState
+### Settings overlay + SettingsState
 
 ```rust
-// screen.rs
-Settings { settings_state: SettingsState },
+// app.rs — Settings is an overlay over the menu, not a Screen (T010).
+settings_panel: Option<SettingsState>,
 // settings.rs
 pub struct SettingsState { selected: SettingRow } // Music | Sfx
 ```
+
+*(Originally a `Screen::Settings { settings_state }` variant; T010 moved it
+to an overlay held by `App` so the menu selection survives a close — see
+the "## Settings panel" and "## Architecture / flow changes" sections.)*
 
 ## Audio cues — observing the engine, not touching it
 
@@ -282,8 +286,9 @@ Unit tests target the pure logic (constitution):
 2. **Persistence** — `Settings` + load/save + tests. Review every task.
 3. **Audio core** — `Audio`, `Sfx`, embedded clips, music loop, gating,
    silent fallback; `audio_cues` + its tests. Review every task.
-4. **Settings screen + menu** — `Screen::Settings`, `settings.rs` view,
-   the `Settings` menu item + N-item nav, global `m`.
+4. **Settings panel + menu** — the settings overlay (T010; a `Screen` in
+   the original phasing), `settings.rs` view, the `Settings` menu item +
+   N-item nav, global `m`.
 5. **Wire cues + music into `App`** — snapshot diff on every state change;
    music start/stop on settings/mute.
 6. **Assets + acceptance** — source & license-verify the music (candidates
