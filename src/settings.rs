@@ -1,7 +1,13 @@
 use std::{fs, path::PathBuf};
 
+use crossterm::event::KeyCode;
 use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    config::Config,
+    frame::{Emphasis, Frame, draw_text},
+};
 
 /// Persisted user preferences — the seed of the save format. The future
 /// save/resume spec extends this struct rather than rebuilding it, so the
@@ -63,6 +69,108 @@ impl Settings {
     fn config_path() -> Option<PathBuf> {
         ProjectDirs::from("", "", "kaazap")
             .map(|dirs| dirs.config_dir().join("settings.json"))
+    }
+}
+
+/// A row on the settings screen. Two for now (the spec's first settings);
+/// the save/campaign specs add more.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingRow {
+    Music,
+    Sfx,
+}
+
+/// What a key does on the settings screen — resolved by `App` (which owns
+/// the `Settings` and the `Audio`), since the row values live there.
+#[derive(Debug, Clone, Copy)]
+pub enum SettingsAction {
+    Up,
+    Down,
+    Toggle,
+    Back,
+}
+
+/// The settings screen's own state: which row the cursor is on. Drawn with
+/// the shared monochrome + cursor vocabulary, like the menu.
+#[derive(Debug)]
+pub struct SettingsState {
+    selected: SettingRow,
+}
+
+impl Default for SettingsState {
+    fn default() -> Self {
+        Self { selected: SettingRow::Music }
+    }
+}
+
+impl SettingsState {
+    pub fn selected(&self) -> SettingRow {
+        self.selected
+    }
+
+    /// Map a key to a settings action (or nothing). Mirrors the menu's
+    /// vocabulary: ↑/↓ (w/s) move, Enter/Space toggle, Esc goes back.
+    pub fn handle_input(&self, key: KeyCode) -> Option<SettingsAction> {
+        match key {
+            KeyCode::Up | KeyCode::Char('w') => Some(SettingsAction::Up),
+            KeyCode::Down | KeyCode::Char('s') => Some(SettingsAction::Down),
+            KeyCode::Enter | KeyCode::Char(' ') => Some(SettingsAction::Toggle),
+            KeyCode::Esc => Some(SettingsAction::Back),
+            _ => None,
+        }
+    }
+
+    // Two rows, clamped: up → the top row, down → the bottom. (Generalize
+    // to an index when there are more than two.)
+    pub fn move_up(&mut self) {
+        self.selected = SettingRow::Music;
+    }
+    pub fn move_down(&mut self) {
+        self.selected = SettingRow::Sfx;
+    }
+
+    /// Draw the settings screen: a centered title, the toggle rows (the
+    /// selected one carries the `▸` marker and breathes with the pulse),
+    /// and a controls hint — reading like the start menu.
+    pub fn draw(&self, frame: &mut Frame, config: &Config, settings: Settings, pulse: Emphasis) {
+        let center_x = config.num_cols / 2;
+        const BLOCK_H: usize = 7;
+        let top = config.num_rows.saturating_sub(BLOCK_H) / 2;
+
+        let title = "Settings";
+        draw_text(
+            frame,
+            center_x.saturating_sub(title.chars().count() / 2),
+            top,
+            title,
+            Emphasis::Strong,
+        );
+
+        // Rows left-aligned as a list; values line up in a column.
+        let row_x = center_x.saturating_sub(7);
+        for (i, (row, label, on)) in [
+            (SettingRow::Music, "Music", settings.music),
+            (SettingRow::Sfx, "Sound FX", settings.sfx),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let selected = self.selected == row;
+            let marker = if selected { "▸ " } else { "  " };
+            let value = if on { "On" } else { "Off" };
+            let emphasis = if selected { pulse } else { Emphasis::Normal };
+            let text = format!("{marker}{label:<9}{value}");
+            draw_text(frame, row_x, top + 2 + i * 2, &text, emphasis);
+        }
+
+        let hint = "↑/↓ select  ·  Enter toggle  ·  Esc back";
+        draw_text(
+            frame,
+            center_x.saturating_sub(hint.chars().count() / 2),
+            top + 6,
+            hint,
+            Emphasis::Muted,
+        );
     }
 }
 

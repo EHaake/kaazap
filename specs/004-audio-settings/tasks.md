@@ -153,7 +153,20 @@ Review: after every task.
 
 Review: after the phase.
 
-- [ ] **T006 — Settings screen, menu entry, and `App` audio/settings ownership**
+- [x] **T006 — Settings screen, menu entry, and `App` audio/settings ownership**
+  *Done. `Screen::Settings`; `settings.rs` gains `SettingRow`,
+  `SettingsAction`, and `SettingsState` (input ↑/↓+w/s move, Enter/Space
+  toggle, Esc back) with a centered monochrome draw (title, `▸`+pulse on
+  the selected row, On/Off values, a controls hint). `App` loads `Settings`
+  and constructs `Audio` in `new`, routes the screen, and on a toggle
+  updates settings, calls `audio.set_settings`, and saves. `menu.rs` gains
+  `MenuItem::Settings` + real wrapping N-item navigation (retiring the
+  2-item toggle). `?` is a no-op on the settings screen. Verified in-app:
+  Menu → Settings opens the centered screen, Music/SFX toggle
+  independently, the change persists across a fresh relaunch
+  (`settings.json` = `{"music": false, "sfx": true}`), Esc returns to the
+  menu. Audio still inaudible (SFX cues are T007; music needs the T008
+  track). Engine untouched. 147 tests pass (+1 menu nav), 0 warnings.*
   `Screen::Settings { settings_state }`; `settings.rs` gains
   `SettingsState { selected: SettingRow }` (Music | Sfx), its input
   (↑/↓ + w/s move, Enter/Space toggle the row, Esc → menu), and its draw

@@ -10,6 +10,7 @@ use crate::{TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text},
 pub enum MenuItem {
     StartGame,
     HowToPlay,
+    Settings,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -66,26 +67,24 @@ impl MenuState {
                 menu_item: self.selected,
             }),
             MenuAction::SelectionDown => {
-                self.toggle_selected();
+                self.move_selection(1);
                 None
             }
             MenuAction::SelectionUp => {
-                self.toggle_selected();
+                self.move_selection(-1);
                 None
             }
         }
     }
 
-    /// Toggle selected menu item
-    /// TODO: will need to refactor this if more menu items are added
-    ///
-    pub fn toggle_selected(&mut self) -> MenuItem {
-        match self.selected {
-            MenuItem::StartGame => self.selected = MenuItem::HowToPlay,
-            MenuItem::HowToPlay => self.selected = MenuItem::StartGame,
-        }
-
-        self.selected
+    /// Move the selection by `delta` over the ordered menu items, wrapping
+    /// at the ends. Works for any number of items.
+    pub fn move_selection(&mut self, delta: isize) {
+        let items: Vec<MenuItem> = MenuItem::iter().collect();
+        let n = items.len() as isize;
+        let current = items.iter().position(|&i| i == self.selected).unwrap_or(0) as isize;
+        let next = (current + delta).rem_euclid(n) as usize;
+        self.selected = items[next];
     }
 
     /// Draw the title which is a Vector<&'static str>
@@ -140,6 +139,25 @@ impl Default for MenuState {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn menu_selection_moves_over_all_items_and_wraps() {
+        let mut m = MenuState::new();
+        assert_eq!(m.selected, MenuItem::StartGame); // starts at the top
+        m.move_selection(1);
+        assert_eq!(m.selected, MenuItem::HowToPlay);
+        m.move_selection(1);
+        assert_eq!(m.selected, MenuItem::Settings);
+        m.move_selection(1); // wraps to the top
+        assert_eq!(m.selected, MenuItem::StartGame);
+        m.move_selection(-1); // wraps backward to the bottom
+        assert_eq!(m.selected, MenuItem::Settings);
+    }
+}
+
 /// Implement display for MenuItem enum to turn variants into strings
 ///
 impl fmt::Display for MenuItem {
@@ -147,6 +165,7 @@ impl fmt::Display for MenuItem {
         match self {
             MenuItem::StartGame => write!(f, "Start Game"),
             MenuItem::HowToPlay => write!(f, "How To Play"),
+            MenuItem::Settings => write!(f, "Settings"),
         }
     }
 }

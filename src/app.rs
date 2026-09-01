@@ -4,6 +4,7 @@ use crossterm::event::KeyCode;
 
 use crate::{
     SELECTION_PULSE_MS,
+    audio::Audio,
     board::BoardView,
     card::Card,
     config::Config,
@@ -12,6 +13,7 @@ use crate::{
     menu::{MenuEvent, MenuItem, MenuState},
     overlay::{Overlay, OverlayKind},
     screen::Screen,
+    settings::{SettingRow, Settings, SettingsAction, SettingsState},
 };
 
 /// The one shared selection animation: a gentle two-phase breathe that
@@ -201,6 +203,8 @@ pub struct App {
     board_view: BoardView,
     overlay: Option<Overlay>,
     pulse: SelectionPulse,
+    settings: Settings,
+    audio: Audio,
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
@@ -208,6 +212,7 @@ pub struct App {
 
 impl App {
     pub fn new(config: Config) -> Self {
+        let settings = Settings::load();
         Self {
             config,
             screen: Screen::StartMenu {
@@ -216,6 +221,8 @@ impl App {
             board_view: BoardView::new(config),
             overlay: None,
             pulse: SelectionPulse::default(),
+            audio: Audio::new(settings),
+            settings,
             too_small: None,
         }
     }
@@ -272,6 +279,8 @@ impl App {
                     Screen::InGame { .. } => {
                         Some(Overlay::new(OverlayKind::GameHelp, self.config))
                     }
+                    // The settings screen carries its own on-screen hint.
+                    Screen::Settings { .. } => None,
                 };
             }
 
@@ -312,6 +321,30 @@ impl App {
                         _ => {}
                     }
                 }
+
+                // Settings: move between rows, toggle the selected one
+                // (updating audio + persisting immediately), or go back.
+                Screen::Settings { settings_state } => {
+                    if let Some(action) = settings_state.handle_input(key) {
+                        match action {
+                            SettingsAction::Up => settings_state.move_up(),
+                            SettingsAction::Down => settings_state.move_down(),
+                            SettingsAction::Toggle => {
+                                match settings_state.selected() {
+                                    SettingRow::Music => self.settings.music = !self.settings.music,
+                                    SettingRow::Sfx => self.settings.sfx = !self.settings.sfx,
+                                }
+                                self.audio.set_settings(self.settings);
+                                self.settings.save();
+                            }
+                            SettingsAction::Back => {
+                                self.screen = Screen::StartMenu {
+                                    menu_state: MenuState::new(),
+                                };
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -330,6 +363,11 @@ impl App {
             }
             MenuItem::HowToPlay => {
                 self.overlay = Some(Overlay::new(OverlayKind::HowToPlay, self.config));
+            }
+            MenuItem::Settings => {
+                self.screen = Screen::Settings {
+                    settings_state: SettingsState::default(),
+                };
             }
         }
     }
@@ -356,6 +394,9 @@ impl App {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
                 self.board_view.draw(game_state, cursor, pulse, frame)
+            }
+            Screen::Settings { settings_state } => {
+                settings_state.draw(frame, &self.config, self.settings, pulse)
             }
         }
 
