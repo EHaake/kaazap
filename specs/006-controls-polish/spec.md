@@ -91,22 +91,22 @@ lower the selected channel's volume — the same as `←` / `→`.
 
 ## Acceptance criteria
 
-- [ ] At round end (`AwaitingNextRound`), **Space** advances to the next
+- [x] At round end (`AwaitingNextRound`), **Space** advances to the next
       round — identical to pressing `n`.
-- [ ] At game over (`GameOver`), **Space** starts a new game — identical to
+- [x] At game over (`GameOver`), **Space** starts a new game — identical to
       pressing `g`.
-- [ ] During the player's turn, **Space** plays the highlighted hand card
+- [x] During the player's turn, **Space** plays the highlighted hand card
       (identical to Enter) and does **not** draw.
-- [ ] **`D`** draws a dealer card during the turn (unchanged; now the sole
+- [x] **`D`** draws a dealer card during the turn (unchanged; now the sole
       draw key).
-- [ ] On the start menu, **Ctrl+P** / **Ctrl+N** move the selection up /
+- [x] On the start menu, **Ctrl+P** / **Ctrl+N** move the selection up /
       down (like the arrows and `w` / `s`).
-- [ ] In Settings, **Ctrl+P** / **Ctrl+N** change the selected row and
+- [x] In Settings, **Ctrl+P** / **Ctrl+N** change the selected row and
       **Ctrl+B** / **Ctrl+F** lower / raise its volume (like the arrows and
       `a` / `d`).
-- [ ] Every pre-existing control still works as before, except Space's
+- [x] Every pre-existing control still works as before, except Space's
       in-play role (now play-selected, not draw); `D` still draws.
-- [ ] Unit tests cover the Space phase-contextual mapping and the
+- [x] Unit tests cover the Space phase-contextual mapping and the
       emacs→arrow translation; `cargo test` green, `cargo build` no new
       warnings.
 
