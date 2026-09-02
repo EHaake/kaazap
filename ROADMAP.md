@@ -63,6 +63,18 @@ of, not guessed at here in advance.
   `main.rs`. The `?` help overlays document all of it. The engine was touched
   only at its input mapping (`game_action_from_key`); the in-play "play the
   selected card" reuses the existing `app.rs` cursor model.
+- **Opponent roster & personalities** (spec 007) — the first campaign
+  subsystem (A). A named roster of opponents, each with its own difficulty
+  (an AI **stand threshold**) and its own **side deck**, chosen from a new
+  **opponent-select `Screen`** reached from Start Game. The opponent AI reads
+  the per-opponent threshold (was a global const) and each side deals its own
+  deck; mid-match save/resume persists which opponent you face (a
+  serde-defaulted opponent id — no save-version bump, old saves resume against
+  the default). The engine's decision function and phase machine were reused
+  unchanged — only their inputs moved from globals to an `OpponentProfile` on
+  `GameState`. Roster + tuning are documented in `docs/opponents.md`;
+  deterministic threshold+deck difficulty by design, with board-aware/bespoke
+  AI a logged follow-up (below).
 
 ## Backlog
 
@@ -78,14 +90,12 @@ up); the order is **dependency-driven, not a rigid schedule**. (This is the
 "priorities get set once the engine works" trigger from the top of this
 file — the engine works, so the campaign is now being planned in order.)
 
-- **A · Opponent roster & personalities** — a named roster with distinct
-  difficulties and play styles, replacing the single generic "Opponent".
-  `decide_opponent_move` is already an isolated policy keyed off one
-  `STAND_THRESHOLD`, so personalities scale from cheap (per-opponent
-  thresholds + behavior flags) to bespoke (custom logic for signature/boss
-  fights); each opponent also carries its own side deck and flavor (name,
-  difficulty, optional taunts/portrait). No persistence required — testable
-  via an opponent-select debug menu. **Self-contained; recommended start.**
+- **A · Opponent roster & personalities** — ✅ **Shipped (spec 007** — see
+  Shipped above and `docs/opponents.md`). A named roster, each opponent with
+  its own stand threshold + side deck, chosen from a real opponent-select
+  `Screen`; save/resume persists the chosen opponent. Scoped to deterministic
+  threshold+deck difficulty; board-aware / bespoke signature-opponent AI is a
+  logged follow-up ("Smarter / board-aware opponent AI", below).
 - **B · Collection & side-deck customization** — a deck-builder screen that
   shows the cards you own and lets you swap them in/out of a 10-card side
   deck, classic-Pazaak style; matches then deal from your built deck.

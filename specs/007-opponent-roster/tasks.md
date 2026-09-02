@@ -51,7 +51,7 @@ Branch `007-opponent-roster` created with the spec/plan/tasks. Plan:
   match vs a specific opponent, quit, Continue resumes against that same
   named opponent.*
 
-- [ ] **T004 — Verification & close-out**
+- [x] **T004 — Verification & close-out**
   Full driver sweep of every acceptance box (select flow, distinct play by
   threshold, per-opponent deck, Esc-back, emacs nav, resume). Run the
   `skeptical-reviewer`. Update the README (opponent selection is new
