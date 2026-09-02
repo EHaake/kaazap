@@ -1,4 +1,5 @@
 use rand::{Rng, seq::IndexedRandom};
+use serde::{Deserialize, Serialize};
 
 use crate::{
     CARD_HEIGHT, CARD_WIDTH, HAND_SIZE,
@@ -6,7 +7,7 @@ use crate::{
     layout::Rect,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FlipKind {
     TwoFour,
     ThreeSix,
@@ -23,7 +24,7 @@ impl FlipKind {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Card {
     Dealer(u8),     // main-deck draw, 0-10 (intentional variant)
     Plus(u8),       // +N, 1-6
@@ -79,7 +80,7 @@ impl Card {
 
 /// A card on the table: identity plus its current signed contribution.
 /// Flips mutate `value` after play; flip cards themselves stay at 0.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct PlayedCard {
     pub card: Card,
     pub value: i8,

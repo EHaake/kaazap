@@ -1,14 +1,16 @@
 // Player's cards and interaction
 
+use serde::{Deserialize, Serialize};
+
 use crate::card::{Card, PlayedCard};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Player {
     Player,
     Opponent,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PlayerState {
     pub name: String,
     pub dealer_row: Vec<PlayedCard>,      // dealer cards played
