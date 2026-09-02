@@ -126,23 +126,32 @@ the game starts normally, never crashing.
 
 ## Acceptance criteria
 
-- [ ] Quitting mid-match and relaunching shows **Continue**, which restores
+- [x] Quitting mid-match and relaunching shows **Continue**, which restores
       the exact match position (round, round-wins, both tables, both hands,
-      whose turn, totals).
-- [ ] With no in-progress match (fresh install, or just after finishing
-      one), the menu does not show **Continue**.
-- [ ] **Start Game** while a save exists prompts to confirm; confirming
+      whose turn, totals). *(T005: quit → relaunch → Continue restored the
+      board; T007: resumed a 1–2 match to finish it.)*
+- [x] With no in-progress match (fresh install, or just after finishing
+      one), the menu does not show **Continue**. *(T003/T005/T007: menu shows
+      3 items with no save, incl. right after a completed match.)*
+- [x] **Start Game** while a save exists prompts to confirm; confirming
       replaces the save with a new match, declining leaves the save intact.
-- [ ] Finishing a match (best-of-3 resolved) clears the save — **Continue**
-      is gone next time at the menu.
-- [ ] A missing / corrupt / incompatible save file is ignored (no
-      **Continue**, no crash); the game starts normally.
-- [ ] The save file carries a schema version, and a file whose version
-      doesn't match is discarded rather than mis-parsed.
-- [ ] Unit tests cover: a save→load round-trip preserving match state, the
+      *(T006: driver — ▸ No default, Esc/Enter-on-No keep the save, →/Yes
+      overwrote it, `dealer_row` 1→0.)*
+- [x] Finishing a match (best-of-3 resolved) clears the save — **Continue**
+      is gone next time at the menu. *(T007: played to `Opp won: 3` →
+      GameOver → savegame.json removed; menu then had no Continue.)*
+- [x] A missing / corrupt / incompatible save file is ignored (no
+      **Continue**, no crash); the game starts normally. *(T006: a garbage
+      savegame.json → no Continue, game played fine.)*
+- [x] The save file carries a schema version, and a file whose version
+      doesn't match is discarded rather than mis-parsed. *(T002 unit test
+      `corrupt_or_incompatible_json_loads_as_none` bumps the version → None.)*
+- [x] Unit tests cover: a save→load round-trip preserving match state, the
       corrupt/incompatible-file fallback, and save-cleared-on-completion.
-- [ ] `cargo test` green with the new coverage; `cargo build` introduces no
-      new warnings; the game/render/audio boundaries stay intact.
+      *(T002: 4 `save::tests`, incl. `to_saved(GameOver)` → None.)*
+- [x] `cargo test` green with the new coverage (154); `cargo build`
+      introduces no new warnings (0); the game/render/audio boundaries stay
+      intact (engine diff is serde/`Clone` derives only).
 
 ## Resolved decisions
 

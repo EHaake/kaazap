@@ -104,6 +104,14 @@ saving observes `GameState` without reaching into rendering or audio.
 ## Phase 4 — Verification & close-out
 
 - [ ] **T007 — Acceptance sweep, review, and merge**
+  *Acceptance sweep done: every `spec.md` box checked with evidence — 154
+  tests / 0 warnings; driver runs for quit→resume, no-save menu, discard
+  confirm (No keeps / Yes overwrites), a full match to `Opp won: 3` →
+  GameOver clearing the save, and a corrupt file → no Continue / no crash;
+  version-mismatch covered by the T002 unit test. README status line notes
+  mid-match save/resume. Engine diff is serde/`Clone` derives only.
+  Remaining: the skeptical-reviewer pass, then ROADMAP Shipped + PR ready +
+  merge on the human's word.*
   Walk every `spec.md` acceptance box with evidence (build/test output;
   driver runs for each flow — quit/resume, no-save menu, discard confirm,
   save-cleared-on-finish, corrupt-file fallback, version-mismatch discard).
