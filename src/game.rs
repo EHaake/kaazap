@@ -1106,6 +1106,47 @@ mod tests {
     }
 
     #[test]
+    fn opponents_deal_from_their_own_deck_at_start_and_rematch() {
+        // A deck sharing no card with DEFAULT_SIDE_DECK: a hand drawn from it
+        // proves the opponent deals its *profile* deck, not the default pool —
+        // both at match start (with_opponent) and on the post-GameOver rematch
+        // (new_game). Guards against a regression that points either deal back
+        // at DEFAULT_SIDE_DECK, which the roster's overlap would otherwise hide.
+        static DECK: [Card; 4] = [Card::Plus(7), Card::Plus(8), Card::Minus(7), Card::Minus(8)];
+        let profile = OpponentProfile {
+            id: "test",
+            name: "Test",
+            difficulty: "",
+            blurb: "",
+            stand_threshold: 17,
+            side_deck: &DECK,
+        };
+
+        let assert_opponent_hand_from_deck = |gs: &GameState, when: &str| {
+            for slot in gs.opponent.hand.iter().copied() {
+                let card = slot.expect("every dealt slot is filled");
+                assert!(
+                    DECK.contains(&card),
+                    "{when}: opponent dealt {card:?}, not from its own deck"
+                );
+            }
+        };
+
+        let mut gs = GameState::with_opponent(profile);
+        assert_opponent_hand_from_deck(&gs, "start");
+        // The player still deals from the default deck, not the opponent's.
+        for slot in gs.player.hand.iter().copied() {
+            let card = slot.expect("every dealt slot is filled");
+            assert!(DEFAULT_SIDE_DECK.contains(&card));
+        }
+
+        // Rematch after GameOver re-deals the opponent from the same deck.
+        gs.game_phase = GamePhase::GameOver { winner: Player::Player };
+        gs.apply_game_action(GameAction::NextGame);
+        assert_opponent_hand_from_deck(&gs, "rematch");
+    }
+
+    #[test]
     fn ai_play_reaches_exactly_twenty_end_to_end() {
         // The value the AI chooses is the value that lands on the
         // table, driven through the production turn path

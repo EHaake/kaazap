@@ -64,10 +64,13 @@ pub fn opponent_by_id(id: &str) -> Option<OpponentProfile>; // searches OPPONENT
   list: index + `move_selection` wrap via `rem_euclid`, `src/menu.rs:94`).
   `OpponentSelectState { selected: usize }` over `OPPONENTS`; an input handler
   (Up/`w`, Down/`s`, Enter/Space → `Pick(index)`, Esc/`x` → `Back`); a
-  `draw(&self, frame, &Config, Emphasis)` — "Choose Opponent" title, one row
-  per opponent (name · difficulty · blurb) with the shared `pulse` marker,
-  reusing `MenuLayout` (`src/layout.rs:126`) or a light analogue, plus a hint
-  line. Emacs nav is free via the existing `resolve_key` boundary (`main.rs`).
+  `draw(&self, frame, &Config, Emphasis)` — "Choose Your Opponent" title, one
+  row per opponent (name · difficulty) with the shared `pulse` marker, the
+  selected opponent's blurb below the list, then a hint line, reusing
+  `MenuLayout` (`src/layout.rs:126`). Emacs nav is free via the existing
+  `resolve_key` boundary (`main.rs`). (Blurb-below-the-list rather than
+  per-row: keeps the roster rows short and readable — the blurb still updates
+  as you move. Reconciled here after the skeptical-review flagged the drift.)
 - **`src/app.rs`** —
   - `apply_menu_event` `StartGame` arm (~565): save present → `ConfirmNewGame`
     whose **Yes navigates to `OpponentSelect`**; no save → `OpponentSelect`

@@ -51,8 +51,9 @@ so the variety is real and testable before the map exists.
 
 From the start menu you activate **Start Game**. Instead of dropping straight
 into a match, an **opponent-select screen** appears: a vertical list of the
-roster, each row showing the opponent's name, difficulty, and a short
-description, navigated with the same keys as the menu (arrows / `w`·`s` /
+roster, each row showing the opponent's name and difficulty, with the
+selected opponent's short description shown below the list (it updates as you
+move). Navigated with the same keys as the menu (arrows / `w`·`s` /
 emacs `Ctrl+P`·`Ctrl+N`, confirm with Enter/Space). You pick one and the
 match begins against them. **Esc** (or `x`) returns to the start menu without
 starting a game. If a saved match already exists, the existing "discard your
@@ -87,8 +88,8 @@ resumes against the original generic opponent, unchanged.
 ## Acceptance criteria
 
 - [ ] Activating **Start Game** opens an opponent-select screen listing the
-      roster (name, difficulty, description); with a save present, the
-      discard-confirm precedes it.
+      roster (name + difficulty per row; the selected opponent's description
+      below the list); with a save present, the discard-confirm precedes it.
 - [ ] Selecting an opponent starts a match against them; the board shows that
       opponent's name.
 - [ ] Different opponents play differently — a lower-threshold opponent
@@ -121,3 +122,8 @@ resumes against the original generic opponent, unchanged.
 - **Resume records the opponent's identity** so a mid-match save reloads the
   same opponent; pre-spec saves fall back to the default opponent (matching
   spec 005's tolerance for older/interrupted saves).
+- **The description shows for the selected opponent, below the list** — not on
+  every row. Keeps the roster rows short and scannable (name + difficulty)
+  while the blurb is still visible for whoever's highlighted, updating as you
+  move. This diverged from the first draft of this spec/plan (which said
+  per-row); reconciled after the skeptical-review flagged the drift.
