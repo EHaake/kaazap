@@ -225,7 +225,7 @@ impl App {
         Self {
             config,
             screen: Screen::StartMenu {
-                menu_state: MenuState::new(),
+                menu_state: MenuState::new(crate::save::exists()),
             },
             board_view: BoardView::new(config),
             overlay: None,
@@ -345,7 +345,7 @@ impl App {
                         // Esc or X quits the game back to the main menu
                         KeyCode::Char('x') | KeyCode::Esc => {
                             self.screen = Screen::StartMenu {
-                                menu_state: MenuState::new(),
+                                menu_state: MenuState::new(crate::save::exists()),
                             }
                         }
                         KeyCode::Left if player_turn => cursor.move_left(&game_state.player.hand),
@@ -421,6 +421,21 @@ impl App {
         let MenuEvent::Activate { menu_item } = menu_event;
 
         match menu_item {
+            MenuItem::Continue => {
+                // Resume the saved match. Continue only appears when a save
+                // exists, but a race or corruption could still yield None —
+                // then it's a no-op, not a crash.
+                if let Some(game) = crate::save::load() {
+                    self.screen = Screen::InGame {
+                        game_state: Box::new(game),
+                        cursor: HandCursor::default(),
+                    };
+                    // Resuming mid-match: seed the audio snapshot silently so
+                    // the restored board doesn't replay cues for cards already
+                    // on the table.
+                    self.prev_audio = None;
+                }
+            }
             MenuItem::StartGame => {
                 self.screen = Screen::InGame {
                     game_state: Box::new(GameState::new()),
