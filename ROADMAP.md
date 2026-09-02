@@ -41,6 +41,17 @@ of, not guessed at here in advance.
   `scripts/gen_sfx.py`, so nothing carries third-party encumbrance. The
   engine stays audio-free — SFX are derived at the app layer by diffing
   game state. An original cantina-vibe track is a follow-up (below).
+- **Mid-match save & resume** (spec 005) — an in-progress match auto-saves
+  to a versioned JSON file (`<data_dir>/saves/savegame.json`) and resumes
+  via a **Continue** item on the start menu. A `SavedGame` projection stands
+  in for `GameState` (which can't derive serde — `GamePhase` holds an
+  `Instant`), carrying a schema version and re-arming the opponent's
+  think-timer on load; there's no RNG/deck state to persist (already-drawn
+  cards live in the saved `PlayerState`). Saves fire on state change and
+  clear on match completion; Start Game over a save confirms first. The
+  three menu modals were consolidated into one `Modal` enum along the way,
+  and the engine stays untouched but for serde derives. Scope was the match
+  only — campaign-level persistence waits for the campaign (see backlog).
 
 ## Backlog
 
@@ -49,9 +60,11 @@ of, not guessed at here in advance.
 - **Campaign & progression** — currency earned from wins, card packs that
   unlock better side-deck cards, an opponent ladder of increasing
   difficulty.
-- **Save/resume persistence** — full mid-game save/resume, plus
-  persisting campaign progress, currency, and unlocked cards between
-  sessions.
+- **Campaign-level persistence** — *mid-match save/resume shipped in spec
+  005 (above).* What remains: persisting campaign progress, currency, and
+  unlocked cards between sessions — deferred until the campaign exists to
+  produce that state. The spec-005 save file is versioned so this extends
+  it rather than replacing it.
 - **Full side-deck customization** — collecting/building your own 10-card
   side deck, KOTOR-vendor style. Explicitly deferred out of v1 in favor
   of a simple default deck; revisit once the core campaign loop exists.
