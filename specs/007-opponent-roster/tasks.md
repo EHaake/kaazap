@@ -11,7 +11,7 @@ Branch `007-opponent-roster` created with the spec/plan/tasks. Plan:
 
 ---
 
-- [ ] **T001 — Opponent data model, roster & parameterized engine**
+- [x] **T001 — Opponent data model, roster & parameterized engine**
   New `src/opponent.rs`: `OpponentProfile` (`id`, `name`, `difficulty`,
   `blurb`, `stand_threshold`, `side_deck`; `Copy`), a `DEFAULT_OPPONENT`
   (threshold `STAND_THRESHOLD`, `DEFAULT_SIDE_DECK`, name "Opponent"), a
@@ -28,7 +28,7 @@ Branch `007-opponent-roster` created with the spec/plan/tasks. Plan:
   ids, non-empty names; `with_opponent` seeds name/profile; `new()` unchanged
   baseline) plus every existing AI test still passing.*
 
-- [ ] **T002 — Opponent-select screen + Start Game flow**
+- [x] **T002 — Opponent-select screen + Start Game flow**
   New `src/opponent_select.rs` (`OpponentSelectState` over `OPPONENTS`,
   input handler → `Pick`/`Back`, `draw` mirroring `menu.rs` with the pulse
   marker + a hint line); `Screen::OpponentSelect` in `src/screen.rs`;
@@ -41,7 +41,7 @@ Branch `007-opponent-roster` created with the spec/plan/tasks. Plan:
   `Ctrl+N` navigate, Enter starts a match against the chosen (named) opponent,
   Esc returns to the menu.*
 
-- [ ] **T003 — Save/resume carries the opponent**
+- [x] **T003 — Save/resume carries the opponent**
   `SavedGame` gains `opponent_id: String` (`#[serde(default =
   "default_opponent_id")]`); `to_saved` writes `profile.id`; `from_saved`
   resolves via `opponent_by_id(..).unwrap_or(DEFAULT_OPPONENT)`. No

@@ -22,8 +22,9 @@ so the variety is real and testable before the map exists.
    one stands early) and its own *side deck*, so difficulty is felt in how
    they play and what they can do — not just a label.
 3. **Choose who you face.** Starting a game opens an opponent-select screen
-   listing the roster (name, difficulty, a one-line description); pick one to
-   begin the match. You can back out to the menu without starting.
+   listing the roster (name and difficulty, with a one-line description for
+   the highlighted one); pick one to begin the match. You can back out to the
+   menu without starting.
 4. **Resume faces the same opponent.** A saved mid-match game (spec 005)
    resumes against the opponent it was played against.
 5. **Test coverage** for the new logic per `CLAUDE.md` — the parameterized
@@ -87,23 +88,23 @@ resumes against the original generic opponent, unchanged.
 
 ## Acceptance criteria
 
-- [ ] Activating **Start Game** opens an opponent-select screen listing the
+- [x] Activating **Start Game** opens an opponent-select screen listing the
       roster (name + difficulty per row; the selected opponent's description
       below the list); with a save present, the discard-confirm precedes it.
-- [ ] Selecting an opponent starts a match against them; the board shows that
+- [x] Selecting an opponent starts a match against them; the board shows that
       opponent's name.
-- [ ] Different opponents play differently — a lower-threshold opponent
+- [x] Different opponents play differently — a lower-threshold opponent
       stands at a total where a higher-threshold one would hit (and vice
       versa) — and draw from their own side decks.
-- [ ] **Esc**/`x` on the select screen returns to the start menu without
+- [x] **Esc**/`x` on the select screen returns to the start menu without
       starting a match.
-- [ ] The select screen responds to arrows, `w`/`s`, and the emacs nav keys,
+- [x] The select screen responds to arrows, `w`/`s`, and the emacs nav keys,
       matching the start menu.
-- [ ] **Continue** resumes against the correct opponent; a pre-spec save
+- [x] **Continue** resumes against the correct opponent; a pre-spec save
       resumes against the default opponent.
-- [ ] Every pre-existing control and the default-opponent AI behavior are
+- [x] Every pre-existing control and the default-opponent AI behavior are
       unchanged.
-- [ ] Unit tests cover the parameterized AI, roster integrity, per-opponent
+- [x] Unit tests cover the parameterized AI, roster integrity, per-opponent
       dealing, select-screen navigation, and the save round-trip; `cargo
       test` green, `cargo build` no new warnings.
 
