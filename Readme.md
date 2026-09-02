@@ -43,10 +43,11 @@ sudo dnf install alsa-lib-devel
 ## How to play
 
 Choosing **Start Game** opens an opponent-select screen — pick who to
-face from the roster (each has its own difficulty and side deck). In-game,
-press `?` for a rules and controls overlay. If you know real Pazaak,
-Kaazap plays close to the source material with a few intentional tweaks —
-see `DECISIONS.md` for what's changed and why.
+face from the roster (each has its own difficulty and side deck; see
+`docs/opponents.md` for how difficulty is tuned). In-game, press `?` for a
+rules and controls overlay. If you know real Pazaak, Kaazap plays close to
+the source material with a few intentional tweaks — see `DECISIONS.md` for
+what's changed and why.
 
 ## Development
 
@@ -56,6 +57,8 @@ This project is built using spec-driven development with Claude:
 - `ROADMAP.md` — the (unordered) feature backlog
 - `DECISIONS.md` — the reasoning behind naming, scope, and process calls
 - `specs/` — per-feature spec → plan → tasks docs
+- `docs/` — reference notes (e.g. `docs/opponents.md` — the opponent
+  roster and difficulty tuning)
 
 ## Acknowledgments
 

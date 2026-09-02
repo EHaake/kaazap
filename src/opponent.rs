@@ -2,7 +2,9 @@
 //! difficulty (stand threshold) and side deck. The single pre-roster opponent
 //! is preserved as [`DEFAULT_OPPONENT`] for the engine default and older
 //! saves; [`OPPONENTS`] is the selectable roster. First slice of the campaign
-//! (subsystem A) — see `specs/007-opponent-roster`.
+//! (subsystem A) — see `specs/007-opponent-roster`. This const is the source
+//! of truth for the roster; `docs/opponents.md` explains how difficulty is
+//! tuned and snapshots the current values.
 
 use crate::{
     STAND_THRESHOLD,
