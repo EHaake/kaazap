@@ -78,6 +78,20 @@ of, not guessed at here in advance.
   Pazaak music, can't be used; see DECISIONS.md). Nothing in the CC0/CC-BY
   libraries surveyed got close to that specific flavor, so an original is
   the path. Human-requested during spec 004.
+- **Control & input polish** — quality-of-life control additions surfaced
+  during the spec 005 review (human-requested), out of scope there:
+  - **Space to advance** at round end (`AwaitingNextRound`) and game end
+    (`GameOver`), alongside the existing `n` / `g`, so "continue" is one
+    consistent key. (Touches `game.rs` input — `game_action_from_key`.)
+  - **Emacs navigation keys** on the start menu and settings overlay:
+    `Ctrl+P` / `Ctrl+N` for up/down and `Ctrl+B` / `Ctrl+F` for
+    back/forward (left/right), as synonyms for the arrow keys wherever
+    those are handled (inert where a screen has no such axis, e.g. left/
+    right on the vertical menu). **Prerequisite:** input routing currently
+    forwards only `key_event.code` and drops modifiers (`main.rs` →
+    `app.rs`), so this needs modifier-aware handling — thread
+    `KeyModifiers` through, or match `KeyCode` + Ctrl at the loop. A small
+    but real plumbing change. A natural quick spec once 005 ships.
 - **Post-v1 rule enhancements** — once the complete game exists as a
   baseline, consider Kaazap-specific rule variants that suit the TUI
   format (a mid-match hand-redraw mechanic is one candidate). Evaluated
