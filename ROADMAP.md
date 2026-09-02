@@ -66,19 +66,55 @@ of, not guessed at here in advance.
 
 ## Backlog
 
-- **Opponent personalities** — distinct opponents with different
-  strategies/decks, not just one generic AI.
-- **Campaign & progression** — currency earned from wins, card packs that
-  unlock better side-deck cards, an opponent ladder of increasing
-  difficulty.
-- **Campaign-level persistence** — *mid-match save/resume shipped in spec
-  005 (above).* What remains: persisting campaign progress, currency, and
-  unlocked cards between sessions — deferred until the campaign exists to
-  produce that state. The spec-005 save file is versioned so this extends
-  it rather than replacing it.
-- **Full side-deck customization** — collecting/building your own 10-card
-  side deck, KOTOR-vendor style. Explicitly deferred out of v1 in favor
-  of a simple default deck; revisit once the core campaign loop exists.
+### Campaign (epic — now being actively sequenced)
+
+The campaign is an **integration layer** over several self-contained
+subsystems, each its own spec, buildable and testable in isolation (behind
+a debug hook) before the campaign map stitches them together — so the pieces
+are proven working before the glue is written. The progression model and
+campaign-shape decisions live in `DECISIONS.md` ("Campaign design"). Labels
+A–E are design handles, not spec numbers (assigned when a spec is picked
+up); the order is **dependency-driven, not a rigid schedule**. (This is the
+"priorities get set once the engine works" trigger from the top of this
+file — the engine works, so the campaign is now being planned in order.)
+
+- **A · Opponent roster & personalities** — a named roster with distinct
+  difficulties and play styles, replacing the single generic "Opponent".
+  `decide_opponent_move` is already an isolated policy keyed off one
+  `STAND_THRESHOLD`, so personalities scale from cheap (per-opponent
+  thresholds + behavior flags) to bespoke (custom logic for signature/boss
+  fights); each opponent also carries its own side deck and flavor (name,
+  difficulty, optional taunts/portrait). No persistence required — testable
+  via an opponent-select debug menu. **Self-contained; recommended start.**
+- **B · Collection & side-deck customization** — a deck-builder screen that
+  shows the cards you own and lets you swap them in/out of a 10-card side
+  deck, classic-Pazaak style; matches then deal from your built deck.
+  Introduces the **profile save** (`profile.json`) — a persistent document
+  distinct from the match save (spec 005), which later specs extend rather
+  than replace. Self-contained; shippable before C (arrange a starter
+  collection), but most meaningful once C makes the collection grow.
+- **C · Economy & progression** — **credits** from wins; a card pool that
+  **unlocks by campaign depth**; a **shop** selling from the unlocked pool;
+  and a **random card drop from each win** pulled from that same pool.
+  Scarcity is the depth gate, not new card types (the canon pool is
+  complete). Extends the profile save with credits + owned cards. Depends on
+  B, and on a progression-depth input (stubbed until D).
+- **D · Campaign map** — an overview map of **Star Wars planets**, Outer Rim
+  → Core, difficulty and opponent-count rising core-ward; a node may hold one
+  or several opponents. Tracks run progress, supplies the depth C reads,
+  grants C's rewards on win, and reworks the main-menu new-game / continue
+  semantics for a campaign. The integration spec — depends on A/B/C, and may
+  split into more than one spec (map + navigation, then rewards/meta).
+- **E · Roguelike mode** (stretch, optional) — an alternate run structure:
+  go as far as you can, a fixed number of losses before you restart. Reuses
+  A–D's infrastructure; last.
+
+Cross-cutting, not their own specs: a **balance/tuning pass** once
+progression exists (playtest-heavy, iterative), and **profile-save migration
+discipline** as the schema grows (reuse spec 005's versioning).
+
+### Other (not campaign-dependent)
+
 - **Play log / move history** — a running record of every move both
   players make during a game (dealer draws, cards played with their
   chosen sign, flips, stands, busts, round outcomes), shown as it

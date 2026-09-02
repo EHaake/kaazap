@@ -69,11 +69,43 @@ the "distinct opponents," "full save/resume," and "card variety" pieces
 of the project a shared reason to exist together, rather than being three
 unrelated features.
 
+## Campaign design (progression model & shape)
+
+Direction set with the human in Sept 2026 (post-spec-006) and decomposed
+into specs in `ROADMAP.md`'s Campaign epic. The load-bearing product calls:
+
+- **Progression = credits + campaign depth.** The player accumulates
+  **credits** (from wins) and **campaign depth** (how far core-ward they've
+  reached). Depth **gates which cards are available**; credits **buy** from
+  that available pool in a **shop**, and **each win also drops a random
+  card** from the same depth-gated pool. Two acquisition paths (deterministic
+  purchase + random reward), one scarcity mechanism (the depth gate). Chosen
+  over a credits-only minimum for more texture, and over a full
+  pack-opening/gacha economy to keep the tuning burden bounded. Scarcity is
+  *distribution*, not new card types — the canon side-card pool is already
+  fully implemented (`card.rs`).
+- **Campaign shape = a planet map, Outer Rim → Core.** Nodes are Star Wars
+  planets; you start on the Outer Rim against a few easier opponents and move
+  core-ward into more, and more difficult, ones. A node may hold a single
+  opponent or several ("depends on the planet"). Broadly linear rather than a
+  branching web, for scope — branches stay possible later.
+- **Roguelike is a separate, optional mode**, not the primary structure: go
+  as far as you can, a fixed number of losses before you restart. A stretch
+  layer over the same subsystems, not a reason to complicate the core
+  campaign.
+- **Personalities are AI + deck + flavor, not reskins.** Because
+  `decide_opponent_move` is one isolated policy keyed off a single
+  `STAND_THRESHOLD`, cheap per-opponent parameters (stand threshold, behavior
+  flags) already play noticeably differently; bespoke decision logic is
+  reserved for signature/boss opponents where it earns its cost.
+
 ## Explicitly deferred out of v1
 
-- **Full side-deck customization** (building/collecting your own 10-card
-  deck between matches, KOTOR-vendor style). v1 ships a simple default
-  deck instead. Revisit once the campaign loop itself is proven out.
+- **Full side-deck customization** (building your own 10-card deck from a
+  collection, KOTOR-vendor style) shipped a simple default deck in v1
+  instead. **No longer deferred** — it's spec B of the campaign epic (see
+  "Campaign design" above and `ROADMAP.md`), now that the campaign gives a
+  growing collection a reason to exist.
 - **Mid-run side-deck redraw.** Real Pazaak doesn't redraw your hand
   within a given match, and v1 of Kaazap won't either. Deferred rather
   than rejected: once the full game exists, rule enhancements that fit
