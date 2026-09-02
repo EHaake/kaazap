@@ -6,7 +6,7 @@ use crossterm::{
 };
 use kaazap::{
     GAME_LOOP_SLEEP_MS,
-    app::App,
+    app::{App, resolve_key},
     config::Config,
     frame::{self, new_frame},
     render,
@@ -64,10 +64,16 @@ fn main() -> anyhow::Result<()> {
         // which returns immediately if nothing to act upon
         if event::poll(Duration::from_millis(0))? {
             match event::read()? {
-                Event::Key(key_event) => match key_event.code {
-                    KeyCode::Char('q') => break 'gameloop,
-                    _ => app.handle_key(key_event.code),
-                },
+                Event::Key(key_event) => {
+                    // Translate emacs nav chords (Ctrl+P/N/B/F) to arrows once,
+                    // up front, so every screen sees them as the arrows they
+                    // mirror.
+                    let code = resolve_key(key_event.code, key_event.modifiers);
+                    match code {
+                        KeyCode::Char('q') => break 'gameloop,
+                        _ => app.handle_key(code),
+                    }
+                }
                 // Terminal resized: track the new size for frame
                 // allocation, and either re-lay-out or show the
                 // too-small screen (game state is preserved either way).
