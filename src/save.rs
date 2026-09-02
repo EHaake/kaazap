@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     OPPONENT_THINKING_TIME_MS,
     game::{GamePhase, GameState, RoundOutcome},
+    opponent::{DEFAULT_OPPONENT, opponent_by_id},
     player::PlayerState,
 };
 
@@ -37,6 +38,18 @@ struct SavedGame {
     opponent: PlayerState,
     phase: SavedPhase,
     round_outcome: Option<RoundOutcome>,
+    /// Which opponent is being faced, so resume restores the same profile
+    /// (name + AI threshold + deck). Older saves (pre-roster) lack the field
+    /// and default to the neutral "Opponent" they were actually played
+    /// against — no version bump, no data loss.
+    #[serde(default = "default_opponent_id")]
+    opponent_id: String,
+}
+
+/// The opponent id a save without one resumes against: the default opponent,
+/// which is exactly who every pre-roster save was played against.
+fn default_opponent_id() -> String {
+    DEFAULT_OPPONENT.id.to_string()
 }
 
 /// `GamePhase` minus the `Instant`, and minus `GameOver` (a finished match is
@@ -72,6 +85,7 @@ fn to_saved(game: &GameState) -> Option<SavedGame> {
         opponent: game.opponent.clone(),
         phase,
         round_outcome: game.round_outcome,
+        opponent_id: game.opponent_profile.id.to_string(),
     })
 }
 
@@ -95,6 +109,9 @@ fn from_saved(saved: SavedGame) -> GameState {
         opponent: saved.opponent,
         game_phase,
         round_outcome: saved.round_outcome,
+        // Restore the opponent by id; an unknown id (older or hand-edited
+        // save) falls back to the default profile rather than failing.
+        opponent_profile: opponent_by_id(&saved.opponent_id).unwrap_or(DEFAULT_OPPONENT),
     }
 }
 
@@ -183,6 +200,7 @@ mod tests {
             opponent: a_player("Foe", 2),
             game_phase: phase,
             round_outcome: Some(RoundOutcome::PlayerWon),
+            opponent_profile: DEFAULT_OPPONENT,
         }
     }
 
@@ -228,6 +246,38 @@ mod tests {
             }
             assert!(matches!(g2.round_outcome, Some(RoundOutcome::PlayerWon)));
         }
+    }
+
+    #[test]
+    fn round_trip_preserves_the_opponent() {
+        use crate::opponent::OPPONENTS;
+        // A save against a specific roster opponent resumes against the same
+        // one — id and AI threshold intact, not the default.
+        let mut g = a_game(GamePhase::PlayerTurn);
+        g.opponent_profile = OPPONENTS[3];
+        let json = serde_json::to_string(&to_saved(&g).unwrap()).unwrap();
+        let g2 = from_json(&json).expect("valid save loads");
+        assert_eq!(g2.opponent_profile.id, OPPONENTS[3].id);
+        assert_eq!(
+            g2.opponent_profile.stand_threshold,
+            OPPONENTS[3].stand_threshold
+        );
+    }
+
+    #[test]
+    fn a_save_without_an_opponent_id_resumes_against_the_default() {
+        use crate::opponent::OPPONENTS;
+        // Start from a save naming a roster opponent, then strip the field to
+        // mimic a pre-roster save. serde(default) fills it, resolving to the
+        // default "Opponent" — exactly who such saves were played against.
+        let mut g = a_game(GamePhase::PlayerTurn);
+        g.opponent_profile = OPPONENTS[3];
+        let mut val: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&to_saved(&g).unwrap()).unwrap()).unwrap();
+        assert_eq!(val["opponent_id"], serde_json::json!(OPPONENTS[3].id)); // it was written
+        val.as_object_mut().unwrap().remove("opponent_id");
+        let g2 = from_json(&val.to_string()).expect("a field-less save still loads");
+        assert_eq!(g2.opponent_profile.id, DEFAULT_OPPONENT.id);
     }
 
     #[test]

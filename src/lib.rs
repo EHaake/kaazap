@@ -5,6 +5,8 @@ pub mod config;
 pub mod game;
 pub mod board;
 pub mod card;
+pub mod opponent;
+pub mod opponent_select;
 pub mod screen;
 pub mod menu;
 pub mod overlay;

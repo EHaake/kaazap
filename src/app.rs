@@ -12,6 +12,8 @@ use crate::{
     game::{GameAction, GamePhase, GameState},
     layout::OverlayLayout,
     menu::{MenuAction, MenuEvent, MenuItem, MenuState},
+    opponent::OpponentProfile,
+    opponent_select::{OpponentSelectState, SelectOutcome},
     overlay::{Overlay, OverlayKind},
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
@@ -294,10 +296,19 @@ impl App {
         }
     }
 
-    /// Begin a fresh match, replacing any current one, and persist it.
-    fn start_new_game(&mut self) {
+    /// Open the opponent-select screen — the entry point to a new match
+    /// (Start Game leads here, directly or via the discard-save confirm).
+    fn open_opponent_select(&mut self) {
+        self.screen = Screen::OpponentSelect {
+            state: OpponentSelectState::new(),
+        };
+    }
+
+    /// Begin a fresh match against `opponent`, replacing any current one, and
+    /// persist it.
+    fn start_match(&mut self, opponent: OpponentProfile) {
         self.screen = Screen::InGame {
-            game_state: Box::new(GameState::new()),
+            game_state: Box::new(GameState::with_opponent(opponent)),
             cursor: HandCursor::default(),
         };
         // Fresh game — the first snapshot seeds silently, so the empty
@@ -389,6 +400,9 @@ impl App {
                     Screen::InGame { .. } => {
                         Some(Modal::Help(Overlay::new(OverlayKind::GameHelp, self.config)))
                     }
+                    // The select screen carries its own on-screen hint line, so
+                    // ? opens no overlay there.
+                    Screen::OpponentSelect { .. } => None,
                 };
             }
 
@@ -444,6 +458,22 @@ impl App {
                     }
                 }
 
+                // The opponent-select screen: navigate the roster, pick to
+                // start the match, or back out to the menu. The outcome is an
+                // owned value, so the borrow of `state` ends before the
+                // `&mut self` calls below (same NLL pattern as the menu arm).
+                Screen::OpponentSelect { state } => match state.handle_input(key) {
+                    Some(SelectOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                    Some(SelectOutcome::Picked(opponent)) => {
+                        self.audio.play(Sfx::MenuSelect);
+                        self.start_match(opponent);
+                    }
+                    Some(SelectOutcome::Back) => {
+                        self.audio.play(Sfx::MenuBack);
+                        self.screen = self.start_menu();
+                    }
+                    None => {}
+                },
             }
 
             if game_changed {
@@ -507,8 +537,9 @@ impl App {
 
     /// Route a key to the discard-a-save confirmation: ←/→ (a/d) toggle
     /// between No and Yes, Enter/Space commit the highlighted choice, Esc
-    /// cancels. Yes starts a fresh match (overwriting the save); No / Esc
-    /// close back to the menu with the save intact.
+    /// cancels. Yes leads to opponent select (the fresh match, overwriting the
+    /// save, begins once an opponent is chosen); No / Esc close back to the
+    /// menu with the save intact.
     fn handle_confirm_input(&mut self, key: KeyCode) {
         match key {
             KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
@@ -522,7 +553,7 @@ impl App {
                 self.modal = None;
                 if confirmed {
                     self.audio.play(Sfx::MenuSelect);
-                    self.start_new_game();
+                    self.open_opponent_select();
                 } else {
                     self.audio.play(Sfx::MenuBack);
                 }
@@ -567,7 +598,7 @@ impl App {
                     // Starting fresh would discard the saved match — confirm.
                     self.modal = Some(Modal::ConfirmNewGame { on_yes: false });
                 } else {
-                    self.start_new_game();
+                    self.open_opponent_select();
                 }
             }
             MenuItem::HowToPlay => {
@@ -617,6 +648,7 @@ impl App {
             Screen::InGame { game_state, cursor } => {
                 self.board_view.draw(game_state, cursor, pulse, frame)
             }
+            Screen::OpponentSelect { state } => state.draw(frame, &self.config, pulse),
         }
 
         // The one open modal draws over the screen.
