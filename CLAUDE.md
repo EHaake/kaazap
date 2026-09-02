@@ -80,8 +80,9 @@ standing instruction to Claude Code as much as a note to the human.
 ## Dependencies
 
 - Default: no new third-party crates without discussing it first. The
-  existing set (`crossterm`, `rand`, `anyhow`, `strum`/`strum_macros`) is
-  already earning its place.
+  existing set (`crossterm`, `rand`, `anyhow`) is already earning its place.
+  (`strum`/`strum_macros` were dropped in spec 005 when the menu refactor
+  removed the only `EnumIter` use.)
 - Audio uses `rodio` (spec 004). `rusty_audio` was dropped: it's
   fire-and-forget SFX with no looping or pause, and running it alongside
   rodio would mean two output streams contending for the device — a
