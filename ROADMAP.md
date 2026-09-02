@@ -113,6 +113,31 @@ Cross-cutting, not their own specs: a **balance/tuning pass** once
 progression exists (playtest-heavy, iterative), and **profile-save migration
 discipline** as the schema grows (reuse spec 005's versioning).
 
+- **Smarter / board-aware opponent AI** (builds on spec 007's roster) — 007's
+  AI is deliberately minimal: deterministic, plays only its own hand, and
+  personality is a per-opponent `stand_threshold` + side deck. A later spec can
+  make opponents **board-aware** (e.g. stand once safely ahead of the player's
+  visible total, vary aggression by position) and give signature/boss
+  opponents **bespoke strategies**. The 007 design accommodates this **without
+  rework** — captured now so the upgrade path isn't rediscovered later:
+  - `decide_opponent_move(&self)` already has the whole `GameState` in scope,
+    so `self.player`'s board is reachable with **no plumbing** to add; turns
+    alternate one action at a time, so the player's current board is visible at
+    decision time (exactly what positional play needs).
+  - Personality lives entirely in `OpponentProfile`: grow it with a behavior
+    flag or two, an `AiStrategy` enum the decision fn matches on, or even a
+    `decide: fn(&GameState) -> OpponentAction` per profile — all `Copy` /
+    const-roster-friendly.
+  - The **stable seam** is `decide_opponent_move -> OpponentAction`; its caller
+    (`play_opponent_turn`) and the action type don't change as the brain grows.
+  - **No save change** — the save persists the opponent *id* and rebuilds the
+    profile from code, so richer profiles resume for free.
+  - The one concrete addition: a test helper that sets **both** boards (today's
+    `opponent_at` sets only the opponent's).
+  - Deferred on purpose: adding empty strategy scaffolding in 007 would be
+    speculative generality (see `CLAUDE.md` → Simplicity); the extension is
+    cheap when actually wanted.
+
 ### Other (not campaign-dependent)
 
 - **Play log / move history** — a running record of every move both
