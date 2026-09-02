@@ -104,7 +104,15 @@ impl GameState {
             '1' | '2' | '3' | '4' => Some(GameAction::PlayHand {
                 index: key.to_digit(10)? as usize - 1,
             }),
-            'd' | ' ' => Some(GameAction::Hit),
+            'd' => Some(GameAction::Hit),
+            // Space is the phase's primary "proceed" action: draw during
+            // play, advance the round at the round-end pause, start a new
+            // game at game over.
+            ' ' => Some(match self.game_phase {
+                GamePhase::AwaitingNextRound => GameAction::NextRound,
+                GamePhase::GameOver { .. } => GameAction::NextGame,
+                _ => GameAction::Hit,
+            }),
             's' => Some(GameAction::Stand),
             'n' => Some(GameAction::NextRound),
             'g' => Some(GameAction::NextGame),
@@ -1397,6 +1405,21 @@ mod tests {
         assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
         assert_eq!(gs.player.hand[1], Some(Card::PlusMinus(6)));
         assert!(gs.player.played_row.is_empty());
+    }
+
+    #[test]
+    fn space_is_the_phase_primary_action() {
+        let mut gs = GameState::new(); // starts at PlayerTurn
+        assert_eq!(gs.game_action_from_key(' '), Some(GameAction::Hit));
+        assert_eq!(gs.game_action_from_key('d'), Some(GameAction::Hit)); // d unchanged
+
+        gs.game_phase = GamePhase::AwaitingNextRound;
+        assert_eq!(gs.game_action_from_key(' '), Some(GameAction::NextRound));
+        assert_eq!(gs.game_action_from_key('n'), Some(GameAction::NextRound)); // n unchanged
+
+        gs.game_phase = GamePhase::GameOver { winner: Player::Player };
+        assert_eq!(gs.game_action_from_key(' '), Some(GameAction::NextGame));
+        assert_eq!(gs.game_action_from_key('g'), Some(GameAction::NextGame)); // g unchanged
     }
 
     #[test]

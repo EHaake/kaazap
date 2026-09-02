@@ -1,7 +1,8 @@
       ======  Controls  ======
 
     W / Up    - Change selection up
-   D / Down   - Change selection down
+    S / Down  - Change selection down
+  Ctrl-P / N  - Up / Down (emacs)
 Space / Enter - Confirm Selection
 
       Q       - Quit/Exit game	

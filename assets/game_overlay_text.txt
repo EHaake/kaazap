@@ -6,10 +6,11 @@
   1 2 3 4    Play a hand card
   D / Space  Draw a card (ends turn)
   S          Stand (ends turn)
-  N          Next round
-  G          New game
+  N / Space  Next round
+  G / Space  New game
   Esc / X    Back to the menu
   Q          Quit
   ?          Close this overlay
 
+  Ctrl-P/N/B/F mirror the arrow keys.
   Over 20: D or S accepts the bust.
