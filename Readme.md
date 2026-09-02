@@ -14,9 +14,10 @@ up or down. Wins earn currency and card packs that unlock better
 side-deck cards for tougher matchups ahead.
 
 > **Status:** actively being built. The core Pazaak engine, a terminal
-> UI overhaul, and audio with a settings menu (music/SFX volume, a global
-> mute) are in place; opponent personalities, campaign progression, and
-> save/resume are next — see `ROADMAP.md` for what's shipped and what's
+> UI overhaul, audio with a settings menu (music/SFX volume, a global
+> mute), and mid-match save/resume (a **Continue** on the menu) are in
+> place; opponent personalities, campaign progression, and campaign-level
+> persistence are next — see `ROADMAP.md` for what's shipped and what's
 > ahead.
 
 ## Building & running

@@ -8,8 +8,9 @@ use crate::{
     board::BoardView,
     card::Card,
     config::Config,
-    frame::{Emphasis, Frame, draw_text},
+    frame::{Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_in},
     game::{GameAction, GamePhase, GameState},
+    layout::OverlayLayout,
     menu::{MenuAction, MenuEvent, MenuItem, MenuState},
     overlay::{Overlay, OverlayKind},
     screen::Screen,
@@ -200,14 +201,30 @@ fn cursor_confirm(game_state: &mut GameState, cursor: &mut HandCursor) {
     cursor.normalize(&game_state.player.hand);
 }
 
+/// A modal panel shown over the current screen. Exactly one is open at a
+/// time — the type enforces what spec 004 spread across two `Option` fields
+/// (the "only one is ever Some" invariant the T010 review flagged): the `?`
+/// / How to Play help text, the settings panel, or the discard-a-save
+/// confirmation.
+enum Modal {
+    Help(Overlay),
+    Settings(SettingsState),
+    /// The "discard your saved match?" confirmation shown when Start Game
+    /// would replace an existing save. `on_yes` is the highlighted choice,
+    /// defaulting to No — the safe option.
+    ConfirmNewGame { on_yes: bool },
+}
+
 pub struct App {
     pub config: Config,
     screen: Screen,
     board_view: BoardView,
-    overlay: Option<Overlay>,
-    // The settings panel, when open — an overlay over the start menu (like
-    // How to Play), so the menu and its selection are preserved underneath.
-    settings_panel: Option<SettingsState>,
+    // The one open modal over the current screen, if any (help, settings).
+    modal: Option<Modal>,
+    // Whether a resumable saved match exists on disk — drives the menu's
+    // Continue item. Kept in sync as the game saves/clears, so the menu never
+    // does file I/O per frame.
+    has_save: bool,
     pulse: SelectionPulse,
     settings: Settings,
     audio: Audio,
@@ -222,20 +239,53 @@ pub struct App {
 impl App {
     pub fn new(config: Config) -> Self {
         let settings = Settings::load();
+        let has_save = crate::save::exists();
         Self {
             config,
             screen: Screen::StartMenu {
-                menu_state: MenuState::new(),
+                menu_state: MenuState::new(has_save),
             },
             board_view: BoardView::new(config),
-            overlay: None,
-            settings_panel: None,
+            modal: None,
+            has_save,
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
             prev_audio: None,
             too_small: None,
         }
+    }
+
+    /// A fresh start-menu screen reflecting whether a save currently exists.
+    fn start_menu(&self) -> Screen {
+        Screen::StartMenu {
+            menu_state: MenuState::new(self.has_save),
+        }
+    }
+
+    /// Persist the in-progress match — or clear the save if it's over
+    /// (`save` handles the `GameOver` → clear). A no-op off the InGame
+    /// screen. `has_save` tracks whether a resumable file now exists, so the
+    /// menu's Continue item stays correct without re-reading disk.
+    fn save_game(&mut self) {
+        if let Screen::InGame { game_state, .. } = &self.screen {
+            crate::save::save(game_state);
+            self.has_save = !matches!(game_state.game_phase, GamePhase::GameOver { .. });
+        }
+    }
+
+    /// Begin a fresh match, replacing any current one, and persist it.
+    fn start_new_game(&mut self) {
+        self.screen = Screen::InGame {
+            game_state: Box::new(GameState::new()),
+            cursor: HandCursor::default(),
+        };
+        // Fresh game — the first snapshot seeds silently, so the empty
+        // starting board plays no cues.
+        self.prev_audio = None;
+        // Persist immediately (overwriting any prior save), so quitting right
+        // away still leaves a resumable game and Continue appears next launch.
+        self.save_game();
     }
 
     /// Play the SFX for whatever just changed in the game, by diffing the
@@ -259,8 +309,8 @@ impl App {
     pub fn resize(&mut self, config: Config) {
         self.config = config;
         self.board_view = BoardView::new(config);
-        if let Some(overlay) = &self.overlay {
-            self.overlay = Some(Overlay::new(overlay.kind(), config));
+        if let Some(Modal::Help(overlay)) = &self.modal {
+            self.modal = Some(Modal::Help(Overlay::new(overlay.kind(), config)));
         }
         self.too_small = None;
     }
@@ -290,37 +340,41 @@ impl App {
             return;
         }
 
-        // The settings panel is a modal overlay over the menu: while it's
-        // open it takes all input, and Esc closes it back to the menu with
-        // the selection intact.
-        if self.settings_panel.is_some() {
+        // A modal (settings panel or help overlay) sits over the current
+        // screen and takes all input while open. The settings panel routes
+        // to its own handler; a help overlay is dismissed with ?, Esc, Enter,
+        // or Space — the last so How to Play (opened from the menu with Space)
+        // closes with the same key it opened on. Closing sounds the back cue.
+        if matches!(self.modal, Some(Modal::Settings(_))) {
             self.handle_settings_input(key);
-        } else if self.overlay.is_some() {
-            // Any overlay is dismissed with ?, Esc, Enter, or Space — the
-            // last so How to Play (opened from the menu with Space) closes
-            // with the same key it opened on. Closing sounds the back cue.
+        } else if matches!(self.modal, Some(Modal::Help(_))) {
             if matches!(
                 key,
                 KeyCode::Char('?') | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter
             ) {
-                self.overlay = None;
+                self.modal = None;
                 self.audio.play(Sfx::MenuBack);
             }
+        } else if matches!(self.modal, Some(Modal::ConfirmNewGame { .. })) {
+            self.handle_confirm_input(key);
         } else {
-            // If overlay is not enabled, if ? is pressed, enable overlay
+            // No modal open: ? opens the help overlay for the current screen.
             if let KeyCode::Char(c) = key
                 && c == '?'
             {
-                self.overlay = match &mut self.screen {
+                self.modal = match &self.screen {
                     Screen::StartMenu { .. } => {
-                        Some(Overlay::new(OverlayKind::MenuHelp, self.config))
+                        Some(Modal::Help(Overlay::new(OverlayKind::MenuHelp, self.config)))
                     }
                     Screen::InGame { .. } => {
-                        Some(Overlay::new(OverlayKind::GameHelp, self.config))
+                        Some(Modal::Help(Overlay::new(OverlayKind::GameHelp, self.config)))
                     }
                 };
             }
 
+            // Track whether a player action changed the game this key, so we
+            // persist once afterward (cursor moves don't touch saved state).
+            let mut game_changed = false;
             match &mut self.screen {
                 // Route the Menu inputs only to Menu
                 Screen::StartMenu { menu_state } => {
@@ -344,26 +398,32 @@ impl App {
                     match key {
                         // Esc or X quits the game back to the main menu
                         KeyCode::Char('x') | KeyCode::Esc => {
-                            self.screen = Screen::StartMenu {
-                                menu_state: MenuState::new(),
-                            }
+                            self.screen = self.start_menu();
                         }
                         KeyCode::Left if player_turn => cursor.move_left(&game_state.player.hand),
                         KeyCode::Right if player_turn => cursor.move_right(&game_state.player.hand),
                         KeyCode::Up | KeyCode::Down if player_turn => {
                             cursor.toggle_sign(&game_state.player.hand)
                         }
-                        KeyCode::Enter if player_turn => cursor_confirm(game_state, cursor),
+                        KeyCode::Enter if player_turn => {
+                            cursor_confirm(game_state, cursor);
+                            game_changed = true;
+                        }
                         KeyCode::Char(c) => {
                             if let Some(game_action) = game_state.handle_game_input(c) {
                                 game_state.apply_game_action(game_action);
                                 cursor.normalize(&game_state.player.hand);
+                                game_changed = true;
                             }
                         }
                         _ => {}
                     }
                 }
 
+            }
+
+            if game_changed {
+                self.save_game();
             }
         }
 
@@ -376,19 +436,23 @@ impl App {
     /// or close the panel back to the menu with the back cue. The menu
     /// underneath is untouched, so its selection survives.
     fn handle_settings_input(&mut self, key: KeyCode) {
-        let Some(settings_state) = self.settings_panel.as_ref() else {
+        let Some(Modal::Settings(state)) = self.modal.as_ref() else {
             return;
         };
-        let Some(action) = settings_state.handle_input(key) else {
+        let Some(action) = state.handle_input(key) else {
             return;
         };
         match action {
             SettingsAction::Up => {
-                self.settings_panel.as_mut().unwrap().move_up();
+                if let Some(Modal::Settings(s)) = self.modal.as_mut() {
+                    s.move_up();
+                }
                 self.audio.play(Sfx::MenuMove);
             }
             SettingsAction::Down => {
-                self.settings_panel.as_mut().unwrap().move_down();
+                if let Some(Modal::Settings(s)) = self.modal.as_mut() {
+                    s.move_down();
+                }
                 self.audio.play(Sfx::MenuMove);
             }
             SettingsAction::Louder | SettingsAction::Quieter => {
@@ -397,11 +461,13 @@ impl App {
                 } else {
                     -VOLUME_STEP
                 };
-                let vol = match self.settings_panel.as_ref().unwrap().selected() {
-                    SettingRow::Music => &mut self.settings.music_volume,
-                    SettingRow::Sfx => &mut self.settings.sfx_volume,
-                };
-                *vol = (*vol + delta).clamp(0.0, 1.0);
+                if let Some(Modal::Settings(s)) = self.modal.as_ref() {
+                    let vol = match s.selected() {
+                        SettingRow::Music => &mut self.settings.music_volume,
+                        SettingRow::Sfx => &mut self.settings.sfx_volume,
+                    };
+                    *vol = (*vol + delta).clamp(0.0, 1.0);
+                }
                 self.audio.set_settings(self.settings);
                 self.settings.save();
                 // A tick after set_settings so you hear the new SFX level
@@ -409,9 +475,39 @@ impl App {
                 self.audio.play(Sfx::MenuMove);
             }
             SettingsAction::Back => {
-                self.settings_panel = None;
+                self.modal = None;
                 self.audio.play(Sfx::MenuBack);
             }
+        }
+    }
+
+    /// Route a key to the discard-a-save confirmation: ←/→ (a/d) toggle
+    /// between No and Yes, Enter/Space commit the highlighted choice, Esc
+    /// cancels. Yes starts a fresh match (overwriting the save); No / Esc
+    /// close back to the menu with the save intact.
+    fn handle_confirm_input(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
+                if let Some(Modal::ConfirmNewGame { on_yes }) = self.modal.as_mut() {
+                    *on_yes = !*on_yes;
+                }
+                self.audio.play(Sfx::MenuMove);
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                let confirmed = matches!(self.modal, Some(Modal::ConfirmNewGame { on_yes: true }));
+                self.modal = None;
+                if confirmed {
+                    self.audio.play(Sfx::MenuSelect);
+                    self.start_new_game();
+                } else {
+                    self.audio.play(Sfx::MenuBack);
+                }
+            }
+            KeyCode::Esc => {
+                self.modal = None;
+                self.audio.play(Sfx::MenuBack);
+            }
+            _ => {}
         }
     }
 
@@ -421,22 +517,42 @@ impl App {
         let MenuEvent::Activate { menu_item } = menu_event;
 
         match menu_item {
+            MenuItem::Continue => {
+                // Resume the saved match. Continue only appears when a save
+                // exists, but a race or corruption could still yield None —
+                // then it's a no-op, not a crash.
+                if let Some(game) = crate::save::load() {
+                    // The cursor isn't saved. Snap it onto a real hand card:
+                    // the default index 0 may now be empty (that card was
+                    // played), which would show the empty-hand prompt on the
+                    // resumed board instead of a selection.
+                    let mut cursor = HandCursor::default();
+                    cursor.normalize(&game.player.hand);
+                    self.screen = Screen::InGame {
+                        game_state: Box::new(game),
+                        cursor,
+                    };
+                    // Resuming mid-match: seed the audio snapshot silently so
+                    // the restored board doesn't replay cues for cards already
+                    // on the table.
+                    self.prev_audio = None;
+                }
+            }
             MenuItem::StartGame => {
-                self.screen = Screen::InGame {
-                    game_state: Box::new(GameState::new()),
-                    cursor: HandCursor::default(),
-                };
-                // Fresh game — the first snapshot seeds silently, so the
-                // empty starting board plays no cues.
-                self.prev_audio = None;
+                if self.has_save {
+                    // Starting fresh would discard the saved match — confirm.
+                    self.modal = Some(Modal::ConfirmNewGame { on_yes: false });
+                } else {
+                    self.start_new_game();
+                }
             }
             MenuItem::HowToPlay => {
-                self.overlay = Some(Overlay::new(OverlayKind::HowToPlay, self.config));
+                self.modal = Some(Modal::Help(Overlay::new(OverlayKind::HowToPlay, self.config)));
             }
             MenuItem::Settings => {
                 // Open Settings as an overlay over the menu — the menu (and
                 // its selection) stays put underneath, like How to Play.
-                self.settings_panel = Some(SettingsState::default());
+                self.modal = Some(Modal::Settings(SettingsState::default()));
             }
         }
     }
@@ -447,8 +563,17 @@ impl App {
         // One pulse drives every screen's selection breathe
         self.pulse.tick(dt);
 
+        let mut phase_changed = false;
         if let Screen::InGame { game_state, .. } = &mut self.screen {
+            let before = std::mem::discriminant(&game_state.game_phase);
             game_state.update();
+            phase_changed = std::mem::discriminant(&game_state.game_phase) != before;
+        }
+
+        // A phase change means the opponent moved or the round/game resolved
+        // — persist the new position (save clears the file on GameOver).
+        if phase_changed {
+            self.save_game();
         }
 
         // Sound the opponent's moves and round/game resolutions, which
@@ -470,14 +595,48 @@ impl App {
             }
         }
 
-        // The settings panel and any help overlay draw over the screen —
-        // mutually exclusive in practice (settings takes input priority).
-        if let Some(settings_state) = &self.settings_panel {
-            settings_state.draw_overlay(frame, &self.config, self.settings, pulse);
+        // The one open modal draws over the screen.
+        match &self.modal {
+            Some(Modal::Settings(state)) => {
+                state.draw_overlay(frame, &self.config, self.settings, pulse)
+            }
+            Some(Modal::Help(overlay)) => overlay.draw(frame),
+            Some(Modal::ConfirmNewGame { on_yes }) => {
+                self.draw_confirm_new_game(*on_yes, pulse, frame)
+            }
+            None => {}
         }
-        if let Some(overlay) = &self.overlay {
-            overlay.draw(frame);
-        }
+    }
+
+    /// Draw the discard-a-save confirmation as a bordered overlay over the
+    /// menu, matching How to Play / Settings: a prompt, the Yes / No choices
+    /// (the highlighted one marked and breathing with the pulse), and a hint.
+    fn draw_confirm_new_game(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
+        let title = "Discard your saved match?";
+        let hint = "←/→ choose  ·  Enter confirm  ·  Esc cancel";
+
+        let content_width = title.chars().count().max(hint.chars().count());
+        let layout = OverlayLayout::new(self.config, content_width, 5);
+
+        clear_rect(frame, layout.outer);
+        draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
+        draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Normal);
+
+        // Yes and No centered on one row; the highlighted choice carries the
+        // ▸ marker (constant, in place) and the shared pulse. The unselected
+        // choice keeps two leading spaces so the marker never shifts the text.
+        let inner = layout.inner;
+        let row_y = inner.y0 + 2;
+        let block_w = "▸ Yes".chars().count() + 6 + "▸ No".chars().count();
+        let start_x = inner.x0 + inner.width().saturating_sub(block_w) / 2;
+        let no_x = start_x + "▸ Yes".chars().count() + 6;
+
+        let yes = if on_yes { "▸ Yes" } else { "  Yes" };
+        let no = if on_yes { "  No" } else { "▸ No" };
+        draw_text(frame, start_x, row_y, yes, if on_yes { pulse } else { Emphasis::Normal });
+        draw_text(frame, no_x, row_y, no, if on_yes { Emphasis::Normal } else { pulse });
+
+        draw_text_in(frame, inner, 4, Align::Center, hint, Emphasis::Muted);
     }
 }
 

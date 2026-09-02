@@ -1,6 +1,7 @@
 use crate::{
     OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::{Card, FlipKind, PlayedCard, deal_hand}, player::{Player, PlayerState}
 };
+use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,7 +24,7 @@ pub enum OpponentAction {
     PlayHand { index: usize, value: i8 },
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub enum RoundOutcome {
     PlayerWon,
     OpponentWon,
