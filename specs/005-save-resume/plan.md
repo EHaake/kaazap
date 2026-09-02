@@ -228,6 +228,12 @@ not taken.)*
 - **Version bump discards, doesn't migrate.** For v1 an incompatible
   `version` is dropped (no Continue). Real migration arrives if/when a
   campaign save format needs to preserve old files.
+- **`has_save` trusts the write.** `save_game` sets `has_save` from the phase
+  (not the write result), and writes are best-effort. If the data dir turns
+  unwritable mid-session, `has_save` can read `true` with no file on disk —
+  the menu then shows a **Continue** that loads `None` and is a harmless
+  no-op (or resumes a staler surviving file). Consistent with the "never
+  crash over a save" stance; not worth reconciling for a personal project.
 
 ## Testing strategy
 

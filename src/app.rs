@@ -522,9 +522,15 @@ impl App {
                 // exists, but a race or corruption could still yield None —
                 // then it's a no-op, not a crash.
                 if let Some(game) = crate::save::load() {
+                    // The cursor isn't saved. Snap it onto a real hand card:
+                    // the default index 0 may now be empty (that card was
+                    // played), which would show the empty-hand prompt on the
+                    // resumed board instead of a selection.
+                    let mut cursor = HandCursor::default();
+                    cursor.normalize(&game.player.hand);
                     self.screen = Screen::InGame {
                         game_state: Box::new(game),
-                        cursor: HandCursor::default(),
+                        cursor,
                     };
                     // Resuming mid-match: seed the audio snapshot silently so
                     // the restored board doesn't replay cues for cards already

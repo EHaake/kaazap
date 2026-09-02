@@ -218,6 +218,14 @@ mod tests {
             assert_player_eq(&g.player, &g2.player);
             assert_player_eq(&g.opponent, &g2.opponent);
             assert_eq!(discriminant(&g.game_phase), discriminant(&g2.game_phase));
+            // The pending sign-choice index must survive *exactly*, not just
+            // the variant — a wrong index would commit the wrong card (or a
+            // no-op) when the player answers the prompt on resume.
+            if let GamePhase::AwaitingSignChoice { hand_index } = g.game_phase {
+                assert!(
+                    matches!(g2.game_phase, GamePhase::AwaitingSignChoice { hand_index: h } if h == hand_index)
+                );
+            }
             assert!(matches!(g2.round_outcome, Some(RoundOutcome::PlayerWon)));
         }
     }
