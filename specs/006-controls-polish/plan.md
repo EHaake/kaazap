@@ -2,8 +2,7 @@
 
 ## Approach
 
-Two small, independent, additive changes — no new types, modules, or
-dependencies:
+Three small changes — no new types, modules, or dependencies:
 
 1. **Emacs → arrow translation at the input boundary.** A pure
    `resolve_key(code, modifiers) -> KeyCode` maps `Ctrl+P/N/B/F` to
@@ -11,10 +10,17 @@ dependencies:
    every key through it before routing, so *every* arrow-driven surface
    (start menu, settings, in-game hand cursor, discard-confirm) gets the
    emacs keys with zero per-screen code — Option A, human-ruled.
-2. **Space becomes phase-contextual** in the engine's key mapping:
-   `game_action_from_key(' ')` returns the primary action for the current
-   phase — `NextRound` at `AwaitingNextRound`, `NextGame` at `GameOver`,
-   else `Hit` (unchanged during play).
+2. **Space becomes phase-contextual** across the two input layers.
+   Round-end/game-over live in the engine's key mapping:
+   `game_action_from_key(' ')` returns `NextRound` at `AwaitingNextRound`,
+   `NextGame` at `GameOver`, and `None` otherwise. The in-play case lives in
+   `app.rs`: on the player's turn, Space is routed to `cursor_confirm` — the
+   same path Enter takes — so it plays the highlighted card.
+3. **Space plays the selected card in-play; `D` is the sole draw key**
+   (added during implementation, human-ruled). Space is the menu's "select /
+   confirm" key, so in-game it confirms the highlighted card like Enter. The
+   engine's Space mapping drops its old `_ => Hit` fallback, so Space never
+   draws at either layer; `D` keeps drawing.
 
 ## Core changes
 
@@ -55,36 +61,52 @@ Everything downstream is untouched — `menu.rs` / `settings.rs` / `app.rs`
 already handle `Up/Down/Left/Right`. Only bare keys with `CONTROL` held are
 affected; every existing plain key passes through unchanged.
 
-### Space phase-contextual (`game.rs`)
+### Space phase-contextual (`game.rs` + `app.rs`)
 
-Split the current `'d' | ' ' => Hit` so Space picks the phase's primary
-action:
+Two layers. In the engine, split the old `'d' | ' ' => Hit` so Space maps
+only to the between-round advances and never to a draw:
 
 ```rust
 'd' => Some(GameAction::Hit),
-' ' => Some(match self.game_phase {
-    GamePhase::AwaitingNextRound => GameAction::NextRound,
-    GamePhase::GameOver { .. } => GameAction::NextGame,
-    _ => GameAction::Hit,
-}),
+' ' => match self.game_phase {
+    GamePhase::AwaitingNextRound => Some(GameAction::NextRound),
+    GamePhase::GameOver { .. } => Some(GameAction::NextGame),
+    _ => None,
+},
 ```
 
-`apply_game_action` already gates each action by phase, so Space only ever
-produces the action that phase accepts. This is an engine input change, so
-it ships with tests.
+In `app.rs`, Space mirrors Enter on the player's turn so it plays the
+highlighted card (the engine never sees Space during play — this guard
+intercepts it first):
+
+```rust
+KeyCode::Enter | KeyCode::Char(' ') if player_turn => {
+    cursor_confirm(game_state, cursor);
+    game_changed = true;
+}
+```
+
+`apply_game_action` already gates each engine action by phase, and
+`cursor_confirm` is already the tested play-the-card path. Both layers are
+input changes, so they ship with tests (engine mapping in `game.rs`;
+`cursor_confirm` behavior already covered — the one-line Space→cursor route
+is verified in-app via the driver, since an `App`-level `handle_key` test
+would write the real savegame file).
 
 ## Architecture / flow changes (file-by-file)
 
-- **`app.rs`**: add `pub fn resolve_key` + its unit tests. `handle_key` is
-  unchanged — it still receives a resolved `KeyCode`. (Needs
-  `use crossterm::event::KeyModifiers`.)
+- **`app.rs`**: add `pub fn resolve_key` + its unit tests (needs
+  `use crossterm::event::KeyModifiers`). Also extend the InGame routing so
+  `KeyCode::Enter | KeyCode::Char(' ') if player_turn` both call
+  `cursor_confirm` — Space plays the highlighted card like Enter.
 - **`main.rs`**: run each key through `resolve_key` before the quit-check /
   route. One-line change plus the import.
-- **`game.rs`**: `game_action_from_key(' ')` becomes phase-contextual; add
-  tests.
-- **Optional (discoverability):** the `?` game-help / how-to-play text could
-  note that Space advances and that the emacs keys mirror the arrows — a
-  low-risk asset-text touch, not required by the spec.
+- **`game.rs`**: `game_action_from_key(' ')` maps to `NextRound`/`NextGame`
+  at the pauses and `None` otherwise (no longer `Hit`); add tests.
+- **`assets/game_overlay_text.txt`**: the `?` help now reads
+  `Enter / Space  Play the selected card`, `D  Draw a card`, and keeps
+  `N / Space` / `G / Space` and the `Ctrl-P/N/B/F` line. (Menu overlay text
+  gained the emacs line in T002.)
 - **Untouched:** `menu.rs`, `settings.rs`, `board.rs`, `render.rs`,
   `save.rs`, `audio.rs`, `overlay.rs` — they already speak arrows and the
   existing keys.
@@ -95,20 +117,24 @@ it ships with tests.
   letter (no `CONTROL`) and an already-arrow key pass through unchanged; a
   non-mapped `CONTROL` chord (e.g. `Ctrl+X`) passes through.
 - **Space mapping** (`game.rs`): `game_action_from_key(' ')` is `NextRound`
-  at `AwaitingNextRound`, `NextGame` at `GameOver`, `Hit` at `PlayerTurn`;
+  at `AwaitingNextRound`, `NextGame` at `GameOver`, and `None` at
+  `PlayerTurn` (played via the cursor model in `app.rs`, not the engine);
   `'d'` stays `Hit`; `'n'` / `'g'` unchanged.
 - **In-app** (driver): `Ctrl+N`/`Ctrl+P` navigate the menu; `Ctrl+B`/`Ctrl+F`
-  adjust a settings volume; Space advances a round and starts a new game;
-  existing keys still work.
+  adjust a settings volume; on the player's turn Space plays the highlighted
+  card (board/score change, no draw) while `D` draws and ends the turn;
+  Space advances a round and starts a new game; existing keys still work.
 
 ## Suggested phasing (detailed in `tasks.md`)
 
-Small — two tasks plus close-out, review after each:
+Small — three tasks plus close-out, review after each:
 
 1. **Emacs translation** — `resolve_key` + `main.rs` wiring + tests.
-2. **Space-to-advance** — `game.rs` mapping + tests (and the optional
-   help-text touch).
-3. **Verification & close-out** — driver sweep, skeptical-review (light),
+2. **Space-to-advance** — `game.rs` mapping + tests and the help-text touch.
+3. **Space plays the selected card** — `app.rs` Space→`cursor_confirm`,
+   engine Space mapping drops its `Hit` fallback, help text updated (added
+   during implementation).
+4. **Verification & close-out** — driver sweep, skeptical-review (light),
    README/ROADMAP, merge on the human's word.
 
 ## Resolved decisions
@@ -122,3 +148,11 @@ Small — two tasks plus close-out, review after each:
 - **Ctrl+letter is case-folded** (`to_ascii_lowercase`) so `Ctrl+Shift+P`
   and terminal case quirks still map. Only `CONTROL`-held keys are touched,
   so nothing plain regresses.
+- **Space plays the selected card in-play; `D` is the sole draw key**
+  (human-ruled, added mid-implementation). Split across the two layers on
+  purpose: the engine can't express "play the *highlighted* card" (that's a
+  cursor concept in `app.rs`, not an indexed `GameAction`), so `app.rs` owns
+  the in-play case via `cursor_confirm` and the engine returns `None` for
+  Space during play. Keeping both layers non-contradictory (engine never
+  maps Space to `Hit`) means Space can't accidentally draw even if the
+  `app.rs` guard were ever bypassed.

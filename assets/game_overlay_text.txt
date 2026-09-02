@@ -1,16 +1,16 @@
 === Controls ===
 
-  ← / →      Select a hand card
-  ↑ / ↓      Flip a ± card's sign
-  Enter      Play the selected card
-  1 2 3 4    Play a hand card
-  D / Space  Draw a card (ends turn)
-  S          Stand (ends turn)
-  N / Space  Next round
-  G / Space  New game
-  Esc / X    Back to the menu
-  Q          Quit
-  ?          Close this overlay
+  ← / →          Select a hand card
+  ↑ / ↓          Flip a ± card's sign
+  Enter / Space  Play the selected card
+  1 2 3 4        Play a hand card
+  D              Draw a card (ends turn)
+  S              Stand (ends turn)
+  N / Space      Next round
+  G / Space      New game
+  Esc / X        Back to the menu
+  Q              Quit
+  ?              Close this overlay
 
   Ctrl-P/N/B/F mirror the arrow keys.
   Over 20: D or S accepts the bust.

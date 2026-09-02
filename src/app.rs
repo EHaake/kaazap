@@ -411,7 +411,7 @@ impl App {
                 }
 
                 // Route the game inputs to game_state. The cursor model
-                // (arrows + Enter) and the direct keys (1-4, d/s, h/l)
+                // (arrows + Enter/Space) and the direct keys (1-4, d/s, h/l)
                 // coexist — cursor keys act only on the player's turn.
                 Screen::InGame { game_state, cursor } => {
                     let player_turn = matches!(game_state.game_phase, GamePhase::PlayerTurn);
@@ -425,7 +425,11 @@ impl App {
                         KeyCode::Up | KeyCode::Down if player_turn => {
                             cursor.toggle_sign(&game_state.player.hand)
                         }
-                        KeyCode::Enter if player_turn => {
+                        // Space mirrors Enter here: it's the "select /
+                        // confirm" key everywhere else, so on the player's
+                        // turn it plays the highlighted card. Drawing has its
+                        // own dedicated key (D).
+                        KeyCode::Enter | KeyCode::Char(' ') if player_turn => {
                             cursor_confirm(game_state, cursor);
                             game_changed = true;
                         }

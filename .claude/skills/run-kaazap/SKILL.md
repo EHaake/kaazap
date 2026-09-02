@@ -52,11 +52,11 @@ first two; there is no common substring across all three.
 | `1`–`4` | Play hand card at that slot |
 | `\e[C` / `\e[D` | Cursor select next/prev hand card (right/left arrow) |
 | `\e[A` / `\e[B` | Toggle a ±/tiebreaker card's sign (up/down arrow) |
-| `\r` | Confirm the cursor-selected card (Enter) |
-| `d` / space | Hit (draw a dealer card) |
+| `\r` / space | Confirm/play the cursor-selected card (Enter or Space) |
+| `d` | Hit (draw a dealer card) — Space no longer draws |
 | `s` | Stand |
-| `n` | Next round (when prompted) |
-| `g` | New game (after game over) |
+| `n` / space | Next round (when prompted) |
+| `g` / space | New game (after game over) |
 | `x` | Back to menu |
 | `?` | Toggle help overlay |
 

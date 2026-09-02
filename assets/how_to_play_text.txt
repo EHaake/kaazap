@@ -15,4 +15,4 @@ holds 12 cards; filling it stands you.
 Over 20 isn't bust - recover with a minus
 card, or press d/s to bust.
 
-Play with 1-4 or arrows + Enter.  ? closes.
+Play with 1-4 or arrows + Enter/Space. ? closes.

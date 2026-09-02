@@ -105,14 +105,16 @@ impl GameState {
                 index: key.to_digit(10)? as usize - 1,
             }),
             'd' => Some(GameAction::Hit),
-            // Space is the phase's primary "proceed" action: draw during
-            // play, advance the round at the round-end pause, start a new
-            // game at game over.
-            ' ' => Some(match self.game_phase {
-                GamePhase::AwaitingNextRound => GameAction::NextRound,
-                GamePhase::GameOver { .. } => GameAction::NextGame,
-                _ => GameAction::Hit,
-            }),
+            // Space is the "proceed" key at the between-round pauses only:
+            // advance the round at round-end, start a new game at game over.
+            // On the player's turn, Space plays the highlighted card via the
+            // cursor model in app.rs and never reaches here; drawing has its
+            // own dedicated key (D).
+            ' ' => match self.game_phase {
+                GamePhase::AwaitingNextRound => Some(GameAction::NextRound),
+                GamePhase::GameOver { .. } => Some(GameAction::NextGame),
+                _ => None,
+            },
             's' => Some(GameAction::Stand),
             'n' => Some(GameAction::NextRound),
             'g' => Some(GameAction::NextGame),
@@ -1408,10 +1410,13 @@ mod tests {
     }
 
     #[test]
-    fn space_is_the_phase_primary_action() {
+    fn space_advances_at_pauses_and_never_draws() {
         let mut gs = GameState::new(); // starts at PlayerTurn
-        assert_eq!(gs.game_action_from_key(' '), Some(GameAction::Hit));
-        assert_eq!(gs.game_action_from_key('d'), Some(GameAction::Hit)); // d unchanged
+        // On the player's turn Space is not a draw: it plays the highlighted
+        // card, which is the cursor model's job (app.rs) — so the engine's
+        // key map returns None here. Draw keeps its own dedicated key, D.
+        assert_eq!(gs.game_action_from_key(' '), None);
+        assert_eq!(gs.game_action_from_key('d'), Some(GameAction::Hit)); // D still draws
 
         gs.game_phase = GamePhase::AwaitingNextRound;
         assert_eq!(gs.game_action_from_key(' '), Some(GameAction::NextRound));
