@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use crossterm::event::KeyCode;
+use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::{
     SELECTION_PULSE_MS,
@@ -201,6 +201,26 @@ fn cursor_confirm(game_state: &mut GameState, cursor: &mut HandCursor) {
     cursor.normalize(&game_state.player.hand);
 }
 
+/// Translate the emacs navigation chords (`Ctrl+P/N/B/F`) into the arrow
+/// `KeyCode`s they mirror, so every arrow-driven screen responds to them
+/// with no per-screen code. Case-folded (terminals vary on the reported
+/// case); only `Ctrl`-held keys are touched, so every plain key — and every
+/// other `Ctrl` chord — passes through unchanged.
+pub fn resolve_key(code: KeyCode, modifiers: KeyModifiers) -> KeyCode {
+    if modifiers.contains(KeyModifiers::CONTROL)
+        && let KeyCode::Char(c) = code
+    {
+        match c.to_ascii_lowercase() {
+            'p' => return KeyCode::Up,
+            'n' => return KeyCode::Down,
+            'b' => return KeyCode::Left,
+            'f' => return KeyCode::Right,
+            _ => {}
+        }
+    }
+    code
+}
+
 /// A modal panel shown over the current screen. Exactly one is open at a
 /// time — the type enforces what spec 004 spread across two `Option` fields
 /// (the "only one is ever Some" invariant the T010 review flagged): the `?`
@@ -391,7 +411,7 @@ impl App {
                 }
 
                 // Route the game inputs to game_state. The cursor model
-                // (arrows + Enter) and the direct keys (1-4, d/s, h/l)
+                // (arrows + Enter/Space) and the direct keys (1-4, d/s, h/l)
                 // coexist — cursor keys act only on the player's turn.
                 Screen::InGame { game_state, cursor } => {
                     let player_turn = matches!(game_state.game_phase, GamePhase::PlayerTurn);
@@ -405,7 +425,11 @@ impl App {
                         KeyCode::Up | KeyCode::Down if player_turn => {
                             cursor.toggle_sign(&game_state.player.hand)
                         }
-                        KeyCode::Enter if player_turn => {
+                        // Space mirrors Enter here: it's the "select /
+                        // confirm" key everywhere else, so on the player's
+                        // turn it plays the highlighted card. Drawing has its
+                        // own dedicated key (D).
+                        KeyCode::Enter | KeyCode::Char(' ') if player_turn => {
                             cursor_confirm(game_state, cursor);
                             game_changed = true;
                         }
@@ -648,6 +672,33 @@ mod tests {
 
     fn hand(cards: &[Option<Card>]) -> Vec<Option<Card>> {
         cards.to_vec()
+    }
+
+    #[test]
+    fn resolve_key_maps_emacs_chords_to_arrows() {
+        let ctrl = KeyModifiers::CONTROL;
+        assert_eq!(resolve_key(KeyCode::Char('p'), ctrl), KeyCode::Up);
+        assert_eq!(resolve_key(KeyCode::Char('n'), ctrl), KeyCode::Down);
+        assert_eq!(resolve_key(KeyCode::Char('b'), ctrl), KeyCode::Left);
+        assert_eq!(resolve_key(KeyCode::Char('f'), ctrl), KeyCode::Right);
+        // Case-folded — some terminals report the chord's letter uppercase.
+        assert_eq!(resolve_key(KeyCode::Char('P'), ctrl), KeyCode::Up);
+    }
+
+    #[test]
+    fn resolve_key_passes_through_everything_else() {
+        // A bare letter (no Ctrl) is unchanged...
+        assert_eq!(
+            resolve_key(KeyCode::Char('p'), KeyModifiers::NONE),
+            KeyCode::Char('p')
+        );
+        // ...an arrow key is unchanged...
+        assert_eq!(resolve_key(KeyCode::Up, KeyModifiers::NONE), KeyCode::Up);
+        // ...and a Ctrl chord that isn't one of p/n/b/f passes through.
+        assert_eq!(
+            resolve_key(KeyCode::Char('x'), KeyModifiers::CONTROL),
+            KeyCode::Char('x')
+        );
     }
 
     #[test]
