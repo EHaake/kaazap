@@ -215,6 +215,10 @@ pub struct App {
     board_view: BoardView,
     // The one open modal over the current screen, if any (help, settings).
     modal: Option<Modal>,
+    // Whether a resumable saved match exists on disk — drives the menu's
+    // Continue item. Kept in sync as the game saves/clears, so the menu never
+    // does file I/O per frame.
+    has_save: bool,
     pulse: SelectionPulse,
     settings: Settings,
     audio: Audio,
@@ -229,18 +233,38 @@ pub struct App {
 impl App {
     pub fn new(config: Config) -> Self {
         let settings = Settings::load();
+        let has_save = crate::save::exists();
         Self {
             config,
             screen: Screen::StartMenu {
-                menu_state: MenuState::new(crate::save::exists()),
+                menu_state: MenuState::new(has_save),
             },
             board_view: BoardView::new(config),
             modal: None,
+            has_save,
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
             prev_audio: None,
             too_small: None,
+        }
+    }
+
+    /// A fresh start-menu screen reflecting whether a save currently exists.
+    fn start_menu(&self) -> Screen {
+        Screen::StartMenu {
+            menu_state: MenuState::new(self.has_save),
+        }
+    }
+
+    /// Persist the in-progress match — or clear the save if it's over
+    /// (`save` handles the `GameOver` → clear). A no-op off the InGame
+    /// screen. `has_save` tracks whether a resumable file now exists, so the
+    /// menu's Continue item stays correct without re-reading disk.
+    fn save_game(&mut self) {
+        if let Screen::InGame { game_state, .. } = &self.screen {
+            crate::save::save(game_state);
+            self.has_save = !matches!(game_state.game_phase, GamePhase::GameOver { .. });
         }
     }
 
@@ -326,6 +350,9 @@ impl App {
                 };
             }
 
+            // Track whether a player action changed the game this key, so we
+            // persist once afterward (cursor moves don't touch saved state).
+            let mut game_changed = false;
             match &mut self.screen {
                 // Route the Menu inputs only to Menu
                 Screen::StartMenu { menu_state } => {
@@ -349,26 +376,32 @@ impl App {
                     match key {
                         // Esc or X quits the game back to the main menu
                         KeyCode::Char('x') | KeyCode::Esc => {
-                            self.screen = Screen::StartMenu {
-                                menu_state: MenuState::new(crate::save::exists()),
-                            }
+                            self.screen = self.start_menu();
                         }
                         KeyCode::Left if player_turn => cursor.move_left(&game_state.player.hand),
                         KeyCode::Right if player_turn => cursor.move_right(&game_state.player.hand),
                         KeyCode::Up | KeyCode::Down if player_turn => {
                             cursor.toggle_sign(&game_state.player.hand)
                         }
-                        KeyCode::Enter if player_turn => cursor_confirm(game_state, cursor),
+                        KeyCode::Enter if player_turn => {
+                            cursor_confirm(game_state, cursor);
+                            game_changed = true;
+                        }
                         KeyCode::Char(c) => {
                             if let Some(game_action) = game_state.handle_game_input(c) {
                                 game_state.apply_game_action(game_action);
                                 cursor.normalize(&game_state.player.hand);
+                                game_changed = true;
                             }
                         }
                         _ => {}
                     }
                 }
 
+            }
+
+            if game_changed {
+                self.save_game();
             }
         }
 
@@ -455,6 +488,9 @@ impl App {
                 // Fresh game — the first snapshot seeds silently, so the
                 // empty starting board plays no cues.
                 self.prev_audio = None;
+                // Persist immediately, so quitting right away still leaves a
+                // resumable game (and Continue appears next launch).
+                self.save_game();
             }
             MenuItem::HowToPlay => {
                 self.modal = Some(Modal::Help(Overlay::new(OverlayKind::HowToPlay, self.config)));
@@ -473,8 +509,17 @@ impl App {
         // One pulse drives every screen's selection breathe
         self.pulse.tick(dt);
 
+        let mut phase_changed = false;
         if let Screen::InGame { game_state, .. } = &mut self.screen {
+            let before = std::mem::discriminant(&game_state.game_phase);
             game_state.update();
+            phase_changed = std::mem::discriminant(&game_state.game_phase) != before;
+        }
+
+        // A phase change means the opponent moved or the round/game resolved
+        // — persist the new position (save clears the file on GameOver).
+        if phase_changed {
+            self.save_game();
         }
 
         // Sound the opponent's moves and round/game resolutions, which
