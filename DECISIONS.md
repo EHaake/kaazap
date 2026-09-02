@@ -35,9 +35,10 @@ enterprise-grade process for a solo effort.
 - **The draw key accepts the bust while over 20.** Going over 20
   doesn't bust by itself (that part is canon — you may play a card to
   recover before your turn ends); Kaazap's variant is that while over,
-  `d`/space draws nothing and instead stands into the bust, same as
-  `s`, so every key keeps a meaning in that state. Human-ruled during
-  spec 001 (T008b).
+  `d` draws nothing and instead stands into the bust, same as `s`, so
+  the draw key keeps a meaning in that state. Human-ruled during spec 001
+  (T008b). (Spec 006 made Space "play the selected card" rather than
+  draw, so `d`/`s` are the bust-accepting keys now — Space isn't.)
 - **Flip/bust edge rulings** (canon sources are thin here, spec 001):
   a *standing* player pushed over 20 by a flip card busts immediately;
   a *live* player pushed over gets their recovery window; any side
