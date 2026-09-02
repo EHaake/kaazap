@@ -105,10 +105,13 @@ impl OpponentSelectState {
             y += layout.item_spacing;
         }
 
-        // The selected opponent's blurb, then the controls hint, below the list.
+        // The selected opponent's blurb, then the controls hint, below the
+        // list — with a clear gap above the blurb so it reads as its own
+        // element rather than crowding the last row (playtest: it sat too
+        // close).
         let blurb = OPPONENTS[self.selected].blurb;
-        draw_text(frame, center(blurb), y + 1, blurb, Emphasis::Normal);
-        draw_text(frame, center(HINT), y + 3, HINT, Emphasis::Normal);
+        draw_text(frame, center(blurb), y + 2, blurb, Emphasis::Normal);
+        draw_text(frame, center(HINT), y + 4, HINT, Emphasis::Normal);
     }
 }
 
