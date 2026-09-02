@@ -1,5 +1,8 @@
 use crate::{
-    OPPONENT_THINKING_TIME_MS, STAND_THRESHOLD, card::{Card, FlipKind, PlayedCard, deal_hand}, player::{Player, PlayerState}
+    OPPONENT_THINKING_TIME_MS,
+    card::{Card, DEFAULT_SIDE_DECK, FlipKind, PlayedCard, deal_hand},
+    opponent::{DEFAULT_OPPONENT, OpponentProfile},
+    player::{Player, PlayerState},
 };
 use serde::{Deserialize, Serialize};
 use std::time::{Duration, Instant};
@@ -50,31 +53,44 @@ pub struct GameState {
     pub opponent: PlayerState,
     pub game_phase: GamePhase,
     pub round_outcome: Option<RoundOutcome>,
+    /// The opponent being faced — drives its name, side deck, and the AI's
+    /// stand threshold. Set once at match start and carried across rounds.
+    pub opponent_profile: OpponentProfile,
 }
 
 impl GameState {
+    /// A match against the neutral default opponent (the pre-roster behavior).
+    /// Used by `Default` and the tests; the real flow uses [`with_opponent`].
     pub fn new() -> Self {
+        Self::with_opponent(DEFAULT_OPPONENT)
+    }
+
+    /// Start a match against a specific opponent. The profile seeds the
+    /// opponent's displayed name and the deck its hand is drawn from, and is
+    /// stored so the AI and post-`GameOver` rematch keep using it.
+    pub fn with_opponent(opponent_profile: OpponentProfile) -> Self {
         Self {
             player: PlayerState {
                 name: "Your Name".to_string(),
                 dealer_row: vec![],
                 played_row: vec![],
-                hand: deal_hand(&mut rand::rng()),
+                hand: deal_hand(&mut rand::rng(), &DEFAULT_SIDE_DECK),
                 bust: false,
                 stood: false,
                 rounds_won: 0,
             },
             opponent: PlayerState {
-                name: "Opponent".to_string(),
+                name: opponent_profile.name.to_string(),
                 dealer_row: vec![],
                 played_row: vec![],
-                hand: deal_hand(&mut rand::rng()),
+                hand: deal_hand(&mut rand::rng(), opponent_profile.side_deck),
                 bust: false,
                 stood: false,
                 rounds_won: 0,
             },
             game_phase: GamePhase::PlayerTurn,
             round_outcome: None,
+            opponent_profile,
         }
     }
 
@@ -424,8 +440,10 @@ impl GameState {
             };
         }
 
-        // if score is >= 17, stand
-        if score >= STAND_THRESHOLD as i32 {
+        // At or above this opponent's stand threshold, stand. The threshold is
+        // the main difficulty knob: higher = more aggressive (pushes for
+        // bigger totals, busts more).
+        if score >= self.opponent_profile.stand_threshold as i32 {
             return OpponentAction::Stand;
         }
 
@@ -623,10 +641,11 @@ impl GameState {
             self.player.rounds_won = 0;
             self.opponent.rounds_won = 0;
 
-            // New game, new hands — drawn independently for each side
+            // New game, new hands — drawn independently, each from its own
+            // side deck (the opponent keeps the profile it was started with).
             let mut rng = rand::rng();
-            self.player.hand = deal_hand(&mut rng);
-            self.opponent.hand = deal_hand(&mut rng);
+            self.player.hand = deal_hand(&mut rng, &DEFAULT_SIDE_DECK);
+            self.opponent.hand = deal_hand(&mut rng, self.opponent_profile.side_deck);
 
             self.setup_next_round();
         }
@@ -1050,6 +1069,40 @@ mod tests {
         let gs = opponent_at(10, vec![Card::Plus(4)]);
 
         assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+    }
+
+    #[test]
+    fn ai_stand_threshold_comes_from_the_profile() {
+        // A hand that can't reach 20 from the given score, so only the
+        // opponent's stand threshold decides hit vs. stand.
+
+        // Score 16 (target 4, unreachable with +1): the default profile (17)
+        // hits, a cautious opponent (15) stands on the same board.
+        let mut gs = opponent_at(16, vec![Card::Plus(1)]);
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit); // default = 17
+        gs.opponent_profile = OpponentProfile { stand_threshold: 15, ..DEFAULT_OPPONENT };
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+
+        // Score 17: the default stands, an aggressive opponent (19) hits.
+        let mut gs = opponent_at(17, vec![Card::Plus(1)]);
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand); // default = 17
+        gs.opponent_profile = OpponentProfile { stand_threshold: 19, ..DEFAULT_OPPONENT };
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+    }
+
+    #[test]
+    fn with_opponent_seeds_the_profile_and_name_while_new_stays_default() {
+        use crate::{STAND_THRESHOLD, opponent::OPPONENTS};
+
+        let gs = GameState::with_opponent(OPPONENTS[0]);
+        assert_eq!(gs.opponent_profile.id, OPPONENTS[0].id);
+        assert_eq!(gs.opponent.name, OPPONENTS[0].name);
+
+        // new() is unchanged: the neutral default opponent.
+        let d = GameState::new();
+        assert_eq!(d.opponent_profile.id, DEFAULT_OPPONENT.id);
+        assert_eq!(d.opponent.name, "Opponent");
+        assert_eq!(d.opponent_profile.stand_threshold, STAND_THRESHOLD);
     }
 
     #[test]

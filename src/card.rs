@@ -118,11 +118,11 @@ pub const DEFAULT_SIDE_DECK: [Card; 10] = [
     Card::Tiebreaker,
 ];
 
-/// Draw a fresh hand: HAND_SIZE distinct cards from the default deck.
-/// Each side deals its own hand, independently, once per game.
-pub fn deal_hand<R: Rng + ?Sized>(rng: &mut R) -> Vec<Option<Card>> {
-    DEFAULT_SIDE_DECK
-        .choose_multiple(rng, HAND_SIZE)
+/// Draw a fresh hand: HAND_SIZE distinct cards from `deck`. Each side deals
+/// its own hand, independently, once per game, from its own side deck (the
+/// player uses [`DEFAULT_SIDE_DECK`]; an opponent uses its profile's deck).
+pub fn deal_hand<R: Rng + ?Sized>(rng: &mut R, deck: &[Card]) -> Vec<Option<Card>> {
+    deck.choose_multiple(rng, HAND_SIZE)
         .copied()
         .map(Some)
         .collect()
@@ -307,7 +307,7 @@ mod tests {
     #[test]
     fn deal_hand_is_four_distinct_cards_from_the_deck() {
         for _ in 0..200 {
-            let hand = deal_hand(&mut rand::rng());
+            let hand = deal_hand(&mut rand::rng(), &DEFAULT_SIDE_DECK);
             assert_eq!(hand.len(), HAND_SIZE);
 
             let cards: Vec<Card> = hand
@@ -331,13 +331,27 @@ mod tests {
     }
 
     #[test]
+    fn deal_hand_draws_only_from_the_given_deck() {
+        // A deck disjoint from DEFAULT_SIDE_DECK: every dealt card must come
+        // from it, proving deal_hand honors its deck argument (an opponent's
+        // deck, not the default pool).
+        let deck = [Card::Plus(7), Card::Minus(7), Card::PlusMinus(5), Card::Plus(9)];
+        for _ in 0..200 {
+            for slot in deal_hand(&mut rand::rng(), &deck) {
+                let card = slot.expect("every dealt slot must be filled");
+                assert!(deck.contains(&card), "dealt {card:?} not in the given deck");
+            }
+        }
+    }
+
+    #[test]
     fn deal_can_reach_every_card_in_the_deck() {
         // Catches sampling that silently favors part of the deck — every
         // card must be reachable, including the flips and the tiebreaker
         let mut unseen = DEFAULT_SIDE_DECK.to_vec();
 
         for _ in 0..500 {
-            for slot in deal_hand(&mut rand::rng()) {
+            for slot in deal_hand(&mut rand::rng(), &DEFAULT_SIDE_DECK) {
                 if let Some(card) = slot {
                     unseen.retain(|c| *c != card);
                 }

@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     OPPONENT_THINKING_TIME_MS,
     game::{GamePhase, GameState, RoundOutcome},
+    opponent::DEFAULT_OPPONENT,
     player::PlayerState,
 };
 
@@ -95,6 +96,9 @@ fn from_saved(saved: SavedGame) -> GameState {
         opponent: saved.opponent,
         game_phase,
         round_outcome: saved.round_outcome,
+        // T003 will persist and restore the opponent's identity; until then a
+        // resumed game uses the default profile so the engine keeps compiling.
+        opponent_profile: DEFAULT_OPPONENT,
     }
 }
 
@@ -183,6 +187,7 @@ mod tests {
             opponent: a_player("Foe", 2),
             game_phase: phase,
             round_outcome: Some(RoundOutcome::PlayerWon),
+            opponent_profile: DEFAULT_OPPONENT,
         }
     }
 
