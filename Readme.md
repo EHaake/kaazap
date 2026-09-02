@@ -15,10 +15,11 @@ side-deck cards for tougher matchups ahead.
 
 > **Status:** actively being built. The core Pazaak engine, a terminal
 > UI overhaul, audio with a settings menu (music/SFX volume, a global
-> mute), and mid-match save/resume (a **Continue** on the menu) are in
-> place; opponent personalities, campaign progression, and campaign-level
-> persistence are next — see `ROADMAP.md` for what's shipped and what's
-> ahead.
+> mute), mid-match save/resume (a **Continue** on the menu), and a roster
+> of opponents with distinct difficulties and decks that you choose from
+> when you start a game are in place; side-deck customization, campaign
+> progression (credits, shop, card rewards), and the campaign map are next
+> — see `ROADMAP.md` for what's shipped and what's ahead.
 
 ## Building & running
 
@@ -41,9 +42,11 @@ sudo dnf install alsa-lib-devel
 
 ## How to play
 
-In-game, press `?` for a rules and controls overlay. If you know real
-Pazaak, Kaazap plays close to the source material with a few intentional
-tweaks — see `DECISIONS.md` for what's changed and why.
+Choosing **Start Game** opens an opponent-select screen — pick who to
+face from the roster (each has its own difficulty and side deck). In-game,
+press `?` for a rules and controls overlay. If you know real Pazaak,
+Kaazap plays close to the source material with a few intentional tweaks —
+see `DECISIONS.md` for what's changed and why.
 
 ## Development
 
