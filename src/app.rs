@@ -200,14 +200,21 @@ fn cursor_confirm(game_state: &mut GameState, cursor: &mut HandCursor) {
     cursor.normalize(&game_state.player.hand);
 }
 
+/// A modal panel shown over the current screen. Exactly one is open at a
+/// time — the type enforces what spec 004 spread across two `Option` fields
+/// (the "only one is ever Some" invariant the T010 review flagged): the `?`
+/// / How to Play help text, or the settings panel. T006 adds a third.
+enum Modal {
+    Help(Overlay),
+    Settings(SettingsState),
+}
+
 pub struct App {
     pub config: Config,
     screen: Screen,
     board_view: BoardView,
-    overlay: Option<Overlay>,
-    // The settings panel, when open — an overlay over the start menu (like
-    // How to Play), so the menu and its selection are preserved underneath.
-    settings_panel: Option<SettingsState>,
+    // The one open modal over the current screen, if any (help, settings).
+    modal: Option<Modal>,
     pulse: SelectionPulse,
     settings: Settings,
     audio: Audio,
@@ -228,8 +235,7 @@ impl App {
                 menu_state: MenuState::new(crate::save::exists()),
             },
             board_view: BoardView::new(config),
-            overlay: None,
-            settings_panel: None,
+            modal: None,
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
@@ -259,8 +265,8 @@ impl App {
     pub fn resize(&mut self, config: Config) {
         self.config = config;
         self.board_view = BoardView::new(config);
-        if let Some(overlay) = &self.overlay {
-            self.overlay = Some(Overlay::new(overlay.kind(), config));
+        if let Some(Modal::Help(overlay)) = &self.modal {
+            self.modal = Some(Modal::Help(Overlay::new(overlay.kind(), config)));
         }
         self.too_small = None;
     }
@@ -290,33 +296,32 @@ impl App {
             return;
         }
 
-        // The settings panel is a modal overlay over the menu: while it's
-        // open it takes all input, and Esc closes it back to the menu with
-        // the selection intact.
-        if self.settings_panel.is_some() {
+        // A modal (settings panel or help overlay) sits over the current
+        // screen and takes all input while open. The settings panel routes
+        // to its own handler; a help overlay is dismissed with ?, Esc, Enter,
+        // or Space — the last so How to Play (opened from the menu with Space)
+        // closes with the same key it opened on. Closing sounds the back cue.
+        if matches!(self.modal, Some(Modal::Settings(_))) {
             self.handle_settings_input(key);
-        } else if self.overlay.is_some() {
-            // Any overlay is dismissed with ?, Esc, Enter, or Space — the
-            // last so How to Play (opened from the menu with Space) closes
-            // with the same key it opened on. Closing sounds the back cue.
+        } else if matches!(self.modal, Some(Modal::Help(_))) {
             if matches!(
                 key,
                 KeyCode::Char('?') | KeyCode::Char(' ') | KeyCode::Esc | KeyCode::Enter
             ) {
-                self.overlay = None;
+                self.modal = None;
                 self.audio.play(Sfx::MenuBack);
             }
         } else {
-            // If overlay is not enabled, if ? is pressed, enable overlay
+            // No modal open: ? opens the help overlay for the current screen.
             if let KeyCode::Char(c) = key
                 && c == '?'
             {
-                self.overlay = match &mut self.screen {
+                self.modal = match &self.screen {
                     Screen::StartMenu { .. } => {
-                        Some(Overlay::new(OverlayKind::MenuHelp, self.config))
+                        Some(Modal::Help(Overlay::new(OverlayKind::MenuHelp, self.config)))
                     }
                     Screen::InGame { .. } => {
-                        Some(Overlay::new(OverlayKind::GameHelp, self.config))
+                        Some(Modal::Help(Overlay::new(OverlayKind::GameHelp, self.config)))
                     }
                 };
             }
@@ -376,19 +381,23 @@ impl App {
     /// or close the panel back to the menu with the back cue. The menu
     /// underneath is untouched, so its selection survives.
     fn handle_settings_input(&mut self, key: KeyCode) {
-        let Some(settings_state) = self.settings_panel.as_ref() else {
+        let Some(Modal::Settings(state)) = self.modal.as_ref() else {
             return;
         };
-        let Some(action) = settings_state.handle_input(key) else {
+        let Some(action) = state.handle_input(key) else {
             return;
         };
         match action {
             SettingsAction::Up => {
-                self.settings_panel.as_mut().unwrap().move_up();
+                if let Some(Modal::Settings(s)) = self.modal.as_mut() {
+                    s.move_up();
+                }
                 self.audio.play(Sfx::MenuMove);
             }
             SettingsAction::Down => {
-                self.settings_panel.as_mut().unwrap().move_down();
+                if let Some(Modal::Settings(s)) = self.modal.as_mut() {
+                    s.move_down();
+                }
                 self.audio.play(Sfx::MenuMove);
             }
             SettingsAction::Louder | SettingsAction::Quieter => {
@@ -397,11 +406,13 @@ impl App {
                 } else {
                     -VOLUME_STEP
                 };
-                let vol = match self.settings_panel.as_ref().unwrap().selected() {
-                    SettingRow::Music => &mut self.settings.music_volume,
-                    SettingRow::Sfx => &mut self.settings.sfx_volume,
-                };
-                *vol = (*vol + delta).clamp(0.0, 1.0);
+                if let Some(Modal::Settings(s)) = self.modal.as_ref() {
+                    let vol = match s.selected() {
+                        SettingRow::Music => &mut self.settings.music_volume,
+                        SettingRow::Sfx => &mut self.settings.sfx_volume,
+                    };
+                    *vol = (*vol + delta).clamp(0.0, 1.0);
+                }
                 self.audio.set_settings(self.settings);
                 self.settings.save();
                 // A tick after set_settings so you hear the new SFX level
@@ -409,7 +420,7 @@ impl App {
                 self.audio.play(Sfx::MenuMove);
             }
             SettingsAction::Back => {
-                self.settings_panel = None;
+                self.modal = None;
                 self.audio.play(Sfx::MenuBack);
             }
         }
@@ -446,12 +457,12 @@ impl App {
                 self.prev_audio = None;
             }
             MenuItem::HowToPlay => {
-                self.overlay = Some(Overlay::new(OverlayKind::HowToPlay, self.config));
+                self.modal = Some(Modal::Help(Overlay::new(OverlayKind::HowToPlay, self.config)));
             }
             MenuItem::Settings => {
                 // Open Settings as an overlay over the menu — the menu (and
                 // its selection) stays put underneath, like How to Play.
-                self.settings_panel = Some(SettingsState::default());
+                self.modal = Some(Modal::Settings(SettingsState::default()));
             }
         }
     }
@@ -485,13 +496,13 @@ impl App {
             }
         }
 
-        // The settings panel and any help overlay draw over the screen —
-        // mutually exclusive in practice (settings takes input priority).
-        if let Some(settings_state) = &self.settings_panel {
-            settings_state.draw_overlay(frame, &self.config, self.settings, pulse);
-        }
-        if let Some(overlay) = &self.overlay {
-            overlay.draw(frame);
+        // The one open modal draws over the screen.
+        match &self.modal {
+            Some(Modal::Settings(state)) => {
+                state.draw_overlay(frame, &self.config, self.settings, pulse)
+            }
+            Some(Modal::Help(overlay)) => overlay.draw(frame),
+            None => {}
         }
     }
 }
