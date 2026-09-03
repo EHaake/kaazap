@@ -229,12 +229,13 @@ pub fn resolve_key(code: KeyCode, modifiers: KeyModifiers) -> KeyCode {
 }
 
 /// What a confirmed "discard your saved match?" should start. Both Quick Play
-/// and the campaign map raise the confirm over an existing save; this records
-/// which one so the Yes branch launches the right thing.
+/// and Start Campaign raise the confirm over an existing save; this records
+/// which one so the Yes branch does the right thing (open opponent select, or
+/// discard the save and enter the campaign map).
 #[derive(Debug, Clone)]
 enum PendingStart {
     QuickPlay,
-    Campaign { planet: String, opponent: String },
+    Campaign,
 }
 
 /// A modal panel shown over the current screen. Exactly one is open at a
@@ -340,8 +341,9 @@ impl App {
         };
     }
 
-    /// Open the campaign map at the run's saved position (from the menu's Start
-    /// Campaign item). Non-destructive — it never disturbs an in-progress match.
+    /// Open the campaign map at the run's current position. The Start Campaign
+    /// entry handles discarding a saved match first (with a confirm); this just
+    /// switches to the map screen.
     fn open_campaign_map(&mut self) {
         self.screen = Screen::CampaignMap {
             state: CampaignMapState::new(&self.profile),
@@ -617,25 +619,11 @@ impl App {
                 Screen::CampaignMap { state } => match state.handle_input(key, &self.profile) {
                     Some(MapOutcome::Moved) => self.audio.play(Sfx::MenuMove),
                     Some(MapOutcome::Launch { planet, opponent }) => {
-                        // A match needs a legal 10-card deck — divert to the
-                        // builder if not. Otherwise launching overwrites any
-                        // resumable match, so confirm first when one exists
-                        // (mirroring Quick Play); the confirm remembers the node.
-                        if !self.profile.deck_is_valid() {
-                            self.open_deck_builder();
-                        } else if self.has_save {
-                            self.audio.play(Sfx::MenuSelect);
-                            self.modal = Some(Modal::ConfirmNewGame {
-                                on_yes: false,
-                                pending: PendingStart::Campaign {
-                                    planet: planet.to_string(),
-                                    opponent: opponent.to_string(),
-                                },
-                            });
-                        } else {
-                            self.audio.play(Sfx::MenuSelect);
-                            self.launch_campaign_node(planet, opponent);
-                        }
+                        // No save-guard here: entering the campaign already
+                        // discarded any saved match (the prompt lives at entry),
+                        // so a launch from the map never has one to overwrite.
+                        self.audio.play(Sfx::MenuSelect);
+                        self.launch_campaign_node(planet, opponent);
                     }
                     Some(MapOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
@@ -707,8 +695,8 @@ impl App {
     /// Route a key to the discard-a-save confirmation: ←/→ (a/d) toggle
     /// between No and Yes, Enter/Space commit the highlighted choice, Esc
     /// cancels. Yes carries out the pending start — Quick Play opens opponent
-    /// select, a campaign launch starts that node's match — overwriting the
-    /// save; No / Esc close with the save intact.
+    /// select, Start Campaign discards the save and opens the map; No / Esc
+    /// close with the save intact.
     fn handle_confirm_input(&mut self, key: KeyCode) {
         match key {
             KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
@@ -730,9 +718,12 @@ impl App {
                         self.audio.play(Sfx::MenuSelect);
                         self.open_opponent_select();
                     }
-                    Some(PendingStart::Campaign { planet, opponent }) => {
+                    Some(PendingStart::Campaign) => {
+                        // Discard the saved match, then enter the map.
                         self.audio.play(Sfx::MenuSelect);
-                        self.launch_campaign_node(&planet, &opponent);
+                        crate::save::clear();
+                        self.has_save = false;
+                        self.open_campaign_map();
                     }
                     None => self.audio.play(Sfx::MenuBack),
                 }
@@ -772,7 +763,19 @@ impl App {
                     self.prev_audio = None;
                 }
             }
-            MenuItem::StartCampaign => self.open_campaign_map(),
+            MenuItem::StartCampaign => {
+                if self.has_save {
+                    // The discard prompt lives at campaign entry (human-ruled):
+                    // entering discards the saved match, so a launch from the
+                    // map later never has one to overwrite.
+                    self.modal = Some(Modal::ConfirmNewGame {
+                        on_yes: false,
+                        pending: PendingStart::Campaign,
+                    });
+                } else {
+                    self.open_campaign_map();
+                }
+            }
             MenuItem::QuickPlay => {
                 if self.has_save {
                     // Starting fresh would discard the saved match — confirm.

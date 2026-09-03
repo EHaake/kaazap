@@ -63,8 +63,9 @@ band (the run's progress, the Outer Rim → Core axis), and a bottom info panel
 describing the highlighted planet. You move the cursor between **unlocked**
 planets (arrows / `w`·`a`·`s`·`d` / the emacs nav keys); the panel updates to
 the highlighted planet — its name, region, its opponents (beaten / current /
-locked), and a line of flavor. **Esc**/`x` returns to the menu. Entering or
-moving around the map never disturbs a match already in progress.
+locked), and a line of flavor. **Esc**/`x` returns to the menu. Choosing Start
+Campaign while a match is saved prompts to discard it first; once on the map,
+moving around and backing out are free.
 
 ### Playing a planet
 
@@ -153,10 +154,12 @@ run position. A profile from before this spec (or none) starts a fresh run.
 ## Resolved decisions
 
 - **Front door = Continue + Start Campaign + Quick Play** (human-ruled).
-  Continue resumes the in-progress match board; Start Campaign opens the map
-  (non-destructive to a match in progress); Quick Play is the retained
-  opponent-select. Launching a new match over an unfinished one keeps today's
-  discard-confirm.
+  Continue resumes the in-progress match board; Quick Play is the retained
+  opponent-select. **The discard-confirm lives at campaign entry** (human-ruled
+  during playtest): choosing Start Campaign over a saved match prompts first,
+  and Yes discards it then and there — so once on the map a launch never has a
+  save to overwrite. Trade-off, accepted: peeking at the map and backing out
+  still costs the saved match.
 - **First map = multi-opponent planets + a light branch** using all 5 roster
   opponents (human-ruled). Cinder → {Ashfall, Drift} → The Spindle (two
   opponents). Grows with the roster/economy.

@@ -171,8 +171,11 @@ impl CampaignMapState {
             let (glyph, emphasis) = node_style(planet, run, cursored, pulse);
             draw_text(frame, x, y, &glyph.to_string(), emphasis);
 
+            // The cursored planet reads "larger": caps + flanking markers, so
+            // the next world to play stands out at a glance (it still breathes
+            // with the pulse via `emphasis`).
             let label = if cursored {
-                format!("▸ {}", planet.name)
+                format!("▸ {} ◂", planet.name.to_uppercase())
             } else {
                 planet.name.to_string()
             };
