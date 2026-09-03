@@ -20,7 +20,7 @@ Branch `010-smarter-opponents` created with the spec/plan/tasks. Plan:
   deterministic); existing roster tests still pass. (No AI-behavior change yet —
   the new fields are unread until T002/T003.)*
 
-- [ ] **T002 — Board-aware deterministic core**
+- [x] **T002 — Board-aware deterministic core**
   Rewrite `decide_opponent_move` (`src/game.rs`) to branch on `self.player.stood`
   → `decide_vs_stood_player` (stand when ahead; chase / play-to-win when behind;
   tie handling via `has_tiebreaker_in_play`) vs `decide_vs_live_player` (today's
