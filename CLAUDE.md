@@ -54,6 +54,12 @@ standing instruction to Claude Code as much as a note to the human.
   `Screen`; a panel opened *over* the menu and dismissed back to it is
   an overlay. (Settings was a `Screen` in spec 004 and moved to an
   overlay in spec 004's UI pass, for consistency with How to Play.)
+  Each `Screen` module follows the same shape: a small state struct (its
+  cursor/selection), a `handle_input(key, …) -> Option<Outcome>` returning
+  **one** owned outcome enum (not an action/event split), and a
+  `draw(frame, config, …, pulse)` — wired into the three `match &self.screen`
+  arms in `app.rs` (input, `?`-help, draw). `opponent_select.rs` is the
+  reference; a new screen copies it rather than inventing a new shape.
 - Game logic (`game.rs`, `player.rs`, `card.rs`) stays decoupled from
   rendering (`board.rs`, `frame.rs`, `render.rs`). State mutation always
   goes through `apply_*_action` methods that centralize validation;
