@@ -88,7 +88,10 @@ impl OpponentSelectState {
         const TITLE: &str = "Choose Your Opponent";
         const HINT: &str = "↑/↓ choose  ·  Enter play  ·  Esc back";
 
-        let layout = MenuLayout::new(*config, 1, OPPONENTS.len());
+        // Reserve the rows below the list for the blurb (at `y + 2`) and hint
+        // (at `y + 4`) so the full 10-opponent roster plus its footer fits the
+        // minimum terminal (one item-spacing + those four rows = 6).
+        let layout = MenuLayout::new(*config, 1, OPPONENTS.len(), 6);
 
         draw_text_centered(frame, layout.center_x, layout.title_top, TITLE, Emphasis::Normal);
 
@@ -155,5 +158,21 @@ mod tests {
             Some(SelectOutcome::Back)
         ));
         assert!(s.handle_input(KeyCode::Char('z')).is_none());
+    }
+
+    #[test]
+    fn the_full_roster_and_footer_fit_the_minimum_terminal() {
+        // At the 89×31 minimum the title, all opponents, the blurb (drawn at
+        // `y + 2`) and the controls hint (`y + 4`) must all land on-frame — the
+        // footer reserve passed to MenuLayout is what makes the grown roster fit.
+        let config = Config { num_cols: 89, num_rows: 31 };
+        let layout = MenuLayout::new(config, 1, OPPONENTS.len(), 6);
+        let after_items = layout.items_top + OPPONENTS.len() * layout.item_spacing;
+        let hint_y = after_items + 4; // must match `draw`
+        assert!(
+            hint_y < config.num_rows,
+            "controls hint at row {hint_y} clips the {}-row minimum terminal",
+            config.num_rows
+        );
     }
 }

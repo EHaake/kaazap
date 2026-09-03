@@ -136,21 +136,25 @@ pub struct MenuLayout {
 }
 
 impl MenuLayout {
-    pub fn new(config: Config, title_height: usize, num_items: usize) -> Self {
-        const TITLE_GAP: usize = 3; // blank rows between the title art and items
-        const ITEM_SPACING: usize = 2;
+    const ITEM_SPACING: usize = 2;
 
-        // The whole menu (title art, gap, items) is one block centered
-        // vertically, to match the board. Items span (n-1)*spacing + 1 rows.
-        let items_height = num_items.saturating_sub(1) * ITEM_SPACING + 1;
-        let block_height = title_height + TITLE_GAP + items_height;
+    pub fn new(config: Config, title_height: usize, num_items: usize, trailing_height: usize) -> Self {
+        const TITLE_GAP: usize = 3; // blank rows between the title art and items
+
+        // The whole menu (title art, gap, items, plus any trailing content a
+        // screen draws below the items — a blurb/hint) is one block centered
+        // vertically, to match the board. Items span (n-1)*spacing + 1 rows;
+        // `trailing_height` reserves the rows below them so a long list plus its
+        // footer still fits the minimum terminal.
+        let items_height = num_items.saturating_sub(1) * Self::ITEM_SPACING + 1;
+        let block_height = title_height + TITLE_GAP + items_height + trailing_height;
         let title_top = config.num_rows.saturating_sub(block_height) / 2;
 
         Self {
             center_x: config.num_cols / 2,
             title_top,
             items_top: title_top + title_height + TITLE_GAP,
-            item_spacing: ITEM_SPACING,
+            item_spacing: Self::ITEM_SPACING,
         }
     }
 }
@@ -335,7 +339,7 @@ mod tests {
     fn menu_layout_centers_the_menu_block_vertically() {
         // Title art 8 rows + 3-row gap + 2 items (spacing 2 → 3 rows) = 14,
         // centered in 48 rows → title_top = 17.
-        let l = MenuLayout::new(cfg(89, 48), 8, 2);
+        let l = MenuLayout::new(cfg(89, 48), 8, 2, 0);
         let block_height = 8 + 3 + ((2 - 1) * 2 + 1); // = 14
         assert_eq!(l.title_top, (48 - block_height) / 2);
         // equal margin above the title art and below the last item
@@ -394,6 +398,66 @@ mod tests {
             let (x, y) = l.node_pos(p.fx, p.fy);
             assert!(x < cols, "{} node x off-frame", p.id);
             assert!(y + 1 <= l.field.y1, "{} node + label overflow the field", p.id);
+        }
+    }
+
+    #[test]
+    fn the_campaign_map_is_legible_at_the_minimum_terminal() {
+        // The bigger (spec 011) map's hand-authored positions must not collide or
+        // clip at the 89×31 minimum — the guard the renderer doesn't provide:
+        // unique node cells, each cursored label on-frame, and no two labels
+        // overlapping on a shared row (worst case: both cursored).
+        use crate::campaign::PLANETS;
+        use crate::campaign_map::cursored_label;
+
+        let (cols, _) = (89usize, 31usize);
+        let l = CampaignMapLayout::new(cfg(89, 31));
+
+        struct Placed {
+            id: &'static str,
+            x: usize,
+            y: usize,
+            lx0: usize,
+            lx1: usize,
+            ly: usize,
+        }
+        let placed: Vec<Placed> = PLANETS
+            .iter()
+            .map(|p| {
+                let (x, y) = l.node_pos(p.fx, p.fy);
+                let len = cursored_label(p.name).chars().count();
+                let lx0 = x.saturating_sub(len / 2); // matches draw_text_centered
+                Placed { id: p.id, x, y, lx0, lx1: lx0 + len - 1, ly: y + 1 }
+            })
+            .collect();
+
+        for a in &placed {
+            assert!(a.x < cols, "{} node off-frame", a.id);
+            assert!(a.ly <= l.field.y1, "{} label row overflows the field", a.id);
+            assert!(a.lx1 < cols, "{} cursored label clips the right edge", a.id);
+        }
+        for (i, a) in placed.iter().enumerate() {
+            for b in &placed[i + 1..] {
+                assert!(
+                    !(a.x == b.x && a.y == b.y),
+                    "{} and {} share a node cell",
+                    a.id,
+                    b.id
+                );
+                if a.ly == b.ly {
+                    let overlap = a.lx0 <= b.lx1 && b.lx0 <= a.lx1;
+                    assert!(!overlap, "{} and {} labels overlap on row {}", a.id, b.id, a.ly);
+                }
+                // A label must not land on another planet's node glyph (a label
+                // sits one row below its own node, so this only bites cross-pairs
+                // whose rows happen to coincide).
+                if a.ly == b.y {
+                    assert!(!(a.lx0 <= b.x && b.x <= a.lx1), "{}'s label covers {}'s node", a.id, b.id);
+                }
+                if b.ly == a.y {
+                    assert!(!(b.lx0 <= a.x && a.x <= b.lx1), "{}'s label covers {}'s node", b.id, a.id);
+                }
+            }
         }
     }
 

@@ -39,50 +39,96 @@ pub struct Planet {
 /// dead code, since only tests reference it today).
 pub const START_PLANET: &str = "cinder";
 
-/// The first campaign map: Cinder (Outer Rim) → the Ashfall/Drift fork (Mid
-/// Rim, either order) → The Spindle (Core, two opponents). Uses all five roster
-/// opponents. Names are original placeholders, tunable — a vertical slice that
-/// grows with the roster and the spec-C economy.
-pub const PLANETS: [Planet; 4] = [
+/// The campaign map, Outer Rim → Core (spec 011 grew it 4 → 8 worlds). Cinder
+/// forks into two two-world lanes — Scree → Karrus and Ashfall → Drift — that
+/// rejoin at The Anvil, then a linear Core run: The Anvil → The Spindle →
+/// Zenith, where the final boss waits. Every roster opponent appears exactly
+/// once. `fx` trends rim→core; `fy` separates the lanes and staggers the Core
+/// spine so no two nodes share a label row (guarded by a legibility test).
+/// Names are original flavor, tunable.
+pub const PLANETS: [Planet; 8] = [
     Planet {
         id: "cinder",
         name: "Cinder",
         region: "Outer Rim",
         blurb: "A slag-heap world where every hand is a warm-up.",
-        fx: 0.12,
+        fx: 0.06,
         fy: 0.50,
         opponents: &["greeb"],
         requires: &[],
     },
+    // Lane A: Scree → Karrus (the upper fork off Cinder).
+    Planet {
+        id: "scree",
+        name: "Scree",
+        region: "Outer Rim",
+        blurb: "A rubble moon where the young come to make a name.",
+        fx: 0.23,
+        fy: 0.28,
+        opponents: &["dax"],
+        requires: &["cinder"],
+    },
+    // Lane B: Ashfall → Drift (the lower fork off Cinder).
     Planet {
         id: "ashfall",
         name: "Ashfall",
-        region: "Mid Rim",
+        region: "Outer Rim",
         blurb: "Dust, debt, and a scrapper who plays like she has both.",
-        fx: 0.42,
-        fy: 0.28,
+        fx: 0.23,
+        fy: 0.72,
         opponents: &["vessa"],
         requires: &["cinder"],
+    },
+    Planet {
+        id: "karrus",
+        name: "Karrus",
+        region: "Mid Rim",
+        blurb: "A way-station of brokers who never bet past their means.",
+        fx: 0.44,
+        fy: 0.36,
+        opponents: &["nima"],
+        requires: &["scree"],
     },
     Planet {
         id: "drift",
         name: "Drift",
         region: "Mid Rim",
         blurb: "A quiet station where an old hand waits out the years.",
-        fx: 0.42,
-        fy: 0.72,
+        fx: 0.44,
+        fy: 0.64,
         opponents: &["toran"],
-        requires: &["cinder"],
+        requires: &["ashfall"],
+    },
+    // The rejoin: both lanes must be cleared to reach The Anvil.
+    Planet {
+        id: "the-anvil",
+        name: "The Anvil",
+        region: "Mid Rim",
+        blurb: "A furnace-world where the hard cases hammer it out.",
+        fx: 0.62,
+        fy: 0.50,
+        opponents: &["brakka", "kesh"],
+        requires: &["karrus", "drift"],
     },
     Planet {
         id: "the-spindle",
         name: "The Spindle",
         region: "Core",
         blurb: "The core-world tower where the table's sharpest hold court.",
-        fx: 0.82,
-        fy: 0.50,
+        fx: 0.80,
+        fy: 0.32,
         opponents: &["rix", "magistrate"],
-        requires: &["ashfall", "drift"],
+        requires: &["the-anvil"],
+    },
+    Planet {
+        id: "zenith",
+        name: "Zenith",
+        region: "Core",
+        blurb: "The summit table, where the house's best has never lost.",
+        fx: 0.90,
+        fy: 0.66,
+        opponents: &["sovereign"],
+        requires: &["the-spindle"],
     },
 ];
 
@@ -237,39 +283,138 @@ mod tests {
     }
 
     #[test]
-    fn the_fork_unlocks_both_mid_worlds_and_the_core_needs_both() {
+    fn the_fork_opens_both_lanes_and_the_rejoin_needs_both() {
+        let scree = planet_by_id("scree").unwrap();
         let ashfall = planet_by_id("ashfall").unwrap();
-        let drift = planet_by_id("drift").unwrap();
-        let spindle = planet_by_id("the-spindle").unwrap();
+        let anvil = planet_by_id("the-anvil").unwrap();
         let mut run = CampaignRun::default();
 
-        // Beating Cinder's opponent unlocks BOTH mid worlds (the fork).
+        // Beating Cinder's opponent opens BOTH lanes' first worlds (the fork).
         run.mark_beaten("cinder", "greeb");
+        assert!(run.planet_unlocked(&scree));
         assert!(run.planet_unlocked(&ashfall));
-        assert!(run.planet_unlocked(&drift));
-        assert!(!run.planet_unlocked(&spindle), "the Core needs both mid worlds");
+        assert!(!run.planet_unlocked(&anvil), "the rejoin needs both lanes cleared");
 
-        // One mid world is not enough for the Core.
+        // Clearing only lane A (scree → karrus) is not enough for the rejoin.
+        run.mark_beaten("scree", "dax");
+        run.mark_beaten("karrus", "nima");
+        assert!(!run.planet_unlocked(&anvil));
+
+        // Clearing lane B too (ashfall → drift) → The Anvil unlocks (the rejoin).
         run.mark_beaten("ashfall", "vessa");
-        assert!(!run.planet_unlocked(&spindle));
-
-        // Both mid worlds cleared → the Core unlocks (the rejoin).
         run.mark_beaten("drift", "toran");
-        assert!(run.planet_unlocked(&spindle));
+        assert!(run.planet_unlocked(&anvil));
     }
 
     #[test]
     fn mark_beaten_is_idempotent_and_a_full_sweep_completes_the_run() {
+        // Beat every opponent on every planet, optionally skipping one — derived
+        // from PLANETS so it stays correct as the map grows.
+        let sweep = |run: &mut CampaignRun, skip: Option<(&str, &str)>| {
+            for p in PLANETS {
+                for o in p.opponents {
+                    if skip == Some((p.id, *o)) {
+                        continue;
+                    }
+                    run.mark_beaten(p.id, o);
+                }
+            }
+        };
+
         let mut run = CampaignRun::default();
         run.mark_beaten("cinder", "greeb");
-        run.mark_beaten("cinder", "greeb"); // no double-count
+        run.mark_beaten("cinder", "greeb"); // idempotent — no double-count
         assert!(run.planet_cleared(&planet_by_id("cinder").unwrap()));
 
-        run.mark_beaten("ashfall", "vessa");
-        run.mark_beaten("drift", "toran");
-        run.mark_beaten("the-spindle", "rix");
-        assert!(!run.run_complete());
-        run.mark_beaten("the-spindle", "magistrate");
+        // A sweep missing just the final boss leaves the run incomplete (so the
+        // completeness below isn't vacuous)...
+        let mut partial = CampaignRun::default();
+        sweep(&mut partial, Some(("zenith", "sovereign")));
+        assert!(!partial.run_complete());
+
+        // ...and the full sweep completes it.
+        sweep(&mut run, None);
         assert!(run.run_complete());
+    }
+
+    #[test]
+    fn the_graph_has_one_start_is_acyclic_and_fully_reachable() {
+        let starts: Vec<&str> = PLANETS
+            .iter()
+            .filter(|p| p.requires.is_empty())
+            .map(|p| p.id)
+            .collect();
+        assert_eq!(starts, vec![START_PLANET], "exactly one start planet");
+
+        // Fixpoint clear: repeatedly clear any planet whose requires are all
+        // cleared. Terminating with every planet cleared proves the graph is
+        // acyclic AND fully reachable from the start (a cycle or an orphan would
+        // leave some planet permanently un-clearable).
+        let mut cleared: Vec<&str> = Vec::new();
+        let mut changed = true;
+        while changed {
+            changed = false;
+            for p in &PLANETS {
+                if !cleared.contains(&p.id) && p.requires.iter().all(|r| cleared.contains(r)) {
+                    cleared.push(p.id);
+                    changed = true;
+                }
+            }
+        }
+        assert_eq!(
+            cleared.len(),
+            PLANETS.len(),
+            "every planet must be reachable via a valid clear order"
+        );
+    }
+
+    #[test]
+    fn every_roster_opponent_appears_on_exactly_one_planet() {
+        use crate::opponent::OPPONENTS;
+        let appearances: Vec<&str> = PLANETS
+            .iter()
+            .flat_map(|p| p.opponents.iter().copied())
+            .collect();
+        // No opponent is stranded (on no planet, unplayable) or double-booked...
+        for o in OPPONENTS {
+            let count = appearances.iter().filter(|a| **a == o.id).count();
+            assert_eq!(count, 1, "{} should appear on exactly one planet, found {count}", o.id);
+        }
+        // ...and the map references nothing outside the roster.
+        assert_eq!(
+            appearances.len(),
+            OPPONENTS.len(),
+            "the map references a non-roster or duplicate opponent"
+        );
+    }
+
+    #[test]
+    fn difficulty_is_monotonic_along_every_edge() {
+        use crate::opponent::opponent_by_id;
+        // (min, max) stand threshold among a planet's opponents.
+        let bounds = |p: &Planet| -> (usize, usize) {
+            let ts: Vec<usize> = p
+                .opponents
+                .iter()
+                .map(|o| opponent_by_id(o).unwrap().stand_threshold)
+                .collect();
+            (*ts.iter().min().unwrap(), *ts.iter().max().unwrap())
+        };
+        // For every requires-edge (predecessor → successor), the predecessor's
+        // hardest opponent is no harder than the successor's easiest — so
+        // difficulty never drops as you travel rim → core along any path.
+        for succ in PLANETS {
+            let (succ_min, _) = bounds(&succ);
+            for req in succ.requires {
+                let pred = planet_by_id(req).unwrap();
+                let (_, pred_max) = bounds(&pred);
+                assert!(
+                    pred_max <= succ_min,
+                    "{} (max threshold {pred_max}) is harder than its successor {} (min {succ_min})",
+                    pred.id,
+                    succ.id
+                );
+            }
+        }
     }
 }

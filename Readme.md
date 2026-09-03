@@ -15,13 +15,13 @@ side-deck cards for tougher matchups ahead.
 
 > **Status:** actively being built. The core Pazaak engine, a terminal
 > UI overhaul, audio with a settings menu (music/SFX volume, a global
-> mute), mid-match save/resume (a **Continue** on the menu), a roster of
-> opponents with distinct difficulties, decks, and **board-aware AI**
+> mute), mid-match save/resume (a **Continue** on the menu), a **ten-opponent**
+> roster with distinct difficulties, decks, and **board-aware AI**
 > (they read your board and play to beat the round, each with its own
-> strategy), a deck-builder for
-> assembling your own side deck from a card collection, and **a campaign
-> map** — travel a node-based star map of planets, Outer Rim → Core,
-> clearing each world's opponents to unlock the next — are in place;
+> strategy — up to a flawless final boss), a deck-builder for
+> assembling your own side deck from a card collection, and **an eight-world
+> campaign map** — travel a node-based star map, Outer Rim → Core, clearing
+> each world's opponents to unlock the next — are in place;
 > campaign progression (credits, a shop, card rewards) is next — see
 > `ROADMAP.md` for what's shipped and what's ahead.
 

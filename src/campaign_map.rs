@@ -175,7 +175,7 @@ impl CampaignMapState {
             // the next world to play stands out at a glance (it still breathes
             // with the pulse via `emphasis`).
             let label = if cursored {
-                format!("▸ {} ◂", planet.name.to_uppercase())
+                cursored_label(planet.name)
             } else {
                 planet.name.to_string()
             };
@@ -239,6 +239,13 @@ impl CampaignMapState {
         draw_text(frame, x, panel.y0 + 3, status, Emphasis::Muted);
         draw_text(frame, x, panel.y0 + 4, "↑/↓ move  ·  Enter play  ·  Esc menu", Emphasis::Muted);
     }
+}
+
+/// The cursored planet's label — caps with flanking markers, so the next world
+/// to play reads "larger". One source of truth for the renderer and the map
+/// legibility test (`layout.rs`).
+pub(crate) fn cursored_label(name: &str) -> String {
+    format!("▸ {} ◂", name.to_uppercase())
 }
 
 /// A planet's node glyph and emphasis for the given run state. The glyph shows
@@ -305,19 +312,22 @@ mod tests {
 
     #[test]
     fn navigation_stays_on_unlocked_planets() {
-        // Clear Cinder → Ashfall + Drift unlock; The Spindle stays locked.
+        // Clear Cinder → both lane-starts (Scree, Ashfall) unlock; every deeper
+        // world stays locked.
         let mut p = Profile::default();
         p.campaign_mut().mark_beaten("cinder", "greeb");
         let mut s = CampaignMapState::new(&p);
 
         let mut seen = std::collections::BTreeSet::new();
-        for _ in 0..6 {
+        for _ in 0..PLANETS.len() * 2 {
             assert!(p.campaign().planet_unlocked(&PLANETS[s.cursor]));
             seen.insert(PLANETS[s.cursor].id);
             s.handle_input(KeyCode::Down, &p);
         }
-        assert!(seen.contains("cinder") && seen.contains("ashfall") && seen.contains("drift"));
-        assert!(!seen.contains("the-spindle"), "a locked planet must never be selectable");
+        assert!(seen.contains("cinder") && seen.contains("scree") && seen.contains("ashfall"));
+        for locked in ["karrus", "drift", "the-anvil", "the-spindle", "zenith"] {
+            assert!(!seen.contains(locked), "locked planet {locked} must never be selectable");
+        }
     }
 
     #[test]

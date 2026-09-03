@@ -78,7 +78,7 @@ pub const DEFAULT_OPPONENT: OpponentProfile = OpponentProfile {
 /// original flavor (no Star Wars trademarks — see `DECISIONS.md`) and, with
 /// the thresholds and decks, are tunable balance data (a balance pass is a
 /// later cross-cutting item in the campaign epic).
-pub const OPPONENTS: [OpponentProfile; 5] = [
+pub const OPPONENTS: [OpponentProfile; 10] = [
     OpponentProfile {
         id: "greeb",
         name: "Greeb",
@@ -99,6 +99,27 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         ],
         strategy: AiStrategy::Basic,
         misplay: 0.25, // a rookie — makes real mistakes
+    },
+    OpponentProfile {
+        id: "dax",
+        name: "Dax Runo",
+        difficulty: "Greenhorn",
+        blurb: "A cocky kid who bets big and busts bigger.",
+        stand_threshold: 15,
+        side_deck: &[
+            Card::Plus(4),
+            Card::Plus(3),
+            Card::Plus(3),
+            Card::Plus(2),
+            Card::Plus(2),
+            Card::Plus(1),
+            Card::Minus(1),
+            Card::Minus(2),
+            Card::Minus(3),
+            Card::Minus(2),
+        ],
+        strategy: AiStrategy::Aggressive,
+        misplay: 0.22, // green and reckless — pushes and slips
     },
     OpponentProfile {
         id: "vessa",
@@ -122,6 +143,27 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         misplay: 0.15,
     },
     OpponentProfile {
+        id: "nima",
+        name: "Nima Sarn",
+        difficulty: "Broker",
+        blurb: "Counts every credit — folds the moment she's ahead.",
+        stand_threshold: 16,
+        side_deck: &[
+            Card::Plus(2),
+            Card::Plus(3),
+            Card::Minus(2),
+            Card::Minus(3),
+            Card::Minus(4),
+            Card::PlusMinus(1),
+            Card::PlusMinus(2),
+            Card::Minus(1),
+            Card::Plus(1),
+            Card::Plus(2),
+        ],
+        strategy: AiStrategy::Cautious,
+        misplay: 0.15,
+    },
+    OpponentProfile {
         id: "toran",
         name: "Old Toran",
         difficulty: "Veteran",
@@ -130,6 +172,27 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         side_deck: &DEFAULT_SIDE_DECK,
         strategy: AiStrategy::Cautious,
         misplay: 0.10,
+    },
+    OpponentProfile {
+        id: "brakka",
+        name: "Brakka",
+        difficulty: "Bruiser",
+        blurb: "Swings for twenty and dares you to match it.",
+        stand_threshold: 17,
+        side_deck: &[
+            Card::PlusMinus(6),
+            Card::PlusMinus(3),
+            Card::Plus(4),
+            Card::Plus(3),
+            Card::Plus(2),
+            Card::Minus(2),
+            Card::Minus(4),
+            Card::PlusMinus(1),
+            Card::Minus(1),
+            Card::Flip(FlipKind::TwoFour),
+        ],
+        strategy: AiStrategy::Aggressive,
+        misplay: 0.12,
     },
     OpponentProfile {
         id: "rix",
@@ -153,6 +216,27 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         misplay: 0.05,
     },
     OpponentProfile {
+        id: "kesh",
+        name: "Kesh Varn",
+        difficulty: "Duelist",
+        blurb: "A hair-trigger duelist who plays every edge hard.",
+        stand_threshold: 18,
+        side_deck: &[
+            Card::PlusMinus(6),
+            Card::PlusMinus(3),
+            Card::PlusMinus(1),
+            Card::Plus(4),
+            Card::Minus(4),
+            Card::Minus(2),
+            Card::Plus(2),
+            Card::Minus(3),
+            Card::Plus(3),
+            Card::Flip(FlipKind::TwoFour),
+        ],
+        strategy: AiStrategy::Aggressive,
+        misplay: 0.06,
+    },
+    OpponentProfile {
         id: "magistrate",
         name: "The Magistrate",
         difficulty: "Master",
@@ -172,6 +256,31 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         ],
         strategy: AiStrategy::Calculating,
         misplay: 0.0, // the master — essentially never slips
+    },
+    OpponentProfile {
+        id: "sovereign",
+        name: "The Sovereign",
+        difficulty: "Kingpin",
+        blurb: "The house's untouchable best — never a wasted card, never a slip.",
+        stand_threshold: 19,
+        side_deck: &[
+            Card::PlusMinus(6),
+            Card::PlusMinus(6),
+            Card::PlusMinus(3),
+            Card::PlusMinus(3),
+            Card::PlusMinus(1),
+            Card::Minus(4),
+            Card::Minus(4),
+            Card::Minus(2),
+            Card::Minus(1),
+            Card::Tiebreaker,
+        ],
+        strategy: AiStrategy::Calculating,
+        // The flawless finale: threshold 19 like the Magistrate, but a fully
+        // playable deck — no dead flips (the AI never plays a flip), maximal ±
+        // range + recovery + the tiebreaker, so it almost always holds the exact
+        // card to hit, recover, or steal a tie.
+        misplay: 0.0,
     },
 ];
 
@@ -263,5 +372,59 @@ mod tests {
         let rookie = OPPONENTS.iter().find(|o| o.id == "greeb").unwrap();
         assert_eq!(master.misplay, 0.0);
         assert!(rookie.misplay > master.misplay);
+    }
+
+    #[test]
+    fn the_final_boss_is_flawless_and_fully_equipped() {
+        let boss = OPPONENTS.iter().find(|o| o.id == "sovereign").unwrap();
+        let magistrate = OPPONENTS.iter().find(|o| o.id == "magistrate").unwrap();
+
+        // The finale matches the Magistrate's flawless play...
+        assert_eq!(boss.stand_threshold, magistrate.stand_threshold);
+        assert_eq!(boss.strategy, AiStrategy::Calculating);
+        assert_eq!(boss.misplay, 0.0);
+        // ...and is the hardest threshold in the roster.
+        assert_eq!(
+            boss.stand_threshold,
+            OPPONENTS.iter().map(|o| o.stand_threshold).max().unwrap()
+        );
+        // ...but every card in its deck is one the AI can actually play (no dead
+        // flips), so it's strictly better-equipped than the Magistrate, whose
+        // deck carries two flips the Calculating AI never plays.
+        assert!(
+            boss.side_deck
+                .iter()
+                .all(|c| !c.playable_values().is_empty()),
+            "the boss deck must have no unplayable (flip) cards"
+        );
+        assert!(
+            magistrate
+                .side_deck
+                .iter()
+                .any(|c| c.playable_values().is_empty()),
+            "guard assumes the Magistrate still carries dead flips to contrast against"
+        );
+
+        // The real "at least as strong" property (not just "no flips"): every
+        // card the Magistrate can actually play, the boss holds at least as many
+        // of — its playable multiset dominates. A flip-free-but-weak deck (ten
+        // Minus(1)) would pass the checks above but fail this.
+        let playable = |o: &OpponentProfile| -> Vec<Card> {
+            o.side_deck
+                .iter()
+                .copied()
+                .filter(|c| !c.playable_values().is_empty())
+                .collect()
+        };
+        let boss_playable = playable(boss);
+        let mag_playable = playable(magistrate);
+        for card in &mag_playable {
+            let mag_count = mag_playable.iter().filter(|c| *c == card).count();
+            let boss_count = boss_playable.iter().filter(|c| *c == card).count();
+            assert!(
+                boss_count >= mag_count,
+                "boss has fewer playable {card:?} than the Magistrate ({boss_count} < {mag_count})"
+            );
+        }
     }
 }
