@@ -15,7 +15,7 @@ use crate::{
     CARD_HEIGHT, CARD_WIDTH, SIDE_DECK_SIZE,
     card::{Card, CardView},
     config::Config,
-    frame::{BorderWeight, Drawable, Emphasis, Frame, draw_text},
+    frame::{BorderWeight, Drawable, Emphasis, Frame, draw_text, draw_text_centered},
     layout::GridLayout,
     profile::Profile,
 };
@@ -136,9 +136,7 @@ impl DeckBuilderState {
 
         let entries = profile.collection_by_type();
         let layout = GridLayout::new(*config, entries.len(), grid_cols(entries.len()));
-        let center = |text: &str| layout.center_x.saturating_sub(text.chars().count() / 2);
-
-        draw_text(frame, center(TITLE), layout.title_y, TITLE, Emphasis::Normal);
+        draw_text_centered(frame, layout.center_x, layout.title_y, TITLE, Emphasis::Normal);
 
         // The deck-size readout: how close the built deck is to legal. Alert
         // while short, so an incomplete deck (the only thing blocking a match)
@@ -150,7 +148,7 @@ impl DeckBuilderState {
             let short = SIDE_DECK_SIZE.saturating_sub(n);
             (format!("Deck: {n}/{SIDE_DECK_SIZE} — add {short} more"), Emphasis::Alert)
         };
-        draw_text(frame, center(&readout), layout.readout_y, &readout, readout_emphasis);
+        draw_text_centered(frame, layout.center_x, layout.readout_y, &readout, readout_emphasis);
 
         for (i, entry) in entries.iter().enumerate() {
             let (x, y) = layout.card_origin(i);
@@ -180,7 +178,7 @@ impl DeckBuilderState {
             draw_text(frame, badge_x, y + CARD_HEIGHT, &badge, emphasis);
         }
 
-        draw_text(frame, center(HINT), layout.hint_y, HINT, Emphasis::Muted);
+        draw_text_centered(frame, layout.center_x, layout.hint_y, HINT, Emphasis::Muted);
     }
 }
 

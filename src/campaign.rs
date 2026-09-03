@@ -34,6 +34,9 @@ pub struct Planet {
 }
 
 /// The planet a fresh run begins on (the only one unlocked at the start).
+/// A documentation/test anchor — production derives "unlocked" from an empty
+/// `requires`, never from this constant (kept `pub` so it isn't flagged as
+/// dead code, since only tests reference it today).
 pub const START_PLANET: &str = "cinder";
 
 /// The first campaign map: Cinder (Outer Rim) → the Ashfall/Drift fork (Mid

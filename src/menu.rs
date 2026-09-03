@@ -2,7 +2,12 @@ use crossterm::event::KeyCode;
 
 use std::fmt;
 
-use crate::{TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text}, layout::MenuLayout};
+use crate::{
+    TITLE_X_OFFSET,
+    config::Config,
+    frame::{Emphasis, Frame, draw_text, draw_text_centered},
+    layout::MenuLayout,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
@@ -14,16 +19,13 @@ pub enum MenuItem {
     Settings,
 }
 
+/// The result of a key on the start menu: the cursor moved, or an item was
+/// activated. One owned-outcome enum, like the other screens (opponent-select,
+/// deck-builder, campaign map), rather than a separate action/event split.
 #[derive(Debug, Copy, Clone)]
-pub enum MenuEvent {
-    Activate { menu_item: MenuItem },
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum MenuAction {
-    Select,
-    SelectionDown,
-    SelectionUp,
+pub enum MenuOutcome {
+    Moved,
+    Activated(MenuItem),
 }
 
 #[derive(Debug)]
@@ -62,44 +64,29 @@ impl MenuState {
         }
     }
 
-    /// Convert a KeyCode from the main gameloop and return a MenuAction
-    ///
-    pub fn handle_menu_input(&mut self, key: KeyCode) -> Option<MenuAction> {
+    /// Handle a key: Up/`w` and Down/`s` move the selection (wrapping);
+    /// Enter/Space activate the highlighted item. `None` for keys the menu
+    /// ignores. The app plays the matching SFX and acts on an activation.
+    pub fn handle_input(&mut self, key: KeyCode) -> Option<MenuOutcome> {
         match key {
-            KeyCode::Up => Some(MenuAction::SelectionUp),
-            KeyCode::Down => Some(MenuAction::SelectionDown),
-            KeyCode::Enter => Some(MenuAction::Select),
-            KeyCode::Char(c) => match c {
-                'w' => Some(MenuAction::SelectionUp),
-                's' => Some(MenuAction::SelectionDown),
-                ' ' => Some(MenuAction::Select),
-                _ => None,
-            },
-            _ => None,
-        }
-    }
-
-    /// Take a MenuAction and return an optional MenuEvent
-    ///
-    pub fn apply_menu_action(&mut self, action: MenuAction) -> Option<MenuEvent> {
-        match action {
-            MenuAction::Select => Some(MenuEvent::Activate {
-                menu_item: self.items[self.selected],
-            }),
-            MenuAction::SelectionDown => {
-                self.move_selection(1);
-                None
-            }
-            MenuAction::SelectionUp => {
+            KeyCode::Up | KeyCode::Char('w') => {
                 self.move_selection(-1);
-                None
+                Some(MenuOutcome::Moved)
             }
+            KeyCode::Down | KeyCode::Char('s') => {
+                self.move_selection(1);
+                Some(MenuOutcome::Moved)
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                Some(MenuOutcome::Activated(self.items[self.selected]))
+            }
+            _ => None,
         }
     }
 
     /// Move the selection by `delta` over the current items, wrapping at the
     /// ends. Works for any number of items.
-    pub fn move_selection(&mut self, delta: isize) {
+    fn move_selection(&mut self, delta: isize) {
         let n = self.items.len() as isize;
         if n == 0 {
             return;
@@ -129,8 +116,7 @@ impl MenuState {
                 (menu_item.to_string(), Emphasis::Normal)
             };
 
-            let x = layout.center_x - text.chars().count() / 2;
-            draw_text(frame, x, y, &text, emphasis);
+            draw_text_centered(frame, layout.center_x, y, &text, emphasis);
 
             y += layout.item_spacing;
         }

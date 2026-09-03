@@ -10,7 +10,7 @@ use crossterm::event::KeyCode;
 
 use crate::{
     config::Config,
-    frame::{Emphasis, Frame, draw_text},
+    frame::{Emphasis, Frame, draw_text_centered},
     layout::MenuLayout,
     opponent::{OPPONENTS, OpponentProfile},
 };
@@ -89,9 +89,8 @@ impl OpponentSelectState {
         const HINT: &str = "↑/↓ choose  ·  Enter play  ·  Esc back";
 
         let layout = MenuLayout::new(*config, 1, OPPONENTS.len());
-        let center = |text: &str| layout.center_x.saturating_sub(text.chars().count() / 2);
 
-        draw_text(frame, center(TITLE), layout.title_top, TITLE, Emphasis::Normal);
+        draw_text_centered(frame, layout.center_x, layout.title_top, TITLE, Emphasis::Normal);
 
         let mut y = layout.items_top;
         for (i, o) in OPPONENTS.iter().enumerate() {
@@ -101,7 +100,7 @@ impl OpponentSelectState {
             } else {
                 (row, Emphasis::Normal)
             };
-            draw_text(frame, center(&text), y, &text, emphasis);
+            draw_text_centered(frame, layout.center_x, y, &text, emphasis);
             y += layout.item_spacing;
         }
 
@@ -110,8 +109,8 @@ impl OpponentSelectState {
         // element rather than crowding the last row (playtest: it sat too
         // close).
         let blurb = OPPONENTS[self.selected].blurb;
-        draw_text(frame, center(blurb), y + 2, blurb, Emphasis::Normal);
-        draw_text(frame, center(HINT), y + 4, HINT, Emphasis::Normal);
+        draw_text_centered(frame, layout.center_x, y + 2, blurb, Emphasis::Normal);
+        draw_text_centered(frame, layout.center_x, y + 4, HINT, Emphasis::Normal);
     }
 }
 

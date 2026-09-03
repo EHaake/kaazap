@@ -15,7 +15,7 @@ use crate::{
     STARFIELD_TWINKLE_MS,
     campaign::{PLANETS, Planet, planet_by_id},
     config::Config,
-    frame::{Emphasis, Frame, draw_text},
+    frame::{Emphasis, Frame, draw_char, draw_text, draw_text_centered},
     layout::CampaignMapLayout,
     opponent::opponent_by_id,
     profile::Profile,
@@ -169,7 +169,7 @@ impl CampaignMapState {
             let (x, y) = layout.node_pos(planet.fx, planet.fy);
             let cursored = i == self.cursor;
             let (glyph, emphasis) = node_style(planet, run, cursored, pulse);
-            draw_text(frame, x, y, &glyph.to_string(), emphasis);
+            draw_char(frame, x, y, glyph, emphasis);
 
             // The cursored planet reads "larger": caps + flanking markers, so
             // the next world to play stands out at a glance (it still breathes
@@ -179,8 +179,7 @@ impl CampaignMapState {
             } else {
                 planet.name.to_string()
             };
-            let lx = x.saturating_sub(label.chars().count() / 2);
-            draw_text(frame, lx, y + 1, &label, emphasis);
+            draw_text_centered(frame, x, y + 1, &label, emphasis);
         }
 
         self.draw_header(frame, &layout, run);
@@ -202,7 +201,7 @@ impl CampaignMapState {
             } else {
                 ('·', Emphasis::Muted)
             };
-            draw_text(frame, x, y, &glyph.to_string(), emphasis);
+            draw_char(frame, x, y, glyph, emphasis);
         }
     }
 
@@ -216,7 +215,7 @@ impl CampaignMapState {
 
         const AXIS: &str = "Outer Rim  →  The Core";
         let cx = (layout.header.x0 + layout.header.x1) / 2;
-        draw_text(frame, cx.saturating_sub(AXIS.chars().count() / 2), layout.header.y0 + 1, AXIS, Emphasis::Muted);
+        draw_text_centered(frame, cx, layout.header.y0 + 1, AXIS, Emphasis::Muted);
     }
 
     fn draw_panel(&self, frame: &mut Frame, layout: &CampaignMapLayout, run: &crate::campaign::CampaignRun) {
