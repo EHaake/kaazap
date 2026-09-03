@@ -17,6 +17,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     SIDE_DECK_SIZE,
+    campaign::CampaignRun,
     card::{ALL_SIDE_CARDS, Card, DEFAULT_SIDE_DECK},
 };
 
@@ -44,6 +45,10 @@ pub struct Profile {
     collection: Vec<Card>,
     #[serde(default = "starter_deck")]
     deck: Vec<Card>,
+    /// Campaign progress (spec 009). Additive and serde-defaulted, so a
+    /// pre-campaign profile loads with a fresh (empty) run — no version bump.
+    #[serde(default)]
+    campaign: CampaignRun,
 }
 
 fn default_version() -> u32 {
@@ -72,6 +77,7 @@ impl Default for Profile {
             version: PROFILE_VERSION,
             collection: starter_collection(),
             deck: starter_deck(),
+            campaign: CampaignRun::default(),
         }
     }
 }
@@ -115,6 +121,17 @@ impl Profile {
     /// The built side deck, for dealing a match hand.
     pub fn deck(&self) -> &[Card] {
         &self.deck
+    }
+
+    /// The campaign run — progress, cursor position, and the in-flight match.
+    pub fn campaign(&self) -> &CampaignRun {
+        &self.campaign
+    }
+
+    /// Mutable campaign run, for recording progress / the in-flight pointer.
+    /// Callers pair a mutation with [`Profile::save`], as with deck edits.
+    pub fn campaign_mut(&mut self) -> &mut CampaignRun {
+        &mut self.campaign
     }
 
     /// A legal deck is exactly `SIDE_DECK_SIZE` cards, each backed by an owned
@@ -182,7 +199,30 @@ mod tests {
     /// A profile with an explicit collection and deck, current version — for
     /// exercising the deck-building rules without the starter's contents.
     fn profile_with(collection: Vec<Card>, deck: Vec<Card>) -> Profile {
-        Profile { version: PROFILE_VERSION, collection, deck }
+        Profile {
+            version: PROFILE_VERSION,
+            collection,
+            deck,
+            campaign: CampaignRun::default(),
+        }
+    }
+
+    #[test]
+    fn campaign_state_round_trips_and_defaults_for_older_profiles() {
+        use crate::campaign::planet_by_id;
+        let mut p = Profile::default();
+        p.campaign_mut().mark_beaten("cinder", "greeb");
+        p.campaign_mut().set_current("ashfall");
+        let json = serde_json::to_string(&p).unwrap();
+        let p2 = Profile::from_json(&json).expect("a valid profile loads");
+        assert!(p2.campaign().planet_cleared(&planet_by_id("cinder").unwrap()));
+        assert_eq!(p2.campaign().current(), Some("ashfall"));
+
+        // A pre-009 profile (no `campaign` field) loads with a fresh empty run.
+        let older = r#"{"version":1,"collection":[],"deck":[]}"#;
+        let p3 = Profile::from_json(older).expect("an older profile still loads");
+        assert!(p3.campaign().current().is_none());
+        assert!(!p3.campaign().run_complete());
     }
 
     #[test]

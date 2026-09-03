@@ -11,7 +11,7 @@ Branch `009-campaign-map` created with the spec/plan/tasks. Plan:
 
 ---
 
-- [ ] **T001 — Campaign data model & run state**
+- [x] **T001 — Campaign data model & run state**
   New `src/campaign.rs`: `Planet` (`id`, `name`, `region`, `blurb`, `fx`, `fy`,
   `opponents`, `requires`; `Copy`), `const PLANETS: [Planet; 4]` (Cinder →
   {Ashfall, Drift} → The Spindle, using all 5 roster opponents), `START_PLANET`,

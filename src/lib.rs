@@ -9,6 +9,7 @@ pub mod profile;
 pub mod opponent;
 pub mod opponent_select;
 pub mod deck_builder;
+pub mod campaign;
 pub mod screen;
 pub mod menu;
 pub mod overlay;
