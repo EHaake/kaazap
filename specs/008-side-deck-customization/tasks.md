@@ -11,7 +11,7 @@ Branch `008-side-deck-customization` created with the spec/plan/tasks. Plan:
 
 ---
 
-- [ ] **T001 — Player profile: collection, deck & persistence**
+- [x] **T001 — Player profile: collection, deck & persistence**
   New `src/profile.rs`: `Profile` (`version`, `collection: Vec<Card>`,
   `deck: Vec<Card>`; serde with `#[serde(default)]` fields + `PROFILE_VERSION`
   discard-on-mismatch), `starter_collection`/`starter_deck` (deck = today's

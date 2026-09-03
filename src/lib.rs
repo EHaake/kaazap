@@ -5,6 +5,7 @@ pub mod config;
 pub mod game;
 pub mod board;
 pub mod card;
+pub mod profile;
 pub mod opponent;
 pub mod opponent_select;
 pub mod screen;
@@ -29,6 +30,11 @@ pub const TITLE_X_OFFSET: usize = 21;
 
 // Side-deck cards dealt to each side per game
 pub const HAND_SIZE: usize = 4;
+
+// A legal built side deck is exactly this many cards (classic Pazaak). One
+// source of truth for the default pool's length, the deck-builder's cap, and
+// the "deck is playable" rule.
+pub const SIDE_DECK_SIZE: usize = 10;
 
 // Max cards one side may hold on the table in a round (dealer draws +
 // played cards). Reaching it auto-stands that side. One source of truth

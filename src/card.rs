@@ -2,7 +2,7 @@ use rand::{Rng, seq::IndexedRandom};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    CARD_HEIGHT, CARD_WIDTH, HAND_SIZE,
+    CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, SIDE_DECK_SIZE,
     frame::{Align, BorderWeight, Cell, Drawable, Emphasis, Frame, draw_box, draw_text_in},
     layout::Rect,
 };
@@ -103,14 +103,37 @@ impl PlayedCard {
     }
 }
 
-/// The fixed pool side-deck hands are drawn from. One tunable constant,
-/// expected to be rebalanced by the campaign spec.
-pub const DEFAULT_SIDE_DECK: [Card; 10] = [
+/// The fixed pool side-deck hands are drawn from. Doubles as the player's
+/// starter deck (see `profile.rs`). One tunable constant, expected to be
+/// rebalanced by the campaign specs.
+pub const DEFAULT_SIDE_DECK: [Card; SIDE_DECK_SIZE] = [
     Card::Plus(2),
     Card::Plus(4),
     Card::Minus(2),
     Card::Minus(4),
     Card::PlusMinus(1),
+    Card::PlusMinus(3),
+    Card::PlusMinus(6),
+    Card::Flip(FlipKind::TwoFour),
+    Card::Flip(FlipKind::ThreeSix),
+    Card::Tiebreaker,
+];
+
+/// The complete side-card universe, in a stable display order — the cards a
+/// player can ever own or build with. One source of truth for the
+/// deck-builder grid's ordering (`profile.rs`) and the future spec-C card
+/// pool. `Dealer` cards are main-deck only and never appear here.
+pub const ALL_SIDE_CARDS: [Card; 15] = [
+    Card::Plus(1),
+    Card::Plus(2),
+    Card::Plus(3),
+    Card::Plus(4),
+    Card::Minus(1),
+    Card::Minus(2),
+    Card::Minus(3),
+    Card::Minus(4),
+    Card::PlusMinus(1),
+    Card::PlusMinus(2),
     Card::PlusMinus(3),
     Card::PlusMinus(6),
     Card::Flip(FlipKind::TwoFour),
@@ -384,5 +407,30 @@ mod tests {
         deck.sort_by_key(|c| c.label());
         expected.sort_by_key(|c| c.label());
         assert_eq!(deck, expected);
+    }
+
+    #[test]
+    fn all_side_cards_are_distinct_and_exclude_dealer() {
+        for i in 0..ALL_SIDE_CARDS.len() {
+            assert!(
+                !matches!(ALL_SIDE_CARDS[i], Card::Dealer(_)),
+                "dealer cards are main-deck only, not collectible"
+            );
+            for j in (i + 1)..ALL_SIDE_CARDS.len() {
+                assert_ne!(
+                    ALL_SIDE_CARDS[i], ALL_SIDE_CARDS[j],
+                    "ALL_SIDE_CARDS has a duplicate"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn all_side_cards_cover_the_default_deck() {
+        // The universe a player collects from must include everything the
+        // starter deck contains, or the deck-builder couldn't represent it.
+        for card in DEFAULT_SIDE_DECK {
+            assert!(ALL_SIDE_CARDS.contains(&card), "universe missing {card:?}");
+        }
     }
 }
