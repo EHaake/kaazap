@@ -34,7 +34,7 @@ Branch `011-roster-and-worlds` created with the spec/plan/tasks. Plan:
   *Verify: `cargo test` green — the new/updated campaign + layout tests and the
   auto-passing well-formedness/bounds guards; `cargo build` clean.*
 
-- [ ] **T003 — Verification & close-out**
+- [x] **T003 — Verification & close-out**
   Full driver sweep (back up `profile.json`/`saves/`): the 8-world map renders
   legibly (nodes, labels, fork + rejoin); navigate the unlock order; play a
   couple of new opponents including the **boss** and confirm board-aware AI,
