@@ -11,9 +11,30 @@ use crate::{
     card::{Card, DEFAULT_SIDE_DECK, FlipKind},
 };
 
-/// A selectable opponent: identity + flavor, plus the two knobs that make it
-/// play distinctly — its stand threshold and its side deck. All fields are
-/// `Copy`, so a profile is stored by value on `GameState` with no lifetimes.
+/// How an opponent's AI plays — the deterministic policy archetype it uses to
+/// decide Hit / Stand / play-a-card, on top of its stand threshold and deck.
+/// Board-aware (reads the player's total) as of spec 010; see
+/// `decide_opponent_move` in `game.rs` and `docs/opponents.md`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AiStrategy {
+    /// Sensible threshold play plus the core board-aware fix — stand once it's
+    /// already beating a stood player. The baseline.
+    Basic,
+    /// Pushes for higher totals and chases a stood player hard, accepting bust
+    /// risk.
+    Aggressive,
+    /// Stands earlier; only chases a stood player when it can win *safely*,
+    /// never over-hitting into an avoidable bust.
+    Cautious,
+    /// Targets the smallest total that beats the player (minimizing bust risk)
+    /// and plays the tiebreaker to steal a tie.
+    Calculating,
+}
+
+/// A selectable opponent: identity + flavor, plus the knobs that make it play
+/// distinctly — its stand threshold, side deck, AI strategy, and error rate.
+/// All fields are `Copy`, so a profile is stored by value on `GameState` with
+/// no lifetimes.
 #[derive(Debug, Clone, Copy)]
 pub struct OpponentProfile {
     /// Stable key persisted in the save file (resolve with [`opponent_by_id`]).
@@ -29,6 +50,12 @@ pub struct OpponentProfile {
     pub stand_threshold: usize,
     /// The side deck this opponent draws its hand from.
     pub side_deck: &'static [Card],
+    /// How its AI plays — the board-aware policy archetype (spec 010).
+    pub strategy: AiStrategy,
+    /// Chance (`0.0..=1.0`) of an imperfect move on any decision — the "human
+    /// error" dash. Higher for easy opponents, `0.0` for the master and the
+    /// default (so the default stays deterministic for tests).
+    pub misplay: f32,
 }
 
 /// The neutral default opponent — the pre-roster "Opponent" behavior
@@ -43,6 +70,8 @@ pub const DEFAULT_OPPONENT: OpponentProfile = OpponentProfile {
     blurb: "",
     stand_threshold: STAND_THRESHOLD,
     side_deck: &DEFAULT_SIDE_DECK,
+    strategy: AiStrategy::Basic,
+    misplay: 0.0, // deterministic baseline — keeps the AI tests deterministic
 };
 
 /// The selectable roster, ordered easiest → hardest. Names and blurbs are
@@ -54,7 +83,7 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         id: "greeb",
         name: "Greeb",
         difficulty: "Rookie",
-        blurb: "Cautious and green — folds early.",
+        blurb: "Green and eager — folds early, and slips.",
         stand_threshold: 15,
         side_deck: &[
             Card::Plus(1),
@@ -68,12 +97,14 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
             Card::Plus(2),
             Card::Minus(2),
         ],
+        strategy: AiStrategy::Basic,
+        misplay: 0.25, // a rookie — makes real mistakes
     },
     OpponentProfile {
         id: "vessa",
         name: "Vessa Korr",
         difficulty: "Scrapper",
-        blurb: "Plays the odds, rarely overreaches.",
+        blurb: "A scrapper who pushes hard — chases the win, risks the bust.",
         stand_threshold: 16,
         side_deck: &[
             Card::Plus(2),
@@ -87,6 +118,8 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
             Card::Plus(3),
             Card::Minus(3),
         ],
+        strategy: AiStrategy::Aggressive,
+        misplay: 0.15,
     },
     OpponentProfile {
         id: "toran",
@@ -95,12 +128,14 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         blurb: "Balanced and patient. Knows the game.",
         stand_threshold: STAND_THRESHOLD, // 17 — the baseline
         side_deck: &DEFAULT_SIDE_DECK,
+        strategy: AiStrategy::Cautious,
+        misplay: 0.10,
     },
     OpponentProfile {
         id: "rix",
         name: "Rix Vandal",
         difficulty: "Ace",
-        blurb: "Aggressive — squeezes out every point.",
+        blurb: "An ace who counts every point — takes the exact play to win.",
         stand_threshold: 18,
         side_deck: &[
             Card::PlusMinus(6),
@@ -114,6 +149,8 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
             Card::Flip(FlipKind::ThreeSix),
             Card::Tiebreaker,
         ],
+        strategy: AiStrategy::Calculating,
+        misplay: 0.05,
     },
     OpponentProfile {
         id: "magistrate",
@@ -133,6 +170,8 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
             Card::Flip(FlipKind::ThreeSix),
             Card::Tiebreaker,
         ],
+        strategy: AiStrategy::Calculating,
+        misplay: 0.0, // the master — essentially never slips
     },
 ];
 
@@ -203,5 +242,26 @@ mod tests {
         let mut sorted = thresholds.clone();
         sorted.sort_unstable();
         assert_eq!(thresholds, sorted, "roster should be ordered easiest→hardest");
+    }
+
+    #[test]
+    fn misplay_rates_are_valid_and_the_default_is_deterministic() {
+        for o in OPPONENTS {
+            assert!(
+                (0.0..=1.0).contains(&o.misplay),
+                "{} misplay {} out of 0.0..=1.0",
+                o.id,
+                o.misplay
+            );
+        }
+        // The default opponent must never misplay, so the AI tests (which build
+        // against it) stay deterministic.
+        assert_eq!(DEFAULT_OPPONENT.misplay, 0.0);
+        assert_eq!(DEFAULT_OPPONENT.strategy, AiStrategy::Basic);
+        // The master is flawless; the rookie slips the most.
+        let master = OPPONENTS.iter().find(|o| o.id == "magistrate").unwrap();
+        let rookie = OPPONENTS.iter().find(|o| o.id == "greeb").unwrap();
+        assert_eq!(master.misplay, 0.0);
+        assert!(rookie.misplay > master.misplay);
     }
 }

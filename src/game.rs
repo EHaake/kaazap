@@ -1,7 +1,7 @@
 use crate::{
     OPPONENT_THINKING_TIME_MS,
     card::{Card, DEFAULT_SIDE_DECK, FlipKind, PlayedCard, deal_hand},
-    opponent::{DEFAULT_OPPONENT, OpponentProfile},
+    opponent::{AiStrategy, DEFAULT_OPPONENT, OpponentProfile},
     player::{Player, PlayerState},
 };
 use serde::{Deserialize, Serialize};
@@ -438,25 +438,169 @@ impl GameState {
             return OpponentAction::Stand;
         }
 
-        // Play any card that lands exactly on 20. A target outside card
-        // range isn't reachable at all, so don't bother looking.
+        // Board-aware (spec 010): once the player has stood, their total is
+        // final — play to beat it. While they're still live, play to our own
+        // (strategy-flavored) threshold, as before.
+        if self.player.stood {
+            self.decide_vs_stood_player(score)
+        } else {
+            self.decide_vs_live_player(score)
+        }
+    }
+
+    /// Decide against a **stood** player, whose final total `p` is known: beat
+    /// it. Stand once already ahead (or winning a tie); else play a card that
+    /// lands a winning total (a guaranteed, bust-free win); else hit and chase.
+    fn decide_vs_stood_player(&self, score: i32) -> OpponentAction {
+        let p = self.player.score();
+
+        // Player busted → any non-bust total wins, and we're already ≤ 20 here.
+        if p > 20 {
+            return OpponentAction::Stand;
+        }
+        // Already beating a stood player without busting → lock in the win.
+        if score > p {
+            return OpponentAction::Stand;
+        }
+        // A tie we actually win (only if we alone hold a tiebreaker) → stand.
+        if score == p && self.opponent_wins_tie() {
+            return OpponentAction::Stand;
+        }
+        // Behind (or a tie we'd lose): play a card that lands an outright
+        // winning total if we have one.
+        if let Some((index, value)) = self.best_winning_play_vs(p) {
+            return OpponentAction::PlayHand { index, value };
+        }
+        // A Calculating opponent will also steal the round by landing exactly on
+        // the player's total with a tiebreaker it alone holds — a guaranteed
+        // win the other archetypes don't reach for.
+        if self.opponent_profile.strategy == AiStrategy::Calculating
+            && let Some((index, value)) = self.winning_tie_play_vs(p)
+        {
+            return OpponentAction::PlayHand { index, value };
+        }
+        // Otherwise hit to chase — standing behind is a sure loss.
+        OpponentAction::Hit
+    }
+
+    /// A play landing exactly on the stood player's total `target` that leaves
+    /// the opponent *alone* holding a tiebreaker in play — a tie the opponent
+    /// wins per `finalize_round`. Impossible if the player holds a tiebreaker in
+    /// play (their tiebreaker cancels the steal). Only reached when no outright
+    /// winning play exists.
+    fn winning_tie_play_vs(&self, target: i32) -> Option<(usize, i8)> {
+        if self.player.has_tiebreaker_in_play() {
+            return None;
+        }
+        let score = self.opponent.score();
+        let already_has_tiebreaker = self.opponent.has_tiebreaker_in_play();
+        for (index, slot) in self.opponent.hand.iter().enumerate() {
+            let Some(card) = slot else { continue };
+            // After this play the opponent holds a tiebreaker iff it already did
+            // or the card it plays is the tiebreaker itself.
+            if !already_has_tiebreaker && !matches!(card, Card::Tiebreaker) {
+                continue;
+            }
+            for value in card.playable_values() {
+                if score + value as i32 == target {
+                    return Some((index, value));
+                }
+            }
+        }
+        None
+    }
+
+    /// Decide while the player is still **live** (no final target yet): play to
+    /// this opponent's own threshold, exactly as before spec 010 — the
+    /// Aggressive/Cautious archetypes only shift the effective threshold.
+    fn decide_vs_live_player(&self, score: i32) -> OpponentAction {
+        // Play any card that lands exactly on 20. A target outside card range
+        // isn't reachable, so don't bother looking.
         if let Ok(target) = i8::try_from(20 - score)
             && let Some(index) = self.first_hand_index(|card| card.can_play_as(target))
         {
-            return OpponentAction::PlayHand {
-                index,
-                value: target,
-            };
+            return OpponentAction::PlayHand { index, value: target };
         }
 
-        // At or above this opponent's stand threshold, stand. The threshold is
-        // the main difficulty knob: higher = more aggressive (pushes for
-        // bigger totals, busts more).
-        if score >= self.opponent_profile.stand_threshold as i32 {
+        // At or above the (strategy-adjusted) stand threshold, stand.
+        if score >= self.effective_threshold() {
             return OpponentAction::Stand;
         }
 
         OpponentAction::Hit
+    }
+
+    /// The opponent's stand threshold adjusted by its strategy: Aggressive
+    /// pushes one higher, Cautious stands one earlier, others use it as-is.
+    fn effective_threshold(&self) -> i32 {
+        let base = self.opponent_profile.stand_threshold as i32;
+        match self.opponent_profile.strategy {
+            AiStrategy::Aggressive => base + 1,
+            AiStrategy::Cautious => base - 1,
+            AiStrategy::Basic | AiStrategy::Calculating => base,
+        }
+    }
+
+    /// A hand play landing a **winning** total against a stood player at
+    /// `target` — score + value in `(target, 20]`. Among candidates, Aggressive
+    /// pushes the highest safe total, everyone else takes the minimal safe one;
+    /// all such plays win outright, so the pick is flavor that makes the
+    /// archetypes read differently.
+    fn best_winning_play_vs(&self, target: i32) -> Option<(usize, i8)> {
+        let score = self.opponent.score();
+        let mut best: Option<(usize, i8, i32)> = None; // (index, value, total)
+        for (index, slot) in self.opponent.hand.iter().enumerate() {
+            let Some(card) = slot else { continue };
+            for value in card.playable_values() {
+                let total = score + value as i32;
+                if total > target && total <= 20 {
+                    let better = match best {
+                        None => true,
+                        Some((_, _, bt)) => match self.opponent_profile.strategy {
+                            AiStrategy::Aggressive => total > bt,
+                            _ => total < bt,
+                        },
+                    };
+                    if better {
+                        best = Some((index, value, total));
+                    }
+                }
+            }
+        }
+        best.map(|(i, v, _)| (i, v))
+    }
+
+    /// Whether the opponent wins a tie — it alone holds a tiebreaker in play.
+    fn opponent_wins_tie(&self) -> bool {
+        self.opponent.has_tiebreaker_in_play() && !self.player.has_tiebreaker_in_play()
+    }
+
+    /// The seam where the AI gets a human touch: usually the deterministic best
+    /// move, but with probability `profile.misplay` a legal-but-suboptimal
+    /// deviation. `roll` is drawn once per turn by the caller, so the policy
+    /// stays a pure function of `(state, roll)` and is fully testable — and with
+    /// `misplay == 0.0` (the default opponent) it is exactly `decide_opponent_move`.
+    fn opponent_action(&self, roll: f32) -> OpponentAction {
+        let best = self.decide_opponent_move();
+        if roll < self.opponent_profile.misplay {
+            self.misplay(best)
+        } else {
+            best
+        }
+    }
+
+    /// A recognizable, always-legal human error standing in for `best`:
+    /// over-greedy (`Stand → Hit`, but only when it can still draw), chickening
+    /// out (`Hit → Stand`), or fumbling a good card (`PlayHand → Hit` — legal
+    /// because a `PlayHand` best implies the table isn't full, since a full
+    /// table stands first).
+    fn misplay(&self, best: OpponentAction) -> OpponentAction {
+        match best {
+            OpponentAction::Stand if !self.opponent.table_full() => OpponentAction::Hit,
+            OpponentAction::Stand => OpponentAction::Stand,
+            OpponentAction::Hit => OpponentAction::Stand,
+            OpponentAction::PlayHand { .. } => OpponentAction::Hit,
+        }
     }
 
     /// The play that best recovers the opponent's over-20 total: the
@@ -494,7 +638,10 @@ impl GameState {
     /// Play the opponent's turn (deal, play card, stand)
     ///
     fn play_opponent_turn(&mut self) {
-        match self.decide_opponent_move() {
+        // Draw the misplay roll once per turn; the default opponent (misplay 0)
+        // always gets its deterministic best move, so update()-driven tests stay
+        // deterministic.
+        match self.opponent_action(rand::random_range(0.0f32..1.0)) {
             OpponentAction::Hit => {
                 self.opponent_hit();
             }
@@ -978,19 +1125,26 @@ mod tests {
 
     #[test]
     fn full_match_terminates_within_bounded_updates() {
-        // Headless full match through the production loop: the player
-        // stands every turn; the opponent (incl. its over-20 recovery
-        // loop, the riskiest part of T008a) must drive every round to
-        // an end and the match to GameOver within a bounded number of
-        // steps — by instrumentation, not observation.
+        // Headless full match through the production loop. The player hits
+        // toward 17 and then stands, so the opponent faces a *live* player
+        // (exercising its threshold climb and the over-20 recovery loop, the
+        // riskiest part of T008a) and then a *stood* one (the board-aware
+        // close-out). The match must reach GameOver within a bounded number of
+        // steps — verified by instrumentation, not observation.
         let mut gs = GameState::new();
         let mut finished = false;
 
-        for _ in 0..500 {
+        for _ in 0..1000 {
             match gs.game_phase {
-                GamePhase::PlayerTurn => gs.apply_game_action(GameAction::Stand),
+                GamePhase::PlayerTurn => {
+                    if gs.player.score() < 17 {
+                        gs.apply_game_action(GameAction::Hit);
+                    } else {
+                        gs.apply_game_action(GameAction::Stand);
+                    }
+                }
                 GamePhase::AwaitingSignChoice { .. } => {
-                    unreachable!("standing player never opens the sign prompt")
+                    unreachable!("a hitting/standing player never opens the sign prompt")
                 }
                 // Skip the wall-clock thinking delay
                 GamePhase::OpponentThinking { .. } => gs.game_phase = GamePhase::OpponentTurn,
@@ -1003,8 +1157,49 @@ mod tests {
             }
         }
 
-        assert!(finished, "match did not reach GameOver in 500 steps");
+        assert!(finished, "match did not reach GameOver in 1000 steps");
         assert!(gs.player.rounds_won == 3 || gs.opponent.rounds_won == 3);
+    }
+
+    #[test]
+    fn full_match_terminates_with_a_maximally_misplaying_opponent() {
+        // S3: drive the misplay seam end-to-end. An opponent at misplay 1.0
+        // deviates on *every* decision — including Stand→Hit while over 20,
+        // which re-enters OpponentThinking. The turn must still terminate
+        // (each hit adds a table card, bounded by MAX_TABLE_CARDS, then
+        // table_full forces Stand) with no illegal 13th card and no hang.
+        let mut gs = GameState::with_opponent(
+            OpponentProfile { misplay: 1.0, ..DEFAULT_OPPONENT },
+            DEFAULT_SIDE_DECK.to_vec(),
+        );
+        let mut finished = false;
+
+        for _ in 0..2000 {
+            match gs.game_phase {
+                GamePhase::PlayerTurn => {
+                    if gs.player.score() < 17 {
+                        gs.apply_game_action(GameAction::Hit);
+                    } else {
+                        gs.apply_game_action(GameAction::Stand);
+                    }
+                }
+                GamePhase::AwaitingSignChoice { .. } => {
+                    unreachable!("a hitting/standing player never opens the sign prompt")
+                }
+                GamePhase::OpponentThinking { .. } => gs.game_phase = GamePhase::OpponentTurn,
+                GamePhase::OpponentTurn | GamePhase::RoundEnd => gs.update(),
+                GamePhase::AwaitingNextRound => gs.apply_game_action(GameAction::NextRound),
+                GamePhase::GameOver { .. } => {
+                    finished = true;
+                    break;
+                }
+            }
+            // No side ever exceeds the table cap, even mid-turn.
+            assert!(gs.opponent.table_card_count() <= MAX_TABLE_CARDS);
+            assert!(gs.player.table_card_count() <= MAX_TABLE_CARDS);
+        }
+
+        assert!(finished, "misplaying match did not reach GameOver in 2000 steps");
     }
 
     /// An opponent sitting on `dealer_total` (split into valid 0-10
@@ -1100,6 +1295,189 @@ mod tests {
         assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
     }
 
+    // --- Board-aware decisions (spec 010): the player has stood, so the
+    // opponent knows the final target and plays to beat it. ---
+
+    /// Seed both boards: the player at `player_total` (optionally stood) and the
+    /// opponent at `opp_total` holding `opp_hand`. Pure `pub`-field assignment,
+    /// like `opponent_at` plus the player side.
+    fn board_at(player_total: u8, player_stood: bool, opp_total: u8, opp_hand: Vec<Card>) -> GameState {
+        let mut gs = opponent_at(opp_total, opp_hand);
+        gs.player.dealer_row = vec![];
+        let mut remaining = player_total;
+        while remaining > 0 {
+            let n = remaining.min(10);
+            gs.player.dealer_row.push(pc(Card::Dealer(n), n as i8));
+            remaining -= n;
+        }
+        gs.player.stood = player_stood;
+        gs
+    }
+
+    #[test]
+    fn ai_stands_once_it_is_already_beating_a_stood_player() {
+        // The headline fix. Opponent at 14 is ahead of a stood player at 12 but
+        // below its own threshold (17), so the old solitaire AI would keep
+        // hitting (and risk busting a won round). Now it stands.
+        let gs = board_at(12, true, 14, vec![Card::Plus(5)]);
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+    }
+
+    #[test]
+    fn ai_behind_a_stood_player_plays_a_winning_card() {
+        // At 15 vs a stood 18: +4 lands 19, a bust-free win — take it.
+        let gs = board_at(18, true, 15, vec![Card::Plus(4)]);
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 4 }
+        );
+    }
+
+    #[test]
+    fn ai_behind_a_stood_player_with_no_winning_card_hits_to_chase() {
+        // At 15 vs a stood 18 with only +1 (→16, still losing): standing is a
+        // sure loss, so hit and chase.
+        let gs = board_at(18, true, 15, vec![Card::Plus(1)]);
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+    }
+
+    #[test]
+    fn ai_stands_on_a_tie_it_wins_with_a_lone_tiebreaker() {
+        // Both at 18, but the opponent alone holds a tiebreaker in play → the
+        // tie is already its round → stand rather than risk pushing off it.
+        let mut gs = board_at(18, true, 17, vec![Card::Plus(2)]);
+        gs.opponent.played_row = vec![pc(Card::Tiebreaker, 1)]; // 17 + 1 = 18
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+    }
+
+    #[test]
+    fn ai_on_a_losing_tie_tries_to_pull_ahead() {
+        // Both at 18, neither holds a tiebreaker → the opponent loses the tie,
+        // so it plays +2 to reach 20 and actually win.
+        let gs = board_at(18, true, 18, vec![Card::Plus(2)]);
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 2 }
+        );
+    }
+
+    #[test]
+    fn ai_stands_when_the_player_has_already_busted() {
+        // Player stood at 23 (busted); the opponent wins with any ≤20 total, so
+        // even sitting at 5 it stands instead of chasing its threshold.
+        let gs = board_at(23, true, 5, vec![Card::Plus(5)]);
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+    }
+
+    #[test]
+    fn ai_archetypes_pick_different_winning_totals() {
+        // At 15 vs a stood 16, both +2 (→17) and +5 (→20) win. Calculating/Basic
+        // take the minimal safe total (17); Aggressive pushes the highest (20).
+        let mut gs = board_at(16, true, 15, vec![Card::Plus(2), Card::Plus(5)]);
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 2 },
+            "Basic takes the minimal safe win"
+        );
+        gs.opponent_profile = OpponentProfile { strategy: AiStrategy::Aggressive, ..DEFAULT_OPPONENT };
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 1, value: 5 },
+            "Aggressive pushes the highest safe win"
+        );
+    }
+
+    #[test]
+    fn ai_calculating_steals_a_tie_with_the_tiebreaker() {
+        // At 17 vs a stood 18, holding only the tiebreaker: no card lands an
+        // outright win (18 isn't > 18), but playing the tiebreaker as +1 lands
+        // exactly on 18 — a tie the opponent alone wins. Calculating takes it.
+        let mut gs = board_at(18, true, 17, vec![Card::Tiebreaker]);
+        gs.opponent_profile = OpponentProfile { strategy: AiStrategy::Calculating, ..DEFAULT_OPPONENT };
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 1 }
+        );
+
+        // The other archetypes don't reach for the steal — they just hit.
+        for strategy in [AiStrategy::Basic, AiStrategy::Aggressive, AiStrategy::Cautious] {
+            gs.opponent_profile = OpponentProfile { strategy, ..DEFAULT_OPPONENT };
+            assert_eq!(
+                gs.decide_opponent_move(),
+                OpponentAction::Hit,
+                "{strategy:?} should not steal the tie"
+            );
+        }
+
+        // The steal is off if the player *also* holds a tiebreaker in play (the
+        // two cancel, so the tie wins for nobody): Calculating falls back to
+        // hitting. Player 18 = 17 dealer + a tiebreaker in play.
+        let mut gs2 = board_at(17, true, 17, vec![Card::Tiebreaker]);
+        gs2.player.played_row = vec![pc(Card::Tiebreaker, 1)];
+        gs2.opponent_profile = OpponentProfile { strategy: AiStrategy::Calculating, ..DEFAULT_OPPONENT };
+        assert_eq!(gs2.player.score(), 18);
+        assert_eq!(gs2.decide_opponent_move(), OpponentAction::Hit);
+    }
+
+    #[test]
+    fn ai_cautious_stands_one_sooner_and_aggressive_one_later_while_live() {
+        // Player still live (not stood): the threshold-shift archetypes change
+        // where the opponent stands. At 16 with no way to 20, Basic (17) hits
+        // but Cautious (16) stands; at 17 Basic stands but Aggressive (18) hits.
+        let mut gs = opponent_at(16, vec![Card::Plus(1)]);
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit); // Basic = 17
+        gs.opponent_profile = OpponentProfile { strategy: AiStrategy::Cautious, ..DEFAULT_OPPONENT };
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
+
+        let mut gs = opponent_at(17, vec![Card::Plus(1)]);
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand); // Basic = 17
+        gs.opponent_profile = OpponentProfile { strategy: AiStrategy::Aggressive, ..DEFAULT_OPPONENT };
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+    }
+
+    // --- The misplay seam (spec 010): a thin, testable layer of randomness
+    // over the deterministic core. ---
+
+    #[test]
+    fn opponent_action_misplays_below_the_rate_and_plays_best_at_or_above() {
+        // Ahead of a stood player the best move is Stand; a misplay over-reaches
+        // into Hit. A rate of 0.5 makes the roll boundary easy to read.
+        let mut gs = board_at(12, true, 14, vec![Card::Plus(5)]);
+        gs.opponent_profile = OpponentProfile { misplay: 0.5, ..DEFAULT_OPPONENT };
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand); // the best move
+
+        assert_eq!(gs.opponent_action(0.1), OpponentAction::Hit); // roll < rate → misplay
+        assert_eq!(gs.opponent_action(0.9), OpponentAction::Stand); // roll > rate → best
+        assert_eq!(gs.opponent_action(0.5), OpponentAction::Stand); // roll == rate → best (not <)
+    }
+
+    #[test]
+    fn misplay_deviates_each_best_move_legally() {
+        // Stand → Hit (when it can still draw); Hit → Stand; PlayHand → Hit.
+        let gs = opponent_at(10, vec![Card::Plus(4)]); // one card on the table, room to draw
+        assert_eq!(gs.misplay(OpponentAction::Stand), OpponentAction::Hit);
+        assert_eq!(gs.misplay(OpponentAction::Hit), OpponentAction::Stand);
+        assert_eq!(
+            gs.misplay(OpponentAction::PlayHand { index: 0, value: 4 }),
+            OpponentAction::Hit
+        );
+
+        // A full table can't draw, so an over-greedy Stand stays Stand (legal).
+        let mut full = GameState::new();
+        full.opponent.dealer_row = dealer_run(MAX_TABLE_CARDS, 1);
+        assert!(full.opponent.table_full());
+        assert_eq!(full.misplay(OpponentAction::Stand), OpponentAction::Stand);
+    }
+
+    #[test]
+    fn the_default_opponent_never_misplays() {
+        // misplay 0.0: no roll in [0.0, 1.0) is < 0.0, so even the smallest
+        // possible roll yields the deterministic best move.
+        let gs = opponent_at(10, vec![Card::Plus(4)]); // default profile → best is Hit
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+        assert_eq!(gs.opponent_action(0.0), OpponentAction::Hit);
+    }
+
     #[test]
     fn with_opponent_seeds_the_profile_and_name_while_new_stays_default() {
         use crate::{STAND_THRESHOLD, opponent::OPPONENTS};
@@ -1130,6 +1508,8 @@ mod tests {
             blurb: "",
             stand_threshold: 17,
             side_deck: &DECK,
+            strategy: AiStrategy::Basic,
+            misplay: 0.0,
         };
 
         let assert_opponent_hand_from_deck = |gs: &GameState, when: &str| {
