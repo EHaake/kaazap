@@ -206,6 +206,20 @@ discipline** as the schema grows (reuse spec 005's versioning).
 
 ### Other (not campaign-dependent)
 
+- **Stats & records** — lightweight persistence of play history: win/loss
+  record per opponent, longest win streak, matches played, cards collected /
+  collection completion %. A "mastery" layer that makes the game feel finished
+  and gives a reason to keep playing after the campaign — cheap to build on the
+  existing profile save (`profile.json`). Presentation open (a menu screen or a
+  panel on the campaign map; monochrome, per spec 002's vocabulary). Suggested
+  during the post-spec-009 review.
+- **Difficulty setting** (easy / normal / hard) — a global option (in the
+  Settings overlay) that nudges how sharply opponents play and/or the player's
+  starting resources. Widens the audience for a public / itch.io release at low
+  cost. Most meaningful **after** the board-aware AI lands — difficulty then
+  means how hard the opponents actually *think* (see "Smarter / board-aware
+  opponent AI" above); until then it can only scale the stand thresholds.
+  Suggested during the post-spec-009 review.
 - **Play log / move history** — a running record of every move both
   players make during a game (dealer draws, cards played with their
   chosen sign, flips, stands, busts, round outcomes), shown as it
