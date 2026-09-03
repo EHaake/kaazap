@@ -1130,6 +1130,8 @@ mod tests {
             blurb: "",
             stand_threshold: 17,
             side_deck: &DECK,
+            strategy: crate::opponent::AiStrategy::Basic,
+            misplay: 0.0,
         };
 
         let assert_opponent_hand_from_deck = |gs: &GameState, when: &str| {

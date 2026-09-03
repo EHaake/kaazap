@@ -10,7 +10,7 @@ Branch `010-smarter-opponents` created with the spec/plan/tasks. Plan:
 
 ---
 
-- [ ] **T001 — Strategy data model**
+- [x] **T001 — Strategy data model**
   New `AiStrategy { Basic, Aggressive, Cautious, Calculating }` (`Copy`) and two
   fields on `OpponentProfile` (`src/opponent.rs`): `strategy: AiStrategy`,
   `misplay: f32`. Fill the roster (`OPPONENTS`) + `DEFAULT_OPPONENT` per the
