@@ -33,6 +33,7 @@ const STAR_COUNT: usize = 72;
 pub enum MapOutcome {
     Moved,
     Launch { planet: &'static str, opponent: &'static str },
+    OpenShop,
     Back,
 }
 
@@ -131,6 +132,7 @@ impl CampaignMapState {
                 run.next_opponent(&planet)
                     .map(|opponent| MapOutcome::Launch { planet: planet.id, opponent })
             }
+            KeyCode::Char('b') => Some(MapOutcome::OpenShop),
             KeyCode::Esc | KeyCode::Char('x') => Some(MapOutcome::Back),
             _ => None,
         }
@@ -263,7 +265,7 @@ impl CampaignMapState {
             planet.blurb
         };
         draw_text(frame, x, panel.y0 + 3, status, Emphasis::Muted);
-        draw_text(frame, x, panel.y0 + 4, "↑/↓ move  ·  Enter play  ·  Esc menu", Emphasis::Muted);
+        draw_text(frame, x, panel.y0 + 4, "↑/↓ move  ·  Enter play  ·  b shop  ·  Esc menu", Emphasis::Muted);
     }
 }
 

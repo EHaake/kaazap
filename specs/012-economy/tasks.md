@@ -37,7 +37,7 @@ Branch `012-economy` created with the spec/plan/tasks. Plan:
   `Profile` tests; existing campaign/app tests still pass; `cargo build` clean.
   Driver: a campaign win shows the reward and grows `profile.json`.*
 
-- [ ] **T004 — Shop screen**
+- [x] **T004 — Shop screen**
   New `src/shop.rs` (`ShopState`/`ShopOutcome` + `handle_input` + `draw`) and the
   `Screen::Shop` wiring (`lib.rs`, `screen.rs`, `app.rs`'s three arms + `open_shop`),
   reached from the campaign map via `MapOutcome::OpenShop`. Buying goes through

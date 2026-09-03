@@ -219,6 +219,13 @@ impl Profile {
             .collect()
     }
 
+    /// How many copies of `card` the player owns — for the shop to show an
+    /// "owned ×N" tally against a card that may not be in the deck-builder grid
+    /// yet (the grid omits unowned cards; the shop lists the whole pool).
+    pub fn owned_count(&self, card: Card) -> usize {
+        self.count_owned(card)
+    }
+
     fn count_owned(&self, card: Card) -> usize {
         self.collection.iter().filter(|&&c| c == card).count()
     }

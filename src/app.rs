@@ -26,6 +26,7 @@ use crate::{
     profile::Profile,
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
+    shop::{ShopOutcome, ShopState},
 };
 
 /// How much one ←/→ press moves a volume slider on the settings screen.
@@ -349,6 +350,14 @@ impl App {
         };
     }
 
+    /// Open the shop (the campaign-map outfitter): a fresh cursor over the
+    /// current depth-gated pool. Back returns to the map.
+    fn open_shop(&mut self) {
+        self.screen = Screen::Shop {
+            state: ShopState::new(),
+        };
+    }
+
     /// Open the campaign map at the run's current position. The Start Campaign
     /// entry handles discarding a saved match first (with a confirm); this just
     /// switches to the map screen.
@@ -488,11 +497,12 @@ impl App {
                     Screen::InGame { .. } => {
                         Some(Modal::Help(Overlay::new(OverlayKind::GameHelp, self.config)))
                     }
-                    // The select and deck-builder screens carry their own
-                    // on-screen hint lines, so ? opens no overlay there.
+                    // The select, deck-builder, map, and shop screens carry
+                    // their own on-screen hint lines, so ? opens no overlay there.
                     Screen::OpponentSelect { .. }
                     | Screen::DeckBuilder { .. }
-                    | Screen::CampaignMap { .. } => None,
+                    | Screen::CampaignMap { .. }
+                    | Screen::Shop { .. } => None,
                 };
             }
 
@@ -636,6 +646,10 @@ impl App {
                             self.audio.play(Sfx::MenuSelect);
                             self.launch_campaign_node(planet, opponent);
                         }
+                        Some(MapOutcome::OpenShop) => {
+                            self.audio.play(Sfx::MenuSelect);
+                            self.open_shop();
+                        }
                         Some(MapOutcome::Back) => {
                             self.audio.play(Sfx::MenuBack);
                             self.screen = self.start_menu();
@@ -643,6 +657,25 @@ impl App {
                         None => {}
                     }
                 }
+                Screen::Shop { state } => match state.handle_input(key, &self.profile) {
+                    Some(ShopOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                    Some(ShopOutcome::Buy(card)) => {
+                        // The profile decides affordability; persist only if the
+                        // buy took (the deck-edit pattern). A refused buy is a
+                        // soft "no", not an error.
+                        if self.profile.try_purchase(card, economy::card_price(card)) {
+                            self.profile.save();
+                            self.audio.play(Sfx::MenuSelect);
+                        } else {
+                            self.audio.play(Sfx::MenuBack);
+                        }
+                    }
+                    Some(ShopOutcome::Back) => {
+                        self.audio.play(Sfx::MenuBack);
+                        self.open_campaign_map();
+                    }
+                    None => {}
+                },
             }
 
             if game_changed {
@@ -889,6 +922,7 @@ impl App {
             Screen::CampaignMap { state } => {
                 state.draw(frame, &self.config, &self.profile, self.last_reward.as_ref(), pulse)
             }
+            Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
         }
 
         // The one open modal draws over the screen.
