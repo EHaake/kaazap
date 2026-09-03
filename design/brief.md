@@ -115,6 +115,19 @@ vocabulary (emphasis transitions over time), never particle effects,
 sweeps, or continuous ambient motion. If everything moves, nothing is
 emphasized.
 
+**Amendment (spec-D exploration — the campaign map).** Everything above
+governs *functional* surfaces — the board, menus, overlays — and still
+holds there absolutely: motion means emphasis, and stillness is what makes
+it legible. A dedicated *ornamental backdrop* is the single exception: it
+may carry slow ambient motion as atmosphere — the campaign map's starfield
+twinkles. What keeps that from being the "everything moves" failure above
+is that it stays strictly **background**: slow, low-contrast, peripheral,
+never on or beside an interactive element, so it reads as depth behind the
+scene rather than a signal competing with the selection pulse. Ambient
+motion belongs to atmospheric backdrops alone and never migrates onto a
+game surface. (Human-ruled; recorded here per the "amend before
+contradicting" rule rather than letting a spec quietly break the principle.)
+
 ## Skeuomorphism boundary
 
 Cards are the only physical metaphor, rendered as bordered rectangles
