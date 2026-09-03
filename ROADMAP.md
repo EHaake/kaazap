@@ -122,6 +122,19 @@ of, not guessed at here in advance.
   `Copy` const data on `OpponentProfile` (rebuilt from the saved id). Roster +
   strategies documented in `docs/opponents.md`; the spec-007 upgrade path held
   with no rework.
+- **Roster expansion & new campaign worlds** (spec 011) — the campaign roughly
+  doubled: **10 opponents** (was 5) and **8 worlds** (was 4), ending in a new
+  final boss beyond the Magistrate. The roster gained a second, contrasting
+  personality per difficulty tier (leaning on spec 010's `AiStrategy` archetypes
+  so difficulty rises by threshold while play style varies within a tier); the
+  boss (The Sovereign) matches the Magistrate's flawless play but carries a
+  fully-playable, flip-free deck. The map is a stretched version of spec 009's
+  light-branch-that-rejoins diamond — a fork into two two-world lanes that rejoin
+  at a Mid-Rim hub, then a linear Core run to the boss. Pure `const` content over
+  the spec 007/009/010 patterns — no engine, AI, save, or new-card-type change —
+  plus new tests for graph integrity (one start, acyclic, all reachable), map
+  legibility at the minimum terminal, roster coverage, and difficulty
+  monotonicity along every edge. A tuning/balance pass is still tracked below.
 
 ## Backlog
 
@@ -169,15 +182,13 @@ file — the engine works, so the campaign is now being planned in order.)
 - **E · Roguelike mode** (stretch, optional) — an alternate run structure:
   go as far as you can, a fixed number of losses before you restart. Reuses
   A–D's infrastructure; last.
-- **More campaign worlds / roster expansion** (builds on spec 009) — 009
-  shipped a 4-world vertical slice using all five roster opponents (spec 007).
-  The map is `const` data (`campaign::PLANETS`), so adding worlds is a
-  one-struct-entry-each change with no engine/layout/save impact — but
-  *distinct* worlds need more opponents (the roster is fully used). So a bigger
-  campaign is gated on **roster growth** (each new opponent is also just const
-  data — a name, a stand threshold, a side deck) plus a difficulty pass; best
-  done as a deliberate content spec rather than padding the map with repeated
-  fights. Human-requested during spec 009.
+- **More campaign worlds / roster expansion** — ✅ **Shipped (spec 011** — see
+  Shipped above). Grew the campaign to 10 opponents across 8 worlds, ending in a
+  new final boss. As predicted, it was pure `const` content: `campaign::PLANETS`
+  and `OPPONENTS` entries with no engine/layout/save impact, gated only on the
+  roster growth that landed with it. A dedicated **balance pass** on the wider
+  spread (does the boss feel tougher than the Magistrate? the mid-tier decks'
+  dead flips?) remains a tracked cross-cutting item (below).
 
 Cross-cutting, not their own specs: a **balance/tuning pass** once
 progression exists (playtest-heavy, iterative), and **profile-save migration

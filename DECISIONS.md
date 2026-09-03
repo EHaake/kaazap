@@ -196,6 +196,38 @@ product/process calls (the first two human-ruled this session):
   its own hand sooner); behind a *stood* player it still chases, because
   conceding a winnable round would read as a broken opponent, not a cautious one.
 
+## Roster expansion & new worlds (spec 011)
+
+The campaign's first content-scaling spec — 10 opponents across 8 worlds (was
+5 / 4), extending "Campaign map (spec 009)" and "Personalities are AI + deck +
+flavor". The calls (first two human-ruled this session):
+
+- **Substantial scale** — +5 opponents and +4 worlds, over a lighter top-up or a
+  larger expansion: the point that meaningfully grows the campaign while staying
+  legible on the star map (~8 worlds is the comfortable ceiling before the
+  hand-authored node positions need real tuning) and quick to balance.
+- **Raise the ceiling with a new final boss.** Since stand thresholds cap at the
+  sensible 19 and Calculating / misplay-0 is already optimal play, "tougher than
+  the Magistrate" is delivered by a strictly better **deck** — the one lever that
+  needs no engine change. The Sovereign's deck is **fully playable**: it drops the
+  flips (the AI provably never plays a flip — empty `playable_values`) that sit
+  dead in the Magistrate's deck, for maximal ± range + recovery + the tiebreaker.
+  A test pins the boss's playable multiset as dominating the Magistrate's.
+- **Two contrasting personalities per difficulty tier**, differentiated by spec
+  010's `AiStrategy` archetype, so the roster grows in breadth without pushing
+  thresholds past 15–19.
+- **Keep spec 009's light-branch-that-rejoins shape**, stretched to two-world
+  lanes, rather than a more-branching "pick your route" map — familiar and
+  legible. The graph stays derived data (one start, acyclic, all reachable, every
+  opponent on exactly one planet), guarded by tests.
+- **Map legibility is tested, not eyeballed.** The node/label positions are
+  hand-authored with no runtime overlap check, so a test asserts unique node
+  cells and non-colliding, non-clipping labels at the 89×31 minimum.
+- **Deferred to the balance pass:** whether the boss *feels* tougher, and the
+  mild oddity that the mid-tier decks (brakka/kesh, like the legacy rix/
+  Magistrate) each carry a dead flip. Kept for now — consistent and per-plan —
+  and logged for the tracked balance pass rather than re-tuned blind.
+
 ## Explicitly deferred out of v1
 
 - **Full side-deck customization** (building your own 10-card deck from a
