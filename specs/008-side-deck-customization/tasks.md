@@ -38,7 +38,7 @@ Branch `008-side-deck-customization` created with the spec/plan/tasks. Plan:
   → new_game` re-deals from `player_deck`; every existing game test still
   passing.*
 
-- [ ] **T003 — Deck-builder screen + Side Deck menu flow**
+- [x] **T003 — Deck-builder screen + Side Deck menu flow**
   New `src/deck_builder.rs` (`DeckBuilderState` over `collection_by_type()`,
   2D cursor with `wasd`/emacs, `handle_input → Add/Remove/Back`, `draw` — grid
   of `CardView`s with `M/N` badges, "Deck: N/10" readout, hint line); small
