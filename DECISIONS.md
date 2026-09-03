@@ -129,6 +129,40 @@ pass sequenced with/after spec C** — it's a visual overhaul, not new
 capability, and a two-panel view earns its complexity only once the collection
 grows large. See `ROADMAP.md`.
 
+## Campaign map (spec 009)
+
+Subsystem D — the integration layer that gives the campaign its shape. Scoped
+to navigation + progression *structure*; the economy (credits/rewards) is spec
+C and is stubbed here (wins record progress only). The load-bearing calls
+(human-ruled this session):
+
+- **Front door = Continue + Start Campaign + Quick Play.** Continue resumes an
+  in-progress match; Quick Play is the retained choose-any-opponent flow (the
+  old Start Game); Start Campaign opens the full-screen map. The
+  discard-a-saved-match confirm lives **at campaign entry** — choosing Start
+  Campaign over a saved match prompts first, and Yes discards it then and there
+  (trade-off, accepted during playtest: peeking at the map and backing out
+  costs the save). So once on the map, a launch never has a save to overwrite.
+- **First map = multi-opponent planets + a light branch**, using all five
+  roster opponents: Cinder → the Ashfall/Drift fork (either order) → The Spindle
+  (two opponents). A vertical slice; more worlds are gated on roster growth (see
+  `ROADMAP.md`).
+- **Full-screen, hybrid coordinate model** — a bird's-eye scatter that still
+  trends Outer Rim → Core, with a bottom info panel. A deliberate departure from
+  the centered fixed-block layout every other screen uses.
+- **Twinkling starfield**, allowed by amending the Motion principle
+  (`design/brief.md`, its own commit) — slow, low-contrast, background-only, so
+  the functional surfaces stay calm.
+- **A loss has no penalty** — it just returns you to the map with the node open
+  to retry. Stakes (credits, roguelike lives) are specs C and E.
+- **Original planet names, not Star Wars trademarks** (Cinder, Ashfall, Drift,
+  The Spindle) — the same IP stance as opponents and music; tunable placeholders.
+- **Campaign context lives in the profile, not the engine.** A persisted
+  `in_progress` node pointer marks the current match as a campaign match (so a
+  resumed match still routes to the map at game over); `GameState` stays
+  campaign-agnostic. City-zoom (a planet expanding into a second-level map) is a
+  deferred later spec.
+
 ## Explicitly deferred out of v1
 
 - **Full side-deck customization** (building your own 10-card deck from a

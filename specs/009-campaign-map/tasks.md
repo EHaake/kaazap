@@ -54,7 +54,7 @@ Branch `009-campaign-map` created with the spec/plan/tasks. Plan:
   open; quit mid-campaign-match → Continue resumes → win still records; Quick
   Play unaffected.*
 
-- [ ] **T004 — Verification & close-out**
+- [x] **T004 — Verification & close-out**
   Full driver sweep of every acceptance box. Run the `skeptical-reviewer`.
   Update `Readme.md` (campaign is new user-facing behavior), `ROADMAP.md`
   (Campaign epic — D shipped / the front-door rework), `DECISIONS.md` (the

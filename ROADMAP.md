@@ -90,6 +90,22 @@ of, not guessed at here in advance.
   whole 15-card side-card universe is `card::ALL_SIDE_CARDS`; the starter is the
   default 10 + a few spares (tunable in C's balance pass). A two-panel
   "briefcase" builder is a logged follow-up (below).
+- **Campaign map** (spec 009) — the campaign's integration layer (subsystem D),
+  scoped to navigation + progression structure with the **economy stubbed**
+  (wins record progress; credits/rewards are C). A full-screen, node-based
+  **star map** (`campaign.rs` const graph + a `CampaignMap` `Screen`): planets
+  Outer Rim → Core, mostly-linear with one fork that rejoins, each holding one
+  or more roster opponents; beating a planet's opponents clears it and unlocks
+  its dependents — all derived from a `beaten` set + the graph, no stored
+  redundancy. The menu gains **Start Campaign** (which discards a saved match
+  first, on confirm) + **Quick Play** (the retained opponent-select); Continue
+  unchanged. Campaign progress lives in the profile — an `in_progress` node
+  pointer marks a match as a campaign match, so a resumed match still routes
+  back to the map at game over — and the engine stays campaign-agnostic.
+  Ornament: a twinkling starfield behind the nodes (the Motion principle was
+  amended for a bounded ambient backdrop, `design/brief.md`). The map is `const`
+  data, so more worlds are a one-entry-each addition, gated only on roster
+  growth (below).
 
 ## Backlog
 
@@ -123,17 +139,29 @@ file — the engine works, so the campaign is now being planned in order.)
   **unlocks by campaign depth**; a **shop** selling from the unlocked pool;
   and a **random card drop from each win** pulled from that same pool.
   Scarcity is the depth gate, not new card types (the canon pool is
-  complete). Extends the profile save with credits + owned cards. Depends on
-  B, and on a progression-depth input (stubbed until D).
-- **D · Campaign map** — an overview map of **Star Wars planets**, Outer Rim
-  → Core, difficulty and opponent-count rising core-ward; a node may hold one
-  or several opponents. Tracks run progress, supplies the depth C reads,
-  grants C's rewards on win, and reworks the main-menu new-game / continue
-  semantics for a campaign. The integration spec — depends on A/B/C, and may
-  split into more than one spec (map + navigation, then rewards/meta).
+  complete). Extends the profile save with credits + owned cards. Depends on B
+  (shipped); D (shipped) supplies the campaign-depth / run-progress structure C
+  reads and hangs rewards on.
+- **D · Campaign map** — ✅ **Shipped (spec 009** — see Shipped above). A
+  full-screen node map (original planet names, not trademarks), Outer Rim →
+  Core, mostly-linear with a light branch; planets hold roster opponents and
+  clear/unlock by a derived graph; Start Campaign + Quick Play front door.
+  Scoped to navigation + progression structure — the **economy is stubbed**, so
+  it did **not** depend on C; the "rewards/meta" half of the original D-split
+  (granting C's credits/cards on win) rides with **C**. Wins record progress
+  only; a loss just returns to the map.
 - **E · Roguelike mode** (stretch, optional) — an alternate run structure:
   go as far as you can, a fixed number of losses before you restart. Reuses
   A–D's infrastructure; last.
+- **More campaign worlds / roster expansion** (builds on spec 009) — 009
+  shipped a 4-world vertical slice using all five roster opponents (spec 007).
+  The map is `const` data (`campaign::PLANETS`), so adding worlds is a
+  one-struct-entry-each change with no engine/layout/save impact — but
+  *distinct* worlds need more opponents (the roster is fully used). So a bigger
+  campaign is gated on **roster growth** (each new opponent is also just const
+  data — a name, a stand threshold, a side deck) plus a difficulty pass; best
+  done as a deliberate content spec rather than padding the map with repeated
+  fights. Human-requested during spec 009.
 
 Cross-cutting, not their own specs: a **balance/tuning pass** once
 progression exists (playtest-heavy, iterative), and **profile-save migration
