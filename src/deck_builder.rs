@@ -219,6 +219,30 @@ mod tests {
     }
 
     #[test]
+    fn vertical_move_skips_the_ragged_last_row() {
+        // The 13-card starter at 5 columns has a short last row, so the
+        // rightmost columns have no bottom-row cell. Moving down such a column
+        // must skip the empty slot and wrap to the top — never land out of
+        // range (which would panic the next `entries[cursor]`).
+        let p = Profile::default();
+        let entries = p.collection_by_type();
+        let cols = grid_cols(entries.len());
+        assert!(entries.len() % cols != 0, "test needs a ragged last row");
+
+        let ragged_col = cols - 1; // a column whose bottom-row cell is absent
+        let mut s = DeckBuilderState::new();
+        for _ in 0..ragged_col {
+            s.handle_input(KeyCode::Right, &p);
+        }
+        assert_eq!(s.cursor, ragged_col); // row 0 of the ragged column
+        s.handle_input(KeyCode::Down, &p);
+        assert_eq!(s.cursor, cols + ragged_col); // row 1
+        s.handle_input(KeyCode::Down, &p); // row-2 cell is absent → wrap to row 0
+        assert_eq!(s.cursor, ragged_col);
+        assert!(s.cursor < entries.len(), "cursor stayed in range");
+    }
+
+    #[test]
     fn enter_and_space_add_the_highlighted_card_backspace_removes_it() {
         let p = Profile::default();
         let entries = p.collection_by_type();

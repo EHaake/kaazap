@@ -8,7 +8,7 @@ original rules, with its own lightweight campaign layer standing in for
 the RPG economy those rules originally leaned on.
 
 Face a series of opponents with distinct personalities across a campaign
-of increasing difficulty. Play best-of-3-round matches — draw cards
+of increasing difficulty. Play matches to three round-wins — draw cards
 toward 20 without busting, using your side-deck hand to push your total
 up or down. Wins earn currency and card packs that unlock better
 side-deck cards for tougher matchups ahead.

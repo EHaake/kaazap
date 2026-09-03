@@ -290,4 +290,24 @@ mod tests {
         assert!(p.remove_from_deck(first));
         assert!(!p.deck_is_valid(), "a deck under SIDE_DECK_SIZE isn't playable");
     }
+
+    #[test]
+    fn a_full_deck_that_over_owns_a_card_is_invalid() {
+        // Isolates the sub-multiset clause from the length one: the deck is a
+        // full SIDE_DECK_SIZE (length clause passes) but holds two +1 when only
+        // one is owned, so it must still be invalid. Guards against a refactor
+        // that dropped the ownership check (length alone would wrongly pass).
+        let p = profile_with(
+            vec![
+                Card::Plus(1), Card::Plus(2), Card::Plus(3), Card::Plus(4), Card::Minus(1),
+                Card::Minus(2), Card::Minus(3), Card::Minus(4), Card::PlusMinus(1), Card::PlusMinus(2),
+            ],
+            vec![
+                Card::Plus(1), Card::Plus(1), Card::Plus(3), Card::Plus(4), Card::Minus(1),
+                Card::Minus(2), Card::Minus(3), Card::Minus(4), Card::PlusMinus(1), Card::PlusMinus(2),
+            ],
+        );
+        assert_eq!(p.deck().len(), SIDE_DECK_SIZE); // the length clause passes
+        assert!(!p.deck_is_valid(), "over-owning a card must fail the sub-multiset check");
+    }
 }

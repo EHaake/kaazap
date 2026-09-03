@@ -162,6 +162,24 @@ mod tests {
     }
 
     #[test]
+    fn every_roster_card_is_in_the_universe() {
+        // ALL_SIDE_CARDS is documented as the complete side-card universe (the
+        // deck-builder grid and spec C's pool draw from it). Guard that claim
+        // against a roster deck — or a future opponent — playing a card the
+        // collection couldn't represent.
+        use crate::card::ALL_SIDE_CARDS;
+        for o in OPPONENTS {
+            for card in o.side_deck {
+                assert!(
+                    ALL_SIDE_CARDS.contains(card),
+                    "{} plays {card:?}, which isn't in ALL_SIDE_CARDS",
+                    o.id
+                );
+            }
+        }
+    }
+
+    #[test]
     fn roster_ids_are_unique_and_names_nonempty() {
         for (i, a) in OPPONENTS.iter().enumerate() {
             assert!(!a.name.is_empty(), "{} has an empty name", a.id);

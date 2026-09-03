@@ -327,8 +327,14 @@ impl App {
         };
     }
 
-    /// Begin a fresh match against `opponent`, replacing any current one, and
-    /// persist it.
+    /// Begin a fresh match against `opponent`, dealing the player's hand from
+    /// the profile's built deck, replacing any current match and persisting it.
+    ///
+    /// Precondition: the profile deck is valid (exactly `SIDE_DECK_SIZE`
+    /// cards). This is the only match-start entry, reached solely via
+    /// `open_opponent_select`, which enforces `deck_is_valid()` first — any new
+    /// caller must uphold that guard, or an undersized deck would deal a short
+    /// hand.
     fn start_match(&mut self, opponent: OpponentProfile) {
         self.screen = Screen::InGame {
             game_state: Box::new(GameState::with_opponent(
@@ -511,22 +517,22 @@ impl App {
                 Screen::DeckBuilder { state } => match state.handle_input(key, &self.profile) {
                     Some(BuildOutcome::Moved) => self.audio.play(Sfx::MenuMove),
                     Some(BuildOutcome::Add(card)) => {
-                        let sfx = if self.profile.try_add_to_deck(card) {
-                            Sfx::MenuSelect
+                        // Persist only edits that took effect — a rejected add
+                        // (deck full or no spare copy owned) changes nothing.
+                        if self.profile.try_add_to_deck(card) {
+                            self.audio.play(Sfx::MenuSelect);
+                            self.profile.save();
                         } else {
-                            Sfx::MenuBack // deck full or no spare copy owned
-                        };
-                        self.audio.play(sfx);
-                        self.profile.save();
+                            self.audio.play(Sfx::MenuBack);
+                        }
                     }
                     Some(BuildOutcome::Remove(card)) => {
-                        let sfx = if self.profile.remove_from_deck(card) {
-                            Sfx::MenuSelect
+                        if self.profile.remove_from_deck(card) {
+                            self.audio.play(Sfx::MenuSelect);
+                            self.profile.save();
                         } else {
-                            Sfx::MenuBack // none of that card in the deck
-                        };
-                        self.audio.play(sfx);
-                        self.profile.save();
+                            self.audio.play(Sfx::MenuBack); // none in the deck
+                        }
                     }
                     Some(BuildOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);

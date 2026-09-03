@@ -19,7 +19,7 @@ use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    OPPONENT_THINKING_TIME_MS,
+    OPPONENT_THINKING_TIME_MS, SIDE_DECK_SIZE,
     card::{Card, DEFAULT_SIDE_DECK},
     game::{GamePhase, GameState, RoundOutcome},
     opponent::{DEFAULT_OPPONENT, opponent_by_id},
@@ -122,12 +122,16 @@ fn from_saved(saved: SavedGame) -> GameState {
         // Restore the opponent by id; an unknown id (older or hand-edited
         // save) falls back to the default profile rather than failing.
         opponent_profile: opponent_by_id(&saved.opponent_id).unwrap_or(DEFAULT_OPPONENT),
-        // The match's player deck: the saved deck, or the default pool for a
-        // pre-deck-builder save (empty field) — the deck those were dealt from.
-        player_deck: if saved.player_deck.is_empty() {
-            DEFAULT_SIDE_DECK.to_vec()
-        } else {
+        // The match's player deck. Use it only if it's a full, legal deck;
+        // otherwise fall back to the default pool. This covers the pre-deck-
+        // builder save (empty field) and, defensively, any hand-edited or
+        // truncated deck — matching the opponent_id path's tolerance rather
+        // than dealing a short hand. Every legitimate save carries exactly
+        // SIDE_DECK_SIZE cards (the match-start guard enforces it).
+        player_deck: if saved.player_deck.len() == SIDE_DECK_SIZE {
             saved.player_deck
+        } else {
+            DEFAULT_SIDE_DECK.to_vec()
         },
     }
 }
@@ -300,10 +304,14 @@ mod tests {
 
     #[test]
     fn round_trip_preserves_the_player_deck() {
-        // A distinctive built deck (disjoint from the default pool) must
-        // survive the trip, so a resumed match deals from the same deck.
+        // A distinctive full deck (disjoint from the default pool, so it can't
+        // be mistaken for the fallback) must survive the trip, so a resumed
+        // match deals from the same deck.
         let mut g = a_game(GamePhase::PlayerTurn);
-        g.player_deck = vec![Card::Plus(1), Card::Minus(1), Card::PlusMinus(2), Card::Plus(3)];
+        g.player_deck = vec![
+            Card::Plus(1), Card::Plus(1), Card::Plus(3), Card::Plus(3), Card::Minus(1),
+            Card::Minus(1), Card::Minus(3), Card::Minus(3), Card::PlusMinus(2), Card::PlusMinus(2),
+        ];
         let json = serde_json::to_string(&to_saved(&g).unwrap()).unwrap();
         let g2 = from_json(&json).expect("valid save loads");
         assert_eq!(g2.player_deck, g.player_deck);
@@ -319,6 +327,19 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&to_saved(&g).unwrap()).unwrap()).unwrap();
         val.as_object_mut().unwrap().remove("player_deck");
         let g2 = from_json(&val.to_string()).expect("a field-less save still loads");
+        assert_eq!(g2.player_deck, DEFAULT_SIDE_DECK.to_vec());
+    }
+
+    #[test]
+    fn a_save_with_a_wrong_length_deck_resumes_with_the_default() {
+        // A hand-edited/truncated deck (not a full SIDE_DECK_SIZE) isn't
+        // trusted — resume falls back to the default pool rather than dealing
+        // a short hand. (No legitimate save is non-empty-but-short: the
+        // match-start guard forces exactly SIDE_DECK_SIZE.)
+        let mut g = a_game(GamePhase::PlayerTurn);
+        g.player_deck = vec![Card::Plus(1), Card::Minus(1), Card::PlusMinus(2)]; // only 3
+        let json = serde_json::to_string(&to_saved(&g).unwrap()).unwrap();
+        let g2 = from_json(&json).expect("valid save loads");
         assert_eq!(g2.player_deck, DEFAULT_SIDE_DECK.to_vec());
     }
 
