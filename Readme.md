@@ -15,11 +15,12 @@ side-deck cards for tougher matchups ahead.
 
 > **Status:** actively being built. The core Pazaak engine, a terminal
 > UI overhaul, audio with a settings menu (music/SFX volume, a global
-> mute), mid-match save/resume (a **Continue** on the menu), and a roster
-> of opponents with distinct difficulties and decks that you choose from
-> when you start a game are in place; side-deck customization, campaign
-> progression (credits, shop, card rewards), and the campaign map are next
-> — see `ROADMAP.md` for what's shipped and what's ahead.
+> mute), mid-match save/resume (a **Continue** on the menu), a roster of
+> opponents with distinct difficulties and decks that you choose from when
+> you start a game, and **a deck-builder for assembling your own side deck**
+> from a card collection are in place; campaign progression (credits, shop,
+> card rewards) and the campaign map are next — see `ROADMAP.md` for what's
+> shipped and what's ahead.
 
 ## Building & running
 
@@ -41,6 +42,13 @@ sudo dnf install alsa-lib-devel
 ```
 
 ## How to play
+
+The **Side Deck** menu item opens a deck-builder: browse the cards you own
+and add or remove copies to assemble your **10-card side deck**, the deck
+your hand is dealt from each match. Move over the grid with the arrows
+(or `w`/`a`/`s`/`d`), **Enter** to add a copy of the highlighted card and
+**Backspace** to remove one; your deck must be a full 10 cards to start a
+match.
 
 Choosing **Start Game** opens an opponent-select screen — pick who to
 face from the roster (each has its own difficulty and side deck; see

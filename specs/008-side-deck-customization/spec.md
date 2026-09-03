@@ -92,28 +92,37 @@ spec (or none at all) yields the starter collection and deck.
 
 ## Acceptance criteria
 
-- [ ] The start menu has a **Side Deck** item that opens a deck-builder screen
+- [x] The start menu has a **Side Deck** item that opens a deck-builder screen
       showing the player's owned cards in a grid with per-card in-deck/owned
-      counts and a **Deck: N/10** readout.
-- [ ] **Enter/Space** adds a copy to the deck (blocked at 10 cards, or when no
+      counts and a **Deck: N/10** readout. *(driver: the 13-card starter grid
+      renders in canonical order with `M/N` badges and "Deck: 10/10".)*
+- [x] **Enter/Space** adds a copy to the deck (blocked at 10 cards, or when no
       unused copy of that card is owned); **Backspace**/`-` removes a copy; the
-      counts and readout update live.
-- [ ] The builder responds to arrows, `w`/`a`/`s`/`d`, and the emacs nav keys;
-      **Esc**/`x` returns to the start menu.
-- [ ] Changes persist: rebuild a deck, quit, relaunch — the collection and
-      deck are as left.
-- [ ] Starting a match deals the player's hand from the built deck (a card put
+      counts and readout update live. *(driver: remove/add cycled 10→9→10;
+      block rules unit-tested.)*
+- [x] The builder responds to arrows, `w`/`a`/`s`/`d`, and the emacs nav keys;
+      **Esc**/`x` returns to the start menu. *(driver: arrows + `d` moved the
+      cursor, `x`/Esc backed out; emacs via `resolve_key` + `wasd` unit-tested.)*
+- [x] Changes persist: rebuild a deck, quit, relaunch — the collection and
+      deck are as left. *(driver: a 9/10 edit in one launch reloaded in the
+      next.)*
+- [x] Starting a match deals the player's hand from the built deck (a card put
       *only* in the built deck can appear in hand; a default-only card can't).
-- [ ] Starting a game with an incomplete (≠10) deck routes to the builder
-      rather than starting the match.
-- [ ] **Continue** resumes dealing from the deck the match began with; a
+      *(unit: `player_deals_from_the_supplied_deck_at_start_and_rematch`.)*
+- [x] Starting a game with an incomplete (≠10) deck routes to the builder
+      rather than starting the match. *(driver: a 9/10 deck sent Start Game to
+      the builder, save untouched.)*
+- [x] **Continue** resumes dealing from the deck the match began with; a
       pre-spec / missing profile yields the starter collection and deck, and a
-      pre-spec match save resumes with the default deck.
-- [ ] With a starter profile and the builder never opened, play is identical to
-      before this spec (starter deck == old default deck).
-- [ ] Unit tests cover the profile (load/save, version discard, deck validity,
+      pre-spec match save resumes with the default deck. *(driver: a match
+      resumed with the identical hand; unit-tested profile + save fallbacks.)*
+- [x] With a starter profile and the builder never opened, play is identical to
+      before this spec (starter deck == old default deck). *(unit: the starter
+      deck equals `DEFAULT_SIDE_DECK`.)*
+- [x] Unit tests cover the profile (load/save, version discard, deck validity,
       add/remove, grouped counts), the engine seam, builder navigation, and the
-      save round-trip; `cargo test` green, `cargo build` no new warnings.
+      save round-trip; `cargo test` green (189 passed), `cargo build` no new
+      warnings.
 
 ## Resolved decisions
 
