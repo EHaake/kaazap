@@ -76,20 +76,31 @@ the card is new — the shop grows the same collection the deck-builder reads.
 
 ## Acceptance criteria
 
-- [ ] A campaign win awards difficulty-scaled credits and one card from the
+- [x] A campaign win awards difficulty-scaled credits and one card from the
       depth-gated pool, exactly once per opponent; a loss and Quick Play award
-      nothing.
-- [ ] The available pool grows monotonically with campaign depth (Outer ⊆ Mid ⊆
+      nothing. *(`Profile::apply_win_reward` test — 15→10 credits + one pool card;
+      the `!is_opponent_beaten` once-per-node guard; Quick Play has no
+      `in_progress` so the seam is skipped — the ordering was reviewer-walked as
+      sound.)*
+- [x] The available pool grows monotonically with campaign depth (Outer ⊆ Mid ⊆
       Core), is always within the 15-card universe, and every card is assigned a
-      tier.
-- [ ] The shop, reached from the campaign map, sells the available pool: prices
+      tier. *(`the_pool_grows_monotonically_with_depth`, `card_tier_partitions_the_
+      universe`, `every_planet_region_maps_to_a_known_tier`.)*
+- [x] The shop, reached from the campaign map, sells the available pool: prices
       shown, owned counts shown, a live balance; an affordable buy grants the card
-      and deducts credits, an unaffordable buy is refused.
-- [ ] Credits and grown collection persist across restart; an older profile
+      and deducts credits, an unaffordable buy is refused. *(shop `handle_input`
+      tests + `try_purchase` test; live driver — bought +3, credits 200→180, owned
+      ×0→×1, persisted; the `b` key opens it from the map.)*
+- [x] Credits and grown collection persist across restart; an older profile
       (no `credits`) loads with `credits: 0` and no version bump.
-- [ ] Cards won or bought appear in the deck-builder as owned copies.
-- [ ] `cargo test` green (profile/economy/shop unit tests), `cargo build` no new
-      warnings, no panics in play, legible at the 89×31 minimum.
+      *(`credits_persist_and_default_to_zero_for_older_profiles`.)*
+- [x] Cards won or bought appear in the deck-builder as owned copies. *(grant grows
+      the `collection` bag that `collection_by_type` — the deck-builder's read —
+      reflects; live: the bought +3 showed owned ×1.)*
+- [x] `cargo test` green (profile/economy/shop unit tests), `cargo build` no new
+      warnings, no panics in play, legible at the 89×31 minimum. *(239 passed, 0
+      failed; build 0 warnings; `the_full_pool_fits_the_minimum_terminal` + live
+      89×31 shop snapshot; no panics across the sweep.)*
 
 ## Resolved decisions
 
