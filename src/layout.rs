@@ -136,21 +136,25 @@ pub struct MenuLayout {
 }
 
 impl MenuLayout {
-    pub fn new(config: Config, title_height: usize, num_items: usize) -> Self {
-        const TITLE_GAP: usize = 3; // blank rows between the title art and items
-        const ITEM_SPACING: usize = 2;
+    const ITEM_SPACING: usize = 2;
 
-        // The whole menu (title art, gap, items) is one block centered
-        // vertically, to match the board. Items span (n-1)*spacing + 1 rows.
-        let items_height = num_items.saturating_sub(1) * ITEM_SPACING + 1;
-        let block_height = title_height + TITLE_GAP + items_height;
+    pub fn new(config: Config, title_height: usize, num_items: usize, trailing_height: usize) -> Self {
+        const TITLE_GAP: usize = 3; // blank rows between the title art and items
+
+        // The whole menu (title art, gap, items, plus any trailing content a
+        // screen draws below the items — a blurb/hint) is one block centered
+        // vertically, to match the board. Items span (n-1)*spacing + 1 rows;
+        // `trailing_height` reserves the rows below them so a long list plus its
+        // footer still fits the minimum terminal.
+        let items_height = num_items.saturating_sub(1) * Self::ITEM_SPACING + 1;
+        let block_height = title_height + TITLE_GAP + items_height + trailing_height;
         let title_top = config.num_rows.saturating_sub(block_height) / 2;
 
         Self {
             center_x: config.num_cols / 2,
             title_top,
             items_top: title_top + title_height + TITLE_GAP,
-            item_spacing: ITEM_SPACING,
+            item_spacing: Self::ITEM_SPACING,
         }
     }
 }
@@ -335,7 +339,7 @@ mod tests {
     fn menu_layout_centers_the_menu_block_vertically() {
         // Title art 8 rows + 3-row gap + 2 items (spacing 2 → 3 rows) = 14,
         // centered in 48 rows → title_top = 17.
-        let l = MenuLayout::new(cfg(89, 48), 8, 2);
+        let l = MenuLayout::new(cfg(89, 48), 8, 2, 0);
         let block_height = 8 + 3 + ((2 - 1) * 2 + 1); // = 14
         assert_eq!(l.title_top, (48 - block_height) / 2);
         // equal margin above the title art and below the last item

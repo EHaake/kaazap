@@ -88,7 +88,10 @@ impl OpponentSelectState {
         const TITLE: &str = "Choose Your Opponent";
         const HINT: &str = "↑/↓ choose  ·  Enter play  ·  Esc back";
 
-        let layout = MenuLayout::new(*config, 1, OPPONENTS.len());
+        // Reserve the rows below the list for the blurb (at `y + 2`) and hint
+        // (at `y + 4`) so the full 10-opponent roster plus its footer fits the
+        // minimum terminal (one item-spacing + those four rows = 6).
+        let layout = MenuLayout::new(*config, 1, OPPONENTS.len(), 6);
 
         draw_text_centered(frame, layout.center_x, layout.title_top, TITLE, Emphasis::Normal);
 
