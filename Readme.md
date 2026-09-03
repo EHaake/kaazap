@@ -16,11 +16,12 @@ side-deck cards for tougher matchups ahead.
 > **Status:** actively being built. The core Pazaak engine, a terminal
 > UI overhaul, audio with a settings menu (music/SFX volume, a global
 > mute), mid-match save/resume (a **Continue** on the menu), a roster of
-> opponents with distinct difficulties and decks that you choose from when
-> you start a game, and **a deck-builder for assembling your own side deck**
-> from a card collection are in place; campaign progression (credits, shop,
-> card rewards) and the campaign map are next — see `ROADMAP.md` for what's
-> shipped and what's ahead.
+> opponents with distinct difficulties and decks, a deck-builder for
+> assembling your own side deck from a card collection, and **a campaign
+> map** — travel a node-based star map of planets, Outer Rim → Core,
+> clearing each world's opponents to unlock the next — are in place;
+> campaign progression (credits, a shop, card rewards) is next — see
+> `ROADMAP.md` for what's shipped and what's ahead.
 
 ## Building & running
 
@@ -50,11 +51,13 @@ your hand is dealt from each match. Move over the grid with the arrows
 **Backspace** to remove one; your deck must be a full 10 cards to start a
 match.
 
-Choosing **Start Game** opens an opponent-select screen — pick who to
-face from the roster (each has its own difficulty and side deck; see
-`docs/opponents.md` for how difficulty is tuned). In-game, press `?` for a
-rules and controls overlay. If you know real Pazaak, Kaazap plays close to
-the source material with a few intentional tweaks — see `DECISIONS.md` for
+From the start menu, **Start Campaign** opens a full-screen star map: travel
+between planets (arrows / `w`·`a`·`s`·`d`), and at each you play its opponents
+to clear it and unlock the way core-ward. **Quick Play** instead lets you pick
+any opponent from the roster directly (each has its own difficulty and side
+deck; see `docs/opponents.md` for how difficulty is tuned). In-game, press `?`
+for a rules and controls overlay. If you know real Pazaak, Kaazap plays close
+to the source material with a few intentional tweaks — see `DECISIONS.md` for
 what's changed and why.
 
 ## Development

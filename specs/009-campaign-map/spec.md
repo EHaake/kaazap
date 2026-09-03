@@ -112,30 +112,43 @@ run position. A profile from before this spec (or none) starts a fresh run.
 
 ## Acceptance criteria
 
-- [ ] The start menu shows **Start Campaign** and **Quick Play**; Quick Play
+- [x] The start menu shows **Start Campaign** and **Quick Play**; Quick Play
       behaves exactly like today's Start Game (opponent-select, discard-confirm
-      over a save), and Continue is unchanged.
-- [ ] Start Campaign opens a **full-screen** map: header band, planet nodes,
+      over a save), and Continue is unchanged. *(driver: menu shows both; Quick
+      Play → discard-confirm → the roster select screen.)*
+- [x] Start Campaign opens a **full-screen** map: header band, planet nodes,
       connecting routes, a twinkling starfield, and a bottom info panel for the
-      highlighted planet.
-- [ ] The cursor moves between **unlocked** planets (arrows / `wasd` / emacs);
+      highlighted planet. *(driver, 180×48: fills the terminal; a star flipped
+      `✦`→`·` between frames — the twinkle is live.)*
+- [x] The cursor moves between **unlocked** planets (arrows / `wasd` / emacs);
       the info panel tracks the highlight; **Esc**/`x` returns to the menu.
-- [ ] Selecting an unlocked, un-cleared planet launches a match against its
+      *(driver: cursor Ashfall→Drift, panel updated Vessa Korr→Old Toran; `x`
+      returned to the menu.)*
+- [x] Selecting an unlocked, un-cleared planet launches a match against its
       next un-beaten opponent, dealt from the built deck; an incomplete deck
-      diverts to the deck-builder first.
-- [ ] Winning records the opponent as beaten and returns to the map; clearing a
+      diverts to the deck-builder first. *(driver: Cinder → a match vs Greeb;
+      the deck-valid guard mirrors `open_opponent_select`.)*
+- [x] Winning records the opponent as beaten and returns to the map; clearing a
       planet (all its opponents beaten) unlocks its dependents. The first map's
       fork (Ashfall/Drift unlock after Cinder; The Spindle after both) works.
-- [ ] Losing returns to the map with the planet still open to retry.
-- [ ] The campaign run persists: travel/clear a planet, quit, relaunch — the
+      *(unit: the fork/unlock/clear derivation; driver: a seeded Cinder-beaten
+      profile rendered Cinder ● + the fork unlocked, "1/4 cleared". A live
+      full-match win is a manual playtest — see the close-out note.)*
+- [x] Losing returns to the map with the planet still open to retry. *(driver:
+      lost a campaign match → back to the map, "0/4 cleared", Cinder still
+      open, `in_progress` cleared.)*
+- [x] The campaign run persists: travel/clear a planet, quit, relaunch — the
       run is as left. **Continue** resumes an in-progress campaign match and, on
-      win, still records progress and returns to the map.
-- [ ] A pre-spec / missing profile begins a fresh run with only the start
-      planet unlocked.
-- [ ] Unit tests cover the map graph (clear/unlock/next-opponent derivation and
+      win, still records progress and returns to the map. *(unit: campaign
+      round-trip; the `in_progress` pointer is persisted, so a resumed match
+      routes to the map at game over; Continue path unchanged.)*
+- [x] A pre-spec / missing profile begins a fresh run with only the start
+      planet unlocked. *(unit: `a_fresh_run_unlocks_only_the_start`; the
+      `campaign` field is serde-defaulted.)*
+- [x] Unit tests cover the map graph (clear/unlock/next-opponent derivation and
       the fork), the run's persistence round-trip, and map navigation; the
-      layout stays in-bounds at the minimum terminal. `cargo test` green,
-      `cargo build` no new warnings.
+      layout stays in-bounds at the minimum terminal. `cargo test` green (207
+      passed), `cargo build` no new warnings.
 
 ## Resolved decisions
 
