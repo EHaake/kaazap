@@ -99,13 +99,42 @@ into specs in `ROADMAP.md`'s Campaign epic. The load-bearing product calls:
   flags) already play noticeably differently; bespoke decision logic is
   reserved for signature/boss opponents where it earns its cost.
 
+## Side-deck customization (spec 008)
+
+Subsystem B — the first spec to ship the **player profile** (`profile.json`),
+the persistent player-owned document specs C and D extend. The load-bearing
+product calls (all human-ruled this session):
+
+- **Collection is a bag of copies, not a set of types.** You own N copies of a
+  card and may run up to N in your deck (duplicates allowed, classic Pazaak).
+  Chosen over a simpler owned-or-not set because spec C's per-win card drops
+  and shop purchases grow *copies* — the counts model absorbs that with no
+  later migration. (The whole side-card universe is only 15 types, so
+  type-level scarcity was never the lever — copies + credits are, per "Campaign
+  design" above.)
+- **Modest starter collection, seeded by spec 008.** Since the economy (C)
+  doesn't exist yet to grow it, B seeds a starting collection: the default
+  10-card deck plus a few spare adjusters (`+1`, `-1`, `±2`). The exact list is
+  tunable balance data, revisited in C's balance pass.
+- **Decks are exactly 10 cards to play** (the classic size). The builder lets
+  the deck sit under 10 while editing, but starting a match requires a full 10
+  — an incomplete deck routes back to the builder rather than starting an
+  under-strength match.
+- **A match snapshots the deck it began with** (in the match save), so editing
+  your deck from the menu changes future matches, not an in-progress saved one.
+
+The **two-panel KOTOR-style "briefcase" builder** (collection left, deck right,
+moving cards between panels) was considered and **deferred to a presentation
+pass sequenced with/after spec C** — it's a visual overhaul, not new
+capability, and a two-panel view earns its complexity only once the collection
+grows large. See `ROADMAP.md`.
+
 ## Explicitly deferred out of v1
 
 - **Full side-deck customization** (building your own 10-card deck from a
-  collection, KOTOR-vendor style) shipped a simple default deck in v1
-  instead. **No longer deferred** — it's spec B of the campaign epic (see
-  "Campaign design" above and `ROADMAP.md`), now that the campaign gives a
-  growing collection a reason to exist.
+  collection, KOTOR-vendor style) shipped a simple default deck in v1 instead.
+  **✅ Shipped as spec 008** (subsystem B — see "Side-deck customization" above
+  and `ROADMAP.md`); the deck-builder replaced the fixed default deck.
 - **Mid-run side-deck redraw.** Real Pazaak doesn't redraw your hand
   within a given match, and v1 of Kaazap won't either. Deferred rather
   than rejected: once the full game exists, rule enhancements that fit

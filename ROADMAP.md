@@ -75,6 +75,21 @@ of, not guessed at here in advance.
   `GameState`. Roster + tuning are documented in `docs/opponents.md`;
   deterministic threshold+deck difficulty by design, with board-aware/bespoke
   AI a logged follow-up (below).
+- **Collection & side-deck customization** (spec 008) — the second campaign
+  subsystem (B). A persistent **player profile** (`profile.json`, modeled on
+  the settings file plus the match save's version-discard discipline) holding a
+  **card collection** (a bag of owned copies) and a **built 10-card side deck**,
+  plus a **deck-builder `Screen`** reached from a new **Side Deck** menu item
+  where you add/remove copies (arrows/`wasd`/emacs, Enter/Backspace) against the
+  owned counts. Matches deal the player's hand from the built deck — the player
+  deck moved from the `DEFAULT_SIDE_DECK` const onto `GameState`, mirroring how
+  spec 007 moved the opponent's deck — and each match **snapshots its deck into
+  the save**, so editing your deck never rewrites an in-progress match; resume
+  falls back to the default for a pre-spec or malformed deck. Decks must be
+  exactly 10 to play (an incomplete deck routes Start Game to the builder). The
+  whole 15-card side-card universe is `card::ALL_SIDE_CARDS`; the starter is the
+  default 10 + a few spares (tunable in C's balance pass). A two-panel
+  "briefcase" builder is a logged follow-up (below).
 
 ## Backlog
 
@@ -96,13 +111,14 @@ file — the engine works, so the campaign is now being planned in order.)
   `Screen`; save/resume persists the chosen opponent. Scoped to deterministic
   threshold+deck difficulty; board-aware / bespoke signature-opponent AI is a
   logged follow-up ("Smarter / board-aware opponent AI", below).
-- **B · Collection & side-deck customization** — a deck-builder screen that
-  shows the cards you own and lets you swap them in/out of a 10-card side
-  deck, classic-Pazaak style; matches then deal from your built deck.
-  Introduces the **profile save** (`profile.json`) — a persistent document
-  distinct from the match save (spec 005), which later specs extend rather
-  than replace. Self-contained; shippable before C (arrange a starter
-  collection), but most meaningful once C makes the collection grow.
+- **B · Collection & side-deck customization** — ✅ **Shipped (spec 008** —
+  see Shipped above). A deck-builder `Screen` showing the cards you own and
+  letting you swap copies in/out of a 10-card side deck, classic-Pazaak style;
+  matches deal from the built deck. Introduced the **profile save**
+  (`profile.json`) — the persistent player-owned document, distinct from the
+  match save (spec 005), that C and D extend rather than replace. Collection is
+  a bag of copies (spec C grows it); the starter is modest. The two-panel
+  KOTOR-style "briefcase" layout is a deferred UI follow-up (below).
 - **C · Economy & progression** — **credits** from wins; a card pool that
   **unlocks by campaign depth**; a **shop** selling from the unlocked pool;
   and a **random card drop from each win** pulled from that same pool.
@@ -147,6 +163,18 @@ discipline** as the schema grows (reuse spec 005's versioning).
   - Deferred on purpose: adding empty strategy scaffolding in 007 would be
     speculative generality (see `CLAUDE.md` → Simplicity); the extension is
     cheap when actually wanted.
+
+- **Two-panel "briefcase" deck-builder** (builds on spec 008's subsystem B) —
+  008's builder is a single grid of owned cards with in-deck/owned count
+  badges. A later, **presentation-only** pass can adopt the classic KOTOR
+  layout: your **collection on the left, your built deck on the right**, moving
+  cards across between the two panels (`Tab` to switch panels, Enter/←→ to move
+  a card). It's a visual overhaul, not new capability, so it's **sequenced
+  with/after spec C** (Economy) — a two-panel "curate from a big pile" view
+  earns its complexity once C's economy grows the collection, whereas today's
+  modest starter fits one grid. Also reinforces the campaign's "manage your
+  briefcase between matches" feel, and pairs with the spec-D map as the
+  between-nodes retooling screen. Human-requested during spec 008.
 
 ### Other (not campaign-dependent)
 

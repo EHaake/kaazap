@@ -59,7 +59,7 @@ Branch `008-side-deck-customization` created with the spec/plan/tasks. Plan:
   field-less (pre-spec) JSON resolves to `DEFAULT_SIDE_DECK`; driver — build a
   distinctive deck, start a match, quit, Continue resumes dealing from it.*
 
-- [ ] **T005 — Verification & close-out**
+- [x] **T005 — Verification & close-out**
   Full driver sweep of every acceptance box (build a deck, play from it,
   incomplete-deck guard, resume, no-regression with starter). Run the
   `skeptical-reviewer`. Update `Readme.md` (deck-building is new user-facing
