@@ -3,7 +3,9 @@
 Reference for the opponent roster and how each opponent's difficulty is
 tuned. The roster shipped in spec 007 (`specs/007-opponent-roster/`); the
 **board-aware AI, per-opponent strategies, and the misplay seam** in spec 010
-(`specs/010-smarter-opponents/`). The authoritative data lives in
+(`specs/010-smarter-opponents/`); and it **grew to ten opponents across an
+eight-world campaign** in spec 011 (`specs/011-roster-and-worlds/`). The
+authoritative data lives in
 [`src/opponent.rs`](../src/opponent.rs) (the `OPPONENTS` const) and the AI logic
 in [`src/game.rs`](../src/game.rs) (`decide_opponent_move` + `opponent_action`);
 this file explains the *mechanism* and snapshots the *current values*.
@@ -103,15 +105,22 @@ deterministic.
 > `PlusMinus`, `2&4`/`3&6` are `Flip`s, `±1T` is the `Tiebreaker`.
 
 Ordered easiest → hardest (a test, `roster_runs_easy_to_hard_by_threshold`,
-enforces the threshold ordering):
+enforces the threshold ordering). Since spec 011 the roster is **two contrasting
+personalities per threshold tier** — difficulty rises by threshold, while the
+`AiStrategy` archetype varies the play within a tier:
 
 | Opponent | `id` | Label | Threshold | Strategy | Misplay | Side deck (10 cards) |
 |---|---|---|---|---|---|---|
 | **Greeb** | `greeb` | Rookie | **15** | Basic | **0.25** | +1 +2 +3 −1 −2 −3 +1 −1 +2 −2 |
+| **Dax Runo** | `dax` | Greenhorn | **15** | Aggressive | 0.22 | +4 +3 +3 +2 +2 +1 −1 −2 −3 −2 |
 | **Vessa Korr** | `vessa` | Scrapper | **16** | Aggressive | 0.15 | +2 +4 −2 −4 ±1 ±2 +1 −1 +3 −3 |
+| **Nima Sarn** | `nima` | Broker | **16** | Cautious | 0.15 | +2 +3 −2 −3 −4 ±1 ±2 −1 +1 +2 |
 | **Old Toran** | `toran` | Veteran | **17** | Cautious | 0.10 | +2 +4 −2 −4 ±1 ±3 ±6 2&4 3&6 ±1T |
+| **Brakka** | `brakka` | Bruiser | **17** | Aggressive | 0.12 | ±6 ±3 +4 +3 +2 −2 −4 ±1 −1 2&4 |
 | **Rix Vandal** | `rix` | Ace | **18** | Calculating | 0.05 | ±6 ±3 ±1 −4 −2 +4 +2 2&4 3&6 ±1T |
+| **Kesh Varn** | `kesh` | Duelist | **18** | Aggressive | 0.06 | ±6 ±3 ±1 +4 −4 −2 +2 −3 +3 2&4 |
 | **The Magistrate** | `magistrate` | Master | **19** | Calculating | **0.0** | ±6 **±6** ±3 ±1 −4 **−4** −2 2&4 3&6 ±1T |
+| **The Sovereign** | `sovereign` | Kingpin | **19** | Calculating | **0.0** | ±6 ±6 ±3 ±3 ±1 −4 −4 −2 −1 ±1T |
 
 What the gradient does (each opponent's blurb reflects its strategy):
 
@@ -132,9 +141,27 @@ What the gradient does (each opponent's blurb reflects its strategy):
   (0.05). An ace who counts every point.
 - **The Magistrate** — threshold 19, **Calculating**, and **flawless** (misplay
   0.0): targets the minimal safe winning total, steals ties with the tiebreaker,
-  and never slips. Its strongest deck — **doubled ±6 and −4** — means it usually
+  and never slips. Its strong deck — **doubled ±6 and −4** — means it usually
   holds both a big swing and a recovery card, which is what makes hitting to the
   edge survivable for it.
+
+The spec-011 additions — each the contrasting tier-mate of one above:
+
+- **Dax Runo** (15, **Aggressive**, 0.22) — a reckless greenhorn beside naive
+  Greeb: a plus-heavy deck and a high error rate, so he pushes for big totals and
+  busts for them.
+- **Nima Sarn** (16, **Cautious**, 0.15) — a tight broker beside aggressive
+  Vessa: recovery-leaning cards and an early stand; folds the moment she's ahead.
+- **Brakka** (17, **Aggressive**, 0.12) — a bruiser beside patient Toran: wide ±
+  swings toward 20.
+- **Kesh Varn** (18, **Aggressive**, 0.06) — a hair-trigger duelist beside
+  calculating Rix: a strong ± + recovery deck, and he pushes the highest safe
+  total.
+- **The Sovereign** (19, **Calculating**, 0.0) — the **final boss**, the flawless
+  Magistrate's deadlier twin. Same perfect play, but a **fully playable deck**:
+  no flips (the AI never plays one), just maximal ± range, recovery, and the
+  tiebreaker — so it almost always holds the exact card to hit, recover, or steal
+  the tie. Guarded by `the_final_boss_is_flawless_and_fully_equipped`.
 
 ### The default opponent
 
