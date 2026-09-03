@@ -6,6 +6,8 @@ use crate::{
     SELECTION_PULSE_MS,
     audio::{Audio, AudioSnapshot, Sfx, audio_cues},
     board::BoardView,
+    campaign::NodeRef,
+    campaign_map::{CampaignMapState, MapOutcome},
     card::Card,
     config::Config,
     deck_builder::{BuildOutcome, DeckBuilderState},
@@ -13,9 +15,10 @@ use crate::{
     game::{GameAction, GamePhase, GameState},
     layout::OverlayLayout,
     menu::{MenuAction, MenuEvent, MenuItem, MenuState},
-    opponent::OpponentProfile,
+    opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
     overlay::{Overlay, OverlayKind},
+    player::Player,
     profile::Profile,
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
@@ -225,6 +228,16 @@ pub fn resolve_key(code: KeyCode, modifiers: KeyModifiers) -> KeyCode {
     code
 }
 
+/// What a confirmed "discard your saved match?" should start. Both Quick Play
+/// and Start Campaign raise the confirm over an existing save; this records
+/// which one so the Yes branch does the right thing (open opponent select, or
+/// discard the save and enter the campaign map).
+#[derive(Debug, Clone)]
+enum PendingStart {
+    QuickPlay,
+    Campaign,
+}
+
 /// A modal panel shown over the current screen. Exactly one is open at a
 /// time — the type enforces what spec 004 spread across two `Option` fields
 /// (the "only one is ever Some" invariant the T010 review flagged): the `?`
@@ -233,10 +246,11 @@ pub fn resolve_key(code: KeyCode, modifiers: KeyModifiers) -> KeyCode {
 enum Modal {
     Help(Overlay),
     Settings(SettingsState),
-    /// The "discard your saved match?" confirmation shown when Start Game
-    /// would replace an existing save. `on_yes` is the highlighted choice,
-    /// defaulting to No — the safe option.
-    ConfirmNewGame { on_yes: bool },
+    /// The "discard your saved match?" confirmation shown when starting a new
+    /// match (Quick Play or a campaign node) would replace an existing save.
+    /// `on_yes` is the highlighted choice, defaulting to No — the safe option;
+    /// `pending` is what to start if confirmed.
+    ConfirmNewGame { on_yes: bool, pending: PendingStart },
 }
 
 pub struct App {
@@ -327,6 +341,31 @@ impl App {
         };
     }
 
+    /// Open the campaign map at the run's current position. The Start Campaign
+    /// entry handles discarding a saved match first (with a confirm); this just
+    /// switches to the map screen.
+    fn open_campaign_map(&mut self) {
+        self.screen = Screen::CampaignMap {
+            state: CampaignMapState::new(&self.profile),
+        };
+    }
+
+    /// Launch a campaign match against `planet`/`opponent` (both ids), upholding
+    /// `start_match`'s deck-valid precondition (diverting to the deck-builder if
+    /// the deck is incomplete). Shared by the map's direct launch (no save) and
+    /// the confirmed discard-and-launch.
+    fn launch_campaign_node(&mut self, planet: &str, opponent: &str) {
+        if !self.profile.deck_is_valid() {
+            self.open_deck_builder();
+        } else if let Some(opp) = opponent_by_id(opponent) {
+            let node = NodeRef {
+                planet: planet.to_string(),
+                opponent: opponent.to_string(),
+            };
+            self.start_match(opp, Some(node));
+        }
+    }
+
     /// Begin a fresh match against `opponent`, dealing the player's hand from
     /// the profile's built deck, replacing any current match and persisting it.
     ///
@@ -334,8 +373,17 @@ impl App {
     /// cards). This is the only match-start entry, reached solely via
     /// `open_opponent_select`, which enforces `deck_is_valid()` first — any new
     /// caller must uphold that guard, or an undersized deck would deal a short
-    /// hand.
-    fn start_match(&mut self, opponent: OpponentProfile) {
+    /// hand. Its two callers — the opponent-select Pick and the campaign map's
+    /// Launch — both enforce it. `campaign` marks the match as a campaign node
+    /// (persisted via the profile), or `None` for Quick Play.
+    fn start_match(&mut self, opponent: OpponentProfile, campaign: Option<NodeRef>) {
+        // Record whether this match belongs to the campaign, and against which
+        // node — persisted, so a match resumed via Continue still routes back
+        // to the map at game over. Quick Play passes None (clearing any stale
+        // pointer).
+        self.profile.campaign_mut().set_in_progress(campaign);
+        self.profile.save();
+
         self.screen = Screen::InGame {
             game_state: Box::new(GameState::with_opponent(
                 opponent,
@@ -434,8 +482,31 @@ impl App {
                     }
                     // The select and deck-builder screens carry their own
                     // on-screen hint lines, so ? opens no overlay there.
-                    Screen::OpponentSelect { .. } | Screen::DeckBuilder { .. } => None,
+                    Screen::OpponentSelect { .. }
+                    | Screen::DeckBuilder { .. }
+                    | Screen::CampaignMap { .. } => None,
                 };
+            }
+
+            // A finished campaign match returns to the map on an acknowledgement
+            // key (the win was already recorded in tick); there's no quick-play
+            // rematch, and the in-progress pointer is cleared here.
+            if matches!(
+                key,
+                KeyCode::Enter
+                    | KeyCode::Char(' ')
+                    | KeyCode::Char('g')
+                    | KeyCode::Char('x')
+                    | KeyCode::Esc
+            ) && matches!(&self.screen, Screen::InGame { game_state, .. }
+                    if matches!(game_state.game_phase, GamePhase::GameOver { .. }))
+                && self.profile.campaign().in_progress().is_some()
+            {
+                self.profile.campaign_mut().set_in_progress(None);
+                self.profile.save();
+                self.audio.play(Sfx::MenuSelect);
+                self.open_campaign_map();
+                return;
             }
 
             // Track whether a player action changed the game this key, so we
@@ -498,7 +569,7 @@ impl App {
                     Some(SelectOutcome::Moved) => self.audio.play(Sfx::MenuMove),
                     Some(SelectOutcome::Picked(opponent)) => {
                         self.audio.play(Sfx::MenuSelect);
-                        self.start_match(opponent);
+                        self.start_match(opponent, None); // Quick Play — not a campaign match
                     }
                     Some(SelectOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
@@ -535,6 +606,26 @@ impl App {
                         }
                     }
                     Some(BuildOutcome::Back) => {
+                        self.audio.play(Sfx::MenuBack);
+                        self.screen = self.start_menu();
+                    }
+                    None => {}
+                },
+
+                // The campaign map: travel between unlocked planets, launch a
+                // match against a planet's next opponent, or back out. (T002
+                // launches the match; the campaign progress spine — the
+                // in-progress pointer and the win seam — arrives in T003.)
+                Screen::CampaignMap { state } => match state.handle_input(key, &self.profile) {
+                    Some(MapOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                    Some(MapOutcome::Launch { planet, opponent }) => {
+                        // No save-guard here: entering the campaign already
+                        // discarded any saved match (the prompt lives at entry),
+                        // so a launch from the map never has one to overwrite.
+                        self.audio.play(Sfx::MenuSelect);
+                        self.launch_campaign_node(planet, opponent);
+                    }
+                    Some(MapOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
                         self.screen = self.start_menu();
                     }
@@ -603,25 +694,38 @@ impl App {
 
     /// Route a key to the discard-a-save confirmation: ←/→ (a/d) toggle
     /// between No and Yes, Enter/Space commit the highlighted choice, Esc
-    /// cancels. Yes leads to opponent select (the fresh match, overwriting the
-    /// save, begins once an opponent is chosen); No / Esc close back to the
-    /// menu with the save intact.
+    /// cancels. Yes carries out the pending start — Quick Play opens opponent
+    /// select, Start Campaign discards the save and opens the map; No / Esc
+    /// close with the save intact.
     fn handle_confirm_input(&mut self, key: KeyCode) {
         match key {
             KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
-                if let Some(Modal::ConfirmNewGame { on_yes }) = self.modal.as_mut() {
+                if let Some(Modal::ConfirmNewGame { on_yes, .. }) = self.modal.as_mut() {
                     *on_yes = !*on_yes;
                 }
                 self.audio.play(Sfx::MenuMove);
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
-                let confirmed = matches!(self.modal, Some(Modal::ConfirmNewGame { on_yes: true }));
+                // Only when Yes is highlighted do we carry out the pending start
+                // (which overwrites the save); No / Esc leave it intact.
+                let pending = match &self.modal {
+                    Some(Modal::ConfirmNewGame { on_yes: true, pending }) => Some(pending.clone()),
+                    _ => None,
+                };
                 self.modal = None;
-                if confirmed {
-                    self.audio.play(Sfx::MenuSelect);
-                    self.open_opponent_select();
-                } else {
-                    self.audio.play(Sfx::MenuBack);
+                match pending {
+                    Some(PendingStart::QuickPlay) => {
+                        self.audio.play(Sfx::MenuSelect);
+                        self.open_opponent_select();
+                    }
+                    Some(PendingStart::Campaign) => {
+                        // Discard the saved match, then enter the map.
+                        self.audio.play(Sfx::MenuSelect);
+                        crate::save::clear();
+                        self.has_save = false;
+                        self.open_campaign_map();
+                    }
+                    None => self.audio.play(Sfx::MenuBack),
                 }
             }
             KeyCode::Esc => {
@@ -659,10 +763,26 @@ impl App {
                     self.prev_audio = None;
                 }
             }
-            MenuItem::StartGame => {
+            MenuItem::StartCampaign => {
+                if self.has_save {
+                    // The discard prompt lives at campaign entry (human-ruled):
+                    // entering discards the saved match, so a launch from the
+                    // map later never has one to overwrite.
+                    self.modal = Some(Modal::ConfirmNewGame {
+                        on_yes: false,
+                        pending: PendingStart::Campaign,
+                    });
+                } else {
+                    self.open_campaign_map();
+                }
+            }
+            MenuItem::QuickPlay => {
                 if self.has_save {
                     // Starting fresh would discard the saved match — confirm.
-                    self.modal = Some(Modal::ConfirmNewGame { on_yes: false });
+                    self.modal = Some(Modal::ConfirmNewGame {
+                        on_yes: false,
+                        pending: PendingStart::QuickPlay,
+                    });
                 } else {
                     self.open_opponent_select();
                 }
@@ -696,10 +816,31 @@ impl App {
             phase_changed = std::mem::discriminant(&game_state.game_phase) != before;
         }
 
+        // Advance the campaign map's starfield twinkle — its own slow clock,
+        // separate from the selection pulse (per the amended Motion rule).
+        if let Screen::CampaignMap { state } = &mut self.screen {
+            state.tick(dt);
+        }
+
         // A phase change means the opponent moved or the round/game resolved
         // — persist the new position (save clears the file on GameOver).
         if phase_changed {
             self.save_game();
+        }
+
+        // Record a campaign win the first time game over is seen with the player
+        // as winner. Checked every tick (not only the phase transition), so it
+        // can't be missed however game over is reached; the is_opponent_beaten
+        // guard fires it exactly once and mark_beaten is idempotent regardless.
+        // `in_progress` is cleared only on the player's acknowledgement (the
+        // InGame input arm); a loss records nothing and keeps the node open.
+        if let Screen::InGame { game_state, .. } = &self.screen
+            && matches!(game_state.game_phase, GamePhase::GameOver { winner: Player::Player })
+            && let Some(node) = self.profile.campaign().in_progress().cloned()
+            && !self.profile.campaign().is_opponent_beaten(&node.planet, &node.opponent)
+        {
+            self.profile.campaign_mut().mark_beaten(&node.planet, &node.opponent);
+            self.profile.save();
         }
 
         // Sound the opponent's moves and round/game resolutions, which
@@ -721,6 +862,7 @@ impl App {
             }
             Screen::OpponentSelect { state } => state.draw(frame, &self.config, pulse),
             Screen::DeckBuilder { state } => state.draw(frame, &self.config, &self.profile, pulse),
+            Screen::CampaignMap { state } => state.draw(frame, &self.config, &self.profile, pulse),
         }
 
         // The one open modal draws over the screen.
@@ -729,7 +871,7 @@ impl App {
                 state.draw_overlay(frame, &self.config, self.settings, pulse)
             }
             Some(Modal::Help(overlay)) => overlay.draw(frame),
-            Some(Modal::ConfirmNewGame { on_yes }) => {
+            Some(Modal::ConfirmNewGame { on_yes, .. }) => {
                 self.draw_confirm_new_game(*on_yes, pulse, frame)
             }
             None => {}

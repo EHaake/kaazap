@@ -48,6 +48,10 @@ impl Rect {
     pub fn width(&self) -> usize {
         self.x1.saturating_sub(self.x0) + 1
     }
+
+    pub fn height(&self) -> usize {
+        self.y1.saturating_sub(self.y0) + 1
+    }
 }
 
 /// One player's half of the board: the header strip, the card grid, and
@@ -156,6 +160,54 @@ impl MenuLayout {
 /// played/hand rows don't (col = i, row = 0).
 pub fn card_slot(zone: Rect, col: usize, row: usize) -> (usize, usize) {
     (zone.x0 + col * CARD_SLOT_W, zone.y0 + row * CARD_SLOT_H)
+}
+
+/// Full-screen geometry for the campaign map — a deliberate departure from the
+/// centered fixed-blocks above. It spans the whole terminal: a header band at
+/// the top, an info-panel band at the bottom, and the node field between, with
+/// planets placed at scaled normalized positions. Computed per-draw from
+/// `Config`, so a resize needs no map-specific code.
+#[derive(Debug, Copy, Clone)]
+pub struct CampaignMapLayout {
+    pub header: Rect,
+    pub field: Rect,
+    pub panel: Rect,
+}
+
+impl CampaignMapLayout {
+    const HEADER_H: usize = 2;
+    const PANEL_H: usize = 5;
+    // Inset the field so a node glyph and its label near an edge stay on-frame.
+    const FIELD_MARGIN_X: usize = 6;
+    const FIELD_MARGIN_Y: usize = 1;
+
+    pub fn new(config: Config) -> Self {
+        let last_x = config.num_cols.saturating_sub(1);
+        let last_y = config.num_rows.saturating_sub(1);
+
+        let header = Rect::new(0, last_x, 0, Self::HEADER_H.saturating_sub(1));
+        let panel_top = config.num_rows.saturating_sub(Self::PANEL_H);
+        let panel = Rect::new(0, last_x, panel_top, last_y);
+        // The field sits between the bands, clamped so it never inverts on a
+        // short terminal (the global 89×31 minimum keeps it comfortable).
+        let field_top = Self::HEADER_H;
+        let field_bottom = panel_top.saturating_sub(1).max(field_top);
+        let field = Rect::new(0, last_x, field_top, field_bottom);
+
+        Self { header, field, panel }
+    }
+
+    /// The cell (x, y) for a planet at normalized (fx, fy), placed within the
+    /// field inset by a margin so edge planets (and their labels) stay on-frame.
+    pub fn node_pos(&self, fx: f32, fy: f32) -> (usize, usize) {
+        let x0 = self.field.x0 + Self::FIELD_MARGIN_X;
+        let x1 = self.field.x1.saturating_sub(Self::FIELD_MARGIN_X).max(x0);
+        let y0 = self.field.y0 + Self::FIELD_MARGIN_Y;
+        let y1 = self.field.y1.saturating_sub(Self::FIELD_MARGIN_Y).max(y0);
+        let x = x0 + (fx.clamp(0.0, 1.0) * (x1 - x0) as f32).round() as usize;
+        let y = y0 + (fy.clamp(0.0, 1.0) * (y1 - y0) as f32).round() as usize;
+        (x, y)
+    }
 }
 
 /// Geometry for the deck-builder's collection view: a title line, a
@@ -325,6 +377,24 @@ mod tests {
         assert_eq!(card_slot(zone, 0 % per, 0 / per), (4, 4)); // first slot
         assert_eq!(card_slot(zone, 3 % per, 3 / per), (4 + 3 * CARD_SLOT_W, 4)); // last on row 0
         assert_eq!(card_slot(zone, 4 % per, 4 / per), (4, 4 + CARD_SLOT_H)); // wraps
+    }
+
+    #[test]
+    fn campaign_map_layout_fits_the_minimum_terminal() {
+        // At the 89×31 minimum the three bands stack in-bounds and every planet
+        // node (and the label row just below it) lands within the field.
+        let (cols, rows) = (89, 31);
+        let l = CampaignMapLayout::new(cfg(cols, rows));
+        for r in [l.header, l.field, l.panel] {
+            assert!(in_bounds(r, cols, rows), "band {r:?} out of bounds");
+        }
+        assert!(vertically_disjoint(l.header, l.field));
+        assert!(vertically_disjoint(l.field, l.panel));
+        for p in crate::campaign::PLANETS {
+            let (x, y) = l.node_pos(p.fx, p.fy);
+            assert!(x < cols, "{} node x off-frame", p.id);
+            assert!(y + 1 <= l.field.y1, "{} node + label overflow the field", p.id);
+        }
     }
 
     #[test]
