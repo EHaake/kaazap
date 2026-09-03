@@ -889,6 +889,9 @@ impl App {
             // once; Quick Play has no `in_progress`, so it never reaches here —
             // earning is campaign-only by construction. The whole application is
             // `Profile::apply_win_reward` (unit-tested); this stays a thin call.
+            // Note the order: the drop pool is read *after* `mark_beaten`, so the
+            // win that first unlocks a region can already draw from its tier —
+            // deliberate, so the drop and the (post-win) shop always agree.
             let threshold =
                 opponent_by_id(&node.opponent).map_or(crate::STAND_THRESHOLD, |o| o.stand_threshold);
             let reward = self.profile.apply_win_reward(threshold, rand::random_range(0..usize::MAX));

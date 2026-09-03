@@ -193,11 +193,21 @@ mod tests {
 
     #[test]
     fn the_full_pool_fits_the_minimum_terminal() {
-        // The whole 15-card Core pool plus the title, balance, and hint must
-        // land within the 89×31 minimum — the single-spaced list is what makes
-        // it fit (a double-spaced one clips the last card and the hint).
+        // Vertically: the whole 15-card Core pool plus the title, balance, and
+        // hint must land within the 89×31 minimum — the single-spaced list is
+        // what makes it fit (a double-spaced one clips the last card and hint).
         let (title_y, items_top, hint_y) = anchors(31, crate::card::ALL_SIDE_CARDS.len());
         assert!(items_top > title_y + 1, "items must clear the title and balance rows");
         assert!(hint_y < 31, "the hint (row {hint_y}) clips the 31-row minimum");
+
+        // Horizontally: every row (widest label, its price, a 2-digit owned
+        // count) fits the 89-column minimum when centered on the middle column.
+        let cols = 89usize;
+        for &card in &crate::card::ALL_SIDE_CARDS {
+            let row = format!("▸  {:<4}   {:>3} cr   owned ×{}", card.label(), economy::card_price(card), 99);
+            let len = row.chars().count();
+            let left = (cols / 2).saturating_sub(len / 2);
+            assert!(left + len <= cols, "shop row {row:?} ({len} cols) overflows {cols} columns");
+        }
     }
 }

@@ -55,6 +55,12 @@ Branch `012-economy` created with the spec/plan/tasks. Plan:
   `DECISIONS.md` spec-012 entry on `main`; mark ready and merge.
   *Verify: all `spec.md` boxes checked with evidence; build/test reported verbatim;
   reviewer findings resolved or ruled; docs updated.*
+  *Conscious accept (skeptical review, finding 2): the `App::tick` win-hook glue
+  — "award exactly once per campaign win, nothing on a loss or Quick Play" — has
+  no direct integration test; App construction reads real disk/audio, so a tick
+  test is heavy. Its pieces are all unit-tested (`Profile::apply_win_reward`, the
+  `campaign` once-per-node guards, `economy::win_reward`) and the ordering was
+  reviewer-walked and found sound, so the thin wiring is accepted untested.*
 
 ---
 

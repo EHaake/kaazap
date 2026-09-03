@@ -57,6 +57,11 @@ The 15-card universe is partitioned by power (`economy::card_tier`):
 > Outer pool is what a fresh run can win or buy; the premium ±6 and the
 > round-stealing tiebreaker only become acquirable once you reach the Core.
 
+The pool is evaluated **after** a win is recorded, so the win that first unlocks a
+region (e.g. clearing The Anvil, which opens the Core) can already draw its drop
+from — and shop the — new tier. This is deliberate: the drop and the shop, both
+read post-win, always agree.
+
 ## The shop
 
 Reached from the campaign map with **`b`** (the "Outfitter"). It lists the
