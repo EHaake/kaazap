@@ -19,6 +19,7 @@ use crate::{
     SIDE_DECK_SIZE,
     campaign::CampaignRun,
     card::{ALL_SIDE_CARDS, Card, DEFAULT_SIDE_DECK},
+    economy::{self, WinReward},
 };
 
 /// Bump when the on-disk shape changes incompatibly; a file whose version
@@ -170,6 +171,19 @@ impl Profile {
         }
     }
 
+    /// Apply a campaign win's reward: earn credits scaled by the beaten
+    /// opponent's `threshold` and drop one card from the current depth-gated
+    /// pool (chosen by `roll`), returning what was granted (for the map reveal).
+    /// Keeps the whole reward application testable off one injected roll, so the
+    /// `App::tick` seam that calls it stays a thin wrapper. See `docs/economy.md`.
+    pub fn apply_win_reward(&mut self, threshold: usize, roll: usize) -> WinReward {
+        let pool = economy::available_pool(&self.campaign);
+        let reward = economy::win_reward(threshold, &pool, roll);
+        self.earn_credits(reward.credits);
+        self.grant_card(reward.card);
+        reward
+    }
+
     /// A legal deck is exactly `SIDE_DECK_SIZE` cards, each backed by an owned
     /// copy (a sub-multiset of the collection). The rule a match start checks.
     pub fn deck_is_valid(&self) -> bool {
@@ -312,6 +326,23 @@ mod tests {
         let plus2_before = owned(&p, Card::Plus(2));
         p.grant_card(Card::Plus(2));
         assert_eq!(owned(&p, Card::Plus(2)), plus2_before + 1);
+    }
+
+    #[test]
+    fn applying_a_win_reward_pays_credits_and_drops_one_pool_card() {
+        let mut p = Profile::default(); // fresh: Outer depth, 0 credits
+        let before_total: usize = p.collection_by_type().iter().map(|e| e.owned).sum();
+
+        // Threshold 15 → 10 credits; roll 0 picks the first card of the pool.
+        let reward = p.apply_win_reward(15, 0);
+
+        assert_eq!(reward.credits, 10);
+        assert_eq!(p.credits(), 10);
+        // The dropped card comes from the current (Outer) depth-gated pool...
+        assert!(economy::available_pool(p.campaign()).contains(&reward.card));
+        // ...and exactly one card was added to the collection.
+        let after_total: usize = p.collection_by_type().iter().map(|e| e.owned).sum();
+        assert_eq!(after_total, before_total + 1);
     }
 
     #[test]

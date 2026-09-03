@@ -887,14 +887,11 @@ impl App {
             // difficulty and drop one card from the current depth-gated pool.
             // This block fires exactly once per node, so the reward is granted
             // once; Quick Play has no `in_progress`, so it never reaches here —
-            // earning is campaign-only by construction. `available_pool` is
-            // always non-empty (the Outer tier is always unlocked).
+            // earning is campaign-only by construction. The whole application is
+            // `Profile::apply_win_reward` (unit-tested); this stays a thin call.
             let threshold =
                 opponent_by_id(&node.opponent).map_or(crate::STAND_THRESHOLD, |o| o.stand_threshold);
-            let pool = economy::available_pool(self.profile.campaign());
-            let reward = economy::win_reward(threshold, &pool, rand::random_range(0..pool.len()));
-            self.profile.earn_credits(reward.credits);
-            self.profile.grant_card(reward.card);
+            let reward = self.profile.apply_win_reward(threshold, rand::random_range(0..usize::MAX));
             self.last_reward = Some(reward);
 
             self.profile.save();
