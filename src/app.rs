@@ -6,6 +6,7 @@ use crate::{
     SELECTION_PULSE_MS,
     audio::{Audio, AudioSnapshot, Sfx, audio_cues},
     board::BoardView,
+    campaign::NodeRef,
     campaign_map::{CampaignMapState, MapOutcome},
     card::Card,
     config::Config,
@@ -17,6 +18,7 @@ use crate::{
     opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
     overlay::{Overlay, OverlayKind},
+    player::Player,
     profile::Profile,
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
@@ -343,8 +345,17 @@ impl App {
     /// cards). This is the only match-start entry, reached solely via
     /// `open_opponent_select`, which enforces `deck_is_valid()` first — any new
     /// caller must uphold that guard, or an undersized deck would deal a short
-    /// hand.
-    fn start_match(&mut self, opponent: OpponentProfile) {
+    /// hand. Its two callers — the opponent-select Pick and the campaign map's
+    /// Launch — both enforce it. `campaign` marks the match as a campaign node
+    /// (persisted via the profile), or `None` for Quick Play.
+    fn start_match(&mut self, opponent: OpponentProfile, campaign: Option<NodeRef>) {
+        // Record whether this match belongs to the campaign, and against which
+        // node — persisted, so a match resumed via Continue still routes back
+        // to the map at game over. Quick Play passes None (clearing any stale
+        // pointer).
+        self.profile.campaign_mut().set_in_progress(campaign);
+        self.profile.save();
+
         self.screen = Screen::InGame {
             game_state: Box::new(GameState::with_opponent(
                 opponent,
@@ -449,6 +460,27 @@ impl App {
                 };
             }
 
+            // A finished campaign match returns to the map on an acknowledgement
+            // key (the win was already recorded in tick); there's no quick-play
+            // rematch, and the in-progress pointer is cleared here.
+            if matches!(
+                key,
+                KeyCode::Enter
+                    | KeyCode::Char(' ')
+                    | KeyCode::Char('g')
+                    | KeyCode::Char('x')
+                    | KeyCode::Esc
+            ) && matches!(&self.screen, Screen::InGame { game_state, .. }
+                    if matches!(game_state.game_phase, GamePhase::GameOver { .. }))
+                && self.profile.campaign().in_progress().is_some()
+            {
+                self.profile.campaign_mut().set_in_progress(None);
+                self.profile.save();
+                self.audio.play(Sfx::MenuSelect);
+                self.open_campaign_map();
+                return;
+            }
+
             // Track whether a player action changed the game this key, so we
             // persist once afterward (cursor moves don't touch saved state).
             let mut game_changed = false;
@@ -509,7 +541,7 @@ impl App {
                     Some(SelectOutcome::Moved) => self.audio.play(Sfx::MenuMove),
                     Some(SelectOutcome::Picked(opponent)) => {
                         self.audio.play(Sfx::MenuSelect);
-                        self.start_match(opponent);
+                        self.start_match(opponent, None); // Quick Play — not a campaign match
                     }
                     Some(SelectOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
@@ -558,10 +590,18 @@ impl App {
                 // in-progress pointer and the win seam — arrives in T003.)
                 Screen::CampaignMap { state } => match state.handle_input(key, &self.profile) {
                     Some(MapOutcome::Moved) => self.audio.play(Sfx::MenuMove),
-                    Some(MapOutcome::Launch { opponent, .. }) => {
-                        if let Some(opp) = opponent_by_id(opponent) {
+                    Some(MapOutcome::Launch { planet, opponent }) => {
+                        // A match needs a legal 10-card deck — divert to the
+                        // builder if not, mirroring open_opponent_select.
+                        if !self.profile.deck_is_valid() {
+                            self.open_deck_builder();
+                        } else if let Some(opp) = opponent_by_id(opponent) {
                             self.audio.play(Sfx::MenuSelect);
-                            self.start_match(opp);
+                            let node = NodeRef {
+                                planet: planet.to_string(),
+                                opponent: opponent.to_string(),
+                            };
+                            self.start_match(opp, Some(node));
                         }
                     }
                     Some(MapOutcome::Back) => {
@@ -721,10 +761,13 @@ impl App {
         self.pulse.tick(dt);
 
         let mut phase_changed = false;
+        let mut player_won = false;
         if let Screen::InGame { game_state, .. } = &mut self.screen {
             let before = std::mem::discriminant(&game_state.game_phase);
             game_state.update();
             phase_changed = std::mem::discriminant(&game_state.game_phase) != before;
+            player_won = phase_changed
+                && matches!(game_state.game_phase, GamePhase::GameOver { winner: Player::Player });
         }
 
         // Advance the campaign map's starfield twinkle — its own slow clock,
@@ -737,6 +780,15 @@ impl App {
         // — persist the new position (save clears the file on GameOver).
         if phase_changed {
             self.save_game();
+        }
+
+        // A campaign match just won → record the beaten opponent in the profile.
+        // Idempotent and persisted, so progress survives even a quit at the
+        // win popup; `in_progress` stays set until the player acknowledges and
+        // returns to the map (a loss records nothing and keeps the node open).
+        if player_won && let Some(node) = self.profile.campaign().in_progress().cloned() {
+            self.profile.campaign_mut().mark_beaten(&node.planet, &node.opponent);
+            self.profile.save();
         }
 
         // Sound the opponent's moves and round/game resolutions, which

@@ -41,7 +41,7 @@ Branch `009-campaign-map` created with the spec/plan/tasks. Plan:
   panel), cursor moves over unlocked planets, Quick Play still runs
   opponent-select, Esc returns to the menu.*
 
-- [ ] **T003 — Launch + win→progress spine**
+- [x] **T003 — Launch + win→progress spine**
   `start_match` gains `campaign: Option<NodeRef>` (sets/clears
   `profile.campaign.in_progress` + `save()`); the map `Launch` arm guards
   `deck_is_valid()` then launches with `Some(node)`; the `App::tick` GameOver
