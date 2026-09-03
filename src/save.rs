@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     OPPONENT_THINKING_TIME_MS,
-    card::DEFAULT_SIDE_DECK,
+    card::{Card, DEFAULT_SIDE_DECK},
     game::{GamePhase, GameState, RoundOutcome},
     opponent::{DEFAULT_OPPONENT, opponent_by_id},
     player::PlayerState,
@@ -45,6 +45,14 @@ struct SavedGame {
     /// against — no version bump, no data loss.
     #[serde(default = "default_opponent_id")]
     opponent_id: String,
+    /// The player's built side deck for this match, snapshotted so a resume
+    /// deals from the deck the match began with — editing your deck from the
+    /// menu afterward changes future matches, not an in-progress saved one.
+    /// Older saves (pre-deck-builder) lack the field; an empty deck falls back
+    /// to the default pool, exactly what those matches were dealt from — no
+    /// version bump, no data loss.
+    #[serde(default)]
+    player_deck: Vec<Card>,
 }
 
 /// The opponent id a save without one resumes against: the default opponent,
@@ -87,6 +95,7 @@ fn to_saved(game: &GameState) -> Option<SavedGame> {
         phase,
         round_outcome: game.round_outcome,
         opponent_id: game.opponent_profile.id.to_string(),
+        player_deck: game.player_deck.clone(),
     })
 }
 
@@ -113,9 +122,13 @@ fn from_saved(saved: SavedGame) -> GameState {
         // Restore the opponent by id; an unknown id (older or hand-edited
         // save) falls back to the default profile rather than failing.
         opponent_profile: opponent_by_id(&saved.opponent_id).unwrap_or(DEFAULT_OPPONENT),
-        // The match's player deck is not persisted yet (T004 adds it); until
-        // then a resumed match falls back to the default pool.
-        player_deck: DEFAULT_SIDE_DECK.to_vec(),
+        // The match's player deck: the saved deck, or the default pool for a
+        // pre-deck-builder save (empty field) — the deck those were dealt from.
+        player_deck: if saved.player_deck.is_empty() {
+            DEFAULT_SIDE_DECK.to_vec()
+        } else {
+            saved.player_deck
+        },
     }
 }
 
@@ -283,6 +296,30 @@ mod tests {
         val.as_object_mut().unwrap().remove("opponent_id");
         let g2 = from_json(&val.to_string()).expect("a field-less save still loads");
         assert_eq!(g2.opponent_profile.id, DEFAULT_OPPONENT.id);
+    }
+
+    #[test]
+    fn round_trip_preserves_the_player_deck() {
+        // A distinctive built deck (disjoint from the default pool) must
+        // survive the trip, so a resumed match deals from the same deck.
+        let mut g = a_game(GamePhase::PlayerTurn);
+        g.player_deck = vec![Card::Plus(1), Card::Minus(1), Card::PlusMinus(2), Card::Plus(3)];
+        let json = serde_json::to_string(&to_saved(&g).unwrap()).unwrap();
+        let g2 = from_json(&json).expect("valid save loads");
+        assert_eq!(g2.player_deck, g.player_deck);
+    }
+
+    #[test]
+    fn a_save_without_a_player_deck_resumes_with_the_default() {
+        // A pre-deck-builder save lacks the field; serde(default) leaves it
+        // empty, which resolves to the default pool those matches were dealt
+        // from — no version bump, no data loss.
+        let g = a_game(GamePhase::PlayerTurn);
+        let mut val: serde_json::Value =
+            serde_json::from_str(&serde_json::to_string(&to_saved(&g).unwrap()).unwrap()).unwrap();
+        val.as_object_mut().unwrap().remove("player_deck");
+        let g2 = from_json(&val.to_string()).expect("a field-less save still loads");
+        assert_eq!(g2.player_deck, DEFAULT_SIDE_DECK.to_vec());
     }
 
     #[test]

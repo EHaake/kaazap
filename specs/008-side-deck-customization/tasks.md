@@ -51,7 +51,7 @@ Branch `008-side-deck-customization` created with the spec/plan/tasks. Plan:
   shows Side Deck, grid renders with badges + "Deck: 10/10", add/remove update
   live, `Alert` readout when <10, Esc returns to menu.*
 
-- [ ] **T004 — Save/resume carries the built deck**
+- [x] **T004 — Save/resume carries the built deck**
   `SavedGame` gains `player_deck: Vec<Card>` (`#[serde(default)]`); `to_saved`
   writes `game.player_deck`; `from_saved` uses it, falling back to
   `DEFAULT_SIDE_DECK` when empty. No `SAVE_VERSION` bump.
