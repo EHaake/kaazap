@@ -163,6 +163,39 @@ C and is stubbed here (wins record progress only). The load-bearing calls
   campaign-agnostic. City-zoom (a planet expanding into a second-level map) is a
   deferred later spec.
 
+## Smarter opponent AI (spec 010)
+
+Board-aware opponents that play to win the round — extending "Personalities are
+AI + deck + flavor" above from cheap parameters to real, distinct policies. The
+product/process calls (the first two human-ruled this session):
+
+- **Board-aware + per-opponent strategy archetypes**, not a single shared policy
+  (opponents must feel individual) and not a near-optimal solver (that erases
+  personality and is hard to tune into a fun curve). The AI reasons about the
+  current board one action at a time — reacting precisely once the player has
+  stood (their target is known), playing to threshold while they're live.
+- **A dash of randomness over a deterministic core.** Each opponent has a
+  per-turn `misplay` chance of a legal-but-suboptimal move, so a learned opponent
+  isn't perfectly exploitable and matches feel a touch human. The decision fn
+  stays a pure, unit-tested function of the board; the randomness is a thin,
+  separately-tested `opponent_action(roll)` seam. The default opponent's rate is
+  0, so the engine and its tests stay deterministic.
+- **Strategy is `OpponentProfile` data** — a `Copy` `AiStrategy` enum plus a
+  `misplay: f32` — so there's no engine plumbing (the decision fn already had the
+  whole `GameState`) and no save change (the save persists the opponent id and
+  rebuilds the profile from code). Consistent with spec 007's "personality lives
+  in the profile"; the upgrade path logged there held with no rework.
+- **Strategy assignment follows each opponent's archetype; blurbs were rewritten
+  to match.** A first-pass implementation reassigned strategies off the old
+  spec-007 blurbs; the skeptical-review pass reverted to the spec's intent
+  (Scrapper = Aggressive, Ace / Master = Calculating) and rewrote Vessa's and
+  Rix's on-screen blurbs so the flavor matches how they now play — code, spec,
+  plan, and docs agree.
+- **Cautious means standing earlier, not conceding.** "Won't over-hit into an
+  avoidable bust" is delivered by a lower effective threshold (it stops building
+  its own hand sooner); behind a *stood* player it still chases, because
+  conceding a winnable round would read as a broken opponent, not a cautious one.
+
 ## Explicitly deferred out of v1
 
 - **Full side-deck customization** (building your own 10-card deck from a

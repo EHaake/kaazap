@@ -106,6 +106,22 @@ of, not guessed at here in advance.
   amended for a bounded ambient backdrop, `design/brief.md`). The map is `const`
   data, so more worlds are a one-entry-each addition, gated only on roster
   growth (below).
+- **Smarter / board-aware opponent AI** (spec 010) — opponents now **read the
+  player's board** instead of playing solitaire to a private threshold. Once you
+  stand, the opponent plays to beat your final total: stands the moment it's
+  ahead (the headline fix — it used to grind its threshold and could bust a won
+  round), plays a hand card that lands a winning total when behind, hits to chase
+  otherwise, and resolves ties by the lone-tiebreaker rule. Each opponent gains
+  an **`AiStrategy`** archetype (Basic / Aggressive / Cautious / Calculating —
+  the ±1 threshold shifters, the min/max winning-total pickers, and the
+  Calculating **tiebreaker tie-steal**) plus a per-turn **misplay rate** (the
+  rookie slips ¼ of the time, the Master never). The decision fn stays the
+  **deterministic core** (unit-tested against both boards); randomness is a thin,
+  seam-tested `opponent_action(roll)` wrapper. No engine plumbing and no save
+  change — the decision fn already had the whole `GameState`, and strategy is
+  `Copy` const data on `OpponentProfile` (rebuilt from the saved id). Roster +
+  strategies documented in `docs/opponents.md`; the spec-007 upgrade path held
+  with no rework.
 
 ## Backlog
 
@@ -167,30 +183,16 @@ Cross-cutting, not their own specs: a **balance/tuning pass** once
 progression exists (playtest-heavy, iterative), and **profile-save migration
 discipline** as the schema grows (reuse spec 005's versioning).
 
-- **Smarter / board-aware opponent AI** (builds on spec 007's roster) — 007's
-  AI is deliberately minimal: deterministic, plays only its own hand, and
-  personality is a per-opponent `stand_threshold` + side deck. A later spec can
-  make opponents **board-aware** (e.g. stand once safely ahead of the player's
-  visible total, vary aggression by position) and give signature/boss
-  opponents **bespoke strategies**. The 007 design accommodates this **without
-  rework** — captured now so the upgrade path isn't rediscovered later:
-  - `decide_opponent_move(&self)` already has the whole `GameState` in scope,
-    so `self.player`'s board is reachable with **no plumbing** to add; turns
-    alternate one action at a time, so the player's current board is visible at
-    decision time (exactly what positional play needs).
-  - Personality lives entirely in `OpponentProfile`: grow it with a behavior
-    flag or two, an `AiStrategy` enum the decision fn matches on, or even a
-    `decide: fn(&GameState) -> OpponentAction` per profile — all `Copy` /
-    const-roster-friendly.
-  - The **stable seam** is `decide_opponent_move -> OpponentAction`; its caller
-    (`play_opponent_turn`) and the action type don't change as the brain grows.
-  - **No save change** — the save persists the opponent *id* and rebuilds the
-    profile from code, so richer profiles resume for free.
-  - The one concrete addition: a test helper that sets **both** boards (today's
-    `opponent_at` sets only the opponent's).
-  - Deferred on purpose: adding empty strategy scaffolding in 007 would be
-    speculative generality (see `CLAUDE.md` → Simplicity); the extension is
-    cheap when actually wanted.
+- **Smarter / board-aware opponent AI** — ✅ **Shipped (spec 010** — see Shipped
+  above and `docs/opponents.md`). Opponents read the player's board and play to
+  win the round, each with an `AiStrategy` archetype + a per-turn misplay rate,
+  over a deterministic, unit-tested decision core with a seam-tested randomness
+  wrapper. The spec-007 upgrade path held exactly as it had been captured here —
+  `decide_opponent_move` already had the whole `GameState`, personality lives on
+  `OpponentProfile`, the `decide_opponent_move -> OpponentAction` seam and its
+  caller were unchanged, and the save (opponent id only) needed no change — so it
+  shipped with **no rework**, plus the one anticipated test helper that seeds
+  both boards (`board_at`).
 
 - **Two-panel "briefcase" deck-builder** (builds on spec 008's subsystem B) —
   008's builder is a single grid of owned cards with in-deck/owned count
@@ -216,10 +218,10 @@ discipline** as the schema grows (reuse spec 005's versioning).
 - **Difficulty setting** (easy / normal / hard) — a global option (in the
   Settings overlay) that nudges how sharply opponents play and/or the player's
   starting resources. Widens the audience for a public / itch.io release at low
-  cost. Most meaningful **after** the board-aware AI lands — difficulty then
-  means how hard the opponents actually *think* (see "Smarter / board-aware
-  opponent AI" above); until then it can only scale the stand thresholds.
-  Suggested during the post-spec-009 review.
+  cost. **Now unblocked:** the board-aware AI shipped (spec 010), so difficulty
+  can scale how well opponents actually *think* — e.g. globally nudging the
+  misplay rate and/or the effective threshold, not merely the raw stand
+  thresholds. Suggested during the post-spec-009 review.
 - **Play log / move history** — a running record of every move both
   players make during a game (dealer draws, cards played with their
   chosen sign, flips, stands, busts, round outcomes), shown as it
