@@ -132,8 +132,10 @@ fn dims(frame: &Frame) -> (usize, usize) {
     }
 }
 
-/// Clip-safe single-cell write: silently drops out-of-bounds writes.
-fn put(frame: &mut Frame, x: usize, y: usize, ch: char, emphasis: Emphasis) {
+/// Clip-safe single-cell write: sets one cell's glyph + emphasis, silently
+/// dropping an out-of-bounds position. The non-allocating way to place a single
+/// character (vs. `draw_text` with a one-char string).
+pub fn draw_char(frame: &mut Frame, x: usize, y: usize, ch: char, emphasis: Emphasis) {
     let (w, h) = dims(frame);
     if x < w && y < h {
         frame[x][y] = Cell { ch, emphasis };
@@ -150,7 +152,7 @@ pub fn draw_text(frame: &mut Frame, x: usize, y: usize, text: &str, emphasis: Em
         if cx >= w {
             break;
         }
-        put(frame, cx, y, ch, emphasis);
+        draw_char(frame, cx, y, ch, emphasis);
     }
 }
 
@@ -183,6 +185,15 @@ pub fn draw_text_in(
     draw_text(frame, x, rect.y0 + row, &clipped, emphasis);
 }
 
+/// Draw `text` centered on column `cx` (point-centering, saturating so a long
+/// string near the left edge clamps rather than underflows). The
+/// column-centered counterpart to [`draw_text_in`]'s rect-centering — the one
+/// the screens reach for when centering a line on a layout's center column.
+pub fn draw_text_centered(frame: &mut Frame, cx: usize, y: usize, text: &str, emphasis: Emphasis) {
+    let x = cx.saturating_sub(text.chars().count() / 2);
+    draw_text(frame, x, y, text, emphasis);
+}
+
 /// Draw a border box on `rect`'s perimeter with the given weight and
 /// emphasis. Perimeter only — interior is the caller's to fill. Clip-safe.
 pub fn draw_box(frame: &mut Frame, rect: Rect, weight: BorderWeight, emphasis: Emphasis) {
@@ -193,10 +204,10 @@ pub fn draw_box(frame: &mut Frame, rect: Rect, weight: BorderWeight, emphasis: E
 /// marker for a reserved-but-unfilled slot (a full dashed box read too
 /// heavy). Always Muted so it reads as absent, not a card. Clip-safe.
 pub fn draw_ghost_slot(frame: &mut Frame, rect: Rect) {
-    put(frame, rect.x0, rect.y0, '┌', Emphasis::Muted);
-    put(frame, rect.x1, rect.y0, '┐', Emphasis::Muted);
-    put(frame, rect.x0, rect.y1, '└', Emphasis::Muted);
-    put(frame, rect.x1, rect.y1, '┘', Emphasis::Muted);
+    draw_char(frame, rect.x0, rect.y0, '┌', Emphasis::Muted);
+    draw_char(frame, rect.x1, rect.y0, '┐', Emphasis::Muted);
+    draw_char(frame, rect.x0, rect.y1, '└', Emphasis::Muted);
+    draw_char(frame, rect.x1, rect.y1, '┘', Emphasis::Muted);
 }
 
 /// Blank a rectangular region back to default cells (space, Normal).
@@ -217,18 +228,18 @@ pub fn clear_rect(frame: &mut Frame, rect: Rect) {
 /// Shared perimeter drawer: corners drawn last so they win at overlaps.
 fn draw_box_glyphs(frame: &mut Frame, rect: Rect, g: BoxGlyphs, emphasis: Emphasis) {
     for x in rect.x0..=rect.x1 {
-        put(frame, x, rect.y0, g.horiz, emphasis);
-        put(frame, x, rect.y1, g.horiz, emphasis);
+        draw_char(frame, x, rect.y0, g.horiz, emphasis);
+        draw_char(frame, x, rect.y1, g.horiz, emphasis);
     }
     for y in rect.y0..=rect.y1 {
-        put(frame, rect.x0, y, g.vert, emphasis);
-        put(frame, rect.x1, y, g.vert, emphasis);
+        draw_char(frame, rect.x0, y, g.vert, emphasis);
+        draw_char(frame, rect.x1, y, g.vert, emphasis);
     }
 
-    put(frame, rect.x0, rect.y0, g.tl, emphasis);
-    put(frame, rect.x1, rect.y0, g.tr, emphasis);
-    put(frame, rect.x0, rect.y1, g.bl, emphasis);
-    put(frame, rect.x1, rect.y1, g.br, emphasis);
+    draw_char(frame, rect.x0, rect.y0, g.tl, emphasis);
+    draw_char(frame, rect.x1, rect.y0, g.tr, emphasis);
+    draw_char(frame, rect.x0, rect.y1, g.bl, emphasis);
+    draw_char(frame, rect.x1, rect.y1, g.br, emphasis);
 }
 
 #[cfg(test)]

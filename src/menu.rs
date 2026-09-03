@@ -2,7 +2,12 @@ use crossterm::event::KeyCode;
 
 use std::fmt;
 
-use crate::{TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text}, layout::MenuLayout};
+use crate::{
+    TITLE_X_OFFSET,
+    config::Config,
+    frame::{Emphasis, Frame, draw_text, draw_text_centered},
+    layout::MenuLayout,
+};
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
@@ -129,8 +134,7 @@ impl MenuState {
                 (menu_item.to_string(), Emphasis::Normal)
             };
 
-            let x = layout.center_x - text.chars().count() / 2;
-            draw_text(frame, x, y, &text, emphasis);
+            draw_text_centered(frame, layout.center_x, y, &text, emphasis);
 
             y += layout.item_spacing;
         }

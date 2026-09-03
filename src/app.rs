@@ -11,7 +11,10 @@ use crate::{
     card::Card,
     config::Config,
     deck_builder::{BuildOutcome, DeckBuilderState},
-    frame::{Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_in},
+    frame::{
+        Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_centered,
+        draw_text_in,
+    },
     game::{GameAction, GamePhase, GameState},
     layout::OverlayLayout,
     menu::{MenuAction, MenuEvent, MenuItem, MenuState},
@@ -177,9 +180,8 @@ fn draw_too_small(frame: &mut Frame, cols: usize, rows: usize) {
     let mid_y = frame.first().map_or(0, Vec::len) / 2;
 
     for (i, line) in lines.iter().enumerate() {
-        let x = mid_x.saturating_sub(line.chars().count() / 2);
         let y = (mid_y + i).saturating_sub(1);
-        draw_text(frame, x, y, line, Emphasis::Alert);
+        draw_text_centered(frame, mid_x, y, line, Emphasis::Alert);
     }
 }
 
