@@ -212,17 +212,15 @@ mod tests {
         use crate::campaign::planet_by_id;
         let mut p = Profile::default();
         p.campaign_mut().mark_beaten("cinder", "greeb");
-        p.campaign_mut().set_current("ashfall");
         let json = serde_json::to_string(&p).unwrap();
         let p2 = Profile::from_json(&json).expect("a valid profile loads");
         assert!(p2.campaign().planet_cleared(&planet_by_id("cinder").unwrap()));
-        assert_eq!(p2.campaign().current(), Some("ashfall"));
 
         // A pre-009 profile (no `campaign` field) loads with a fresh empty run.
         let older = r#"{"version":1,"collection":[],"deck":[]}"#;
         let p3 = Profile::from_json(older).expect("an older profile still loads");
-        assert!(p3.campaign().current().is_none());
         assert!(!p3.campaign().run_complete());
+        assert!(!p3.campaign().planet_cleared(&planet_by_id("cinder").unwrap()));
     }
 
     #[test]

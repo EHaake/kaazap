@@ -79,19 +79,14 @@ pub struct CampaignMapState {
 }
 
 impl CampaignMapState {
-    /// Open the map with the cursor on a sensible starting planet: the profile's
-    /// remembered planet if still unlocked, else the first unlocked planet that
-    /// still has an opponent to play, else the first unlocked planet.
+    /// Open the map with the cursor on the first unlocked planet that still has
+    /// an opponent to play (the natural "next" node), falling back to the first
+    /// unlocked planet.
     pub fn new(profile: &Profile) -> Self {
         let run = profile.campaign();
-        let cursor = run
-            .current()
-            .and_then(|id| PLANETS.iter().position(|p| p.id == id && run.planet_unlocked(p)))
-            .or_else(|| {
-                PLANETS
-                    .iter()
-                    .position(|p| run.planet_unlocked(p) && !run.planet_cleared(p))
-            })
+        let cursor = PLANETS
+            .iter()
+            .position(|p| run.planet_unlocked(p) && !run.planet_cleared(p))
             .or_else(|| PLANETS.iter().position(|p| run.planet_unlocked(p)))
             .unwrap_or(0);
         Self { cursor, stars: Starfield::new() }
@@ -124,12 +119,10 @@ impl CampaignMapState {
 
         match key {
             KeyCode::Up | KeyCode::Left | KeyCode::Char('w') | KeyCode::Char('a') => {
-                self.cursor = unlocked[(pos + n - 1) % n];
-                Some(MapOutcome::Moved)
+                self.step(unlocked[(pos + n - 1) % n])
             }
             KeyCode::Down | KeyCode::Right | KeyCode::Char('s') | KeyCode::Char('d') => {
-                self.cursor = unlocked[(pos + 1) % n];
-                Some(MapOutcome::Moved)
+                self.step(unlocked[(pos + 1) % n])
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
                 let planet = PLANETS[self.cursor];
@@ -142,10 +135,14 @@ impl CampaignMapState {
         }
     }
 
-    /// The planet id currently under the cursor — the app persists it as the
-    /// run's remembered planet.
-    pub fn cursor_planet(&self) -> &'static str {
-        PLANETS[self.cursor].id
+    /// Move the cursor to `target`, returning `Moved` only if it actually
+    /// changed — so a single-unlocked-planet map doesn't play a move cue on a
+    /// no-op wrap.
+    fn step(&mut self, target: usize) -> Option<MapOutcome> {
+        (target != self.cursor).then(|| {
+            self.cursor = target;
+            MapOutcome::Moved
+        })
     }
 
     /// Draw the whole map: starfield, routes, nodes, header, and info panel.

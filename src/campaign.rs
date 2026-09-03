@@ -99,15 +99,13 @@ pub struct NodeRef {
 }
 
 /// The player's campaign progress: which opponents are beaten on each planet,
-/// the last-highlighted planet (for cursor restore), and the campaign match in
-/// flight (if any). Everything else — cleared / unlocked / next opponent — is
-/// derived from `beaten` + [`PLANETS`], never stored, so it can't drift.
+/// and the campaign match in flight (if any). Everything else — cleared /
+/// unlocked / next opponent — is derived from `beaten` + [`PLANETS`], never
+/// stored, so it can't drift.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct CampaignRun {
     #[serde(default)]
     beaten: BTreeMap<String, Vec<String>>,
-    #[serde(default)]
-    current: Option<String>,
     #[serde(default)]
     in_progress: Option<NodeRef>,
 }
@@ -159,15 +157,6 @@ impl CampaignRun {
     /// The whole run is complete once every planet is cleared.
     pub fn run_complete(&self) -> bool {
         PLANETS.iter().all(|p| self.planet_cleared(p))
-    }
-
-    /// The last-highlighted planet, for restoring the map cursor.
-    pub fn current(&self) -> Option<&str> {
-        self.current.as_deref()
-    }
-
-    pub fn set_current(&mut self, planet: &str) {
-        self.current = Some(planet.to_string());
     }
 
     /// The campaign match currently in flight, if any.
