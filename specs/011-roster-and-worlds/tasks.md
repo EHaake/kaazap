@@ -10,7 +10,7 @@ Branch `011-roster-and-worlds` created with the spec/plan/tasks. Plan:
 
 ---
 
-- [ ] **T001 — Roster expansion (5 → 10 opponents)**
+- [x] **T001 — Roster expansion (5 → 10 opponents)**
   Add five `OPPONENTS` entries in `src/opponent.rs` — `dax` (15, Aggressive),
   `nima` (16, Cautious), `brakka` (17, Aggressive), `kesh` (18, Aggressive),
   `sovereign` (19, Calculating, misplay 0, the final boss) — each with an
