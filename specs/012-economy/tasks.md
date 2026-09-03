@@ -28,7 +28,7 @@ Branch `012-economy` created with the spec/plan/tasks. Plan:
   and stays ⊆ the universe; prices > 0; `win_reward` is deterministic given `roll`;
   `cargo build` clean.*
 
-- [ ] **T003 — Win rewards + map reveal**
+- [x] **T003 — Win rewards + map reveal**
   Hang the reward on the once-per-win seam (`src/app.rs:832-839`): earn credits +
   drop a card from `available_pool`, store `last_reward`, save. Show the credit
   balance in the campaign-map header and the reward line on return from a win

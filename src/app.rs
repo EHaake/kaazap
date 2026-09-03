@@ -11,6 +11,7 @@ use crate::{
     card::Card,
     config::Config,
     deck_builder::{BuildOutcome, DeckBuilderState},
+    economy::{self, WinReward},
     frame::{
         Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_centered,
         draw_text_in,
@@ -277,6 +278,10 @@ pub struct App {
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
+    // The reward from the most recent campaign win, shown as a banner on the
+    // campaign map until the player navigates. Transient UI state — not saved
+    // (the credits and dropped card it reports are already persisted).
+    last_reward: Option<WinReward>,
 }
 
 impl App {
@@ -298,6 +303,7 @@ impl App {
             profile,
             prev_audio: None,
             too_small: None,
+            last_reward: None,
         }
     }
 
@@ -614,21 +620,29 @@ impl App {
                 // match against a planet's next opponent, or back out. (T002
                 // launches the match; the campaign progress spine — the
                 // in-progress pointer and the win seam — arrives in T003.)
-                Screen::CampaignMap { state } => match state.handle_input(key, &self.profile) {
-                    Some(MapOutcome::Moved) => self.audio.play(Sfx::MenuMove),
-                    Some(MapOutcome::Launch { planet, opponent }) => {
-                        // No save-guard here: entering the campaign already
-                        // discarded any saved match (the prompt lives at entry),
-                        // so a launch from the map never has one to overwrite.
-                        self.audio.play(Sfx::MenuSelect);
-                        self.launch_campaign_node(planet, opponent);
+                Screen::CampaignMap { state } => {
+                    let outcome = state.handle_input(key, &self.profile);
+                    // The post-win reward banner shows on arrival and clears on
+                    // the player's first navigation.
+                    if outcome.is_some() {
+                        self.last_reward = None;
                     }
-                    Some(MapOutcome::Back) => {
-                        self.audio.play(Sfx::MenuBack);
-                        self.screen = self.start_menu();
+                    match outcome {
+                        Some(MapOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                        Some(MapOutcome::Launch { planet, opponent }) => {
+                            // No save-guard here: entering the campaign already
+                            // discarded any saved match (the prompt lives at
+                            // entry), so a launch from the map never overwrites one.
+                            self.audio.play(Sfx::MenuSelect);
+                            self.launch_campaign_node(planet, opponent);
+                        }
+                        Some(MapOutcome::Back) => {
+                            self.audio.play(Sfx::MenuBack);
+                            self.screen = self.start_menu();
+                        }
+                        None => {}
                     }
-                    None => {}
-                },
+                }
             }
 
             if game_changed {
@@ -835,6 +849,21 @@ impl App {
             && !self.profile.campaign().is_opponent_beaten(&node.planet, &node.opponent)
         {
             self.profile.campaign_mut().mark_beaten(&node.planet, &node.opponent);
+
+            // Economy (spec 012): award credits scaled by the opponent's
+            // difficulty and drop one card from the current depth-gated pool.
+            // This block fires exactly once per node, so the reward is granted
+            // once; Quick Play has no `in_progress`, so it never reaches here —
+            // earning is campaign-only by construction. `available_pool` is
+            // always non-empty (the Outer tier is always unlocked).
+            let threshold =
+                opponent_by_id(&node.opponent).map_or(crate::STAND_THRESHOLD, |o| o.stand_threshold);
+            let pool = economy::available_pool(self.profile.campaign());
+            let reward = economy::win_reward(threshold, &pool, rand::random_range(0..pool.len()));
+            self.profile.earn_credits(reward.credits);
+            self.profile.grant_card(reward.card);
+            self.last_reward = Some(reward);
+
             self.profile.save();
         }
 
@@ -857,7 +886,9 @@ impl App {
             }
             Screen::OpponentSelect { state } => state.draw(frame, &self.config, pulse),
             Screen::DeckBuilder { state } => state.draw(frame, &self.config, &self.profile, pulse),
-            Screen::CampaignMap { state } => state.draw(frame, &self.config, &self.profile, pulse),
+            Screen::CampaignMap { state } => {
+                state.draw(frame, &self.config, &self.profile, self.last_reward.as_ref(), pulse)
+            }
         }
 
         // The one open modal draws over the screen.
