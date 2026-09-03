@@ -6,6 +6,7 @@ use crate::{
     SELECTION_PULSE_MS,
     audio::{Audio, AudioSnapshot, Sfx, audio_cues},
     board::BoardView,
+    campaign_map::{CampaignMapState, MapOutcome},
     card::Card,
     config::Config,
     deck_builder::{BuildOutcome, DeckBuilderState},
@@ -13,7 +14,7 @@ use crate::{
     game::{GameAction, GamePhase, GameState},
     layout::OverlayLayout,
     menu::{MenuAction, MenuEvent, MenuItem, MenuState},
-    opponent::OpponentProfile,
+    opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
     overlay::{Overlay, OverlayKind},
     profile::Profile,
@@ -327,6 +328,14 @@ impl App {
         };
     }
 
+    /// Open the campaign map at the run's saved position (from the menu's Start
+    /// Campaign item). Non-destructive — it never disturbs an in-progress match.
+    fn open_campaign_map(&mut self) {
+        self.screen = Screen::CampaignMap {
+            state: CampaignMapState::new(&self.profile),
+        };
+    }
+
     /// Begin a fresh match against `opponent`, dealing the player's hand from
     /// the profile's built deck, replacing any current match and persisting it.
     ///
@@ -434,7 +443,9 @@ impl App {
                     }
                     // The select and deck-builder screens carry their own
                     // on-screen hint lines, so ? opens no overlay there.
-                    Screen::OpponentSelect { .. } | Screen::DeckBuilder { .. } => None,
+                    Screen::OpponentSelect { .. }
+                    | Screen::DeckBuilder { .. }
+                    | Screen::CampaignMap { .. } => None,
                 };
             }
 
@@ -535,6 +546,25 @@ impl App {
                         }
                     }
                     Some(BuildOutcome::Back) => {
+                        self.audio.play(Sfx::MenuBack);
+                        self.screen = self.start_menu();
+                    }
+                    None => {}
+                },
+
+                // The campaign map: travel between unlocked planets, launch a
+                // match against a planet's next opponent, or back out. (T002
+                // launches the match; the campaign progress spine — the
+                // in-progress pointer and the win seam — arrives in T003.)
+                Screen::CampaignMap { state } => match state.handle_input(key, &self.profile) {
+                    Some(MapOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                    Some(MapOutcome::Launch { opponent, .. }) => {
+                        if let Some(opp) = opponent_by_id(opponent) {
+                            self.audio.play(Sfx::MenuSelect);
+                            self.start_match(opp);
+                        }
+                    }
+                    Some(MapOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
                         self.screen = self.start_menu();
                     }
@@ -659,7 +689,8 @@ impl App {
                     self.prev_audio = None;
                 }
             }
-            MenuItem::StartGame => {
+            MenuItem::StartCampaign => self.open_campaign_map(),
+            MenuItem::QuickPlay => {
                 if self.has_save {
                     // Starting fresh would discard the saved match — confirm.
                     self.modal = Some(Modal::ConfirmNewGame { on_yes: false });
@@ -696,6 +727,12 @@ impl App {
             phase_changed = std::mem::discriminant(&game_state.game_phase) != before;
         }
 
+        // Advance the campaign map's starfield twinkle — its own slow clock,
+        // separate from the selection pulse (per the amended Motion rule).
+        if let Screen::CampaignMap { state } = &mut self.screen {
+            state.tick(dt);
+        }
+
         // A phase change means the opponent moved or the round/game resolved
         // — persist the new position (save clears the file on GameOver).
         if phase_changed {
@@ -721,6 +758,7 @@ impl App {
             }
             Screen::OpponentSelect { state } => state.draw(frame, &self.config, pulse),
             Screen::DeckBuilder { state } => state.draw(frame, &self.config, &self.profile, pulse),
+            Screen::CampaignMap { state } => state.draw(frame, &self.config, &self.profile, pulse),
         }
 
         // The one open modal draws over the screen.

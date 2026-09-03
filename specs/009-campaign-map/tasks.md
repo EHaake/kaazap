@@ -27,7 +27,7 @@ Branch `009-campaign-map` created with the spec/plan/tasks. Plan:
   after Cinder, Spindle after both); `run_complete`; profile campaign
   round-trip; a pre-009 profile loads a default run.*
 
-- [ ] **T002 — Full-screen map screen + menu front door**
+- [x] **T002 — Full-screen map screen + menu front door**
   New `src/campaign_map.rs` (`CampaignMapState`, `MapOutcome`, `handle_input`
   over unlocked planets, `tick(dt)` starfield, `draw` — header, node scatter +
   routes, twinkling starfield, bottom info panel); `CampaignMapLayout` in

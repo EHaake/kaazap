@@ -7,7 +7,8 @@ use crate::{TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text},
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum MenuItem {
     Continue,
-    StartGame,
+    StartCampaign,
+    QuickPlay,
     SideDeck,
     HowToPlay,
     Settings,
@@ -47,7 +48,8 @@ impl MenuState {
             items.push(MenuItem::Continue);
         }
         items.extend([
-            MenuItem::StartGame,
+            MenuItem::StartCampaign,
+            MenuItem::QuickPlay,
             MenuItem::SideDeck,
             MenuItem::HowToPlay,
             MenuItem::Settings,
@@ -160,10 +162,12 @@ mod tests {
     }
 
     #[test]
-    fn menu_without_a_save_omits_continue_and_wraps_over_four() {
+    fn menu_without_a_save_omits_continue_and_wraps_over_five() {
         let mut m = MenuState::new(false);
-        assert_eq!(m.items.len(), 4);
-        assert_eq!(selected(&m), MenuItem::StartGame); // default at the top
+        assert_eq!(m.items.len(), 5);
+        assert_eq!(selected(&m), MenuItem::StartCampaign); // default at the top
+        m.move_selection(1);
+        assert_eq!(selected(&m), MenuItem::QuickPlay);
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::SideDeck);
         m.move_selection(1);
@@ -171,23 +175,22 @@ mod tests {
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::Settings);
         m.move_selection(1); // wraps to the top
-        assert_eq!(selected(&m), MenuItem::StartGame);
+        assert_eq!(selected(&m), MenuItem::StartCampaign);
         m.move_selection(-1); // wraps backward to the bottom
         assert_eq!(selected(&m), MenuItem::Settings);
     }
 
     #[test]
-    fn menu_with_a_save_leads_with_continue_and_wraps_over_five() {
+    fn menu_with_a_save_leads_with_continue_and_wraps_over_six() {
         let mut m = MenuState::new(true);
-        assert_eq!(m.items.len(), 5);
+        assert_eq!(m.items.len(), 6);
         assert_eq!(selected(&m), MenuItem::Continue); // default for a returning player
         m.move_selection(-1); // wraps backward to the bottom
         assert_eq!(selected(&m), MenuItem::Settings);
         m.move_selection(1); // back to the top
         assert_eq!(selected(&m), MenuItem::Continue);
-        m.move_selection(1); // Continue → Start Game → Side Deck
-        m.move_selection(1);
-        assert_eq!(selected(&m), MenuItem::SideDeck);
+        m.move_selection(1); // Continue → Start Campaign
+        assert_eq!(selected(&m), MenuItem::StartCampaign);
     }
 }
 
@@ -197,7 +200,8 @@ impl fmt::Display for MenuItem {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             MenuItem::Continue => write!(f, "Continue"),
-            MenuItem::StartGame => write!(f, "Start Game"),
+            MenuItem::StartCampaign => write!(f, "Start Campaign"),
+            MenuItem::QuickPlay => write!(f, "Quick Play"),
             MenuItem::SideDeck => write!(f, "Side Deck"),
             MenuItem::HowToPlay => write!(f, "How To Play"),
             MenuItem::Settings => write!(f, "Settings"),

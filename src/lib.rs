@@ -10,6 +10,7 @@ pub mod opponent;
 pub mod opponent_select;
 pub mod deck_builder;
 pub mod campaign;
+pub mod campaign_map;
 pub mod screen;
 pub mod menu;
 pub mod overlay;
@@ -52,6 +53,11 @@ pub const GAME_LOOP_SLEEP_MS: u64 = 50;
 
 // Selection pulse cadence (shared by menu and board selection)
 pub const SELECTION_PULSE_MS: u64 = 500;
+
+// Campaign-map starfield twinkle period, per star. Deliberately slower than the
+// selection pulse so the ambient backdrop reads as depth, not a synchronized
+// blink (see design/brief.md's Motion amendment).
+pub const STARFIELD_TWINKLE_MS: u64 = 3000;
 
 // Opponent thinking time
 pub const OPPONENT_THINKING_TIME_MS: u64 = 1000;
