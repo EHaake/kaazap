@@ -448,6 +448,15 @@ mod tests {
                     let overlap = a.lx0 <= b.lx1 && b.lx0 <= a.lx1;
                     assert!(!overlap, "{} and {} labels overlap on row {}", a.id, b.id, a.ly);
                 }
+                // A label must not land on another planet's node glyph (a label
+                // sits one row below its own node, so this only bites cross-pairs
+                // whose rows happen to coincide).
+                if a.ly == b.y {
+                    assert!(!(a.lx0 <= b.x && b.x <= a.lx1), "{}'s label covers {}'s node", a.id, b.id);
+                }
+                if b.ly == a.y {
+                    assert!(!(b.lx0 <= a.x && a.x <= b.lx1), "{}'s label covers {}'s node", b.id, a.id);
+                }
             }
         }
     }

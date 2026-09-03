@@ -367,4 +367,54 @@ mod tests {
             "every planet must be reachable via a valid clear order"
         );
     }
+
+    #[test]
+    fn every_roster_opponent_appears_on_exactly_one_planet() {
+        use crate::opponent::OPPONENTS;
+        let appearances: Vec<&str> = PLANETS
+            .iter()
+            .flat_map(|p| p.opponents.iter().copied())
+            .collect();
+        // No opponent is stranded (on no planet, unplayable) or double-booked...
+        for o in OPPONENTS {
+            let count = appearances.iter().filter(|a| **a == o.id).count();
+            assert_eq!(count, 1, "{} should appear on exactly one planet, found {count}", o.id);
+        }
+        // ...and the map references nothing outside the roster.
+        assert_eq!(
+            appearances.len(),
+            OPPONENTS.len(),
+            "the map references a non-roster or duplicate opponent"
+        );
+    }
+
+    #[test]
+    fn difficulty_is_monotonic_along_every_edge() {
+        use crate::opponent::opponent_by_id;
+        // (min, max) stand threshold among a planet's opponents.
+        let bounds = |p: &Planet| -> (usize, usize) {
+            let ts: Vec<usize> = p
+                .opponents
+                .iter()
+                .map(|o| opponent_by_id(o).unwrap().stand_threshold)
+                .collect();
+            (*ts.iter().min().unwrap(), *ts.iter().max().unwrap())
+        };
+        // For every requires-edge (predecessor → successor), the predecessor's
+        // hardest opponent is no harder than the successor's easiest — so
+        // difficulty never drops as you travel rim → core along any path.
+        for succ in PLANETS {
+            let (succ_min, _) = bounds(&succ);
+            for req in succ.requires {
+                let pred = planet_by_id(req).unwrap();
+                let (_, pred_max) = bounds(&pred);
+                assert!(
+                    pred_max <= succ_min,
+                    "{} (max threshold {pred_max}) is harder than its successor {} (min {succ_min})",
+                    pred.id,
+                    succ.id
+                );
+            }
+        }
+    }
 }

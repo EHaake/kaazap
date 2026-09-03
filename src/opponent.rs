@@ -404,5 +404,27 @@ mod tests {
                 .any(|c| c.playable_values().is_empty()),
             "guard assumes the Magistrate still carries dead flips to contrast against"
         );
+
+        // The real "at least as strong" property (not just "no flips"): every
+        // card the Magistrate can actually play, the boss holds at least as many
+        // of — its playable multiset dominates. A flip-free-but-weak deck (ten
+        // Minus(1)) would pass the checks above but fail this.
+        let playable = |o: &OpponentProfile| -> Vec<Card> {
+            o.side_deck
+                .iter()
+                .copied()
+                .filter(|c| !c.playable_values().is_empty())
+                .collect()
+        };
+        let boss_playable = playable(boss);
+        let mag_playable = playable(magistrate);
+        for card in &mag_playable {
+            let mag_count = mag_playable.iter().filter(|c| *c == card).count();
+            let boss_count = boss_playable.iter().filter(|c| *c == card).count();
+            assert!(
+                boss_count >= mag_count,
+                "boss has fewer playable {card:?} than the Magistrate ({boss_count} < {mag_count})"
+            );
+        }
     }
 }
