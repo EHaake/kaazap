@@ -104,7 +104,7 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         id: "vessa",
         name: "Vessa Korr",
         difficulty: "Scrapper",
-        blurb: "Plays the odds, rarely overreaches.",
+        blurb: "A scrapper who pushes hard — chases the win, risks the bust.",
         stand_threshold: 16,
         side_deck: &[
             Card::Plus(2),
@@ -118,7 +118,7 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
             Card::Plus(3),
             Card::Minus(3),
         ],
-        strategy: AiStrategy::Basic,
+        strategy: AiStrategy::Aggressive,
         misplay: 0.15,
     },
     OpponentProfile {
@@ -135,7 +135,7 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         id: "rix",
         name: "Rix Vandal",
         difficulty: "Ace",
-        blurb: "Aggressive — squeezes out every point.",
+        blurb: "An ace who counts every point — the exact play to edge you out.",
         stand_threshold: 18,
         side_deck: &[
             Card::PlusMinus(6),
@@ -149,7 +149,7 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
             Card::Flip(FlipKind::ThreeSix),
             Card::Tiebreaker,
         ],
-        strategy: AiStrategy::Aggressive,
+        strategy: AiStrategy::Calculating,
         misplay: 0.05,
     },
     OpponentProfile {

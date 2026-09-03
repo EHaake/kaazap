@@ -77,8 +77,9 @@ total, so it plays to its threshold as before — flavored by its strategy.
   it slips often. The opponent you learn to beat.
 - **Aggressive** (scrapper) — pushes for higher totals and chases hard, accepting
   bust risk.
-- **Cautious** (veteran) — stands earlier and only chases a stood player when it
-  can win *safely*; it won't over-hit into an avoidable bust.
+- **Cautious** (veteran) — stands earlier, so it stops building its own hand
+  before an avoidable bust; behind a stood player it still chases (hitting is its
+  only chance to win).
 - **Calculating** (ace / master) — targets the smallest total that beats you
   (minimizing bust risk) and uses the tiebreaker to steal a tie. The master is
   the flawless version of this.

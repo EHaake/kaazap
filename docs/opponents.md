@@ -80,10 +80,13 @@ opponent plays the decisions above:
   already beating a stood player). The baseline.
 - **Aggressive** — pushes one higher (effective threshold **+1**) and, when it
   can beat a stood player with a card, takes the **highest** safe total.
-- **Cautious** — stands one earlier (effective threshold **−1**); it only chases
-  a stood player when it can win, and won't over-hit into an avoidable bust.
+- **Cautious** — stands one earlier (effective threshold **−1**), so it stops
+  building its own hand before an avoidable bust; behind a *stood* player it
+  still chases (hitting is its only chance to win).
 - **Calculating** — targets the **minimal** safe winning total against a stood
-  player (least bust-adjacent) and plays the tiebreaker to steal a tie.
+  player (least bust-adjacent) and, uniquely, **plays the tiebreaker to steal a
+  tie** — landing exactly on your total while it alone holds a tiebreaker, a
+  guaranteed win the other archetypes leave on the table.
 
 **Misplay** is the per-turn chance (`0.0`–`1.0`) that the opponent makes a legal
 but suboptimal move instead of its best one — high for the rookie, ~0 for the
@@ -105,27 +108,28 @@ enforces the threshold ordering):
 | Opponent | `id` | Label | Threshold | Strategy | Misplay | Side deck (10 cards) |
 |---|---|---|---|---|---|---|
 | **Greeb** | `greeb` | Rookie | **15** | Basic | **0.25** | +1 +2 +3 −1 −2 −3 +1 −1 +2 −2 |
-| **Vessa Korr** | `vessa` | Scrapper | **16** | Basic | 0.15 | +2 +4 −2 −4 ±1 ±2 +1 −1 +3 −3 |
+| **Vessa Korr** | `vessa` | Scrapper | **16** | Aggressive | 0.15 | +2 +4 −2 −4 ±1 ±2 +1 −1 +3 −3 |
 | **Old Toran** | `toran` | Veteran | **17** | Cautious | 0.10 | +2 +4 −2 −4 ±1 ±3 ±6 2&4 3&6 ±1T |
-| **Rix Vandal** | `rix` | Ace | **18** | Aggressive | 0.05 | ±6 ±3 ±1 −4 −2 +4 +2 2&4 3&6 ±1T |
+| **Rix Vandal** | `rix` | Ace | **18** | Calculating | 0.05 | ±6 ±3 ±1 −4 −2 +4 +2 2&4 3&6 ±1T |
 | **The Magistrate** | `magistrate` | Master | **19** | Calculating | **0.0** | ±6 **±6** ±3 ±1 −4 **−4** −2 2&4 3&6 ±1T |
 
-What the gradient does (strategy assignments track each opponent's blurb):
+What the gradient does (each opponent's blurb reflects its strategy):
 
 - **Greeb** — threshold 15, **Basic**, and it slips a quarter of the time
   (misplay 0.25). A deck of only small plain +/− (no ±, no flips, **no
   tiebreaker**): stands early, can't reach 20 easily, can't win ties. The
   pushover you learn to beat.
-- **Vessa Korr** — a small step up: **Basic** but tighter (misplay 0.15), bigger
-  values (up to 4) and two ± cards, still no tiebreaker or flips. "Plays the
-  odds, rarely overreaches."
+- **Vessa Korr** — a step up: **Aggressive** (effective threshold 17; when she
+  can beat you with a card she pushes for the *highest* safe total), misplay
+  0.15, with bigger values (up to 4) and two ± cards — still no tiebreaker or
+  flips. A scrapper who pushes hard and busts for it.
 - **Old Toran** — the deck **baseline** (the standard side deck, identical to the
   player's), but **Cautious**: he stands a point early (effective 16) and errs
-  only 10% of the time. "Balanced and patient."
-- **Rix Vandal** — threshold 18 and **Aggressive** (effective 19; chases the
-  highest winning total), with a genuinely strong deck: full ± range, recovery
-  minuses, both flips, the tiebreaker. Errs rarely (0.05). "Squeezes out every
-  point."
+  only 10% of the time. Balanced and patient.
+- **Rix Vandal** — threshold 18 and **Calculating** (targets the *minimal* safe
+  winning total and steals ties with the tiebreaker), with a genuinely strong
+  deck: full ± range, recovery minuses, both flips, the tiebreaker. Errs rarely
+  (0.05). An ace who counts every point.
 - **The Magistrate** — threshold 19, **Calculating**, and **flawless** (misplay
   0.0): targets the minimal safe winning total, steals ties with the tiebreaker,
   and never slips. Its strongest deck — **doubled ±6 and −4** — means it usually

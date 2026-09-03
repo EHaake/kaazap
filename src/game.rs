@@ -466,12 +466,48 @@ impl GameState {
         if score == p && self.opponent_wins_tie() {
             return OpponentAction::Stand;
         }
-        // Behind (or a tie we'd lose): play a card that lands a winning total if
-        // we have one, otherwise hit to chase (standing behind is a sure loss).
+        // Behind (or a tie we'd lose): play a card that lands an outright
+        // winning total if we have one.
         if let Some((index, value)) = self.best_winning_play_vs(p) {
             return OpponentAction::PlayHand { index, value };
         }
+        // A Calculating opponent will also steal the round by landing exactly on
+        // the player's total with a tiebreaker it alone holds — a guaranteed
+        // win the other archetypes don't reach for.
+        if self.opponent_profile.strategy == AiStrategy::Calculating
+            && let Some((index, value)) = self.winning_tie_play_vs(p)
+        {
+            return OpponentAction::PlayHand { index, value };
+        }
+        // Otherwise hit to chase — standing behind is a sure loss.
         OpponentAction::Hit
+    }
+
+    /// A play landing exactly on the stood player's total `target` that leaves
+    /// the opponent *alone* holding a tiebreaker in play — a tie the opponent
+    /// wins per `finalize_round`. Impossible if the player holds a tiebreaker in
+    /// play (their tiebreaker cancels the steal). Only reached when no outright
+    /// winning play exists.
+    fn winning_tie_play_vs(&self, target: i32) -> Option<(usize, i8)> {
+        if self.player.has_tiebreaker_in_play() {
+            return None;
+        }
+        let score = self.opponent.score();
+        let already_has_tiebreaker = self.opponent.has_tiebreaker_in_play();
+        for (index, slot) in self.opponent.hand.iter().enumerate() {
+            let Some(card) = slot else { continue };
+            // After this play the opponent holds a tiebreaker iff it already did
+            // or the card it plays is the tiebreaker itself.
+            if !already_has_tiebreaker && !matches!(card, Card::Tiebreaker) {
+                continue;
+            }
+            for value in card.playable_values() {
+                if score + value as i32 == target {
+                    return Some((index, value));
+                }
+            }
+        }
+        None
     }
 
     /// Decide while the player is still **live** (no final target yet): play to
@@ -1089,19 +1125,26 @@ mod tests {
 
     #[test]
     fn full_match_terminates_within_bounded_updates() {
-        // Headless full match through the production loop: the player
-        // stands every turn; the opponent (incl. its over-20 recovery
-        // loop, the riskiest part of T008a) must drive every round to
-        // an end and the match to GameOver within a bounded number of
-        // steps — by instrumentation, not observation.
+        // Headless full match through the production loop. The player hits
+        // toward 17 and then stands, so the opponent faces a *live* player
+        // (exercising its threshold climb and the over-20 recovery loop, the
+        // riskiest part of T008a) and then a *stood* one (the board-aware
+        // close-out). The match must reach GameOver within a bounded number of
+        // steps — verified by instrumentation, not observation.
         let mut gs = GameState::new();
         let mut finished = false;
 
-        for _ in 0..500 {
+        for _ in 0..1000 {
             match gs.game_phase {
-                GamePhase::PlayerTurn => gs.apply_game_action(GameAction::Stand),
+                GamePhase::PlayerTurn => {
+                    if gs.player.score() < 17 {
+                        gs.apply_game_action(GameAction::Hit);
+                    } else {
+                        gs.apply_game_action(GameAction::Stand);
+                    }
+                }
                 GamePhase::AwaitingSignChoice { .. } => {
-                    unreachable!("standing player never opens the sign prompt")
+                    unreachable!("a hitting/standing player never opens the sign prompt")
                 }
                 // Skip the wall-clock thinking delay
                 GamePhase::OpponentThinking { .. } => gs.game_phase = GamePhase::OpponentTurn,
@@ -1114,8 +1157,49 @@ mod tests {
             }
         }
 
-        assert!(finished, "match did not reach GameOver in 500 steps");
+        assert!(finished, "match did not reach GameOver in 1000 steps");
         assert!(gs.player.rounds_won == 3 || gs.opponent.rounds_won == 3);
+    }
+
+    #[test]
+    fn full_match_terminates_with_a_maximally_misplaying_opponent() {
+        // S3: drive the misplay seam end-to-end. An opponent at misplay 1.0
+        // deviates on *every* decision — including Stand→Hit while over 20,
+        // which re-enters OpponentThinking. The turn must still terminate
+        // (each hit adds a table card, bounded by MAX_TABLE_CARDS, then
+        // table_full forces Stand) with no illegal 13th card and no hang.
+        let mut gs = GameState::with_opponent(
+            OpponentProfile { misplay: 1.0, ..DEFAULT_OPPONENT },
+            DEFAULT_SIDE_DECK.to_vec(),
+        );
+        let mut finished = false;
+
+        for _ in 0..2000 {
+            match gs.game_phase {
+                GamePhase::PlayerTurn => {
+                    if gs.player.score() < 17 {
+                        gs.apply_game_action(GameAction::Hit);
+                    } else {
+                        gs.apply_game_action(GameAction::Stand);
+                    }
+                }
+                GamePhase::AwaitingSignChoice { .. } => {
+                    unreachable!("a hitting/standing player never opens the sign prompt")
+                }
+                GamePhase::OpponentThinking { .. } => gs.game_phase = GamePhase::OpponentTurn,
+                GamePhase::OpponentTurn | GamePhase::RoundEnd => gs.update(),
+                GamePhase::AwaitingNextRound => gs.apply_game_action(GameAction::NextRound),
+                GamePhase::GameOver { .. } => {
+                    finished = true;
+                    break;
+                }
+            }
+            // No side ever exceeds the table cap, even mid-turn.
+            assert!(gs.opponent.table_card_count() <= MAX_TABLE_CARDS);
+            assert!(gs.player.table_card_count() <= MAX_TABLE_CARDS);
+        }
+
+        assert!(finished, "misplaying match did not reach GameOver in 2000 steps");
     }
 
     /// An opponent sitting on `dealer_total` (split into valid 0-10
@@ -1301,6 +1385,38 @@ mod tests {
             OpponentAction::PlayHand { index: 1, value: 5 },
             "Aggressive pushes the highest safe win"
         );
+    }
+
+    #[test]
+    fn ai_calculating_steals_a_tie_with_the_tiebreaker() {
+        // At 17 vs a stood 18, holding only the tiebreaker: no card lands an
+        // outright win (18 isn't > 18), but playing the tiebreaker as +1 lands
+        // exactly on 18 — a tie the opponent alone wins. Calculating takes it.
+        let mut gs = board_at(18, true, 17, vec![Card::Tiebreaker]);
+        gs.opponent_profile = OpponentProfile { strategy: AiStrategy::Calculating, ..DEFAULT_OPPONENT };
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 1 }
+        );
+
+        // The other archetypes don't reach for the steal — they just hit.
+        for strategy in [AiStrategy::Basic, AiStrategy::Aggressive, AiStrategy::Cautious] {
+            gs.opponent_profile = OpponentProfile { strategy, ..DEFAULT_OPPONENT };
+            assert_eq!(
+                gs.decide_opponent_move(),
+                OpponentAction::Hit,
+                "{strategy:?} should not steal the tie"
+            );
+        }
+
+        // The steal is off if the player *also* holds a tiebreaker in play (the
+        // two cancel, so the tie wins for nobody): Calculating falls back to
+        // hitting. Player 18 = 17 dealer + a tiebreaker in play.
+        let mut gs2 = board_at(17, true, 17, vec![Card::Tiebreaker]);
+        gs2.player.played_row = vec![pc(Card::Tiebreaker, 1)];
+        gs2.opponent_profile = OpponentProfile { strategy: AiStrategy::Calculating, ..DEFAULT_OPPONENT };
+        assert_eq!(gs2.player.score(), 18);
+        assert_eq!(gs2.decide_opponent_move(), OpponentAction::Hit);
     }
 
     #[test]

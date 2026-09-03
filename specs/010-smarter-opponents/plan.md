@@ -36,10 +36,11 @@ two fields:
 | DEFAULT_OPPONENT | Basic | **0.0** (deterministic baseline for tests) |
 
 Archetypes: **Basic** = today's threshold play + the board-aware fix;
-**Aggressive** = higher push target, chases hard (bust risk); **Cautious** =
-stands earlier, only chases a stood player when it can win safely;
-**Calculating** = minimal safe winning total + tiebreaker to steal a tie.
-Misplay rates are tunable balance data.
+**Aggressive** = higher push target (+1), takes the highest safe winning total,
+chases hard (bust risk); **Cautious** = stands earlier (−1), so it won't over-hit
+its own hand into an avoidable bust (behind a stood player it still chases);
+**Calculating** = minimal safe winning total + uniquely plays the tiebreaker to
+land a winning tie. Misplay rates are tunable balance data.
 
 ## Decision core — `src/game.rs`
 
@@ -59,10 +60,11 @@ a tiebreaker in play** (`has_tiebreaker_in_play`, `player.rs:37`); >20 loses.
    - `s > p && s <= 20` → `Stand` (already won — the headline fix).
    - `s == p` → try to exceed `p` (a card that lands `> p, <= 20`, else `Hit`),
      unless a lone opponent tiebreaker already wins the tie → `Stand`.
-   - `s < p` → play a card landing a winning total (`> p, <= 20`) if any, else
-     `Hit`. Target selection is strategy-flavored (Calculating → minimal `> p`;
-     Aggressive → highest safe; Cautious → only if a safe win exists, else `Hit`
-     but never an avoidable-bust hit).
+   - `s < p` → play a card landing an outright winning total (`> p, <= 20`) if
+     any (Aggressive → highest safe; everyone else → minimal). A **Calculating**
+     opponent, finding no outright win, also plays a tiebreaker to land exactly
+     on `p` for a winning tie (`winning_tie_play_vs`). Otherwise `Hit` — behind a
+     stood player, chasing is the only chance (all archetypes).
 4. **else (player live):** `decide_vs_live_player(s)` = today's play (reach-20
    via `first_hand_index`+`can_play_as`; `s >= effective_threshold` → `Stand`;
    else `Hit`), where Aggressive/Cautious shift the effective threshold off
