@@ -56,25 +56,33 @@ pub struct GameState {
     /// The opponent being faced — drives its name, side deck, and the AI's
     /// stand threshold. Set once at match start and carried across rounds.
     pub opponent_profile: OpponentProfile,
+    /// The player's side deck for this match — the deck they built in their
+    /// profile (`profile.rs`), snapshotted at match start so hands (this
+    /// match's and its rematches) deal from it, mirroring `opponent_profile`.
+    pub player_deck: Vec<Card>,
 }
 
 impl GameState {
-    /// A match against the neutral default opponent (the pre-roster behavior).
-    /// Used by `Default` and the tests; the real flow uses [`with_opponent`].
+    /// A match against the neutral default opponent, with the default side
+    /// deck (the pre-roster, pre-deck-builder behavior). Used by `Default` and
+    /// the tests; the real flow uses [`with_opponent`] with the profile deck.
     pub fn new() -> Self {
-        Self::with_opponent(DEFAULT_OPPONENT)
+        Self::with_opponent(DEFAULT_OPPONENT, DEFAULT_SIDE_DECK.to_vec())
     }
 
-    /// Start a match against a specific opponent. The profile seeds the
-    /// opponent's displayed name and the deck its hand is drawn from, and is
-    /// stored so the AI and post-`GameOver` rematch keep using it.
-    pub fn with_opponent(opponent_profile: OpponentProfile) -> Self {
+    /// Start a match against a specific opponent, dealing the player's hand
+    /// from `player_deck` (the deck built in the profile). The opponent profile
+    /// seeds its displayed name and its own side deck; both the profile and the
+    /// player deck are stored so the AI and any post-`GameOver` rematch keep
+    /// using them.
+    pub fn with_opponent(opponent_profile: OpponentProfile, player_deck: Vec<Card>) -> Self {
+        let player_hand = deal_hand(&mut rand::rng(), &player_deck);
         Self {
             player: PlayerState {
                 name: "Your Name".to_string(),
                 dealer_row: vec![],
                 played_row: vec![],
-                hand: deal_hand(&mut rand::rng(), &DEFAULT_SIDE_DECK),
+                hand: player_hand,
                 bust: false,
                 stood: false,
                 rounds_won: 0,
@@ -91,6 +99,7 @@ impl GameState {
             game_phase: GamePhase::PlayerTurn,
             round_outcome: None,
             opponent_profile,
+            player_deck,
         }
     }
 
@@ -642,9 +651,10 @@ impl GameState {
             self.opponent.rounds_won = 0;
 
             // New game, new hands — drawn independently, each from its own
-            // side deck (the opponent keeps the profile it was started with).
+            // side deck: the player from the deck this match was built with,
+            // the opponent from the profile it was started with.
             let mut rng = rand::rng();
-            self.player.hand = deal_hand(&mut rng, &DEFAULT_SIDE_DECK);
+            self.player.hand = deal_hand(&mut rng, &self.player_deck);
             self.opponent.hand = deal_hand(&mut rng, self.opponent_profile.side_deck);
 
             self.setup_next_round();
@@ -1094,7 +1104,7 @@ mod tests {
     fn with_opponent_seeds_the_profile_and_name_while_new_stays_default() {
         use crate::{STAND_THRESHOLD, opponent::OPPONENTS};
 
-        let gs = GameState::with_opponent(OPPONENTS[0]);
+        let gs = GameState::with_opponent(OPPONENTS[0], DEFAULT_SIDE_DECK.to_vec());
         assert_eq!(gs.opponent_profile.id, OPPONENTS[0].id);
         assert_eq!(gs.opponent.name, OPPONENTS[0].name);
 
@@ -1132,7 +1142,7 @@ mod tests {
             }
         };
 
-        let mut gs = GameState::with_opponent(profile);
+        let mut gs = GameState::with_opponent(profile, DEFAULT_SIDE_DECK.to_vec());
         assert_opponent_hand_from_deck(&gs, "start");
         // The player still deals from the default deck, not the opponent's.
         for slot in gs.player.hand.iter().copied() {
@@ -1144,6 +1154,37 @@ mod tests {
         gs.game_phase = GamePhase::GameOver { winner: Player::Player };
         gs.apply_game_action(GameAction::NextGame);
         assert_opponent_hand_from_deck(&gs, "rematch");
+    }
+
+    #[test]
+    fn player_deals_from_the_supplied_deck_at_start_and_rematch() {
+        // The mirror of the opponent test, for the seam this spec adds: the
+        // player's hand comes from the deck handed to with_opponent (the built
+        // profile deck), not DEFAULT_SIDE_DECK — at start and on rematch.
+        let deck = vec![Card::Plus(7), Card::Plus(8), Card::Minus(7), Card::Minus(8)];
+        let assert_player_hand_from_deck = |gs: &GameState, when: &str| {
+            for slot in gs.player.hand.iter().copied() {
+                let card = slot.expect("every dealt slot is filled");
+                assert!(
+                    deck.contains(&card),
+                    "{when}: player dealt {card:?}, not from its deck"
+                );
+            }
+        };
+
+        let mut gs = GameState::with_opponent(DEFAULT_OPPONENT, deck.clone());
+        assert_player_hand_from_deck(&gs, "start");
+
+        gs.game_phase = GamePhase::GameOver { winner: Player::Player };
+        gs.apply_game_action(GameAction::NextGame);
+        assert_player_hand_from_deck(&gs, "rematch");
+
+        // new() still deals the player from the default pool, unchanged.
+        let d = GameState::new();
+        for slot in d.player.hand.iter().copied() {
+            let card = slot.expect("every dealt slot is filled");
+            assert!(DEFAULT_SIDE_DECK.contains(&card));
+        }
     }
 
     #[test]

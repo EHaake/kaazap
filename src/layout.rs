@@ -158,6 +158,64 @@ pub fn card_slot(zone: Rect, col: usize, row: usize) -> (usize, usize) {
     (zone.x0 + col * CARD_SLOT_W, zone.y0 + row * CARD_SLOT_H)
 }
 
+/// Geometry for the deck-builder's collection view: a title line, a
+/// "Deck: N/10" readout, a centered grid of card cells, and a hint line — the
+/// whole block centered vertically like [`MenuLayout`]. Each cell is a card
+/// plus a caption row (its owned/in-deck count) beneath it, so the cell is a
+/// touch taller than a card, with a roomier gutter than the packed board grid.
+#[derive(Debug, Copy, Clone)]
+pub struct GridLayout {
+    pub center_x: usize,
+    pub title_y: usize,
+    pub readout_y: usize,
+    pub hint_y: usize,
+    grid_x0: usize,
+    grid_y0: usize,
+    cols: usize,
+}
+
+impl GridLayout {
+    /// A grid cell: a card, a caption row, and a blank; a 3-cell gutter
+    /// between columns for a browsable, uncramped feel.
+    pub const CELL_W: usize = CARD_WIDTH + 3;
+    pub const CELL_H: usize = CARD_HEIGHT + 2;
+
+    /// Lay out `count` cells in `cols` columns (clamped to at least one and no
+    /// wider than the cell count), as many rows as needed.
+    pub fn new(config: Config, count: usize, cols: usize) -> Self {
+        let cols = cols.clamp(1, count.max(1));
+        let rows = count.max(1).div_ceil(cols);
+        let grid_w = cols * Self::CELL_W;
+        let grid_h = rows * Self::CELL_H;
+
+        const GAP: usize = 1; // blank rows between title/readout/grid/hint
+        // The block is: title, gap, readout, gap, grid, gap, hint.
+        let block_h = 1 + GAP + 1 + GAP + grid_h + GAP + 1;
+        let top = config.num_rows.saturating_sub(block_h) / 2;
+
+        let title_y = top;
+        let readout_y = title_y + 1 + GAP;
+        let grid_y0 = readout_y + 1 + GAP;
+        let hint_y = grid_y0 + grid_h + GAP;
+
+        Self {
+            center_x: config.num_cols / 2,
+            title_y,
+            readout_y,
+            hint_y,
+            grid_x0: config.num_cols.saturating_sub(grid_w) / 2,
+            grid_y0,
+            cols,
+        }
+    }
+
+    /// Top-left (x, y) of the card box in cell `i` (row-major).
+    pub fn card_origin(&self, i: usize) -> (usize, usize) {
+        let (col, row) = (i % self.cols, i / self.cols);
+        (self.grid_x0 + col * Self::CELL_W, self.grid_y0 + row * Self::CELL_H)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -267,6 +325,23 @@ mod tests {
         assert_eq!(card_slot(zone, 0 % per, 0 / per), (4, 4)); // first slot
         assert_eq!(card_slot(zone, 3 % per, 3 / per), (4 + 3 * CARD_SLOT_W, 4)); // last on row 0
         assert_eq!(card_slot(zone, 4 % per, 4 / per), (4, 4 + CARD_SLOT_H)); // wraps
+    }
+
+    #[test]
+    fn grid_layout_fits_the_minimum_terminal_for_the_full_universe() {
+        // The whole 15-card universe at 5 columns → 3 rows; the block (title,
+        // readout, grid, hint) must fit the minimum 89×31 terminal with every
+        // cell — and its caption row — on-frame and clear of the hint line.
+        let (cols, rows) = (89, 31);
+        let g = GridLayout::new(cfg(cols, rows), 15, 5);
+        assert!(g.title_y < g.readout_y && g.readout_y < g.hint_y);
+        assert!(g.hint_y < rows, "hint line off-frame");
+        for i in 0..15 {
+            let (x, y) = g.card_origin(i);
+            assert!(x + CARD_WIDTH <= cols, "cell {i} off the right edge");
+            // The card (CARD_HEIGHT rows) plus its caption row must clear the hint.
+            assert!(y + CARD_HEIGHT < g.hint_y, "cell {i} overlaps the hint line");
+        }
     }
 
     #[test]

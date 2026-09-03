@@ -8,6 +8,7 @@ use crate::{TITLE_X_OFFSET, config::Config, frame::{Emphasis, Frame, draw_text},
 pub enum MenuItem {
     Continue,
     StartGame,
+    SideDeck,
     HowToPlay,
     Settings,
 }
@@ -45,7 +46,12 @@ impl MenuState {
         if has_save {
             items.push(MenuItem::Continue);
         }
-        items.extend([MenuItem::StartGame, MenuItem::HowToPlay, MenuItem::Settings]);
+        items.extend([
+            MenuItem::StartGame,
+            MenuItem::SideDeck,
+            MenuItem::HowToPlay,
+            MenuItem::Settings,
+        ]);
 
         Self {
             items,
@@ -154,10 +160,12 @@ mod tests {
     }
 
     #[test]
-    fn menu_without_a_save_omits_continue_and_wraps_over_three() {
+    fn menu_without_a_save_omits_continue_and_wraps_over_four() {
         let mut m = MenuState::new(false);
-        assert_eq!(m.items.len(), 3);
+        assert_eq!(m.items.len(), 4);
         assert_eq!(selected(&m), MenuItem::StartGame); // default at the top
+        m.move_selection(1);
+        assert_eq!(selected(&m), MenuItem::SideDeck);
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::HowToPlay);
         m.move_selection(1);
@@ -169,14 +177,17 @@ mod tests {
     }
 
     #[test]
-    fn menu_with_a_save_leads_with_continue_and_wraps_over_four() {
+    fn menu_with_a_save_leads_with_continue_and_wraps_over_five() {
         let mut m = MenuState::new(true);
-        assert_eq!(m.items.len(), 4);
+        assert_eq!(m.items.len(), 5);
         assert_eq!(selected(&m), MenuItem::Continue); // default for a returning player
         m.move_selection(-1); // wraps backward to the bottom
         assert_eq!(selected(&m), MenuItem::Settings);
         m.move_selection(1); // back to the top
         assert_eq!(selected(&m), MenuItem::Continue);
+        m.move_selection(1); // Continue → Start Game → Side Deck
+        m.move_selection(1);
+        assert_eq!(selected(&m), MenuItem::SideDeck);
     }
 }
 
@@ -187,6 +198,7 @@ impl fmt::Display for MenuItem {
         match self {
             MenuItem::Continue => write!(f, "Continue"),
             MenuItem::StartGame => write!(f, "Start Game"),
+            MenuItem::SideDeck => write!(f, "Side Deck"),
             MenuItem::HowToPlay => write!(f, "How To Play"),
             MenuItem::Settings => write!(f, "Settings"),
         }

@@ -8,6 +8,7 @@ use crate::{
     board::BoardView,
     card::Card,
     config::Config,
+    deck_builder::{BuildOutcome, DeckBuilderState},
     frame::{Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_in},
     game::{GameAction, GamePhase, GameState},
     layout::OverlayLayout,
@@ -15,6 +16,7 @@ use crate::{
     opponent::OpponentProfile,
     opponent_select::{OpponentSelectState, SelectOutcome},
     overlay::{Overlay, OverlayKind},
+    profile::Profile,
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
 };
@@ -249,6 +251,9 @@ pub struct App {
     has_save: bool,
     pulse: SelectionPulse,
     settings: Settings,
+    // The player's persistent profile — their card collection and built side
+    // deck. Matches deal the player's hand from `profile.deck()`.
+    profile: Profile,
     audio: Audio,
     // The last in-game audio snapshot; the next one is diffed against it to
     // decide which SFX to play. None outside a game.
@@ -261,6 +266,7 @@ pub struct App {
 impl App {
     pub fn new(config: Config) -> Self {
         let settings = Settings::load();
+        let profile = Profile::load();
         let has_save = crate::save::exists();
         Self {
             config,
@@ -273,6 +279,7 @@ impl App {
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
+            profile,
             prev_audio: None,
             too_small: None,
         }
@@ -297,18 +304,43 @@ impl App {
     }
 
     /// Open the opponent-select screen — the entry point to a new match
-    /// (Start Game leads here, directly or via the discard-save confirm).
+    /// (Start Game leads here, directly or via the discard-save confirm). A
+    /// match needs a legal 10-card side deck, so if the built deck is
+    /// incomplete the player is sent to the deck-builder instead (its
+    /// "Deck: N/10" readout shows the shortfall). The starter deck is a full
+    /// 10, so this only diverts a player who deliberately under-filled.
     fn open_opponent_select(&mut self) {
+        if !self.profile.deck_is_valid() {
+            self.open_deck_builder();
+            return;
+        }
         self.screen = Screen::OpponentSelect {
             state: OpponentSelectState::new(),
         };
     }
 
-    /// Begin a fresh match against `opponent`, replacing any current one, and
-    /// persist it.
+    /// Open the deck-builder screen (from the menu's Side Deck item, or when a
+    /// match start finds the deck incomplete).
+    fn open_deck_builder(&mut self) {
+        self.screen = Screen::DeckBuilder {
+            state: DeckBuilderState::new(),
+        };
+    }
+
+    /// Begin a fresh match against `opponent`, dealing the player's hand from
+    /// the profile's built deck, replacing any current match and persisting it.
+    ///
+    /// Precondition: the profile deck is valid (exactly `SIDE_DECK_SIZE`
+    /// cards). This is the only match-start entry, reached solely via
+    /// `open_opponent_select`, which enforces `deck_is_valid()` first — any new
+    /// caller must uphold that guard, or an undersized deck would deal a short
+    /// hand.
     fn start_match(&mut self, opponent: OpponentProfile) {
         self.screen = Screen::InGame {
-            game_state: Box::new(GameState::with_opponent(opponent)),
+            game_state: Box::new(GameState::with_opponent(
+                opponent,
+                self.profile.deck().to_vec(),
+            )),
             cursor: HandCursor::default(),
         };
         // Fresh game — the first snapshot seeds silently, so the empty
@@ -400,9 +432,9 @@ impl App {
                     Screen::InGame { .. } => {
                         Some(Modal::Help(Overlay::new(OverlayKind::GameHelp, self.config)))
                     }
-                    // The select screen carries its own on-screen hint line, so
-                    // ? opens no overlay there.
-                    Screen::OpponentSelect { .. } => None,
+                    // The select and deck-builder screens carry their own
+                    // on-screen hint lines, so ? opens no overlay there.
+                    Screen::OpponentSelect { .. } | Screen::DeckBuilder { .. } => None,
                 };
             }
 
@@ -469,6 +501,40 @@ impl App {
                         self.start_match(opponent);
                     }
                     Some(SelectOutcome::Back) => {
+                        self.audio.play(Sfx::MenuBack);
+                        self.screen = self.start_menu();
+                    }
+                    None => {}
+                },
+
+                // The deck-builder: move over the collection grid, add/remove a
+                // copy of the highlighted card (applied through the profile,
+                // which enforces the own-a-copy + 10-card rules), or leave. The
+                // outcome is owned, so `state`'s borrow ends before the
+                // `&mut self` edits below (same NLL pattern as the arms above);
+                // `&self.profile` is a disjoint field, so reading it for the
+                // scrutinee is fine alongside `&mut self.screen`.
+                Screen::DeckBuilder { state } => match state.handle_input(key, &self.profile) {
+                    Some(BuildOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                    Some(BuildOutcome::Add(card)) => {
+                        // Persist only edits that took effect — a rejected add
+                        // (deck full or no spare copy owned) changes nothing.
+                        if self.profile.try_add_to_deck(card) {
+                            self.audio.play(Sfx::MenuSelect);
+                            self.profile.save();
+                        } else {
+                            self.audio.play(Sfx::MenuBack);
+                        }
+                    }
+                    Some(BuildOutcome::Remove(card)) => {
+                        if self.profile.remove_from_deck(card) {
+                            self.audio.play(Sfx::MenuSelect);
+                            self.profile.save();
+                        } else {
+                            self.audio.play(Sfx::MenuBack); // none in the deck
+                        }
+                    }
+                    Some(BuildOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
                         self.screen = self.start_menu();
                     }
@@ -601,6 +667,11 @@ impl App {
                     self.open_opponent_select();
                 }
             }
+            MenuItem::SideDeck => {
+                // Build your side deck — independent of any match; the deck
+                // persists and the next match deals from it.
+                self.open_deck_builder();
+            }
             MenuItem::HowToPlay => {
                 self.modal = Some(Modal::Help(Overlay::new(OverlayKind::HowToPlay, self.config)));
             }
@@ -649,6 +720,7 @@ impl App {
                 self.board_view.draw(game_state, cursor, pulse, frame)
             }
             Screen::OpponentSelect { state } => state.draw(frame, &self.config, pulse),
+            Screen::DeckBuilder { state } => state.draw(frame, &self.config, &self.profile, pulse),
         }
 
         // The one open modal draws over the screen.
