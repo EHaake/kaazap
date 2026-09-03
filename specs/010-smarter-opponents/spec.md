@@ -103,23 +103,38 @@ Difficulty rises across the roster (Greeb → The Magistrate) through the strate
 
 ## Acceptance criteria
 
-- [ ] When you stand and the opponent is already ahead (and not busting), it
+- [x] When you stand and the opponent is already ahead (and not busting), it
       **stands** rather than continuing to its own threshold.
-- [ ] When you stand and the opponent is behind, it **plays a hand card that
+      *(`ai_stands_once_it_is_already_beating_a_stood_player`; live driver: the
+      Magistrate stood at 9 vs a stood 5, far below its threshold of 19.)*
+- [x] When you stand and the opponent is behind, it **plays a hand card that
       lands a winning total** if it has one, otherwise **hits** to chase.
-- [ ] Tie handling is correct: an equal total only wins for the side that alone
+      *(`ai_behind_a_stood_player_plays_a_winning_card`,
+      `..._with_no_winning_card_hits_to_chase`.)*
+- [x] Tie handling is correct: an equal total only wins for the side that alone
       holds a tiebreaker on the table; the AI reasons accordingly.
-- [ ] The four strategies play observably differently (e.g. the calculating one
-      targets the minimal safe winning total while the aggressive one pushes
-      high; the cautious one won't over-hit into an avoidable bust).
-- [ ] Opponents occasionally misplay at a per-opponent rate — the rookie visibly,
+      *(`ai_stands_on_a_tie_it_wins_with_a_lone_tiebreaker`,
+      `ai_on_a_losing_tie_tries_to_pull_ahead`,
+      `ai_calculating_steals_a_tie_with_the_tiebreaker`.)*
+- [x] The four strategies play observably differently (the calculating one
+      targets the minimal safe winning total and steals ties, the aggressive one
+      pushes high, the cautious one stands a point earlier).
+      *(`ai_archetypes_pick_different_winning_totals`,
+      `ai_cautious_stands_one_sooner_and_aggressive_one_later_while_live`,
+      `ai_calculating_steals_a_tie_with_the_tiebreaker`.)*
+- [x] Opponents occasionally misplay at a per-opponent rate — the rookie visibly,
       the master essentially never — and the default opponent never does.
-- [ ] Every pre-existing rule and the whole match flow are unchanged when the
+      *(`opponent_action_misplays_below_the_rate_and_plays_best_at_or_above`,
+      `the_default_opponent_never_misplays`,
+      `misplay_rates_are_valid_and_the_default_is_deterministic`.)*
+- [x] Every pre-existing rule and the whole match flow are unchanged when the
       board doesn't call for board-aware play; no panics.
-- [ ] Unit tests cover the deterministic core (board-aware branches, per-strategy
+      *(All prior `ai_*` tests pass unchanged; `full_match_terminates_*`; live
+      driver played two rounds through with correct resolution and no panic.)*
+- [x] Unit tests cover the deterministic core (board-aware branches, per-strategy
       behavior, against both boards) and the randomness seam (explicit rolls);
       every existing `ai_*` test still passes. `cargo test` green, `cargo build`
-      no new warnings.
+      no new warnings. *(221 passed, 0 failed; build 0 warnings.)*
 
 ## Resolved decisions
 
