@@ -398,6 +398,57 @@ mod tests {
     }
 
     #[test]
+    fn the_campaign_map_is_legible_at_the_minimum_terminal() {
+        // The bigger (spec 011) map's hand-authored positions must not collide or
+        // clip at the 89×31 minimum — the guard the renderer doesn't provide:
+        // unique node cells, each cursored label on-frame, and no two labels
+        // overlapping on a shared row (worst case: both cursored).
+        use crate::campaign::PLANETS;
+        use crate::campaign_map::cursored_label;
+
+        let (cols, _) = (89usize, 31usize);
+        let l = CampaignMapLayout::new(cfg(89, 31));
+
+        struct Placed {
+            id: &'static str,
+            x: usize,
+            y: usize,
+            lx0: usize,
+            lx1: usize,
+            ly: usize,
+        }
+        let placed: Vec<Placed> = PLANETS
+            .iter()
+            .map(|p| {
+                let (x, y) = l.node_pos(p.fx, p.fy);
+                let len = cursored_label(p.name).chars().count();
+                let lx0 = x.saturating_sub(len / 2); // matches draw_text_centered
+                Placed { id: p.id, x, y, lx0, lx1: lx0 + len - 1, ly: y + 1 }
+            })
+            .collect();
+
+        for a in &placed {
+            assert!(a.x < cols, "{} node off-frame", a.id);
+            assert!(a.ly <= l.field.y1, "{} label row overflows the field", a.id);
+            assert!(a.lx1 < cols, "{} cursored label clips the right edge", a.id);
+        }
+        for (i, a) in placed.iter().enumerate() {
+            for b in &placed[i + 1..] {
+                assert!(
+                    !(a.x == b.x && a.y == b.y),
+                    "{} and {} share a node cell",
+                    a.id,
+                    b.id
+                );
+                if a.ly == b.ly {
+                    let overlap = a.lx0 <= b.lx1 && b.lx0 <= a.lx1;
+                    assert!(!overlap, "{} and {} labels overlap on row {}", a.id, b.id, a.ly);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn grid_layout_fits_the_minimum_terminal_for_the_full_universe() {
         // The whole 15-card universe at 5 columns → 3 rows; the block (title,
         // readout, grid, hint) must fit the minimum 89×31 terminal with every

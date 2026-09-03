@@ -23,7 +23,7 @@ Branch `011-roster-and-worlds` created with the spec/plan/tasks. Plan:
   universe`, `misplay_rates_are_valid_and_the_default_is_deterministic`) all pass
   for 10 opponents. Open the draft PR.*
 
-- [ ] **T002 — Worlds & map (4 → 8 worlds)**
+- [x] **T002 — Worlds & map (4 → 8 worlds)**
   Rewrite `PLANETS` in `src/campaign.rs` to the 8-world DAG (fork into two
   two-world lanes → rejoin → linear Core run → boss), existing four keeping their
   opponents; place `fx`/`fy` legibly. Rewrite the topology-hardcoded tests
