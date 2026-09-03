@@ -128,7 +128,8 @@ impl DeckBuilderState {
 
     /// Draw the title, the "Deck: N/10" readout, the grid of owned cards (each
     /// a card box with an `in-deck/owned` caption; the cursored one heavy +
-    /// pulsing, in-deck ones emphasized), and the controls hint.
+    /// pulsing, every other card dimmed, in-deck ones keeping a double border),
+    /// and the controls hint.
     pub fn draw(&self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
         const TITLE: &str = "Side Deck";
         const HINT: &str = "↑/↓/←/→ move  ·  Enter add  ·  Backspace remove  ·  Esc done";
@@ -155,31 +156,31 @@ impl DeckBuilderState {
             let (x, y) = layout.card_origin(i);
             let cursored = i == self.cursor;
 
+            // The cursored card pops: a heavy border and the bright pulse.
+            // Every other card recedes to a dim (Muted) border, so the
+            // selection stands out at every phase of the pulse — not just at
+            // its bright peak. Cards already in the deck keep a distinct
+            // (still dim) double border so the deck stays glanceable without
+            // competing with the cursor for brightness.
+            let emphasis = if cursored { pulse } else { Emphasis::Muted };
             let mut view = CardView::new(x, y, entry.card.label());
-            view.weight = if cursored { BorderWeight::Heavy } else { BorderWeight::Single };
-            view.emphasis = card_emphasis(cursored, entry.in_deck > 0, pulse);
+            view.weight = if cursored {
+                BorderWeight::Heavy
+            } else if entry.in_deck > 0 {
+                BorderWeight::Double
+            } else {
+                BorderWeight::Single
+            };
+            view.emphasis = emphasis;
             view.draw(frame);
 
-            // Caption row beneath the card: how many of this card are in the
-            // deck out of how many are owned.
+            // Caption row beneath the card: copies in the deck out of owned.
             let badge = format!("{}/{}", entry.in_deck, entry.owned);
             let badge_x = x + CARD_WIDTH.saturating_sub(badge.chars().count()) / 2;
-            draw_text(frame, badge_x, y + CARD_HEIGHT, &badge, card_emphasis(cursored, entry.in_deck > 0, pulse));
+            draw_text(frame, badge_x, y + CARD_HEIGHT, &badge, emphasis);
         }
 
         draw_text(frame, center(HINT), layout.hint_y, HINT, Emphasis::Muted);
-    }
-}
-
-/// The emphasis for a card and its caption: the cursored one pulses; cards
-/// with a copy in the deck stand out; the rest recede.
-fn card_emphasis(cursored: bool, in_deck: bool, pulse: Emphasis) -> Emphasis {
-    if cursored {
-        pulse
-    } else if in_deck {
-        Emphasis::Strong
-    } else {
-        Emphasis::Normal
     }
 }
 
