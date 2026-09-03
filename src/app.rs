@@ -17,7 +17,7 @@ use crate::{
     },
     game::{GameAction, GamePhase, GameState},
     layout::OverlayLayout,
-    menu::{MenuAction, MenuEvent, MenuItem, MenuState},
+    menu::{MenuItem, MenuOutcome, MenuState},
     opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
     overlay::{Overlay, OverlayKind},
@@ -516,18 +516,14 @@ impl App {
             let mut game_changed = false;
             match &mut self.screen {
                 // Route the Menu inputs only to Menu
-                Screen::StartMenu { menu_state } => {
-                    if let Some(menu_action) = menu_state.handle_menu_input(key) {
-                        let event = menu_state.apply_menu_action(menu_action);
-                        self.audio.play(match menu_action {
-                            MenuAction::Select => Sfx::MenuSelect,
-                            _ => Sfx::MenuMove,
-                        });
-                        if let Some(menu_event) = event {
-                            self.apply_menu_event(menu_event);
-                        }
+                Screen::StartMenu { menu_state } => match menu_state.handle_input(key) {
+                    Some(MenuOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                    Some(MenuOutcome::Activated(item)) => {
+                        self.audio.play(Sfx::MenuSelect);
+                        self.activate_menu_item(item);
                     }
-                }
+                    None => {}
+                },
 
                 // Route the game inputs to game_state. The cursor model
                 // (arrows + Enter/Space) and the direct keys (1-4, d/s, h/l)
@@ -738,11 +734,8 @@ impl App {
         }
     }
 
-    /// MenuEvent will contain one of the screens to switch to
-    ///
-    fn apply_menu_event(&mut self, menu_event: MenuEvent) {
-        let MenuEvent::Activate { menu_item } = menu_event;
-
+    /// Act on an activated start-menu item — open a screen or a modal.
+    fn activate_menu_item(&mut self, menu_item: MenuItem) {
         match menu_item {
             MenuItem::Continue => {
                 // Resume the saved match. Continue only appears when a save
