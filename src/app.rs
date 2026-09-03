@@ -15,6 +15,7 @@ use crate::{
     opponent::OpponentProfile,
     opponent_select::{OpponentSelectState, SelectOutcome},
     overlay::{Overlay, OverlayKind},
+    profile::Profile,
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
 };
@@ -249,6 +250,9 @@ pub struct App {
     has_save: bool,
     pulse: SelectionPulse,
     settings: Settings,
+    // The player's persistent profile — their card collection and built side
+    // deck. Matches deal the player's hand from `profile.deck()`.
+    profile: Profile,
     audio: Audio,
     // The last in-game audio snapshot; the next one is diffed against it to
     // decide which SFX to play. None outside a game.
@@ -261,6 +265,7 @@ pub struct App {
 impl App {
     pub fn new(config: Config) -> Self {
         let settings = Settings::load();
+        let profile = Profile::load();
         let has_save = crate::save::exists();
         Self {
             config,
@@ -273,6 +278,7 @@ impl App {
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
+            profile,
             prev_audio: None,
             too_small: None,
         }
@@ -308,7 +314,10 @@ impl App {
     /// persist it.
     fn start_match(&mut self, opponent: OpponentProfile) {
         self.screen = Screen::InGame {
-            game_state: Box::new(GameState::with_opponent(opponent)),
+            game_state: Box::new(GameState::with_opponent(
+                opponent,
+                self.profile.deck().to_vec(),
+            )),
             cursor: HandCursor::default(),
         };
         // Fresh game — the first snapshot seeds silently, so the empty

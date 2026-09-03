@@ -26,7 +26,7 @@ Branch `008-side-deck-customization` created with the spec/plan/tasks. Plan:
   succeeds otherwise; `remove_from_deck` removes one; `collection_by_type`
   counts/order.*
 
-- [ ] **T002 — Engine seam: matches deal from the built deck**
+- [x] **T002 — Engine seam: matches deal from the built deck**
   `src/game.rs`: `GameState` gains `player_deck: Vec<Card>`; `with_opponent`
   takes `player_deck: Vec<Card>` and deals the player hand from it; `new()` →
   `with_opponent(DEFAULT_OPPONENT, DEFAULT_SIDE_DECK.to_vec())`; `new_game`

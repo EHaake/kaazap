@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     OPPONENT_THINKING_TIME_MS,
+    card::DEFAULT_SIDE_DECK,
     game::{GamePhase, GameState, RoundOutcome},
     opponent::{DEFAULT_OPPONENT, opponent_by_id},
     player::PlayerState,
@@ -112,6 +113,9 @@ fn from_saved(saved: SavedGame) -> GameState {
         // Restore the opponent by id; an unknown id (older or hand-edited
         // save) falls back to the default profile rather than failing.
         opponent_profile: opponent_by_id(&saved.opponent_id).unwrap_or(DEFAULT_OPPONENT),
+        // The match's player deck is not persisted yet (T004 adds it); until
+        // then a resumed match falls back to the default pool.
+        player_deck: DEFAULT_SIDE_DECK.to_vec(),
     }
 }
 
@@ -201,6 +205,7 @@ mod tests {
             game_phase: phase,
             round_outcome: Some(RoundOutcome::PlayerWon),
             opponent_profile: DEFAULT_OPPONENT,
+            player_deck: DEFAULT_SIDE_DECK.to_vec(),
         }
     }
 
