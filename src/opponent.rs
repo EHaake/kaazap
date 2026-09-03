@@ -135,7 +135,7 @@ pub const OPPONENTS: [OpponentProfile; 5] = [
         id: "rix",
         name: "Rix Vandal",
         difficulty: "Ace",
-        blurb: "An ace who counts every point — the exact play to edge you out.",
+        blurb: "An ace who counts every point — takes the exact play to win.",
         stand_threshold: 18,
         side_deck: &[
             Card::PlusMinus(6),
