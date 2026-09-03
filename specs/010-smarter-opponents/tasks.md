@@ -39,7 +39,7 @@ Branch `010-smarter-opponents` created with the spec/plan/tasks. Plan:
   `best` → its deviation; `DEFAULT_OPPONENT` never deviates); the end-to-end AI
   tests that drive `update()` stay deterministic (default misplay 0).*
 
-- [ ] **T004 — Verification & close-out**
+- [x] **T004 — Verification & close-out**
   Full driver sweep (back up `profile.json`/`savegame.json`): stand at a good
   total and watch an opponent try to beat you (stand when ahead, chase/play when
   behind) instead of grinding its threshold; sample archetypes (Greeb slips, the
