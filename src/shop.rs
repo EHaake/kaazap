@@ -14,9 +14,20 @@ use crate::{
     config::Config,
     economy,
     frame::{Emphasis, Frame, draw_text_centered},
-    layout::MenuLayout,
     profile::Profile,
 };
+
+/// Vertical anchors for the shop at a given terminal height and pool size:
+/// `(title_y, items_top, hint_y)`. The list is **single-spaced** so the full
+/// 15-card Core pool plus the balance and hint fit the 89×31 minimum (a
+/// double-spaced list would clip — see `the_full_pool_fits_the_minimum_terminal`).
+fn anchors(num_rows: usize, n: usize) -> (usize, usize, usize) {
+    let block = 2 + 1 + n + 1 + 1; // title+balance, gap, n items, gap, hint
+    let top = num_rows.saturating_sub(block) / 2;
+    let items_top = top + 3; // title at `top`, balance at `top+1`, then a gap
+    let hint_y = items_top + n + 1;
+    (top, items_top, hint_y)
+}
 
 /// The result of a key on the shop: the cursor moved, the highlighted card
 /// should be bought, or the player is done. The app performs the purchase
@@ -87,16 +98,13 @@ impl ShopState {
         let pool = economy::available_pool(profile.campaign());
         let credits = profile.credits();
 
-        // One title line + the list; reserve the footer rows for the balance
-        // (above the list) and the hint (below), so the whole thing centres and
-        // fits the minimum terminal.
-        let layout = MenuLayout::new(*config, 1, pool.len().max(1), 4);
-        draw_text_centered(frame, layout.center_x, layout.title_top, TITLE, Emphasis::Normal);
+        let center_x = config.num_cols / 2;
+        let (title_y, items_top, hint_y) = anchors(config.num_rows, pool.len());
+        draw_text_centered(frame, center_x, title_y, TITLE, Emphasis::Normal);
 
         let balance = format!("Credits: ◈ {credits}");
-        draw_text_centered(frame, layout.center_x, layout.title_top + 1, &balance, Emphasis::Strong);
+        draw_text_centered(frame, center_x, title_y + 1, &balance, Emphasis::Strong);
 
-        let mut y = layout.items_top;
         for (i, &card) in pool.iter().enumerate() {
             let price = economy::card_price(card);
             let owned = profile.owned_count(card);
@@ -117,11 +125,10 @@ impl ShopState {
             // from jittering as the cursor moves.
             let marker = if cursored { "▸" } else { " " };
             let row = format!("{marker}  {:<4}   {:>3} cr   owned ×{owned}", card.label(), price);
-            draw_text_centered(frame, layout.center_x, y, &row, emphasis);
-            y += layout.item_spacing;
+            draw_text_centered(frame, center_x, items_top + i, &row, emphasis);
         }
 
-        draw_text_centered(frame, layout.center_x, y + 2, HINT, Emphasis::Muted);
+        draw_text_centered(frame, center_x, hint_y, HINT, Emphasis::Muted);
     }
 }
 
@@ -182,5 +189,15 @@ mod tests {
         assert!(matches!(s.handle_input(KeyCode::Esc, &p), Some(ShopOutcome::Back)));
         assert!(matches!(s.handle_input(KeyCode::Char('x'), &p), Some(ShopOutcome::Back)));
         assert!(s.handle_input(KeyCode::Char('z'), &p).is_none());
+    }
+
+    #[test]
+    fn the_full_pool_fits_the_minimum_terminal() {
+        // The whole 15-card Core pool plus the title, balance, and hint must
+        // land within the 89×31 minimum — the single-spaced list is what makes
+        // it fit (a double-spaced one clips the last card and the hint).
+        let (title_y, items_top, hint_y) = anchors(31, crate::card::ALL_SIDE_CARDS.len());
+        assert!(items_top > title_y + 1, "items must clear the title and balance rows");
+        assert!(hint_y < 31, "the hint (row {hint_y}) clips the 31-row minimum");
     }
 }
