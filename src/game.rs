@@ -539,6 +539,34 @@ impl GameState {
         self.opponent.has_tiebreaker_in_play() && !self.player.has_tiebreaker_in_play()
     }
 
+    /// The seam where the AI gets a human touch: usually the deterministic best
+    /// move, but with probability `profile.misplay` a legal-but-suboptimal
+    /// deviation. `roll` is drawn once per turn by the caller, so the policy
+    /// stays a pure function of `(state, roll)` and is fully testable — and with
+    /// `misplay == 0.0` (the default opponent) it is exactly `decide_opponent_move`.
+    fn opponent_action(&self, roll: f32) -> OpponentAction {
+        let best = self.decide_opponent_move();
+        if roll < self.opponent_profile.misplay {
+            self.misplay(best)
+        } else {
+            best
+        }
+    }
+
+    /// A recognizable, always-legal human error standing in for `best`:
+    /// over-greedy (`Stand → Hit`, but only when it can still draw), chickening
+    /// out (`Hit → Stand`), or fumbling a good card (`PlayHand → Hit` — legal
+    /// because a `PlayHand` best implies the table isn't full, since a full
+    /// table stands first).
+    fn misplay(&self, best: OpponentAction) -> OpponentAction {
+        match best {
+            OpponentAction::Stand if !self.opponent.table_full() => OpponentAction::Hit,
+            OpponentAction::Stand => OpponentAction::Stand,
+            OpponentAction::Hit => OpponentAction::Stand,
+            OpponentAction::PlayHand { .. } => OpponentAction::Hit,
+        }
+    }
+
     /// The play that best recovers the opponent's over-20 total: the
     /// (index, value) leaving the highest score that fits within 20
     ///
@@ -574,7 +602,10 @@ impl GameState {
     /// Play the opponent's turn (deal, play card, stand)
     ///
     fn play_opponent_turn(&mut self) {
-        match self.decide_opponent_move() {
+        // Draw the misplay roll once per turn; the default opponent (misplay 0)
+        // always gets its deterministic best move, so update()-driven tests stay
+        // deterministic.
+        match self.opponent_action(rand::random_range(0.0f32..1.0)) {
             OpponentAction::Hit => {
                 self.opponent_hit();
             }
@@ -1286,6 +1317,49 @@ mod tests {
         assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand); // Basic = 17
         gs.opponent_profile = OpponentProfile { strategy: AiStrategy::Aggressive, ..DEFAULT_OPPONENT };
         assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+    }
+
+    // --- The misplay seam (spec 010): a thin, testable layer of randomness
+    // over the deterministic core. ---
+
+    #[test]
+    fn opponent_action_misplays_below_the_rate_and_plays_best_at_or_above() {
+        // Ahead of a stood player the best move is Stand; a misplay over-reaches
+        // into Hit. A rate of 0.5 makes the roll boundary easy to read.
+        let mut gs = board_at(12, true, 14, vec![Card::Plus(5)]);
+        gs.opponent_profile = OpponentProfile { misplay: 0.5, ..DEFAULT_OPPONENT };
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand); // the best move
+
+        assert_eq!(gs.opponent_action(0.1), OpponentAction::Hit); // roll < rate → misplay
+        assert_eq!(gs.opponent_action(0.9), OpponentAction::Stand); // roll > rate → best
+        assert_eq!(gs.opponent_action(0.5), OpponentAction::Stand); // roll == rate → best (not <)
+    }
+
+    #[test]
+    fn misplay_deviates_each_best_move_legally() {
+        // Stand → Hit (when it can still draw); Hit → Stand; PlayHand → Hit.
+        let gs = opponent_at(10, vec![Card::Plus(4)]); // one card on the table, room to draw
+        assert_eq!(gs.misplay(OpponentAction::Stand), OpponentAction::Hit);
+        assert_eq!(gs.misplay(OpponentAction::Hit), OpponentAction::Stand);
+        assert_eq!(
+            gs.misplay(OpponentAction::PlayHand { index: 0, value: 4 }),
+            OpponentAction::Hit
+        );
+
+        // A full table can't draw, so an over-greedy Stand stays Stand (legal).
+        let mut full = GameState::new();
+        full.opponent.dealer_row = dealer_run(MAX_TABLE_CARDS, 1);
+        assert!(full.opponent.table_full());
+        assert_eq!(full.misplay(OpponentAction::Stand), OpponentAction::Stand);
+    }
+
+    #[test]
+    fn the_default_opponent_never_misplays() {
+        // misplay 0.0: no roll in [0.0, 1.0) is < 0.0, so even the smallest
+        // possible roll yields the deterministic best move.
+        let gs = opponent_at(10, vec![Card::Plus(4)]); // default profile → best is Hit
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+        assert_eq!(gs.opponent_action(0.0), OpponentAction::Hit);
     }
 
     #[test]

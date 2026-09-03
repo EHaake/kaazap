@@ -31,7 +31,7 @@ Branch `010-smarter-opponents` created with the spec/plan/tasks. Plan:
   tiebreaker; per-archetype differences); **every existing `ai_*` test still
   passing** (player-at-0 reduces to today's behavior).*
 
-- [ ] **T003 — The misplay seam**
+- [x] **T003 — The misplay seam**
   `opponent_action(&self, roll: f32)` (misplay for `roll < profile.misplay`, else
   `decide_opponent_move()`), `misplay(&self, best)` (legal suboptimal deviation),
   and point `play_opponent_turn` at `opponent_action(rand::random_range(..))`.
