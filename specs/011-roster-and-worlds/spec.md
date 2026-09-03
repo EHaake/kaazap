@@ -73,23 +73,34 @@ exactly as in spec 009 (they're derived from the graph + the beaten set).
 
 ## Acceptance criteria
 
-- [ ] `OPPONENTS` has 10 entries, thresholds non-decreasing, ids unique, every
+- [x] `OPPONENTS` has 10 entries, thresholds non-decreasing, ids unique, every
       deck fillable and drawn from the card universe, misplay in range — the new
       boss is threshold 19 / Calculating / misplay 0 with a deck at least as
-      strong as the Magistrate's.
-- [ ] `PLANETS` has 8 worlds forming a single connected DAG: exactly one start
+      strong as the Magistrate's. *(roster guards + `the_final_boss_is_flawless_
+      and_fully_equipped`, which asserts the boss's playable multiset dominates
+      the Magistrate's.)*
+- [x] `PLANETS` has 8 worlds forming a single connected DAG: exactly one start
       (empty `requires`), the fork + rejoin as designed, all `opponents`/`requires`
-      ids valid, and the whole roster reachable.
-- [ ] The map is legible at the 89×31 minimum: no two nodes share a cell, and no
-      planet's label collides with another or clips off-field — enforced by a
-      test, not by eye.
-- [ ] Navigating and clearing the campaign unlocks worlds in the intended order;
+      ids valid, and the whole roster reachable. *(`the_graph_has_one_start_is_
+      acyclic_and_fully_reachable`, `every_roster_opponent_appears_on_exactly_one_
+      planet`, `difficulty_is_monotonic_along_every_edge`.)*
+- [x] The map is legible at the 89×31 minimum: no two nodes share a cell, and no
+      planet's label collides with another (or a node) or clips off-field —
+      enforced by a test, not by eye. *(`the_campaign_map_is_legible_at_the_
+      minimum_terminal`; live driver at 180×48 and 89×31.)*
+- [x] Navigating and clearing the campaign unlocks worlds in the intended order;
       a fresh profile unlocks only the start; a full sweep completes the run;
-      save/resume and win→map progress are unchanged.
-- [ ] Quick Play's 10-opponent select list still renders within the minimum
-      terminal.
-- [ ] `cargo test` green (updated topology tests + new legibility/graph-integrity
+      save/resume and win→map progress are unchanged. *(`the_fork_opens_both_lanes_
+      ...`, `navigation_stays_on_unlocked_planets`, `a_fresh_run_unlocks_only_the_
+      start`, `mark_beaten_..._full_sweep`; save format untouched; driver: the
+      boss's win recorded and routed back to the map.)*
+- [x] Quick Play's 10-opponent select list still renders within the minimum
+      terminal. *(`the_full_roster_and_footer_fit_the_minimum_terminal`; live
+      89×31 snapshot — title, ten opponents, blurb, and hint all on-frame.)*
+- [x] `cargo test` green (updated topology tests + new legibility/graph-integrity
       tests + roster guards), `cargo build` no new warnings, no panics in play.
+      *(227 passed, 0 failed; build 0 warnings; driver played the boss with no
+      panic.)*
 
 ## Resolved decisions
 
