@@ -19,7 +19,7 @@ Branch `012-economy` created with the spec/plan/tasks. Plan:
   with `credits == 0` (round-trip), `earn`/`grant`/`try_purchase` behave (affordable
   vs broke), existing profile/deck tests still pass. Open the draft PR.*
 
-- [ ] **T002 — Economy module**
+- [x] **T002 — Economy module**
   New `src/economy.rs` (pure logic): `RegionTier` + `region_tier`,
   `deepest_reached`, `card_tier`, `available_pool`, `card_price`, and
   `win_reward(threshold, pool, roll)` with `WinReward`.
