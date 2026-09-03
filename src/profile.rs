@@ -49,6 +49,10 @@ pub struct Profile {
     /// pre-campaign profile loads with a fresh (empty) run — no version bump.
     #[serde(default)]
     campaign: CampaignRun,
+    /// Credits earned from campaign wins (spec 012, economy). Additive and
+    /// serde-defaulted, so a pre-economy profile loads with 0 — no version bump.
+    #[serde(default)]
+    credits: u32,
 }
 
 fn default_version() -> u32 {
@@ -78,6 +82,7 @@ impl Default for Profile {
             collection: starter_collection(),
             deck: starter_deck(),
             campaign: CampaignRun::default(),
+            credits: 0,
         }
     }
 }
@@ -132,6 +137,37 @@ impl Profile {
     /// Callers pair a mutation with [`Profile::save`], as with deck edits.
     pub fn campaign_mut(&mut self) -> &mut CampaignRun {
         &mut self.campaign
+    }
+
+    /// The player's credit balance (spec 012, economy).
+    pub fn credits(&self) -> u32 {
+        self.credits
+    }
+
+    /// Add credits (from a campaign win). Saturating, so a long streak can't
+    /// wrap. Callers pair this with [`Profile::save`].
+    pub fn earn_credits(&mut self, amount: u32) {
+        self.credits = self.credits.saturating_add(amount);
+    }
+
+    /// Grant one copy of `card` to the collection (a win drop or a shop buy).
+    /// The deck-builder and every count query pick it up automatically, since
+    /// the collection is a bag of copies.
+    pub fn grant_card(&mut self, card: Card) {
+        self.collection.push(card);
+    }
+
+    /// Buy `card` for `price`: spend the credits and grant the card if the
+    /// player can afford it, otherwise do nothing. Returns whether it happened,
+    /// so the app persists only on `true` (the deck-edit pattern).
+    pub fn try_purchase(&mut self, card: Card, price: u32) -> bool {
+        if self.credits >= price {
+            self.credits -= price;
+            self.grant_card(card);
+            true
+        } else {
+            false
+        }
     }
 
     /// A legal deck is exactly `SIDE_DECK_SIZE` cards, each backed by an owned
@@ -204,6 +240,7 @@ mod tests {
             collection,
             deck,
             campaign: CampaignRun::default(),
+            credits: 0,
         }
     }
 
@@ -221,6 +258,53 @@ mod tests {
         let p3 = Profile::from_json(older).expect("an older profile still loads");
         assert!(!p3.campaign().run_complete());
         assert!(!p3.campaign().planet_cleared(&planet_by_id("cinder").unwrap()));
+    }
+
+    #[test]
+    fn credits_persist_and_default_to_zero_for_older_profiles() {
+        // A pre-economy profile (no `credits` field) loads with 0 credits and no
+        // version bump — the same additive-field discipline as `campaign`.
+        let older = r#"{"version":1,"collection":[],"deck":[]}"#;
+        let p = Profile::from_json(older).expect("an older profile still loads");
+        assert_eq!(p.credits(), 0);
+
+        // Earned credits round-trip through JSON.
+        let mut p = Profile::default();
+        p.earn_credits(75);
+        let json = serde_json::to_string(&p).unwrap();
+        let p2 = Profile::from_json(&json).expect("a valid profile loads");
+        assert_eq!(p2.credits(), 75);
+    }
+
+    #[test]
+    fn earning_grows_the_balance_and_purchase_is_affordability_gated() {
+        let owned = |p: &Profile, card: Card| {
+            p.collection_by_type()
+                .iter()
+                .find(|e| e.card == card)
+                .map_or(0, |e| e.owned)
+        };
+        let mut p = Profile::default();
+        let before = owned(&p, Card::PlusMinus(6));
+
+        p.earn_credits(30);
+        p.earn_credits(20);
+        assert_eq!(p.credits(), 50);
+
+        // Can't afford (needs 120): nothing changes.
+        assert!(!p.try_purchase(Card::PlusMinus(6), 120));
+        assert_eq!(p.credits(), 50);
+        assert_eq!(owned(&p, Card::PlusMinus(6)), before);
+
+        // Affordable: credits deducted and a copy granted (the collection grows).
+        assert!(p.try_purchase(Card::PlusMinus(6), 50));
+        assert_eq!(p.credits(), 0);
+        assert_eq!(owned(&p, Card::PlusMinus(6)), before + 1);
+
+        // grant_card alone also grows the collection (a win drop).
+        let plus2_before = owned(&p, Card::Plus(2));
+        p.grant_card(Card::Plus(2));
+        assert_eq!(owned(&p, Card::Plus(2)), plus2_before + 1);
     }
 
     #[test]

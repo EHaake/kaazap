@@ -10,7 +10,7 @@ Branch `012-economy` created with the spec/plan/tasks. Plan:
 
 ---
 
-- [ ] **T001 — Profile economy state**
+- [x] **T001 — Profile economy state**
   Add `credits: u32` (`#[serde(default)]`, starter 0) to `Profile`
   (`src/profile.rs`), keeping `PROFILE_VERSION = 1`. Methods `credits`,
   `earn_credits` (saturating), `grant_card` (push to collection), `try_purchase`
