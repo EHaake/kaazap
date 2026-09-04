@@ -228,6 +228,41 @@ flavor". The calls (first two human-ruled this session):
   Magistrate) each carry a dead flip. Kept for now — consistent and per-plan —
   and logged for the tracked balance pass rather than re-tuned blind.
 
+## Economy & progression (spec 012)
+
+The last of the campaign subsystems — subsystem **C** — making wins pay out, over
+"Campaign design (progression model & shape)" and "Side-deck customization (spec
+008)". The credits + depth model (not gacha) was pre-ruled in "Campaign design";
+the calls newly settled this spec (first two human-ruled this session):
+
+- **Campaign-only earning** (human-ruled) — only campaign wins pay credits and
+  drop a card; Quick Play stays a stakes-free practice sandbox. Free by
+  construction: the reward hangs on the existing once-per-win campaign seam, which
+  Quick Play (no `in_progress`) never reaches.
+- **The shop lives on the campaign map** (human-ruled) — the between-worlds
+  Outfitter, beside the campaign depth that gates its stock, with the credit
+  balance in the map header — rather than a Start-menu store or a post-match panel.
+- **Scarcity is distribution, not new card types** (pre-ruled, reaffirmed) — the
+  15-card universe is complete, so progression gates *acquiring* the existing cards
+  by campaign depth (three region tiers, Outer ⊆ Mid ⊆ Core). Both the win-drop
+  and the shop draw from that one growing pool.
+- **A single card drop per win, not a pack/gacha** (pre-ruled) — one roll, one
+  card, to keep the tuning burden bounded.
+- **Additive persistence, no version bump** — `credits` is a serde-defaulted
+  `Profile` field (the `campaign`-field precedent), so old profiles load with
+  `credits: 0`; the grown collection is just a longer `Vec<Card>`.
+- **The reward is a deterministic, testable core** — credits and the drawn card
+  are a pure `win_reward(threshold, pool, roll)`; only the roll is random (the
+  spec-010 seam pattern). The thin `App::tick` wiring over it is a conscious
+  untested accept: its pieces are all unit-tested and the ordering was
+  reviewer-walked.
+- **A finite economy per run** — each win pays once, so a full clear yields a
+  bounded purse (~300 credits); resetting a cleared campaign's rewards (NG+) is
+  deferred to the roguelike mode (spec E).
+- **Deferred to the balance pass:** whether the reward/price curve *feels* right
+  (e.g. the first win's 10 credits can't yet afford a 20-credit Outer card) —
+  logged for the tracked balance pass rather than tuned blind.
+
 ## Explicitly deferred out of v1
 
 - **Full side-deck customization** (building your own 10-card deck from a

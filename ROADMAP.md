@@ -135,6 +135,22 @@ of, not guessed at here in advance.
   plus new tests for graph integrity (one start, acyclic, all reachable), map
   legibility at the minimum terminal, roster coverage, and difficulty
   monotonicity along every edge. A tuning/balance pass is still tracked below.
+- **Economy & progression** (spec 012) — the last big campaign subsystem: wins
+  now **pay out**. Beating a campaign opponent awards **difficulty-scaled
+  credits** (10–50, by stand threshold) and **drops one random card**, both drawn
+  from a **depth-gated pool** — the three map regions (Outer → Mid → Core)
+  progressively unlock more of the 15-card universe. A **shop** on the campaign
+  map (the Outfitter, `b`) spends credits on that same pool, showing prices, owned
+  counts, and a live balance (also in the map header). Everything grows the
+  collection the spec-008 deck-builder already reads, so won/bought cards are
+  immediately usable. Pure content + persistence over shipped seams: `credits` is
+  an additive `#[serde(default)]` profile field (no `PROFILE_VERSION` bump), the
+  reward hangs on the existing once-per-win campaign seam (Quick Play stays
+  stakes-free), and the reward math is a pure, roll-seam-testable `win_reward`.
+  Board and engine stay economy-free. The economy is **finite per run** (~300
+  credits for a full clear); NG+/reset rides with the roguelike mode (E).
+  Mechanics + tuning snapshot in `docs/economy.md`; a dedicated balance pass on
+  the reward/price curve remains tracked below.
 
 ## Backlog
 
@@ -164,13 +180,16 @@ file — the engine works, so the campaign is now being planned in order.)
   match save (spec 005), that C and D extend rather than replace. Collection is
   a bag of copies (spec C grows it); the starter is modest. The two-panel
   KOTOR-style "briefcase" layout is a deferred UI follow-up (below).
-- **C · Economy & progression** — **credits** from wins; a card pool that
-  **unlocks by campaign depth**; a **shop** selling from the unlocked pool;
-  and a **random card drop from each win** pulled from that same pool.
-  Scarcity is the depth gate, not new card types (the canon pool is
-  complete). Extends the profile save with credits + owned cards. Depends on B
-  (shipped); D (shipped) supplies the campaign-depth / run-progress structure C
-  reads and hangs rewards on.
+- **C · Economy & progression** — ✅ **Shipped (spec 012** — see Shipped above
+  and `docs/economy.md`). Credits from wins; a card pool that **unlocks by
+  campaign depth**; a **shop** selling from the unlocked pool; and a **random
+  card drop from each win** pulled from that same pool. Scarcity is the depth
+  gate, not new card types (the canon pool is complete). Extended the profile
+  save with credits (additive, no version bump); B supplied the collection it
+  grows and D the run-progress structure it reads and hangs rewards on. As
+  predicted, it needed no engine, board, or save-format change. A dedicated
+  balance pass on the reward/price curve remains a tracked cross-cutting item
+  (below).
 - **D · Campaign map** — ✅ **Shipped (spec 009** — see Shipped above). A
   full-screen node map (original planet names, not trademarks), Outer Rim →
   Core, mostly-linear with a light branch; planets hold roster opponents and
