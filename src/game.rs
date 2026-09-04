@@ -62,6 +62,14 @@ pub struct GameState {
     pub player_deck: Vec<Card>,
 }
 
+/// How far below its stand threshold an opponent may *misplay* into an early
+/// stand. A "chicken out" is only believable near a sane total — standing on 15
+/// when it would normally push to 17 — so a would-be timid stand this many points
+/// or more below the threshold degrades to a hit instead. This is the competence
+/// floor that keeps a misplay from ever being a suicidal low stand (the classic
+/// "stand on 0"); see `misplay` and `specs/013-bounded-misplays/`.
+const MISPLAY_TIMID_MARGIN: i32 = 2;
+
 impl GameState {
     /// A match against the neutral default opponent, with the default side
     /// deck (the pre-roster, pre-deck-builder behavior). Used by `Default` and
@@ -577,28 +585,52 @@ impl GameState {
 
     /// The seam where the AI gets a human touch: usually the deterministic best
     /// move, but with probability `profile.misplay` a legal-but-suboptimal
-    /// deviation. `roll` is drawn once per turn by the caller, so the policy
-    /// stays a pure function of `(state, roll)` and is fully testable — and with
-    /// `misplay == 0.0` (the default opponent) it is exactly `decide_opponent_move`.
+    /// deviation — and only while the position is still *open* (see
+    /// `position_is_open` below), so a slip is never a suicidal concession once
+    /// the outcome is decided. `roll` is drawn once per turn by the caller, so the
+    /// policy stays a pure function of `(state, roll)` and is fully testable — and
+    /// with `misplay == 0.0` (the default opponent) it is exactly
+    /// `decide_opponent_move`.
     fn opponent_action(&self, roll: f32) -> OpponentAction {
         let best = self.decide_opponent_move();
-        if roll < self.opponent_profile.misplay {
+        if roll < self.opponent_profile.misplay && self.position_is_open() {
             self.misplay(best)
         } else {
             best
         }
     }
 
-    /// A recognizable, always-legal human error standing in for `best`:
+    /// Whether a misplay is even plausible here: the outcome must still be *open*.
+    /// A misplay is only a believable human error while the player is live (no
+    /// fixed total to concede, no lead to throw) and the opponent is at or under
+    /// 20 (not fumbling a bust-saving recovery card). Once the position is
+    /// resolved — the player has stood, or the opponent has busted — every
+    /// deviation is pure self-harm, so the AI plays its deterministic best.
+    fn position_is_open(&self) -> bool {
+        !self.player.stood && self.opponent.score() <= 20
+    }
+
+    /// A recognizable, always-legal human error standing in for `best`, reached
+    /// only in an *open* position (`opponent_action` gates on `position_is_open`):
     /// over-greedy (`Stand → Hit`, but only when it can still draw), chickening
-    /// out (`Hit → Stand`), or fumbling a good card (`PlayHand → Hit` — legal
-    /// because a `PlayHand` best implies the table isn't full, since a full
-    /// table stands first).
+    /// out (`Hit → Stand`, but only a *plausible* early stand — see below), or
+    /// fumbling a good card (`PlayHand → Hit` — legal because a `PlayHand` best
+    /// implies the table isn't full, since a full table stands first).
     fn misplay(&self, best: OpponentAction) -> OpponentAction {
         match best {
             OpponentAction::Stand if !self.opponent.table_full() => OpponentAction::Hit,
             OpponentAction::Stand => OpponentAction::Stand,
-            OpponentAction::Hit => OpponentAction::Stand,
+            // Chicken out — but only within `MISPLAY_TIMID_MARGIN` of the
+            // threshold (stand on ~15, not on 0). `best == Hit` already implies
+            // `score < effective_threshold`; deeper below it, hitting is so
+            // clearly right that no one would stand, so the slip just hits. This
+            // is the floor that stops the suicidal low stand.
+            OpponentAction::Hit
+                if self.opponent.score() >= self.effective_threshold() - MISPLAY_TIMID_MARGIN =>
+            {
+                OpponentAction::Stand
+            }
+            OpponentAction::Hit => OpponentAction::Hit,
             OpponentAction::PlayHand { .. } => OpponentAction::Hit,
         }
     }
@@ -1164,10 +1196,12 @@ mod tests {
     #[test]
     fn full_match_terminates_with_a_maximally_misplaying_opponent() {
         // S3: drive the misplay seam end-to-end. An opponent at misplay 1.0
-        // deviates on *every* decision — including Stand→Hit while over 20,
-        // which re-enters OpponentThinking. The turn must still terminate
-        // (each hit adds a table card, bounded by MAX_TABLE_CARDS, then
-        // table_full forces Stand) with no illegal 13th card and no hang.
+        // deviates on every *open-position* decision (spec 013 plays a resolved
+        // position — player stood, or over 20 — straight), so a greedy Stand→Hit
+        // can push it over 20, re-entering OpponentThinking to recover. The turn
+        // must still terminate (each hit adds a table card, bounded by
+        // MAX_TABLE_CARDS, then table_full forces Stand) with no illegal 13th card
+        // and no hang.
         let mut gs = GameState::with_opponent(
             OpponentProfile { misplay: 1.0, ..DEFAULT_OPPONENT },
             DEFAULT_SIDE_DECK.to_vec(),
@@ -1438,29 +1472,43 @@ mod tests {
     // --- The misplay seam (spec 010): a thin, testable layer of randomness
     // over the deterministic core. ---
 
+    // NOTE (spec 013): the two tests below were re-authored. They previously
+    // locked in the *unbounded* misplay contract — `misplay(Hit) == Stand` at any
+    // score, and a misplay against a stood player — which was the "stand on 0" /
+    // "concede from behind" bug. They now assert the bounded, position-gated
+    // contract. See `specs/013-bounded-misplays/` and `DECISIONS.md`.
+
     #[test]
     fn opponent_action_misplays_below_the_rate_and_plays_best_at_or_above() {
-        // Ahead of a stood player the best move is Stand; a misplay over-reaches
-        // into Hit. A rate of 0.5 makes the roll boundary easy to read.
-        let mut gs = board_at(12, true, 14, vec![Card::Plus(5)]);
+        // While the player is live and the opponent sits in its timid band (16 =
+        // one below the default threshold 17), the best move is Hit and a misplay
+        // chickens out into an allowed early Stand. A rate of 0.5 reads the roll
+        // boundary; an empty hand keeps the best move a plain Hit.
+        let mut gs = opponent_at(16, vec![]);
         gs.opponent_profile = OpponentProfile { misplay: 0.5, ..DEFAULT_OPPONENT };
-        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand); // the best move
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit); // the best move
 
-        assert_eq!(gs.opponent_action(0.1), OpponentAction::Hit); // roll < rate → misplay
-        assert_eq!(gs.opponent_action(0.9), OpponentAction::Stand); // roll > rate → best
-        assert_eq!(gs.opponent_action(0.5), OpponentAction::Stand); // roll == rate → best (not <)
+        assert_eq!(gs.opponent_action(0.1), OpponentAction::Stand); // roll < rate → misplay
+        assert_eq!(gs.opponent_action(0.9), OpponentAction::Hit); // roll > rate → best
+        assert_eq!(gs.opponent_action(0.5), OpponentAction::Hit); // roll == rate → best (not <)
     }
 
     #[test]
     fn misplay_deviates_each_best_move_legally() {
-        // Stand → Hit (when it can still draw); Hit → Stand; PlayHand → Hit.
-        let gs = opponent_at(10, vec![Card::Plus(4)]); // one card on the table, room to draw
-        assert_eq!(gs.misplay(OpponentAction::Stand), OpponentAction::Hit);
-        assert_eq!(gs.misplay(OpponentAction::Hit), OpponentAction::Stand);
+        // In the timid band: Stand → Hit (when it can still draw); Hit → Stand;
+        // PlayHand → Hit. (16 = default threshold 17 − 1, inside the band.)
+        let in_band = opponent_at(16, vec![Card::Plus(4)]);
+        assert_eq!(in_band.misplay(OpponentAction::Stand), OpponentAction::Hit);
+        assert_eq!(in_band.misplay(OpponentAction::Hit), OpponentAction::Stand);
         assert_eq!(
-            gs.misplay(OpponentAction::PlayHand { index: 0, value: 4 }),
+            in_band.misplay(OpponentAction::PlayHand { index: 0, value: 4 }),
             OpponentAction::Hit
         );
+
+        // Deep below the threshold a "chicken out" would be suicidal, so a Hit
+        // slip just hits — never a low stand (the competence floor).
+        let deep = opponent_at(10, vec![Card::Plus(4)]);
+        assert_eq!(deep.misplay(OpponentAction::Hit), OpponentAction::Hit);
 
         // A full table can't draw, so an over-greedy Stand stays Stand (legal).
         let mut full = GameState::new();
@@ -1475,6 +1523,127 @@ mod tests {
         // possible roll yields the deterministic best move.
         let gs = opponent_at(10, vec![Card::Plus(4)]); // default profile → best is Hit
         assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+        assert_eq!(gs.opponent_action(0.0), OpponentAction::Hit);
+    }
+
+    // --- Bounded misplays (spec 013): a slip is a believable error, never a
+    // suicidal one. ---
+
+    #[test]
+    fn a_misplay_never_stands_on_a_low_total() {
+        // The reported bug, pinned: a rookie standing on 0. With the player live
+        // and the opponent at 0, best is Hit; even a certain misplay (rate 1.0)
+        // must stay a Hit, never degrade into a suicidal Stand.
+        let mut gs = opponent_at(0, vec![]);
+        gs.opponent_profile = OpponentProfile { misplay: 1.0, ..DEFAULT_OPPONENT };
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit);
+        assert_eq!(gs.opponent_action(0.0), OpponentAction::Hit);
+        assert_eq!(gs.opponent_action(0.999), OpponentAction::Hit);
+    }
+
+    #[test]
+    fn no_roster_opponent_misplays_into_a_suicidal_stand_while_live() {
+        // The user's success criterion as a property over the whole roster: with
+        // the player live and the table not full, no opponent — however high its
+        // misplay rate — ever stands below `effective_threshold − MISPLAY_TIMID_MARGIN`.
+        // A roll of 0.0 forces the misplay branch for every profile with a rate
+        // > 0; the two masters (rate 0.0) never misplay, so they only ever hit
+        // below their threshold. This is `t`-relative, so it moves with the const
+        // rather than pinning its value (see `the_timid_stand_is_bounded_to_the_band`).
+        use crate::opponent::OPPONENTS;
+        for profile in OPPONENTS {
+            let mut probe = GameState::new();
+            probe.opponent_profile = profile;
+            let eff = probe.effective_threshold();
+            let floor = eff - MISPLAY_TIMID_MARGIN;
+
+            for score in 0..eff {
+                let mut gs = opponent_at(score as u8, vec![]); // live player; empty hand → best Hit
+                gs.opponent_profile = profile;
+                assert_eq!(
+                    gs.decide_opponent_move(),
+                    OpponentAction::Hit,
+                    "{} at {score}: best below threshold should be Hit",
+                    profile.id
+                );
+
+                // A misplay-stand is allowed only inside the band; below it (and
+                // for the never-misplaying masters) the action stays a Hit.
+                let expected = if profile.misplay > 0.0 && score >= floor {
+                    OpponentAction::Stand
+                } else {
+                    OpponentAction::Hit
+                };
+                assert_eq!(
+                    gs.opponent_action(0.0),
+                    expected,
+                    "{} at score {score} (floor {floor}, rate {})",
+                    profile.id,
+                    profile.misplay
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_timid_stand_is_bounded_to_the_band() {
+        // Pins the chosen MISPLAY_TIMID_MARGIN = 2: default threshold 17 → the
+        // lowest allowed misplay-stand is 15. At 14 and below a slip must hit; at
+        // 15–16 it may chicken out. (Hardcoded so a change to the const trips here.)
+        let profile = OpponentProfile { misplay: 1.0, ..DEFAULT_OPPONENT };
+        for (score, expected) in [
+            (14u8, OpponentAction::Hit),
+            (15, OpponentAction::Stand),
+            (16, OpponentAction::Stand),
+        ] {
+            let mut gs = opponent_at(score, vec![]);
+            gs.opponent_profile = profile;
+            assert_eq!(gs.decide_opponent_move(), OpponentAction::Hit, "best at {score}");
+            assert_eq!(gs.opponent_action(0.0), expected, "misplay at {score}");
+        }
+    }
+
+    #[test]
+    fn a_resolved_position_is_played_straight_never_misplayed() {
+        // Once the outcome is decided, every deviation is pure self-harm, so even a
+        // certain misplay (1.0) plays the deterministic best for each move shape.
+        let rate = OpponentProfile { misplay: 1.0, ..DEFAULT_OPPONENT };
+
+        // Ahead of a stood player → Stand, not a greedy Hit that could bust a win.
+        let mut ahead = board_at(12, true, 14, vec![Card::Plus(5)]);
+        ahead.opponent_profile = rate;
+        assert_eq!(ahead.decide_opponent_move(), OpponentAction::Stand);
+        assert_eq!(ahead.opponent_action(0.0), OpponentAction::Stand);
+
+        // Behind a stood player with no winning card → Hit to chase, not a
+        // conceding Stand (the "standing when far behind" bug).
+        let mut behind = board_at(18, true, 15, vec![Card::Plus(1)]);
+        behind.opponent_profile = rate;
+        assert_eq!(behind.decide_opponent_move(), OpponentAction::Hit);
+        assert_eq!(behind.opponent_action(0.0), OpponentAction::Hit);
+
+        // Holding a winning card vs a stood player → play it, not fumble to Hit.
+        let mut winning = board_at(18, true, 15, vec![Card::Plus(4)]);
+        winning.opponent_profile = rate;
+        assert!(matches!(winning.decide_opponent_move(), OpponentAction::PlayHand { .. }));
+        assert!(matches!(winning.opponent_action(0.0), OpponentAction::PlayHand { .. }));
+
+        // Over 20 holding a recovery card → play the save, not fumble into a
+        // certain bust (the position is closed by the over-20 gate, player live).
+        let mut over = opponent_at(22, vec![Card::Minus(4)]); // 22 − 4 = 18
+        over.opponent_profile = rate;
+        assert!(matches!(over.decide_opponent_move(), OpponentAction::PlayHand { .. }));
+        assert!(matches!(over.opponent_action(0.0), OpponentAction::PlayHand { .. }));
+    }
+
+    #[test]
+    fn a_greedy_over_hit_still_fires_while_the_player_is_live() {
+        // The kept flavor: at/above its threshold vs a live player best is Stand,
+        // and a misplay still over-reaches into a Hit — the classic beginner bust,
+        // the visible weakness that keeps rookies beatable.
+        let mut gs = opponent_at(18, vec![]); // 18 ≥ default threshold 17, live player
+        gs.opponent_profile = OpponentProfile { misplay: 1.0, ..DEFAULT_OPPONENT };
+        assert_eq!(gs.decide_opponent_move(), OpponentAction::Stand);
         assert_eq!(gs.opponent_action(0.0), OpponentAction::Hit);
     }
 

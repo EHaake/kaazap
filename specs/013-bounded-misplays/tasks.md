@@ -18,7 +18,7 @@ Branch `013-bounded-misplays` off `main` (012-economy is merged). Plan mirrors
   *Verify: `cargo build` / `cargo test` still green on the untouched tree (baseline);
   draft PR open.*
 
-- [ ] **T002 — Bound the misplay + tests**
+- [x] **T002 — Bound the misplay + tests**
   In `src/game.rs`: add `MISPLAY_TIMID_MARGIN: i32 = 2`; add `position_is_open`
   (`!player.stood && opponent.score() <= 20`) and gate `opponent_action` on it;
   bound the `misplay` `Hit => Stand` arm to `score >= effective_threshold −
