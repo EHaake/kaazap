@@ -34,9 +34,14 @@ spec 010). On each of its turns it decides, **in this order**:
 
 Then the **misplay seam**: with probability `misplay` (per-opponent, below) the
 chosen move is swapped for a legal-but-worse one — over-reaching (`Stand → Hit`),
-chickening out (`Hit → Stand`), or fumbling a good card (`PlayHand → Hit`). The
-core stays a pure function of the board (and so is fully unit-tested); only this
-outer roll is random, and the default opponent's rate is `0.0`.
+chickening out (`Hit → Stand`), or fumbling a good card (`PlayHand → Hit`). A
+misplay is **bounded so it's a believable error, never a suicidal one** (spec 013):
+it only fires while the position is still *open* — the player is live and the
+opponent is at or under 20 — so a resolved position (player stood, or a bust to
+recover) is always played straight; and a "chicken out" is capped to within
+`MISPLAY_TIMID_MARGIN` (2) of the threshold, so a timid stand is ~15, never a stand
+on 0. The core stays a pure function of the board (and so is fully unit-tested);
+only this outer roll is random, and the default opponent's rate is `0.0`.
 
 Round resolution the AI reasons against: closest to 20 without busting wins;
 equal totals **tie unless exactly one side has a tiebreaker in play**; over 20
@@ -94,8 +99,12 @@ opponent plays the decisions above:
 but suboptimal move instead of its best one — high for the rookie, ~0 for the
 master. It's what keeps a learned opponent from being perfectly exploitable, and
 what makes the difficulty curve *feel* human as much as it is mechanically hard.
-The default opponent's rate is `0.0`, so it (and the test harness) stays
-deterministic.
+A misplay is **bounded** (spec 013): a slip is a believable error — an early stand
+within a couple of the threshold, a greedy over-hit that busts, a fumbled card —
+never a *catastrophic* one, so the opponent never stands on a low total and never
+concedes a round it could still contest. The rates are the same difficulty scalar
+as before; only the *outcome* is floored to competent. The default opponent's rate
+is `0.0`, so it (and the test harness) stays deterministic.
 
 ## Current roster
 
