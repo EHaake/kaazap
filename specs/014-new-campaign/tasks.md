@@ -15,7 +15,7 @@ plan also at `~/.claude/plans/iterative-meandering-blum.md`.
   draft PR.
   *Verify: baseline `cargo build` / `cargo test` still green; draft PR open.*
 
-- [ ] **T002 — Progress check + reset (pure)**
+- [x] **T002 — Progress check + reset (pure)**
   `CampaignRun::has_progress()` (`src/campaign.rs`) and `Profile::reset_to_starter()`
   (`src/profile.rs`, `*self = Profile::default()`), with tests.
   *Verify: `cargo test` green — `has_progress` false on default / true after

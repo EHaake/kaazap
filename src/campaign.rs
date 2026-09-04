@@ -208,6 +208,16 @@ impl CampaignRun {
         PLANETS.iter().all(|p| self.planet_cleared(p))
     }
 
+    /// Whether the player has cleared any opponent yet — real progress worth
+    /// preserving or wiping. False for a fresh run (and one where a first match
+    /// was started but never won); true once anything is `mark_beaten`. Drives the
+    /// Continue / New Campaign choice at campaign entry (spec 014). Checks for a
+    /// non-empty opponent list rather than a non-empty map, so a stray empty entry
+    /// never reads as progress.
+    pub fn has_progress(&self) -> bool {
+        self.beaten.values().any(|list| !list.is_empty())
+    }
+
     /// The campaign match currently in flight, if any.
     pub fn in_progress(&self) -> Option<&NodeRef> {
         self.in_progress.as_ref()
@@ -267,6 +277,14 @@ mod tests {
             assert!(!run.planet_cleared(&p), "{} should not be cleared fresh", p.id);
         }
         assert!(!run.run_complete());
+    }
+
+    #[test]
+    fn has_progress_is_false_until_an_opponent_is_beaten() {
+        let mut run = CampaignRun::default();
+        assert!(!run.has_progress(), "a fresh run has no progress");
+        run.mark_beaten("cinder", "greeb");
+        assert!(run.has_progress(), "clearing an opponent is progress");
     }
 
     #[test]

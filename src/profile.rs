@@ -111,6 +111,14 @@ impl Profile {
         }
     }
 
+    /// Reset to a brand-new starter profile: starter collection + deck, no
+    /// campaign progress, zero credits — a full fresh start (spec 014's New
+    /// Campaign). Settings live in a separate file, so they are untouched. The
+    /// caller persists (`save`) and clears any in-progress match save.
+    pub fn reset_to_starter(&mut self) {
+        *self = Profile::default();
+    }
+
     /// Parse profile JSON, discarding a document whose version doesn't match
     /// rather than mis-reading it. The filesystem-free core of `load`, so the
     /// fallback and version check are testable without disk.
@@ -279,6 +287,36 @@ mod tests {
         let p3 = Profile::from_json(older).expect("an older profile still loads");
         assert!(!p3.campaign().run_complete());
         assert!(!p3.campaign().planet_cleared(&planet_by_id("cinder").unwrap()));
+    }
+
+    #[test]
+    fn reset_to_starter_wipes_everything_back_to_a_new_profile() {
+        use crate::campaign::NodeRef;
+        let mut p = Profile::default();
+        // Dirty every persisted field: campaign progress, an in-flight match,
+        // credits, and the collection.
+        p.campaign_mut().mark_beaten("cinder", "greeb");
+        p.campaign_mut().set_in_progress(Some(NodeRef {
+            planet: "scree".to_string(),
+            opponent: "dax".to_string(),
+        }));
+        p.earn_credits(250);
+        p.grant_card(Card::PlusMinus(6));
+        assert!(p.campaign().has_progress() && p.credits() > 0, "sanity: profile is dirtied");
+
+        p.reset_to_starter();
+
+        assert_eq!(p.credits(), 0, "credits reset");
+        assert!(!p.campaign().has_progress(), "campaign progress cleared");
+        assert!(p.campaign().in_progress().is_none(), "in-progress match cleared");
+        assert_eq!(p.deck(), starter_deck().as_slice(), "deck back to starter");
+        // Full equality with a brand-new profile, via the serialized form
+        // (`Profile` isn't `PartialEq`): every field is starter state.
+        assert_eq!(
+            serde_json::to_string(&p).unwrap(),
+            serde_json::to_string(&Profile::default()).unwrap(),
+            "a reset profile is identical to a fresh one",
+        );
     }
 
     #[test]
