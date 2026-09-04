@@ -151,6 +151,15 @@ of, not guessed at here in advance.
   credits for a full clear); NG+/reset rides with the roguelike mode (E).
   Mechanics + tuning snapshot in `docs/economy.md`; a dedicated balance pass on
   the reward/price curve remains tracked below.
+- **Bounded misplays** (spec 013) — a **correction to spec 010**, from campaign
+  playtest: the misplay seam was unbounded, so opponents stood on 0 and conceded
+  from far behind. Now a misplay is a *believable* error, never suicidal — it fires
+  only while the position is open (no slip once the player has stood or the opponent
+  is over 20) and the timid `Hit → Stand` is capped to within `MISPLAY_TIMID_MARGIN`
+  (2) of the threshold. The believable open-position errors (greedy over-hit bust,
+  card fumble) and the per-opponent rates are unchanged; masters (misplay 0) are
+  untouched. Two spec-010 tests re-authored (surfaced), both fix layers
+  mutation-checked. Details in `docs/opponents.md` / `DECISIONS.md`.
 
 ## Backlog
 

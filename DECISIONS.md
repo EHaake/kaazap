@@ -263,6 +263,40 @@ the calls newly settled this spec (first two human-ruled this session):
   (e.g. the first win's 10 credits can't yet afford a 20-credit Outer card) —
   logged for the tracked balance pass rather than tuned blind.
 
+## Bounded misplays (spec 013)
+
+A **correction to spec 010**, not new scope: spec 010 framed its per-turn misplay
+as "the deliberate, **bounded** version," but the shipped code was **unbounded**, so
+opponents stood on 0 and conceded from far behind (found in campaign playtest). The
+calls:
+
+- **Bounded, not zeroed** — a misplay stays a *believable* human error, never a
+  *catastrophic* one; the weakness that makes early opponents beatable is kept, only
+  the suicidal outcomes are removed. Lowering the rates was rejected — it makes
+  suicide rarer, not gone; the model itself was wrong.
+- **Two layers** (both in `game.rs`): (1) a misplay fires only while the position is
+  *open* — the player is live and the opponent is ≤ 20 — so a resolved position
+  (player stood, or a bust to recover) is always played straight (every deviation
+  there is pure self-harm: concede a chase, throw a lead, fumble a save); (2) the
+  timid `Hit → Stand` is capped to within `MISPLAY_TIMID_MARGIN` (2) of the
+  threshold, so a "chicken out" is standing on ~15, never on 0.
+- **Kept as flavor** — the greedy over-hit (`Stand → Hit`, the classic beginner
+  bust) and the card fumble (`PlayHand → Hit`) while the position is open. They read
+  as weakness without being suicidal, are self-limiting, and the roster is
+  anti-correlated (the opponents that bust hardest from a greedy hit barely misplay).
+- **Perturbed-threshold model weighed and rejected** — modelling a misplay as a
+  noisy threshold re-running the deterministic policy is tidier (and gets "no misplay
+  vs a stood player" for free), but it's outcome-equivalent on the catastrophic cases
+  (a greedy over-hit busts the same either way) while being a bigger rewrite of an
+  already-tested seam — it fails the simplicity mandate. The bounded action-flip is
+  the smaller, correct change.
+- **Rates unchanged** — the per-opponent misplay rates (0.25 → 0.0) stay the
+  difficulty scalar; only the *outcome* is floored to competent. A balance pass on
+  the rates stays a tracked cross-cutting item.
+- **Two spec-010 tests re-authored**, surfaced not silent (per `CLAUDE.md`): they
+  encoded the old unbounded contract, so a pointer note was added to spec 010's
+  acceptance evidence. Both fix layers are mutation-checked.
+
 ## Explicitly deferred out of v1
 
 - **Full side-deck customization** (building your own 10-card deck from a
