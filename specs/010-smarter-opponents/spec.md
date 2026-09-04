@@ -127,6 +127,11 @@ Difficulty rises across the roster (Greeb → The Magistrate) through the strate
       *(`opponent_action_misplays_below_the_rate_and_plays_best_at_or_above`,
       `the_default_opponent_never_misplays`,
       `misplay_rates_are_valid_and_the_default_is_deterministic`.)*
+      **Amended by spec 013:** the shipped misplay was **unbounded** — contradicting
+      the "bounded" intent below, it could stand on 0 or concede from far behind.
+      Spec 013 bounds it (a position-open gate + a timid-stand margin); the first two
+      tests above were re-authored to the bounded contract. See
+      `specs/013-bounded-misplays/`.
 - [x] Every pre-existing rule and the whole match flow are unchanged when the
       board doesn't call for board-aware play; no panics.
       *(All prior `ai_*` tests pass unchanged; `full_match_terminates_*`; live
@@ -145,7 +150,8 @@ Difficulty rises across the roster (Greeb → The Magistrate) through the strate
   misplays keep opponents from being perfectly solvable and add a human feel,
   while the deterministic core stays fully unit-testable; the random layer sits
   behind a testable roll seam. (Spec 007 deferred stochastic play; this is the
-  deliberate, bounded version of it.)
+  deliberate, bounded version of it.) *(The shipped code was in fact **un**bounded;
+  spec 013 corrected it to match this stated intent — see the amendment note above.)*
 - **Strategy is `OpponentProfile` data** (a `Copy` `AiStrategy` enum + a
   `misplay` rate), consistent with spec 007's "personality lives in the profile"
   design — no plumbing, no save change. The default opponent is deterministic
