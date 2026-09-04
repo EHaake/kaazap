@@ -35,7 +35,7 @@ Branch `013-bounded-misplays` off `main` (012-economy is merged). Plan mirrors
   still passes; `cargo build` no new warnings. Mutation check: temporarily widen the
   bound and confirm the regression/property tests go red. **(review)***
 
-- [ ] **T003 — Docs + close-out**
+- [x] **T003 — Docs + close-out**
   Update `docs/opponents.md` (misplay is bounded, never suicidal). Add a pointer note
   to `specs/010-smarter-opponents/spec.md` (misplay model bounded by spec 013; the
   two acceptance-cited tests re-authored). Driver spot-check (back up real
