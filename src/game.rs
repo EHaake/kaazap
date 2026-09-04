@@ -1648,6 +1648,21 @@ mod tests {
     }
 
     #[test]
+    fn a_live_card_fumble_still_fires_through_the_seam() {
+        // The other kept flavor, exercised through the gated seam (not just a
+        // direct misplay call): vs a live player the best move is a card landing
+        // on 20, and a misplay fumbles it into a Hit. Confirms the open-position
+        // gate lets the fumble through while the player is live.
+        let mut gs = opponent_at(15, vec![Card::Plus(5)]); // +5 lands 20 → best is PlayHand
+        gs.opponent_profile = OpponentProfile { misplay: 1.0, ..DEFAULT_OPPONENT };
+        assert_eq!(
+            gs.decide_opponent_move(),
+            OpponentAction::PlayHand { index: 0, value: 5 }
+        );
+        assert_eq!(gs.opponent_action(0.0), OpponentAction::Hit);
+    }
+
+    #[test]
     fn with_opponent_seeds_the_profile_and_name_while_new_stays_default() {
         use crate::{STAND_THRESHOLD, opponent::OPPONENTS};
 

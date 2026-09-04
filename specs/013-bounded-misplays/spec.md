@@ -69,21 +69,39 @@ tracked balance pass, not this spec.)
 
 ## Acceptance criteria
 
-- [ ] A misplaying opponent never stands below `effective_threshold − 2` while the
+- [x] A misplaying opponent never stands below `effective_threshold − 2` while the
       player is live and its table isn't full — verified as a property over every
       roster opponent, and by a regression test pinning the exact reported bug
       (live player, opponent score 0, misplay 1.0 → hits, never stands).
-- [ ] Against a **stood** player, a misplaying opponent plays its deterministic
+      *(`no_roster_opponent_misplays_into_a_suicidal_stand_while_live` over all
+      `OPPONENTS`; `a_misplay_never_stands_on_a_low_total`;
+      `the_timid_stand_is_bounded_to_the_band` pins the band edge 14→hit/15→stand.
+      Mutation-checked: reverting to the unbounded `Hit => Stand` turns these red.)*
+- [x] Against a **stood** player, a misplaying opponent plays its deterministic
       best move for every move shape (ahead → stand, behind → hit/chase, winning
       card → play it); the over-20 recovery play is likewise never fumbled.
-- [ ] The believable open-position errors still fire: a greedy over-hit
+      *(`a_resolved_position_is_played_straight_never_misplayed` — all four shapes,
+      misplay 1.0. Mutation-checked: removing the `position_is_open` gate turns it
+      red.)*
+- [x] The believable open-position errors still fire: a greedy over-hit
       (`stand → hit`) still occurs while live, and a timid early stand still occurs
       within the band — so weak opponents remain weaker than the masters.
-- [ ] Opponents with misplay 0.0 are provably unaffected (the existing
+      *(`a_greedy_over_hit_still_fires_while_the_player_is_live`,
+      `a_live_card_fumble_still_fires_through_the_seam`,
+      `misplay_deviates_each_best_move_legally`,
+      `opponent_action_misplays_below_the_rate_and_plays_best_at_or_above`. Live
+      driver: Greeb hit 0→7→11, then played the board-aware +1 to win once the
+      player stood.)*
+- [x] Opponents with misplay 0.0 are provably unaffected (the existing
       "default opponent never misplays" guard still holds).
-- [ ] `cargo test` green (the new regression + property + boundary +
+      *(`the_default_opponent_never_misplays`,
+      `misplay_rates_are_valid_and_the_default_is_deterministic`; `opponent.rs`
+      rates untouched.)*
+- [x] `cargo test` green (the new regression + property + boundary +
       position-resolved + greed-still-fires tests, plus the re-authored spec-010
-      tests); `cargo build` no new warnings; no panics in play.
+      tests); `cargo build` no new warnings; no panics in play. *(245 passed, 0
+      failed; build 0 warnings; driver spot-check — full round, no panic, save/resume
+      intact.)*
 
 ## Resolved decisions
 
