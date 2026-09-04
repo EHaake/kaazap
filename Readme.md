@@ -56,7 +56,10 @@ match.
 
 From the start menu, **Start Campaign** opens a full-screen star map: travel
 between planets (arrows / `w`·`a`·`s`·`d`), and at each you play its opponents
-to clear it and unlock the way core-ward. **Quick Play** instead lets you pick
+to clear it and unlock the way core-ward. Once you've cleared any world, Start
+Campaign first asks whether to **Continue** your run or begin a **New Campaign** —
+a fresh start that resets your progress, credits, and collection (your settings
+are kept). **Quick Play** instead lets you pick
 any opponent from the roster directly (each has its own difficulty, side
 deck, and play style; see `docs/opponents.md` for how difficulty is tuned). In-game, press `?`
 for a rules and controls overlay. If you know real Pazaak, Kaazap plays close
