@@ -288,6 +288,15 @@ mod tests {
     }
 
     #[test]
+    fn has_progress_ignores_a_stray_empty_beaten_entry() {
+        // Only reachable via a hand-edited save, but the defensive claim must
+        // hold: an empty opponent list is not progress (guards the `values()`
+        // check against a refactor back to a bare `!beaten.is_empty()`).
+        let run: CampaignRun = serde_json::from_str(r#"{"beaten":{"cinder":[]}}"#).unwrap();
+        assert!(!run.has_progress());
+    }
+
+    #[test]
     fn clearing_a_planet_needs_all_its_opponents() {
         let spindle = planet_by_id("the-spindle").unwrap();
         let mut run = CampaignRun::default();

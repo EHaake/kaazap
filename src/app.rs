@@ -265,6 +265,36 @@ enum Modal {
     ConfirmNewCampaign { on_yes: bool },
 }
 
+/// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
+/// the *irreversible* choice (New Campaign's wipe) is unit-testable without
+/// constructing an `App` (the `cursor_confirm` pattern: a tested decision pulled
+/// out of a handler). `Commit` is returned **only** for Enter/Space with Yes
+/// highlighted; No and Esc `Cancel`, arrows `Toggle`, anything else is `Ignore`.
+#[derive(Debug, PartialEq, Eq)]
+enum ConfirmChoice {
+    Toggle,
+    Commit,
+    Cancel,
+    Ignore,
+}
+
+fn confirm_choice(on_yes: bool, key: KeyCode) -> ConfirmChoice {
+    match key {
+        KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
+            ConfirmChoice::Toggle
+        }
+        KeyCode::Enter | KeyCode::Char(' ') => {
+            if on_yes {
+                ConfirmChoice::Commit
+            } else {
+                ConfirmChoice::Cancel
+            }
+        }
+        KeyCode::Esc => ConfirmChoice::Cancel,
+        _ => ConfirmChoice::Ignore,
+    }
+}
+
 pub struct App {
     pub config: Config,
     screen: Screen,
@@ -857,28 +887,26 @@ impl App {
     /// Enter/Space commit (Yes wipes to a starter profile and opens a fresh map;
     /// No cancels), Esc cancels. Mirrors `handle_confirm_input`. (spec 014)
     fn handle_confirm_new_campaign_input(&mut self, key: KeyCode) {
-        match key {
-            KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
+        let on_yes = matches!(self.modal, Some(Modal::ConfirmNewCampaign { on_yes: true }));
+        match confirm_choice(on_yes, key) {
+            ConfirmChoice::Toggle => {
                 if let Some(Modal::ConfirmNewCampaign { on_yes }) = self.modal.as_mut() {
                     *on_yes = !*on_yes;
                 }
                 self.audio.play(Sfx::MenuMove);
             }
-            KeyCode::Enter | KeyCode::Char(' ') => {
-                let confirmed =
-                    matches!(self.modal, Some(Modal::ConfirmNewCampaign { on_yes: true }));
+            // The only path to the irreversible wipe — guarded by `confirm_choice`
+            // (Commit iff Enter/Space with Yes), which `confirm_choice_commits_
+            // only_on_enter_with_yes` pins.
+            ConfirmChoice::Commit => {
                 self.modal = None;
-                if confirmed {
-                    self.start_new_campaign();
-                } else {
-                    self.audio.play(Sfx::MenuBack);
-                }
+                self.start_new_campaign();
             }
-            KeyCode::Esc => {
+            ConfirmChoice::Cancel => {
                 self.modal = None;
                 self.audio.play(Sfx::MenuBack);
             }
-            _ => {}
+            ConfirmChoice::Ignore => {}
         }
     }
 
@@ -1129,6 +1157,26 @@ mod tests {
 
     fn hand(cards: &[Option<Card>]) -> Vec<Option<Card>> {
         cards.to_vec()
+    }
+
+    #[test]
+    fn confirm_choice_commits_only_on_enter_with_yes() {
+        use ConfirmChoice::*;
+        // The irreversible-wipe guard (spec 014): New Campaign commits iff
+        // Enter/Space is pressed with Yes highlighted — never on No, never on Esc,
+        // never on a toggle. A refactor that flipped a condition (wipe on No/Esc,
+        // or a default-Yes confirm) would be caught here rather than in play.
+        assert_eq!(confirm_choice(true, KeyCode::Enter), Commit);
+        assert_eq!(confirm_choice(true, KeyCode::Char(' ')), Commit);
+        assert_eq!(confirm_choice(false, KeyCode::Enter), Cancel);
+        assert_eq!(confirm_choice(false, KeyCode::Char(' ')), Cancel);
+        assert_eq!(confirm_choice(true, KeyCode::Esc), Cancel);
+        assert_eq!(confirm_choice(false, KeyCode::Esc), Cancel);
+        for k in [KeyCode::Left, KeyCode::Right, KeyCode::Char('a'), KeyCode::Char('d')] {
+            assert_eq!(confirm_choice(true, k), Toggle);
+            assert_eq!(confirm_choice(false, k), Toggle);
+        }
+        assert_eq!(confirm_choice(true, KeyCode::Char('z')), Ignore);
     }
 
     #[test]

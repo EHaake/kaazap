@@ -21,9 +21,11 @@
 ## Design
 
 ### `src/campaign.rs` — detect progress
-`pub fn has_progress(&self) -> bool { !self.beaten.is_empty() }`. Cleared opponents
-= real progress; a started-but-unwon first match has empty `beaten`, so the choice
-isn't offered there (Continue and New would be identical).
+`pub fn has_progress(&self) -> bool { self.beaten.values().any(|list| !list.is_empty()) }`
+— checks for a non-empty opponent list rather than a non-empty map, so a stray
+empty entry (only reachable via a hand-edited save) never reads as progress.
+Cleared opponents = real progress; a started-but-unwon first match has empty
+`beaten`, so the choice isn't offered there (Continue and New would be identical).
 
 ### `src/profile.rs` — reset
 `pub fn reset_to_starter(&mut self) { *self = Profile::default(); }` — the full

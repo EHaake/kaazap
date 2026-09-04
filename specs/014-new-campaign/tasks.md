@@ -30,13 +30,15 @@ plan also at `~/.claude/plans/iterative-meandering-blum.md`.
   `draw_two_choice` helper + the two draw arms. Board/engine untouched.
   *Verify: `cargo build` clean; `cargo test` green (247 passed) — existing menu/
   confirm/draw tests unaffected.*
-  *Conscious accept (mirrors spec 012's App::tick note): the modal-handler glue is
-  not unit-tested, following the existing `ConfirmNewGame` handler precedent (also
-  untested). Two reasons: `App::new` loads the **real** profile from disk, so
-  driving the destructive "Yes" in a test would wipe the player's real
-  `profile.json`; and the handlers are thin wiring over the T002-unit-tested
-  `reset_to_starter` / `has_progress`. The full flow is verified by the driver
-  sweep (T004) and the skeptical-reviewer.*
+  *Testing (updated after review, S1): the **irreversible wipe decision** is now a
+  pure `confirm_choice(on_yes, key)` seam, unit-tested + mutation-checked to
+  `Commit` only on Enter/Space with Yes (`confirm_choice_commits_only_on_enter_with_yes`)
+  — the `cursor_confirm` precedent for a tested decision pulled out of a handler.
+  The remaining glue (applying the decision; the non-destructive entry toggle) is
+  thin wiring over the T002-unit-tested `reset_to_starter`/`has_progress` and is
+  driver-verified (T004), following the existing untested `ConfirmNewGame` handler
+  precedent — `App::new` loads the real profile, so driving "Yes" through a full
+  `App` in a test would wipe the player's real `profile.json`.*
 
 - [ ] **T004 — Verify & close-out**
   Driver sweep (back up `profile.json`/`saves/`, restore + checksum): with cleared
