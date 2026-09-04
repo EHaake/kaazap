@@ -105,15 +105,36 @@ standing instruction to Claude Code as much as a note to the human.
 - `Cargo.lock` is committed as-is (already the case) and only
   regenerated via `cargo build`/`cargo update` — never hand-edited.
 
+## Involvement level
+
+**Product owner.** The person owns `spec.md`, attests to behavior by
+using the app at phase pauses, and decides escalations. They do not
+approve technical work: `plan.md` and `tasks.md` are signed off by Plan
+Mode plus the `skeptical-reviewer`, foundational tasks are reviewed by
+the `skeptical-reviewer` rather than the person, and what reaches the
+person is a spec-conformance summary, not an architecture review.
+Implementation pauses after each phase unless the person says to run
+further, and whenever something unexpected bears on spec adherence.
+
 ## Spec-driven workflow
 
-This project follows spec → plan → tasks → implement, gated by human
-review between each phase. Artifacts live in `specs/<NNN>-<slug>/`:
+This project follows spec → plan → tasks → implement, gated by review
+between each phase — at the **product-owner** involvement level above,
+those gates are the `skeptical-reviewer`'s, not the person's. Artifacts
+live in `specs/<NNN>-<slug>/`:
 
 - `spec.md` — what and why, user-facing behavior, acceptance criteria,
   explicit non-goals. No implementation detail.
 - `plan.md` — technical design: types, data flow, what changes where.
 - `tasks.md` — ordered, small, independently verifiable tasks.
+
+Authorship: `spec.md` is written in the chat design conversation; since
+this project already has shipped code, Claude Code drafts `plan.md` and
+`tasks.md` in Plan Mode, against the actual codebase, committed to the
+spec branch with the PR still in draft. Both are signed off before any
+implementation task starts by Plan Mode plus the `skeptical-reviewer`
+(blocking findings fixed and re-reviewed); the person receives a
+spec-conformance summary to approve, not the plan itself.
 
 Do not begin implementation on a feature without an approved spec and
 plan in that feature's directory. When resuming a session, check
@@ -125,10 +146,11 @@ If the `spec-driven-development` skill is installed
 (`~/.claude/skills/spec-driven-development/` or a project-level
 `.claude/skills/`), its collaboration workflow applies automatically —
 routine tasks proceed normally, real decisions resolve via Plan Mode and
-the `skeptical-reviewer` subagent, and the person is looped in only when
-something in the design turns out infeasible or needs real rework, or a
-previously-unknown consideration surfaces that would materially change
-the project's direction. Nothing needs to be repeated here.
+the `skeptical-reviewer` subagent, and beyond the phase pauses defined
+above, the person is looped in only when something in the design turns
+out infeasible or needs real rework, or a previously-unknown
+consideration surfaces that would materially change the project's
+direction. Nothing needs to be repeated here.
 
 ## Verification
 
