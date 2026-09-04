@@ -15,6 +15,7 @@ use crate::{
     STARFIELD_TWINKLE_MS,
     campaign::{PLANETS, Planet, planet_by_id},
     config::Config,
+    economy::WinReward,
     frame::{Emphasis, Frame, draw_char, draw_text, draw_text_centered},
     layout::CampaignMapLayout,
     opponent::opponent_by_id,
@@ -32,6 +33,7 @@ const STAR_COUNT: usize = 72;
 pub enum MapOutcome {
     Moved,
     Launch { planet: &'static str, opponent: &'static str },
+    OpenShop,
     Back,
 }
 
@@ -130,6 +132,7 @@ impl CampaignMapState {
                 run.next_opponent(&planet)
                     .map(|opponent| MapOutcome::Launch { planet: planet.id, opponent })
             }
+            KeyCode::Char('b') => Some(MapOutcome::OpenShop),
             KeyCode::Esc | KeyCode::Char('x') => Some(MapOutcome::Back),
             _ => None,
         }
@@ -146,7 +149,14 @@ impl CampaignMapState {
     }
 
     /// Draw the whole map: starfield, routes, nodes, header, and info panel.
-    pub fn draw(&self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
+    pub fn draw(
+        &self,
+        frame: &mut Frame,
+        config: &Config,
+        profile: &Profile,
+        last_reward: Option<&WinReward>,
+        pulse: Emphasis,
+    ) {
         let run = profile.campaign();
         let layout = CampaignMapLayout::new(*config);
 
@@ -182,7 +192,7 @@ impl CampaignMapState {
             draw_text_centered(frame, x, y + 1, &label, emphasis);
         }
 
-        self.draw_header(frame, &layout, run);
+        self.draw_header(frame, &layout, run, profile.credits(), last_reward);
         self.draw_panel(frame, &layout, run);
     }
 
@@ -205,17 +215,35 @@ impl CampaignMapState {
         }
     }
 
-    fn draw_header(&self, frame: &mut Frame, layout: &CampaignMapLayout, run: &crate::campaign::CampaignRun) {
+    fn draw_header(
+        &self,
+        frame: &mut Frame,
+        layout: &CampaignMapLayout,
+        run: &crate::campaign::CampaignRun,
+        credits: u32,
+        last_reward: Option<&WinReward>,
+    ) {
         let cleared = PLANETS.iter().filter(|p| run.planet_cleared(p)).count();
         draw_text(frame, layout.header.x0 + 2, layout.header.y0, "CAMPAIGN", Emphasis::Strong);
 
-        let progress = format!("{cleared}/{} worlds cleared", PLANETS.len());
-        let px = layout.header.x1.saturating_sub(progress.chars().count() + 1);
-        draw_text(frame, px, layout.header.y0, &progress, Emphasis::Normal);
+        // Progress and the live credit balance, right-aligned on the top row.
+        let status = format!("{cleared}/{} cleared   ◈ {credits}", PLANETS.len());
+        let px = layout.header.x1.saturating_sub(status.chars().count() + 1);
+        draw_text(frame, px, layout.header.y0, &status, Emphasis::Normal);
 
-        const AXIS: &str = "Outer Rim  →  The Core";
+        // Second row: the just-won reward as a transient banner (until the
+        // player navigates), otherwise the rim→core axis label.
         let cx = (layout.header.x0 + layout.header.x1) / 2;
-        draw_text_centered(frame, cx, layout.header.y0 + 1, AXIS, Emphasis::Muted);
+        match last_reward {
+            Some(r) => {
+                let banner = format!("★  Won {} credits  ·  new card {}", r.credits, r.card.label());
+                draw_text_centered(frame, cx, layout.header.y0 + 1, &banner, Emphasis::Strong);
+            }
+            None => {
+                const AXIS: &str = "Outer Rim  →  The Core";
+                draw_text_centered(frame, cx, layout.header.y0 + 1, AXIS, Emphasis::Muted);
+            }
+        }
     }
 
     fn draw_panel(&self, frame: &mut Frame, layout: &CampaignMapLayout, run: &crate::campaign::CampaignRun) {
@@ -237,7 +265,7 @@ impl CampaignMapState {
             planet.blurb
         };
         draw_text(frame, x, panel.y0 + 3, status, Emphasis::Muted);
-        draw_text(frame, x, panel.y0 + 4, "↑/↓ move  ·  Enter play  ·  Esc menu", Emphasis::Muted);
+        draw_text(frame, x, panel.y0 + 4, "↑/↓ move  ·  Enter play  ·  b shop  ·  Esc menu", Emphasis::Muted);
     }
 }
 

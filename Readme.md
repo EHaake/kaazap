@@ -19,11 +19,12 @@ side-deck cards for tougher matchups ahead.
 > roster with distinct difficulties, decks, and **board-aware AI**
 > (they read your board and play to beat the round, each with its own
 > strategy — up to a flawless final boss), a deck-builder for
-> assembling your own side deck from a card collection, and **an eight-world
+> assembling your own side deck from a card collection, **an eight-world
 > campaign map** — travel a node-based star map, Outer Rim → Core, clearing
-> each world's opponents to unlock the next — are in place;
-> campaign progression (credits, a shop, card rewards) is next — see
-> `ROADMAP.md` for what's shipped and what's ahead.
+> each world's opponents to unlock the next — and **a campaign economy**
+> (wins earn credits and drop cards; a shop on the map sells from a pool that
+> unlocks by how far core-ward you've reached) are in place; the balance pass
+> and stretch features are what's ahead — see `ROADMAP.md` for the full picture.
 
 ## Building & running
 

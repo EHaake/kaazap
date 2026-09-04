@@ -19,6 +19,7 @@ use crate::{
     SIDE_DECK_SIZE,
     campaign::CampaignRun,
     card::{ALL_SIDE_CARDS, Card, DEFAULT_SIDE_DECK},
+    economy::{self, WinReward},
 };
 
 /// Bump when the on-disk shape changes incompatibly; a file whose version
@@ -49,6 +50,10 @@ pub struct Profile {
     /// pre-campaign profile loads with a fresh (empty) run — no version bump.
     #[serde(default)]
     campaign: CampaignRun,
+    /// Credits earned from campaign wins (spec 012, economy). Additive and
+    /// serde-defaulted, so a pre-economy profile loads with 0 — no version bump.
+    #[serde(default)]
+    credits: u32,
 }
 
 fn default_version() -> u32 {
@@ -78,6 +83,7 @@ impl Default for Profile {
             collection: starter_collection(),
             deck: starter_deck(),
             campaign: CampaignRun::default(),
+            credits: 0,
         }
     }
 }
@@ -134,6 +140,50 @@ impl Profile {
         &mut self.campaign
     }
 
+    /// The player's credit balance (spec 012, economy).
+    pub fn credits(&self) -> u32 {
+        self.credits
+    }
+
+    /// Add credits (from a campaign win). Saturating, so a long streak can't
+    /// wrap. Callers pair this with [`Profile::save`].
+    pub fn earn_credits(&mut self, amount: u32) {
+        self.credits = self.credits.saturating_add(amount);
+    }
+
+    /// Grant one copy of `card` to the collection (a win drop or a shop buy).
+    /// The deck-builder and every count query pick it up automatically, since
+    /// the collection is a bag of copies.
+    pub fn grant_card(&mut self, card: Card) {
+        self.collection.push(card);
+    }
+
+    /// Buy `card` for `price`: spend the credits and grant the card if the
+    /// player can afford it, otherwise do nothing. Returns whether it happened,
+    /// so the app persists only on `true` (the deck-edit pattern).
+    pub fn try_purchase(&mut self, card: Card, price: u32) -> bool {
+        if self.credits >= price {
+            self.credits -= price;
+            self.grant_card(card);
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Apply a campaign win's reward: earn credits scaled by the beaten
+    /// opponent's `threshold` and drop one card from the current depth-gated
+    /// pool (chosen by `roll`), returning what was granted (for the map reveal).
+    /// Keeps the whole reward application testable off one injected roll, so the
+    /// `App::tick` seam that calls it stays a thin wrapper. See `docs/economy.md`.
+    pub fn apply_win_reward(&mut self, threshold: usize, roll: usize) -> WinReward {
+        let pool = economy::available_pool(&self.campaign);
+        let reward = economy::win_reward(threshold, &pool, roll);
+        self.earn_credits(reward.credits);
+        self.grant_card(reward.card);
+        reward
+    }
+
     /// A legal deck is exactly `SIDE_DECK_SIZE` cards, each backed by an owned
     /// copy (a sub-multiset of the collection). The rule a match start checks.
     pub fn deck_is_valid(&self) -> bool {
@@ -183,6 +233,13 @@ impl Profile {
             .collect()
     }
 
+    /// How many copies of `card` the player owns — for the shop to show an
+    /// "owned ×N" tally against a card that may not be in the deck-builder grid
+    /// yet (the grid omits unowned cards; the shop lists the whole pool).
+    pub fn owned_count(&self, card: Card) -> usize {
+        self.count_owned(card)
+    }
+
     fn count_owned(&self, card: Card) -> usize {
         self.collection.iter().filter(|&&c| c == card).count()
     }
@@ -204,6 +261,7 @@ mod tests {
             collection,
             deck,
             campaign: CampaignRun::default(),
+            credits: 0,
         }
     }
 
@@ -221,6 +279,70 @@ mod tests {
         let p3 = Profile::from_json(older).expect("an older profile still loads");
         assert!(!p3.campaign().run_complete());
         assert!(!p3.campaign().planet_cleared(&planet_by_id("cinder").unwrap()));
+    }
+
+    #[test]
+    fn credits_persist_and_default_to_zero_for_older_profiles() {
+        // A pre-economy profile (no `credits` field) loads with 0 credits and no
+        // version bump — the same additive-field discipline as `campaign`.
+        let older = r#"{"version":1,"collection":[],"deck":[]}"#;
+        let p = Profile::from_json(older).expect("an older profile still loads");
+        assert_eq!(p.credits(), 0);
+
+        // Earned credits round-trip through JSON.
+        let mut p = Profile::default();
+        p.earn_credits(75);
+        let json = serde_json::to_string(&p).unwrap();
+        let p2 = Profile::from_json(&json).expect("a valid profile loads");
+        assert_eq!(p2.credits(), 75);
+    }
+
+    #[test]
+    fn earning_grows_the_balance_and_purchase_is_affordability_gated() {
+        let owned = |p: &Profile, card: Card| {
+            p.collection_by_type()
+                .iter()
+                .find(|e| e.card == card)
+                .map_or(0, |e| e.owned)
+        };
+        let mut p = Profile::default();
+        let before = owned(&p, Card::PlusMinus(6));
+
+        p.earn_credits(30);
+        p.earn_credits(20);
+        assert_eq!(p.credits(), 50);
+
+        // Can't afford (needs 120): nothing changes.
+        assert!(!p.try_purchase(Card::PlusMinus(6), 120));
+        assert_eq!(p.credits(), 50);
+        assert_eq!(owned(&p, Card::PlusMinus(6)), before);
+
+        // Affordable: credits deducted and a copy granted (the collection grows).
+        assert!(p.try_purchase(Card::PlusMinus(6), 50));
+        assert_eq!(p.credits(), 0);
+        assert_eq!(owned(&p, Card::PlusMinus(6)), before + 1);
+
+        // grant_card alone also grows the collection (a win drop).
+        let plus2_before = owned(&p, Card::Plus(2));
+        p.grant_card(Card::Plus(2));
+        assert_eq!(owned(&p, Card::Plus(2)), plus2_before + 1);
+    }
+
+    #[test]
+    fn applying_a_win_reward_pays_credits_and_drops_one_pool_card() {
+        let mut p = Profile::default(); // fresh: Outer depth, 0 credits
+        let before_total: usize = p.collection_by_type().iter().map(|e| e.owned).sum();
+
+        // Threshold 15 → 10 credits; roll 0 picks the first card of the pool.
+        let reward = p.apply_win_reward(15, 0);
+
+        assert_eq!(reward.credits, 10);
+        assert_eq!(p.credits(), 10);
+        // The dropped card comes from the current (Outer) depth-gated pool...
+        assert!(economy::available_pool(p.campaign()).contains(&reward.card));
+        // ...and exactly one card was added to the collection.
+        let after_total: usize = p.collection_by_type().iter().map(|e| e.owned).sum();
+        assert_eq!(after_total, before_total + 1);
     }
 
     #[test]

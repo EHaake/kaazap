@@ -11,6 +11,8 @@ pub mod opponent_select;
 pub mod deck_builder;
 pub mod campaign;
 pub mod campaign_map;
+pub mod economy;
+pub mod shop;
 pub mod screen;
 pub mod menu;
 pub mod overlay;
