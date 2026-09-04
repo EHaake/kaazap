@@ -23,14 +23,20 @@ plan also at `~/.claude/plans/iterative-meandering-blum.md`.
   edited collection) back into the starter (starter collection/deck, empty campaign,
   0 credits), version unchanged; `cargo build` clean.*
 
-- [ ] **T003 — The modal flow (`src/app.rs`)**
+- [x] **T003 — The modal flow (`src/app.rs`)**
   Two `Modal` variants (`CampaignEntry`, `ConfirmNewCampaign`); extract
   `enter_campaign_continue()`; the StartCampaign branch (choice when
   `has_progress`); input handling (toggle/commit/cancel, the reset action on Yes);
   `draw_two_choice` helper + the two draw arms. Board/engine untouched.
-  *Verify: `cargo test` green — input tests: CampaignEntry Enter-on-New opens the
-  confirm; ConfirmNewCampaign Yes resets (progress gone, credits 0), No leaves it
-  intact; existing menu/confirm tests still pass; `cargo build` clean.*
+  *Verify: `cargo build` clean; `cargo test` green (247 passed) — existing menu/
+  confirm/draw tests unaffected.*
+  *Conscious accept (mirrors spec 012's App::tick note): the modal-handler glue is
+  not unit-tested, following the existing `ConfirmNewGame` handler precedent (also
+  untested). Two reasons: `App::new` loads the **real** profile from disk, so
+  driving the destructive "Yes" in a test would wipe the player's real
+  `profile.json`; and the handlers are thin wiring over the T002-unit-tested
+  `reset_to_starter` / `has_progress`. The full flow is verified by the driver
+  sweep (T004) and the skeptical-reviewer.*
 
 - [ ] **T004 — Verify & close-out**
   Driver sweep (back up `profile.json`/`saves/`, restore + checksum): with cleared

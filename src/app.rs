@@ -255,6 +255,14 @@ enum Modal {
     /// `on_yes` is the highlighted choice, defaulting to No — the safe option;
     /// `pending` is what to start if confirmed.
     ConfirmNewGame { on_yes: bool, pending: PendingStart },
+    /// Shown when entering Campaign with existing cleared progress: Continue
+    /// (resume) vs New Campaign (start over). `on_new` is the highlighted choice,
+    /// defaulting to Continue — the safe option (spec 014).
+    CampaignEntry { on_new: bool },
+    /// The destructive confirmation reached from `CampaignEntry`'s New Campaign:
+    /// wiping progress, credits, and collection back to the starter. `on_yes` is
+    /// the highlighted choice, defaulting to No — the safe option (spec 014).
+    ConfirmNewCampaign { on_yes: bool },
 }
 
 pub struct App {
@@ -365,6 +373,37 @@ impl App {
         self.screen = Screen::CampaignMap {
             state: CampaignMapState::new(&self.profile),
         };
+    }
+
+    /// Enter (resume) the campaign: discard a stray in-progress match save first
+    /// (with a confirm) if one exists, else open the map. The pre-spec-014
+    /// Start Campaign behavior, now shared by the no-progress path and
+    /// `CampaignEntry`'s Continue choice.
+    fn enter_campaign_continue(&mut self) {
+        if self.has_save {
+            // The discard prompt lives at campaign entry (human-ruled): entering
+            // discards the saved match, so a launch from the map later never has
+            // one to overwrite.
+            self.modal = Some(Modal::ConfirmNewGame {
+                on_yes: false,
+                pending: PendingStart::Campaign,
+            });
+        } else {
+            self.open_campaign_map();
+        }
+    }
+
+    /// Wipe to a fresh starter profile and open a new campaign map — the New
+    /// Campaign action (spec 014). Discards any in-progress match save and the
+    /// stale reward banner. The reset core is `Profile::reset_to_starter`.
+    fn start_new_campaign(&mut self) {
+        self.profile.reset_to_starter();
+        self.profile.save();
+        crate::save::clear();
+        self.has_save = false;
+        self.last_reward = None;
+        self.audio.play(Sfx::MenuSelect);
+        self.open_campaign_map();
     }
 
     /// Launch a campaign match against `planet`/`opponent` (both ids), upholding
@@ -483,6 +522,10 @@ impl App {
                 self.modal = None;
                 self.audio.play(Sfx::MenuBack);
             }
+        } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
+            self.handle_campaign_entry_input(key);
+        } else if matches!(self.modal, Some(Modal::ConfirmNewCampaign { .. })) {
+            self.handle_confirm_new_campaign_input(key);
         } else if matches!(self.modal, Some(Modal::ConfirmNewGame { .. })) {
             self.handle_confirm_input(key);
         } else {
@@ -781,6 +824,64 @@ impl App {
         }
     }
 
+    /// Route a key to the Continue / New Campaign choice: ←/→ (a/d) toggle,
+    /// Enter/Space commit (Continue resumes, New Campaign opens the wipe
+    /// confirm), Esc closes. Mirrors `handle_confirm_input`. (spec 014)
+    fn handle_campaign_entry_input(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
+                if let Some(Modal::CampaignEntry { on_new }) = self.modal.as_mut() {
+                    *on_new = !*on_new;
+                }
+                self.audio.play(Sfx::MenuMove);
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                let on_new = matches!(self.modal, Some(Modal::CampaignEntry { on_new: true }));
+                self.modal = None;
+                self.audio.play(Sfx::MenuSelect);
+                if on_new {
+                    self.modal = Some(Modal::ConfirmNewCampaign { on_yes: false });
+                } else {
+                    self.enter_campaign_continue();
+                }
+            }
+            KeyCode::Esc => {
+                self.modal = None;
+                self.audio.play(Sfx::MenuBack);
+            }
+            _ => {}
+        }
+    }
+
+    /// Route a key to the New Campaign confirmation: ←/→ (a/d) toggle,
+    /// Enter/Space commit (Yes wipes to a starter profile and opens a fresh map;
+    /// No cancels), Esc cancels. Mirrors `handle_confirm_input`. (spec 014)
+    fn handle_confirm_new_campaign_input(&mut self, key: KeyCode) {
+        match key {
+            KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
+                if let Some(Modal::ConfirmNewCampaign { on_yes }) = self.modal.as_mut() {
+                    *on_yes = !*on_yes;
+                }
+                self.audio.play(Sfx::MenuMove);
+            }
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                let confirmed =
+                    matches!(self.modal, Some(Modal::ConfirmNewCampaign { on_yes: true }));
+                self.modal = None;
+                if confirmed {
+                    self.start_new_campaign();
+                } else {
+                    self.audio.play(Sfx::MenuBack);
+                }
+            }
+            KeyCode::Esc => {
+                self.modal = None;
+                self.audio.play(Sfx::MenuBack);
+            }
+            _ => {}
+        }
+    }
+
     /// Act on an activated start-menu item — open a screen or a modal.
     fn activate_menu_item(&mut self, menu_item: MenuItem) {
         match menu_item {
@@ -806,16 +907,12 @@ impl App {
                 }
             }
             MenuItem::StartCampaign => {
-                if self.has_save {
-                    // The discard prompt lives at campaign entry (human-ruled):
-                    // entering discards the saved match, so a launch from the
-                    // map later never has one to overwrite.
-                    self.modal = Some(Modal::ConfirmNewGame {
-                        on_yes: false,
-                        pending: PendingStart::Campaign,
-                    });
+                // With cleared progress, offer Continue vs New Campaign; on a
+                // fresh run enter directly (the choice would be a no-op).
+                if self.profile.campaign().has_progress() {
+                    self.modal = Some(Modal::CampaignEntry { on_new: false });
                 } else {
-                    self.open_campaign_map();
+                    self.enter_campaign_continue();
                 }
             }
             MenuItem::QuickPlay => {
@@ -934,39 +1031,93 @@ impl App {
             Some(Modal::ConfirmNewGame { on_yes, .. }) => {
                 self.draw_confirm_new_game(*on_yes, pulse, frame)
             }
+            Some(Modal::CampaignEntry { on_new }) => {
+                self.draw_campaign_entry(*on_new, pulse, frame)
+            }
+            Some(Modal::ConfirmNewCampaign { on_yes }) => {
+                self.draw_confirm_new_campaign(*on_yes, pulse, frame)
+            }
             None => {}
         }
     }
 
-    /// Draw the discard-a-save confirmation as a bordered overlay over the
-    /// menu, matching How to Play / Settings: a prompt, the Yes / No choices
-    /// (the highlighted one marked and breathing with the pulse), and a hint.
-    fn draw_confirm_new_game(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
-        let title = "Discard your saved match?";
-        let hint = "←/→ choose  ·  Enter confirm  ·  Esc cancel";
+    /// Draw a two-choice confirmation as a bordered overlay over the menu,
+    /// matching How to Play / Settings: a title, two side-by-side choices (the
+    /// highlighted one marked with ▸ and breathing with the pulse; the other
+    /// keeps two leading spaces so the marker never shifts the text), and a hint.
+    /// Shared by the discard-a-save, campaign-entry, and new-campaign modals.
+    fn draw_two_choice(
+        &self,
+        frame: &mut Frame,
+        title: &str,
+        left_label: &str,
+        right_label: &str,
+        left_selected: bool,
+        hint: &str,
+        pulse: Emphasis,
+    ) {
+        let left = format!("{} {}", if left_selected { "▸" } else { " " }, left_label);
+        let right = format!("{} {}", if left_selected { " " } else { "▸" }, right_label);
+        let block_w = left.chars().count() + 6 + right.chars().count();
 
-        let content_width = title.chars().count().max(hint.chars().count());
+        // The box widens to fit the widest of title, hint, and the choice row.
+        let content_width = title.chars().count().max(hint.chars().count()).max(block_w);
         let layout = OverlayLayout::new(self.config, content_width, 5);
 
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
         draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Normal);
 
-        // Yes and No centered on one row; the highlighted choice carries the
-        // ▸ marker (constant, in place) and the shared pulse. The unselected
-        // choice keeps two leading spaces so the marker never shifts the text.
         let inner = layout.inner;
         let row_y = inner.y0 + 2;
-        let block_w = "▸ Yes".chars().count() + 6 + "▸ No".chars().count();
         let start_x = inner.x0 + inner.width().saturating_sub(block_w) / 2;
-        let no_x = start_x + "▸ Yes".chars().count() + 6;
+        let right_x = start_x + left.chars().count() + 6;
 
-        let yes = if on_yes { "▸ Yes" } else { "  Yes" };
-        let no = if on_yes { "  No" } else { "▸ No" };
-        draw_text(frame, start_x, row_y, yes, if on_yes { pulse } else { Emphasis::Normal });
-        draw_text(frame, no_x, row_y, no, if on_yes { Emphasis::Normal } else { pulse });
+        let left_emphasis = if left_selected { pulse } else { Emphasis::Normal };
+        let right_emphasis = if left_selected { Emphasis::Normal } else { pulse };
+        draw_text(frame, start_x, row_y, &left, left_emphasis);
+        draw_text(frame, right_x, row_y, &right, right_emphasis);
 
         draw_text_in(frame, inner, 4, Align::Center, hint, Emphasis::Muted);
+    }
+
+    /// The discard-a-save confirmation (Yes left / No right, default No).
+    fn draw_confirm_new_game(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
+        self.draw_two_choice(
+            frame,
+            "Discard your saved match?",
+            "Yes",
+            "No",
+            on_yes,
+            "←/→ choose  ·  Enter confirm  ·  Esc cancel",
+            pulse,
+        );
+    }
+
+    /// The Continue / New Campaign choice at campaign entry (default Continue).
+    fn draw_campaign_entry(&self, on_new: bool, pulse: Emphasis, frame: &mut Frame) {
+        self.draw_two_choice(
+            frame,
+            "Campaign",
+            "Continue",
+            "New Campaign",
+            !on_new,
+            "←/→ choose  ·  Enter select  ·  Esc back",
+            pulse,
+        );
+    }
+
+    /// The destructive New Campaign confirmation (Yes left / No right, default No).
+    fn draw_confirm_new_campaign(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
+        self.draw_two_choice(
+            frame,
+            "New campaign? Erases progress, credits & cards.",
+            "Yes",
+            "No",
+            on_yes,
+            "←/→ choose  ·  Enter confirm  ·  Esc cancel",
+            pulse,
+        );
     }
 }
 
