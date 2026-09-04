@@ -64,17 +64,29 @@ profile and are kept. Any in-progress match save is discarded.
 
 ## Acceptance criteria
 
-- [ ] Selecting Campaign with cleared progress shows a Continue / New Campaign
-      choice; with no progress it opens the map directly (unchanged).
-- [ ] Continue resumes the campaign at the current position exactly as before
-      (including the mid-match-save discard on entry).
-- [ ] New Campaign requires a confirm (default No); confirming resets campaign
+- [x] Selecting Campaign with cleared progress shows a Continue / New Campaign
+      choice; with no progress it opens the map directly (unchanged). *(driver: the
+      real (has-progress) profile showed the Continue/New panel; a wiped no-progress
+      profile opened the map directly with no modal. `has_progress` gate +
+      `has_progress_is_false_until_an_opponent_is_beaten`.)*
+- [x] Continue resumes the campaign at the current position exactly as before
+      (including the mid-match-save discard on entry). *(`enter_campaign_continue`
+      is the extracted pre-014 body — reviewer-verified byte-identical, incl. the
+      `has_save` discard confirm.)*
+- [x] New Campaign requires a confirm (default No); confirming resets campaign
       progress, credits, and collection/deck to the starter and opens a fresh map;
-      declining changes nothing.
-- [ ] Audio/settings are preserved across a reset; the save format is unchanged
-      (no `PROFILE_VERSION` bump).
-- [ ] `cargo test` green (the reset, the progress check, and the modal-flow input
-      tests); `cargo build` no new warnings; legible at 89×31; no panics.
+      declining changes nothing. *(default No — `draw_confirm_new_campaign` +
+      `confirm_choice_commits_only_on_enter_with_yes` (mutation-checked: only
+      Enter+Yes wipes); driver: Yes → 0/8 map, credits ◈ 0, collection back to the
+      13-card starter; Esc left the profile intact (checksum).)*
+- [x] Audio/settings are preserved across a reset; the save format is unchanged
+      (no `PROFILE_VERSION` bump). *(`reset_to_starter_wipes_everything_back_to_a_new_profile`
+      — serialized-equality with `Profile::default()`; settings live in a separate
+      struct/file; `PROFILE_VERSION` stays 1.)*
+- [x] `cargo test` green (the reset, the progress check, and the modal-flow decision
+      test); `cargo build` no new warnings; legible at 89×31; no panics. *(249
+      passed, 0 failed; build 0 warnings; driver `CONFIRM_MIN` snapshot at 89×31; no
+      panics across the sweep.)*
 
 ## Resolved decisions
 
