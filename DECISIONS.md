@@ -257,8 +257,11 @@ the calls newly settled this spec (first two human-ruled this session):
   untested accept: its pieces are all unit-tested and the ordering was
   reviewer-walked.
 - **A finite economy per run** — each win pays once, so a full clear yields a
-  bounded purse (~300 credits); resetting a cleared campaign's rewards (NG+) is
-  deferred to the roguelike mode (spec E).
+  bounded purse (~300 credits). A plain **campaign reset** (start over from the
+  starter, discarding progress/credits/cards) ships in **spec 014**; only **NG+** —
+  carrying your earned cards/credits *into* a fresh run — remains deferred to the
+  roguelike mode (spec E). *(Amended by spec 014, which draws this line; the
+  original phrasing lumped "reset" in with the deferred item.)*
 - **Deferred to the balance pass:** whether the reward/price curve *feels* right
   (e.g. the first win's 10 credits can't yet afford a 20-credit Outer card) —
   logged for the tracked balance pass rather than tuned blind.
@@ -296,6 +299,27 @@ calls:
 - **Two spec-010 tests re-authored**, surfaced not silent (per `CLAUDE.md`): they
   encoded the old unbounded contract, so a pointer note was added to spec 010's
   acceptance evidence. Both fix layers are mutation-checked.
+
+## New Campaign / start over (spec 014)
+
+"Start Campaign" always resumed; there was no way to begin again. A playtester
+picked Campaign expecting a fresh start, saw prior progress, and mistook it for a
+miscounted loss. The calls (both human-ruled):
+
+- **Offer the choice at Campaign entry** — when cleared progress exists, a
+  Continue / New Campaign panel (a `Modal` over the menu), not a separate top-level
+  menu item. With no progress the map opens directly (the choice would be a no-op).
+- **New Campaign = full fresh start** — wipe campaign progress, credits, and the
+  collection/deck back to the starter (`Profile::reset_to_starter` = a fresh
+  `Profile::default`), keeping audio/settings (a separate file). Chosen over an
+  NG+-style replay that keeps your arsenal, so the early game and the depth-gated
+  economy stay meaningful; NG+ stays deferred to spec E (see the amended economy
+  note above). Destructive, so it sits behind a default-No confirm.
+- **The irreversible decision is a tested seam** — the wipe fires only via a pure
+  `confirm_choice(on_yes, key)` (Commit iff Enter/Space + Yes), unit-tested and
+  mutation-checked, so a future refactor can't silently flip it (the `cursor_confirm`
+  precedent). The remaining menu-input effect wiring stays thin over the tested
+  reset, following the existing untested-confirm-handler precedent.
 
 ## Explicitly deferred out of v1
 

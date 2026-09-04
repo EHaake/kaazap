@@ -148,7 +148,9 @@ of, not guessed at here in advance.
   reward hangs on the existing once-per-win campaign seam (Quick Play stays
   stakes-free), and the reward math is a pure, roll-seam-testable `win_reward`.
   Board and engine stay economy-free. The economy is **finite per run** (~300
-  credits for a full clear); NG+/reset rides with the roguelike mode (E).
+  credits for a full clear). A plain campaign **reset** ships in spec 014 (New
+  Campaign); only **NG+** — keeping your arsenal across a replay — stays with the
+  roguelike mode (E).
   Mechanics + tuning snapshot in `docs/economy.md`; a dedicated balance pass on
   the reward/price curve remains tracked below.
 - **Bounded misplays** (spec 013) — a **correction to spec 010**, from campaign
@@ -160,6 +162,14 @@ of, not guessed at here in advance.
   card fumble) and the per-opponent rates are unchanged; masters (misplay 0) are
   untouched. Two spec-010 tests re-authored (surfaced), both fix layers
   mutation-checked. Details in `docs/opponents.md` / `DECISIONS.md`.
+- **New Campaign / start over** (spec 014) — from playtest: "Start Campaign" only
+  ever resumed, with no way to begin again. Now, when cleared progress exists,
+  Campaign offers **Continue** vs **New Campaign**; New Campaign is a full fresh
+  start (`Profile::reset_to_starter` — wipes progress, credits, and collection/deck
+  to the starter, keeping settings) behind a default-No confirm. A no-progress
+  profile opens the map directly (unchanged). Menu/profile only — no engine, board,
+  or save-format change; rendering DRYed into a shared two-choice overlay helper,
+  and the irreversible wipe guarded by a mutation-checked `confirm_choice` seam.
 
 ## Backlog
 
