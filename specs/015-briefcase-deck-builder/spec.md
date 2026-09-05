@@ -43,7 +43,9 @@ from the 10, so deck order stays irrelevant.
    the deck, the screen drops back to the brief's two border weights (heavy =
    cursor, plain otherwise); the third "double = in deck" weight is retired.
 7. **No regression.** Deck legality (exactly 10, never more copies than owned), the
-   menu entry, the incomplete-deck divert, and the save format are all unchanged.
+   menu entry, and the save format are all unchanged. The incomplete-deck divert's
+   *mechanism* is unchanged; its return path is corrected to route back to the
+   launching screen (see Resolved decisions) — today it wrongly returns to the menu.
 
 ## Non-goals (explicitly deferred)
 
@@ -169,3 +171,7 @@ deck (as today). The builder opens with the Collection panel active.
   no reorder gesture is offered.
 - **Owned cards only** — acquiring cards remains the shop's job; the builder never
   shows unowned/purchasable cards.
+- **Return-path correction (a bug fix, not a new behavior)** — routing the builder's
+  Back to its launching screen corrects a pre-existing bug: the campaign "incomplete
+  deck" divert currently returns to the menu instead of the map. Surfaced during
+  planning; the divert *mechanism* itself is untouched.

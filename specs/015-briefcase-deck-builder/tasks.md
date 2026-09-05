@@ -33,7 +33,9 @@ implementer returns, and only the orchestrator commits.
   Pure over `Config`. Add `briefcase_fits_the_minimum_terminal`.
   *Verify: at `Config(89,31)` the test asserts `cols == 4`, `visible_rows >= 3`,
   both panel borders within `num_cols`, `title_y < readout_y < hint_y` all
-  on-frame, and a full visible grid of cards clears the hint (mirrors
+  on-frame, every `card_origin(panel, i)` (all visible slots) lands strictly
+  inside its own panel's borders, the panels don't overlap (`collection.x1 <
+  deck.x0`), and a full visible grid of cards clears the hint (mirrors
   `grid_layout_fits_the_minimum_terminal_for_the_full_universe`). `cargo build`
   clean; `cargo test` green.*
 
@@ -47,12 +49,19 @@ implementer returns, and only the orchestrator commits.
   `Enter`/`Space` → `Add` in Collection / `Remove` in Deck, `Esc`/`x` → `Back`,
   retire `Backspace`); draw two bordered labeled panels, `CardView` Heavy=cursor
   else Single (**drop Double**), `×N` caption, `Deck: N/10` readout (Alert while
-  short), empty-side cue; keep `collection_scroll` following the cursor.
+  short), empty-side cue; keep `collection_scroll` following the cursor. Initial
+  focus (and focus after a side empties) rests on a non-empty panel; **only the
+  active panel's cursor is Heavy+pulse — the inactive panel's remembered cursor
+  draws Single**; non-cursored cards keep today's Muted; source `cols`/`visible_rows`
+  only from `BriefcaseLayout` (retire the old `COLS` const).
   *Verify: new `deck_builder` unit tests green — `Tab` flips `active`; `Enter` in
-  Collection → `Add(cursored)`, in Deck → `Remove(cursored)`; arrow move wraps;
-  `collection_scroll` clamps and keeps the cursor visible; `Esc`/`x` → `Back`;
-  unknown key → `None`. `cargo build` no new warnings; `cargo test` green. (Both
-  panels rendering is confirmed by the T005 driver.)*
+  Collection → `Add(cursored)`, in Deck → `Remove(cursored)`; a card with both
+  `available>0` and `in_deck>0` appears in **both** panels' row lists with the
+  right counts (the split-by-location behavior); initial focus rests on a non-empty
+  panel (an all-decked profile opens on Deck); arrow move wraps; `collection_scroll`
+  clamps and keeps the cursor visible; `Esc`/`x` → `Back`; unknown key → `None`.
+  `cargo build` no new warnings; `cargo test` green. (Both panels rendering is
+  confirmed by the T005 driver.)*
 
 ## Phase 3 — Return routing + entry points
 
@@ -64,14 +73,19 @@ implementer returns, and only the orchestrator commits.
   `Menu => start_menu()`, `Map => open_campaign_map()`; update the three existing
   call sites — menu `SideDeck` → `Menu`, opponent-select divert (`app.rs:374`) →
   `Menu`, **campaign-launch divert (`app.rs:445`) → `Map`** (fixes the pre-existing
-  bug where fixing an incomplete deck mid-campaign returned to the menu).
-  *Verify: origin routing test (`new(Map).origin() == Map`, and the `Back` branch
-  selects map vs menu at the reachable seam); the campaign-divert-returns-to-map
-  fix stated in the report; `cargo build`/`cargo test` green.*
+  bug where fixing an incomplete deck mid-campaign returned to the menu). Express
+  the routing as a pure `back_destination(BuilderOrigin)` seam mirroring the
+  existing `confirm_choice`/`ConfirmChoice` pattern (`app.rs:281`), so the branch is
+  unit-testable without an `App`.
+  *Verify: origin routing tests — `new(Map).origin() == Map`, and the pure
+  `back_destination` maps `Menu`→menu / `Map`→map (mutation-checkable, like
+  `confirm_choice`); the campaign-divert-returns-to-map fix stated in the report;
+  `cargo build`/`cargo test` green.*
 - [ ] **T004** — Map entry point in `src/campaign_map.rs` + `src/app.rs`:
   `MapOutcome::OpenDeckBuilder`; `KeyCode::Char('c')` arm (**`c`; `d` is taken by
-  wasd movement**); extend the hint to `"↑/↓ move · Enter play · b shop · c deck ·
-  Esc menu"`; app CampaignMap arm → `open_deck_builder(BuilderOrigin::Map)`.
+  wasd movement**); extend the hint to `"↑/↓ move  ·  Enter play  ·  b shop  ·  c
+  deck  ·  Esc menu"` (keep the existing double-space `·` style, `campaign_map.rs:268`);
+  app CampaignMap arm → `open_deck_builder(BuilderOrigin::Map)`.
   *Verify: `campaign_map` test — `Char('c')` → `OpenDeckBuilder`; hint contains
   `deck`. `cargo build`/`cargo test` green. (Map `c` → builder → `Esc` → map
   round-trip confirmed by the T005 driver.)*
@@ -124,4 +138,4 @@ similar size before treating the policy as settled. -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
-| plan + tasks sign-off | top tier | — | pending skeptical-reviewer |
+| plan + tasks sign-off (skeptical-reviewer) | opus (decision) | ~163k | signed off first pass; 0 blocking; 6 second-looks folded into T001–T004 + spec goal-7 |
