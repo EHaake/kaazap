@@ -26,7 +26,7 @@ implementer returns, and only the orchestrator commits.
 <!-- Foundational geometry; the whole two-panel approach rests on it fitting the
 89×31 minimum. Per-task skeptical-reviewer pass. -->
 
-- [ ] **T001 (foundational)** — Add `BriefcaseLayout` to `src/layout.rs`: two
+- [x] **T001 (foundational)** — Add `BriefcaseLayout` to `src/layout.rs`: two
   side-by-side bordered panel `Rect`s (`collection`, `deck`) within `num_cols`,
   a shared `title_y`/`readout_y`/`hint_y`, per-panel `label` anchors, `cols` (=4),
   `visible_rows` derived from height, and `card_origin(panel, visible_index)`.
@@ -139,3 +139,5 @@ similar size before treating the policy as settled. -->
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
 | plan + tasks sign-off (skeptical-reviewer) | opus (decision) | ~163k | signed off first pass; 0 blocking; 6 second-looks folded into T001–T004 + spec goal-7 |
+| T001 (sdd-implementer) | opus | ~106k | done first pass; build + 250 tests green |
+| T001 review (skeptical-reviewer) | opus | ~48k | signed off; 0 blocking; geometry + non-vacuous test verified |

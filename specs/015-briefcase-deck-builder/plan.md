@@ -51,7 +51,7 @@ profile-model change: the same `Profile` methods do the work, validated in one p
 ## The layout decision (the crux)
 
 At the guaranteed **89×31** minimum, two half-width panels get ~44 cols each → **4 card
-columns** (9-wide cards at board pitch 10: `4*10-1=39 ≤ 42` interior). After a title, the two
+columns** (9-wide cards at board pitch 10: `4*10-1=39` within the ~41-col interior). After a title, the two
 panel labels (one shared row), the `Deck: N/10` readout and the controls hint, bordered panels
 leave room for **~3 card rows** (with a count caption under each card). That's **12 visible
 frames per panel**.
