@@ -41,7 +41,7 @@ implementer returns, and only the orchestrator commits.
 
 ## Phase 2 — Screen reshape
 
-- [ ] **T002** — Reshape `src/deck_builder.rs` into the two-panel briefcase over
+- [x] **T002** — Reshape `src/deck_builder.rs` into the two-panel briefcase over
   `BriefcaseLayout`: `enum Panel { Collection, Deck }`; state `{ active,
   collection_cursor, deck_cursor, collection_scroll }`; rows split by location
   (`collection_by_type()` → available `owned-in_deck>0` on the left, `in_deck>0`
@@ -99,8 +99,11 @@ implementer returns, and only the orchestrator commits.
   the **map**. Check off `spec.md` acceptance criteria with evidence. Update
   `ROADMAP.md` (mark the briefcase shipped; drop it from future) and `DECISIONS.md`
   (the `c` key choice, the map-entry scope bump beyond "presentation-only", the
-  campaign-divert bug fix); README only if entry wording changed. Request the
-  pre-merge whole-spec sweep.
+  campaign-divert bug fix); README only if entry wording changed. Remove the
+  now-orphaned `GridLayout` + its fit test from `src/layout.rs` (T002 left it with
+  no caller — `BriefcaseLayout` supersedes it; verify no references remain first)
+  and note the supersession in `DECISIONS.md`. Request the pre-merge whole-spec
+  sweep.
   *Verify: `cargo build`/`cargo test` green, reported verbatim; legible 89×31
   snapshots; `ROADMAP.md` no longer lists this as future; sweep clean or findings
   resolved.*
@@ -141,3 +144,5 @@ similar size before treating the policy as settled. -->
 | plan + tasks sign-off (skeptical-reviewer) | opus (decision) | ~163k | signed off first pass; 0 blocking; 6 second-looks folded into T001–T004 + spec goal-7 |
 | T001 (sdd-implementer) | opus | ~106k | done first pass; build + 250 tests green |
 | T001 review (skeptical-reviewer) | opus | ~48k | signed off; 0 blocking; geometry + non-vacuous test verified |
+| T002 (sdd-implementer) | opus | ~156k | done; scroll deviation flagged + accepted; build + 254 tests |
+| T002 review (skeptical-reviewer) | opus | ~98k | signed off; 0 blocking; scroll accepted; 3 second-looks folded (comment fix, guard test, GridLayout→T005) |
