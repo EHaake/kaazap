@@ -10,7 +10,7 @@ plan also at `~/.claude/plans/iterative-meandering-blum.md`.
 
 ---
 
-- [ ] **T001 — Setup**
+- [x] **T001 — Setup**
   Branch `014-new-campaign`; `specs/014-new-campaign/{spec,plan,tasks}.md`; open the
   draft PR.
   *Verify: baseline `cargo build` / `cargo test` still green; draft PR open.*
@@ -40,7 +40,7 @@ plan also at `~/.claude/plans/iterative-meandering-blum.md`.
   precedent — `App::new` loads the real profile, so driving "Yes" through a full
   `App` in a test would wipe the player's real `profile.json`.*
 
-- [ ] **T004 — Verify & close-out**
+- [x] **T004 — Verify & close-out**
   Driver sweep (back up `profile.json`/`saves/`, restore + checksum): with cleared
   progress, Campaign → Continue/New Campaign panel; New → confirm; Yes → fresh map
   (0/8, only Cinder unlocked); a no-progress profile skips the panel; snapshot both
