@@ -222,8 +222,10 @@ the orchestrator re-runs the command itself before committing.
   branch stays as a historical artifact: merge without `--delete-branch`
   (the repo does not auto-delete head branches), so each branch's own
   commit history is preserved for a project meant to demonstrate the
-  workflow. (Spec 015's branch predates this rule and was deleted at
-  merge; the rule holds from PR #18 onward.)
+  workflow. (Spec branches 010–015 were deleted at their merges before
+  this rule, then restored from the merge commits' second parents, so
+  the full 001–015 branch history is intact; the rule holds going
+  forward.)
 - Keep AI co-authorship attribution on commits — accurate, and worth
   keeping for a project meant to demonstrate this workflow.
 - Never force-push.
