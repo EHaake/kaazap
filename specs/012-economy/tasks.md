@@ -45,7 +45,7 @@ Branch `012-economy` created with the spec/plan/tasks. Plan:
   *Verify: `cargo test` green — shop `handle_input` outcomes; an unaffordable buy
   no-ops; menu/map tests updated for the new affordance; `cargo build` clean.*
 
-- [ ] **T005 — Verification & close-out**
+- [x] **T005 — Verification & close-out**
   Full driver sweep (back up `profile.json`/`saves/`): win a campaign match (credit
   + drop shown, collection grew), open the shop from the map (pool matches depth,
   prices + balance, affordable buy grants + deducts, too-dear refused), the

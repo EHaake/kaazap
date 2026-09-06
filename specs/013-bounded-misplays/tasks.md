@@ -12,7 +12,7 @@ Branch `013-bounded-misplays` off `main` (012-economy is merged). Plan mirrors
 
 ---
 
-- [ ] **T001 — Setup**
+- [x] **T001 — Setup**
   Branch `013-bounded-misplays`; `specs/013-bounded-misplays/{spec,plan,tasks}.md`;
   open the draft PR.
   *Verify: `cargo build` / `cargo test` still green on the untouched tree (baseline);

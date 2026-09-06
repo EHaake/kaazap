@@ -15,7 +15,7 @@ saving observes `GameState` without reaching into rendering or audio.
 
 ## Phase 1 — Persistence core (`save.rs`, engine derives)
 
-- [ ] **T001 — Serde derives on the leaf match types + branch/PR setup**
+- [x] **T001 — Serde derives on the leaf match types + branch/PR setup**
   Create the `005-save-resume` branch (already done for the spec/plan) and
   open the draft PR. Add `#[derive(Serialize, Deserialize)]` to the pure
   data types a match is made of: `Card`, `FlipKind`, `PlayedCard`
@@ -28,7 +28,7 @@ saving observes `GameState` without reaching into rendering or audio.
   populated `dealer_row`/`played_row`/`hand` compiles and reproduces it
   (folded into T002's tests, not left as scratch).*
 
-- [ ] **T002 — `save.rs`: the `SavedGame` projection + load/save/clear**
+- [x] **T002 — `save.rs`: the `SavedGame` projection + load/save/clear**
   New `save.rs` (registered in `lib.rs`). Define `SAVE_VERSION`, `SavedGame`
   (`version`, `player`, `opponent`, `phase: SavedPhase`, `round_outcome`),
   and `SavedPhase` (mirrors `GamePhase` minus the `Instant`, no `GameOver`).
@@ -50,7 +50,7 @@ saving observes `GameState` without reaching into rendering or audio.
 
 ## Phase 2 — Menu (`menu.rs`)
 
-- [ ] **T003 — `Continue` menu item, shown only when a save exists**
+- [x] **T003 — `Continue` menu item, shown only when a save exists**
   Add `MenuItem::Continue` (+ `Display` "Continue"). Turn `MenuState` into a
   computed list: `items: Vec<MenuItem>` (Continue prepended iff a save
   exists), `selected: usize` indexing it; `new(has_save: bool)` builds the
@@ -64,7 +64,7 @@ saving observes `GameState` without reaching into rendering or audio.
 
 ## Phase 3 — App wiring (`app.rs`)
 
-- [ ] **T004 — Consolidate the modals into one `Modal` enum**
+- [x] **T004 — Consolidate the modals into one `Modal` enum**
   Pure refactor (no behavior change): replace `overlay: Option<Overlay>` and
   `settings_panel: Option<SettingsState>` with `modal: Option<Modal>` where
   `Modal { Help(Overlay), Settings(SettingsState) }`. Route input in
@@ -74,7 +74,7 @@ saving observes `GameState` without reaching into rendering or audio.
   Play and Settings still open/close/adjust exactly as before (selection
   preserved, back cue), `?` help unchanged.*
 
-- [ ] **T005 — Save/clear triggers + `has_save` plumbing**
+- [x] **T005 — Save/clear triggers + `has_save` plumbing**
   `App` gains `has_save: bool` (seeded from `save::exists()` in `new`) and a
   `start_menu()` helper that builds `Screen::StartMenu` with the current
   `has_save`; use it in `new` and the in-game Esc-to-menu path. Save the
@@ -88,7 +88,7 @@ saving observes `GameState` without reaching into rendering or audio.
   confirm the file is gone; idle ticks don't rewrite it (mtime steady while
   waiting on input).*
 
-- [ ] **T006 — Continue → resume, and the discard confirmation**
+- [x] **T006 — Continue → resume, and the discard confirmation**
   `MenuItem::Continue` → `save::load()` → `Screen::InGame` (restoring the
   cursor). `MenuItem::StartGame` → if `has_save`, open `Modal::ConfirmNewGame`
   (the third `Modal` variant), else start a new match. The confirm renders a
@@ -103,7 +103,7 @@ saving observes `GameState` without reaching into rendering or audio.
 
 ## Phase 4 — Verification & close-out
 
-- [ ] **T007 — Acceptance sweep, review, and merge**
+- [x] **T007 — Acceptance sweep, review, and merge**
   *Acceptance sweep done: every `spec.md` box checked with evidence — 154
   tests / 0 warnings; driver runs for quit→resume, no-save menu, discard
   confirm (No keeps / Yes overwrites), a full match to `Opp won: 3` →
