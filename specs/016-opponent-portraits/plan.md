@@ -1,6 +1,6 @@
 # Plan: Opponent portraits — spec 016
 
-**Status**: Signed off (skeptical-reviewer) — pending person approval
+**Status**: Approved — ready for implementation
 **Implements**: `spec.md` in this directory
 
 ## Context

@@ -1,7 +1,8 @@
 # Tasks: Opponent portraits — spec 016
 
-**Status**: Signed off (skeptical-reviewer) — pending person approval
+**Status**: Approved — ready for implementation (start at T001)
 **Implements**: plan.md in this directory
+**Person approval:** plan + tasks approved; minimum 139×31 accepted (portraits always-on); the `design/brief.md` bounded exception approved (lands at T001b).
 
 Ordered, small, independently verifiable. Each task should be completable (and
 testable) on its own. If a session ends mid-list, resume by finding the first
