@@ -29,8 +29,8 @@ from the 10, so deck order stays irrelevant.
    vocabulary.
 2. **Move copies across.** Confirming on a card in the Collection places one copy
    into the Deck; confirming on a card in the Deck returns one copy to the
-   Collection. Counts on both sides update, and a card with no remaining copies on
-   a side leaves that side.
+   Collection. Counts on both sides update, and a card whose copies on a side reach
+   zero becomes a placeholder there (see goal 6).
 3. **Switch focus between panels.** The player can move the cursor within a panel
    and switch which panel is active.
 4. **Keep the deck readout.** A "Deck: N/10" readout shows how close the deck is to
@@ -39,9 +39,13 @@ from the 10, so deck order stays irrelevant.
 5. **Reachable from the campaign map.** Add a key on the map to open the builder
    and return to the map on exit, for between-match retooling — alongside the
    existing menu entry and the incomplete-deck divert.
-6. **Cleaner card vocabulary.** Because a card's *panel* now says whether it's in
-   the deck, the screen drops back to the brief's two border weights (heavy =
-   cursor, plain otherwise); the third "double = in deck" weight is retired.
+6. **A card album with placeholders.** Both panels show the full set of card types
+   in fixed slots (canonical order): a type present in that panel renders as a solid
+   card with its `×count`; a type absent renders as a faint, dashed-border
+   placeholder showing the card's dimmed face, which fills in solid once you have
+   one there. The old "double = in deck" weight is retired — a card's *panel*
+   conveys deck membership, and the border set is heavy (cursor), plain (present),
+   and dashed-faint (placeholder).
 7. **No regression.** Deck legality (exactly 10, never more copies than owned), the
    menu entry, and the save format are all unchanged. The incomplete-deck divert's
    *mechanism* is unchanged; its return path is corrected to route back to the
@@ -49,10 +53,10 @@ from the 10, so deck order stays irrelevant.
 
 ## Non-goals (explicitly deferred)
 
-- **Buying cards / showing unowned cards.** The Collection panel shows only cards
-  you own; acquiring new cards is the shop's job (spec 012). Folding "cards you
-  could buy" into the builder would blur the two screens — deferred as a shop
-  concern, not a builder one.
+- **Buying / acquiring cards in the builder.** The album shows the full card
+  universe — types you don't own appear as faint placeholders so you can see what's
+  missing — but you cannot *acquire* cards here; that stays the shop's job (spec
+  012). The builder shows the gaps; it never sells or grants.
 - **Deck ordering / reordering.** The match deals the hand as a random sample from
   the 10, so order carries no meaning; both panels sort canonically and there is no
   reorder gesture. Adding one would imply a rules meaning that doesn't exist.
@@ -71,10 +75,14 @@ from the 10, so deck order stays irrelevant.
   currently placed in the deck). A type's *available* copies = owned − in-deck.
 - **Deck** — the multiset of up to 10 copies the player has placed for matches.
   Legal when it holds exactly 10, each backed by an owned copy.
-- **Collection panel** — the left panel: every card type with ≥1 *available* copy,
-  shown with that available count.
-- **Deck panel** — the right panel: every card type with ≥1 *in-deck* copy, shown
-  with that in-deck count, plus the N/10 readout.
+- **Card album** — both panels show **all** card types in the universe, in fixed
+  canonical-order slots. A slot is *filled* (solid card + count) when its type is
+  present in that panel, or a *placeholder* (faint dashed frame + dimmed face) when
+  absent.
+- **Collection panel** — the left panel: each type filled with its *available*
+  count (owned − in-deck) when > 0, else a placeholder.
+- **Deck panel** — the right panel: each type filled with its *in-deck* count when
+  > 0, else a placeholder; plus the N/10 readout.
 
 These are the same underlying collection and deck as today; only the view splits
 them by where each copy currently sits.
@@ -107,24 +115,27 @@ deck (as today). The builder opens with the Collection panel active.
 - **Deck short (N < 10)** — the readout alerts ("Deck: N/10 — add M more"), as
   today, since an incomplete deck is the only thing blocking a match.
 - **Deck full (10/10)** — adding is a no-op; the player removes a card first.
-- **Collection panel empty** — every owned copy is already in the deck (possible
-  when the player owns 10 or fewer copies total). The panel shows nothing to add;
-  focus rests in the Deck panel.
-- **Deck panel empty** — nothing placed yet; the readout reads 0/10 (alert), focus
-  rests in the Collection panel.
+- **A panel with nothing present** — the panel is never blank: every slot renders,
+  as a placeholder where the type is absent. A brand-new deck shows an
+  all-placeholder Deck panel; a fully-decked collection shows placeholders on the
+  Collection side. Confirming on a placeholder is a no-op (nothing to move).
 
 ## Design requirements
 
-- **Card-frame vocabulary (spec 002).** Every card in both panels is a card frame
-  with its face text; the cursored card carries the heavy border and the shared
-  selection pulse, and nothing else does. No third border weight — the panel a card
-  sits in is what conveys "in the deck." Monochrome, no new glyphs beyond
-  box-drawing.
+- **Card-frame vocabulary (spec 002), three border weights.** Present cards are card
+  frames with their face text; the cursored card carries the **heavy** border and the
+  shared selection pulse (and nothing else does); every other present card is
+  **plain** (single). A **dashed** border drawn **faint** (dim), with the card's
+  dimmed face, marks a placeholder — so placeholders recede and never compete with
+  owned cards. All monochrome box-drawing (the dashed weight is box-drawing too); no
+  emoji/icons.
 - **Two clearly labeled panels** that read as *Collection* and *Deck* at a glance,
   with the N/10 readout owned by the Deck side.
-- **Fits the 89×31 minimum terminal** (today's builder constraint): both panels,
-  their labels, the readout, and the controls hint. If a panel can hold more cards
-  than fit, it degrades gracefully (the plan decides scroll vs. paging).
+- **Content-sized panels, no scrolling.** Each panel's border hugs a fixed grid
+  sized to hold the whole bounded card set (every type shown at once, filled or
+  placeholder) — not a half-screen rectangle with empty space, and never a scroll or
+  pager. This whole album — both panels, labels, readout, hint — fits the **89×31
+  minimum terminal**.
 - **The most frequent action — moving a card across — is one keypress** on the
   highlighted card, taught in the established `·`-separated controls hint.
 - **Deck edits still go through the profile's own add/remove methods**, so
@@ -135,12 +146,15 @@ deck (as today). The builder opens with the Collection panel active.
 
 ## Acceptance criteria
 
-- [ ] The Side Deck menu item opens a two-panel builder: **Collection** (left, the
-      copies you own and haven't placed) and **Deck** (right, the copies you've
-      placed) with a **Deck: N/10** readout.
+- [ ] The Side Deck menu item opens a two-panel builder — **Collection** (left) and
+      **Deck** (right), each a fixed album of every card type — with a **Deck: N/10**
+      readout. Present types show a solid card + `×count` (available on the left,
+      in-deck on the right); absent types show a faint dashed placeholder with the
+      card's dimmed face.
 - [ ] Confirming on a Collection card moves one copy into the Deck (when under 10):
-      the available count drops, the Deck count rises, a card that hits zero copies
-      leaves its panel, and the readout updates.
+      the available count drops, the Deck count rises, a card whose count hits zero
+      becomes a placeholder in that panel, and the readout updates. Confirming on a
+      placeholder does nothing.
 - [ ] Confirming on a Deck card moves one copy back to the Collection (the reverse).
 - [ ] The player can move the cursor within a panel and switch the active panel; the
       cursored card is the one pulsing.
@@ -149,11 +163,12 @@ deck (as today). The builder opens with the Collection panel active.
 - [ ] The builder is reachable from the campaign map via a shown key and returns to
       the map on exit; the menu entry and the incomplete-deck divert still work and
       return to their origins.
-- [ ] Cards render in the card-frame vocabulary with only two border weights (heavy
-      = cursor, plain otherwise); the old "double border = in deck" is gone.
-- [ ] Legible at 89×31 with both panels, labels, readout, and hint; no panics;
-      `cargo build` clean and `cargo test` green (the move-across intent and the
-      panel/cursor logic covered).
+- [ ] Cards render in three border weights — heavy (cursor), plain (present), and
+      faint dashed (placeholder); the old "double border = in deck" is gone.
+- [ ] The panels are content-sized (borders hug the fixed card grid) with no
+      scrolling — the full album, both panels, labels, readout, and hint are legible
+      at 89×31; no panics; `cargo build` clean and `cargo test` green (the move-across
+      intent, the filled/placeholder album split, and the panel/cursor logic covered).
 
 ## Resolved decisions
 
@@ -169,8 +184,14 @@ deck (as today). The builder opens with the Collection panel active.
 - **Deck order stays irrelevant / no reordering** — the hand is a random draw from
   the 10 (verified in `with_opponent` → `deal_hand`), so panels sort canonically and
   no reorder gesture is offered.
-- **Owned cards only** — acquiring cards remains the shop's job; the builder never
-  shows unowned/purchasable cards.
+- **Full-universe album with placeholders** (human-ruled at the first visual review,
+  refining the initial cut) — both panels show every card type in fixed slots; a type
+  absent from a panel (unowned, or all-decked / not-decked) is a faint dashed
+  placeholder with the card's dimmed face that fills in once present. This
+  **supersedes the earlier "owned cards only" view** — you now see the whole set and
+  your gaps — while acquiring cards stays the shop's job (you still can't buy or grant
+  in the builder). It also makes the panels **content-sized** and **removes scrolling
+  entirely** (the grid always shows the full bounded set at once).
 - **Return-path correction (a bug fix, not a new behavior)** — routing the builder's
   Back to its launching screen corrects a pre-existing bug: the campaign "incomplete
   deck" divert currently returns to the menu instead of the map. Surfaced during

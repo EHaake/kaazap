@@ -90,16 +90,48 @@ implementer returns, and only the orchestrator commits.
   `deck`. `cargo build`/`cargo test` green. (Map `c` → builder → `Esc` → map
   round-trip confirmed by the T005 driver.)*
 
+## Phase 4 — Fixed-album redesign (from the first visual review)
+
+<!-- Product-owner feedback after the T001–T004 visual review: content-size the
+panels and show a placeholder for every absent card type. Supersedes the scrolling
+resolution; T006 re-does the layout geometry, so it's foundational. -->
+
+- [ ] **T006 (foundational)** — `BriefcaseLayout` → a fixed content-sized album grid
+  in `src/layout.rs`: drop `visible_rows`/scroll; a fixed **4 cols × 4 rows** (16
+  slots, 15 used) per panel, cell pitch `CELL_H = CARD_HEIGHT + 1 = 6`; panel `Rect`s
+  hug the grid and center in the terminal. Revise `briefcase_fits_the_minimum_terminal`.
+  *Verify: at `Config(89,31)` — `cols == 4`, `rows == 4`, both panels within `num_cols`
+  and non-overlapping (`collection.x1 < deck.x0`), every slot `0..15`'s `card_origin`
+  contained in its panel and clear of the hint, chrome ordered on-frame. `cargo build`
+  clean; `cargo test` green.*
+- [ ] **T007** — `BorderWeight::Dashed` (`src/frame.rs`) + album redraw + scroll removal
+  (`src/deck_builder.rs`). Add a `Dashed` weight (dashed box-drawing glyphs) as a fourth
+  `BorderWeight`. Draw iterates `ALL_SIDE_CARDS` (15) per panel: present types
+  (Collection `available>0` / Deck `in_deck>0`) → solid `CardView` + `×count`
+  (Heavy+pulse if cursored, else Single); absent types → placeholder (`Dashed` +
+  `Emphasis::Muted` + the dimmed card face, no count). **Remove** `collection_scroll`,
+  `MIN_VISIBLE_ROWS`, `scroll_to_reveal`, their tests, and the guard test. Cursor runs
+  the fixed 15-slot grid (ragged skip of the empty 16th); Enter on a placeholder → no-op;
+  the empty-panel focus case is gone.
+  *Verify: new/updated `deck_builder` tests green — a type present in one panel and
+  absent in the other is filled (right count) on one side and a placeholder on the other;
+  an owned-0 type is a placeholder in both; Enter on a placeholder returns `None`;
+  move-across still works. `cargo build` no new warnings; `cargo test` green. (Both panels
+  + placeholders confirmed by the T005 driver.)*
+
 ## Final phase — Spec close-out
 
 - [ ] **T005** — Driver verification + close-out. Back up + checksum-restore the
-  real profile (standing data-safety practice); stage a duplicate-rich profile so
-  both panels populate. Capture 89×31 and ~120-wide snapshots of: both panels, a
-  move-across (counts + readout updating), and map `c` → builder → `Esc` → back to
-  the **map**. Check off `spec.md` acceptance criteria with evidence. Update
+  real profile (standing data-safety practice); stage a profile with duplicates AND
+  some types unowned so both panels show a mix of filled cards and faint-dashed
+  placeholders. Capture 89×31 and ~120-wide snapshots of: both panels (filled +
+  placeholders), a move-across (counts + readout updating; a card becoming a
+  placeholder), and map `c` → builder → `Esc` → back to the **map**. Check off `spec.md` acceptance criteria with evidence. Update
   `ROADMAP.md` (mark the briefcase shipped; drop it from future) and `DECISIONS.md`
   (the `c` key choice, the map-entry scope bump beyond "presentation-only", the
-  campaign-divert bug fix); README only if entry wording changed. Remove the
+  campaign-divert bug fix, the full-universe album with placeholders — which
+  supersedes "owned cards only" — and the scroll removal); README only if entry
+  wording changed. Remove the
   now-orphaned `GridLayout` + its fit test from `src/layout.rs` (T002 left it with
   no caller — `BriefcaseLayout` supersedes it; verify no references remain first)
   and note the supersession in `DECISIONS.md`. Fix the stale `CampaignMap`-arm

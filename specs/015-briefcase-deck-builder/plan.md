@@ -50,6 +50,11 @@ profile-model change: the same `Profile` methods do the work, validated in one p
 
 ## The layout decision (the crux)
 
+> **Superseded at the first visual review — see "Revision: the fixed-album redesign"
+> below.** The first cut (a scrolling collection) shipped as T001–T002; the review
+> replaced it with a fixed, content-sized album (no scrolling). This section is kept
+> as the record of *why* scrolling was first chosen.
+
 At the guaranteed **89×31** minimum, two half-width panels get ~44 cols each → **4 card
 columns** (9-wide cards at board pitch 10: `4*10-1=39` within the ~41-col interior). After a title, the two
 panel labels (one shared row), the `Deck: N/10` readout and the controls hint, bordered panels
@@ -124,22 +129,70 @@ New geometry mirroring `BoardLayout`'s split, sized from `Config`:
 - App CampaignMap arm (`app.rs:722` area): `Some(MapOutcome::OpenDeckBuilder) => { play
   MenuSelect; self.open_deck_builder(BuilderOrigin::Map); }`.
 
+## Revision — the fixed-album redesign (from the first visual review)
+
+The product owner reviewed the T001–T004 build and changed the presentation: the
+panels were oversized/empty, and every card type should have a fixed slot with a
+**placeholder** for ones absent from that panel. This supersedes the scrolling
+resolution above and *simplifies* the screen (scrolling is removed). §3 (origin) and
+§4 (map) are unaffected.
+
+**New model — a fixed card album.** Both panels show **all** `ALL_SIDE_CARDS` types
+(15) in fixed canonical-order slots. Per panel, a type present (Collection:
+`available = owned − in_deck > 0`; Deck: `in_deck > 0`) renders as a solid `CardView`
+with a `×count` caption; a type absent renders as a **placeholder** — a faint
+(`Emphasis::Muted`) **dashed**-border `CardView` showing the card's dimmed face, no
+count.
+
+**T006 — `BriefcaseLayout` becomes a fixed content-sized grid (`src/layout.rs`).**
+- Drop `visible_rows`/scrolling. The grid is a fixed **4 cols × 4 rows** (16 slots, 15
+  used) per panel; `card_origin(panel, index)` for `index in 0..15`.
+- Cell pitch **`CELL_H = CARD_HEIGHT + 1 = 6`** (card 5 + a caption row, no inter-row
+  gap) so 4 rows fit: `4 × 6 = 24` card rows + chrome (title, readout, panel
+  border+label, hint ≈ 5–7) ≤ **31**. `CELL_W` unchanged (board pitch 10 → 4 cols in
+  ~39, within the ~41 interior).
+- Panel `Rect`s **hug** the 4×4 grid (≈41 wide, ≈26 tall) and center within the
+  terminal (no half-screen sprawl). Revise the fit test to the fixed grid: `cols == 4`,
+  a fixed `rows == 4`, both panels within frame and non-overlapping, every slot
+  `0..15` contained and clear of the hint, at 89×31.
+
+**T007 — `BorderWeight::Dashed` + album redraw + remove scroll (`src/frame.rs`,
+`src/deck_builder.rs`).**
+- `src/frame.rs`: add `BorderWeight::Dashed` with dashed box-drawing glyphs (corners
+  `┌┐└┘`, horizontals `╌`, verticals `╎`) — a fourth weight alongside
+  Single/Heavy/Double. (`CardView` already carries a `weight`, so a placeholder is a
+  `CardView { weight: Dashed, emphasis: Muted, text: face }` drawn without a count.)
+- `src/deck_builder.rs`: draw iterates `ALL_SIDE_CARDS` (15), computing each panel's
+  count; filled slot → solid card + `×count` (Heavy+pulse if cursored, else Single);
+  absent → dashed-faint placeholder + dimmed face. **Remove** `collection_scroll`,
+  `MIN_VISIBLE_ROWS`, `scroll_to_reveal`, and their tests + the guard test (no scroll
+  now). Cursor is per-panel over the fixed 15-slot grid (ragged last-row skip for the
+  empty 16th slot); Enter on a placeholder is a no-op. The empty-panel focus
+  special-case goes away (panels always render 15 slots).
+- Input, `BuildOutcome`, `origin`, and the `handle_input`/`draw` signatures are
+  otherwise unchanged, so §3/§4 and the app arms still line up.
+- New draw tests: given a profile where a type is present in one panel and absent in
+  the other, that slot is filled (with the right count) on one side and a placeholder
+  on the other; a type owned 0 is a placeholder in both.
+
 ## Files
 
-- `src/layout.rs` — new `BriefcaseLayout` + fit test.
-- `src/deck_builder.rs` — reshape state/input/draw; `Panel` + `BuilderOrigin`; tests.
+- `src/layout.rs` — `BriefcaseLayout`: first a scrolling grid (T001), then the fixed
+  content-sized album grid (T006) + revised fit test.
+- `src/frame.rs` — `BorderWeight::Dashed` for placeholders (T007).
+- `src/deck_builder.rs` — the two-panel screen: reshape (T002), origin (T003), then the
+  album redraw + scroll removal (T007); `Panel` + `BuilderOrigin`; tests.
 - `src/app.rs` — `open_deck_builder(origin)`, `Back` routing, four call sites, the map arm.
 - `src/campaign_map.rs` — `MapOutcome::OpenDeckBuilder`, `c` key, hint.
-- **No change:** `profile.rs`, `card.rs`/`CardView`, `game.rs`, `screen.rs` (the `DeckBuilder`
-  variant is unchanged; only its state's internals grow), save format.
+- **No change:** `profile.rs`, `card.rs`/`CardView` (placeholders reuse `CardView` with
+  the new weight), `game.rs`, `screen.rs`, save format.
 
 ## Tests
 
-- **Layout (foundational):** `briefcase_fits_the_minimum_terminal` — at `Config(89,31)`, both
-  panels' borders sit within `num_cols`, labels/readout/hint are ordered and on-frame, and a
-  full visible grid of cards clears the hint (mirrors
-  `grid_layout_fits_the_minimum_terminal_for_the_full_universe`, `layout.rs:464`). Assert
-  `cols == 4` and `visible_rows >= 3`.
+- **Layout (foundational):** `briefcase_fits_the_minimum_terminal` at `Config(89,31)` —
+  both panels within `num_cols` and non-overlapping, ordered chrome on-frame, cards
+  contained and clearing the hint. **Revised by T006** to the fixed album grid: assert
+  `cols == 4`, `rows == 4`, and every slot `0..15` contained (was `visible_rows >= 3`).
 - **Screen input:** panel switch changes `active`; `Enter` in Collection yields `Add(cursored)`,
   in Deck yields `Remove(cursored)`; cursor movement + wrap; scroll clamps and keeps the cursor
   visible; `Esc`/`x` → `Back`; unknown keys ignored (follow the existing `deck_builder.rs` test
