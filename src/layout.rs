@@ -214,61 +214,128 @@ impl CampaignMapLayout {
     }
 }
 
-/// Geometry for the deck-builder's collection view: a title line, a
-/// "Deck: N/10" readout, a centered grid of card cells, and a hint line — the
-/// whole block centered vertically like [`MenuLayout`]. Each cell is a card
-/// plus a caption row (its owned/in-deck count) beneath it, so the cell is a
-/// touch taller than a card, with a roomier gutter than the packed board grid.
-#[derive(Debug, Copy, Clone)]
-pub struct GridLayout {
-    pub center_x: usize,
-    pub title_y: usize,
-    pub readout_y: usize,
-    pub hint_y: usize,
-    grid_x0: usize,
-    grid_y0: usize,
-    cols: usize,
+/// Which briefcase panel a card grid slot belongs to. The deck-builder's
+/// two-panel view moves a card *copy* between the Collection (owned, not
+/// placed) and the Deck (placed); [`BriefcaseLayout::card_origin`] keys off
+/// it, and the screen's per-panel cursors will too.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum Panel {
+    Collection,
+    Deck,
 }
 
-impl GridLayout {
-    /// A grid cell: a card, a caption row, and a blank; a 3-cell gutter
-    /// between columns for a browsable, uncramped feel.
-    pub const CELL_W: usize = CARD_WIDTH + 3;
-    pub const CELL_H: usize = CARD_HEIGHT + 2;
+/// Geometry for the deck-builder's two-panel "briefcase": a screen title, a
+/// "Deck: N/10" readout over the right panel, two side-by-side bordered
+/// panels — Collection (left) | Deck (right), each with a title-label anchor
+/// on its top border — and a controls hint. Sized purely from [`Config`], so
+/// it unit-tests without a terminal. Each panel is a fixed content-sized album:
+/// a [`Self::COLS`] × [`Self::ROWS`] grid holding every card type at once (no
+/// scrolling), its border hugging the grid, and the whole block centered in the
+/// terminal like [`BoardLayout`].
+#[derive(Debug, Copy, Clone)]
+pub struct BriefcaseLayout {
+    pub center_x: usize,  // screen center — the title and hint center here
+    pub title_y: usize,
+    pub readout_x: usize, // center of the deck panel — the N/10 readout sits here
+    pub readout_y: usize,
+    pub hint_y: usize,
+    pub collection: Rect, // left panel perimeter (bordered)
+    pub deck: Rect,       // right panel perimeter (bordered)
+    pub collection_label: (usize, usize), // (x, y) where "Collection" draws, on its top border
+    pub deck_label: (usize, usize),       // (x, y) where "Deck" draws, on its top border
+    pub cols: usize,      // 4 — cards per panel row
+    pub rows: usize,      // 4 — card rows per panel (16 slots, 15 used)
+}
 
-    /// Lay out `count` cells in `cols` columns (clamped to at least one and no
-    /// wider than the cell count), as many rows as needed.
-    pub fn new(config: Config, count: usize, cols: usize) -> Self {
-        let cols = cols.clamp(1, count.max(1));
-        let rows = count.max(1).div_ceil(cols);
-        let grid_w = cols * Self::CELL_W;
-        let grid_h = rows * Self::CELL_H;
+// The album is a fixed COLS×ROWS grid with one slot per card type. If the card
+// universe ever outgrows that grid, the fixed layout would silently overflow
+// (`card_origin` past a panel) — grow the grid and re-check the 89×31 fit rather
+// than letting it slide. Ties the hardcoded ROWS/COLS to `ALL_SIDE_CARDS`.
+const _: () = assert!(
+    crate::card::ALL_SIDE_CARDS.len() <= BriefcaseLayout::COLS * BriefcaseLayout::ROWS,
+    "ALL_SIDE_CARDS outgrew the briefcase album grid; grow BriefcaseLayout::ROWS/COLS and re-check the 89×31 fit",
+);
 
-        const GAP: usize = 1; // blank rows between title/readout/grid/hint
-        // The block is: title, gap, readout, gap, grid, gap, hint.
-        let block_h = 1 + GAP + 1 + GAP + grid_h + GAP + 1;
-        let top = config.num_rows.saturating_sub(block_h) / 2;
+impl BriefcaseLayout {
+    /// Four card columns per panel.
+    pub const COLS: usize = 4;
+    /// Four card rows per panel — a fixed 4×4 = 16-slot grid, 15 of them filled
+    /// by the card universe (`ALL_SIDE_CARDS`), the 16th left empty. Every type
+    /// gets a slot, so the album never scrolls.
+    pub const ROWS: usize = 4;
+    /// Horizontal pitch inside a panel: a card plus a one-cell gap — the same
+    /// pitch the board grid uses.
+    const CARD_PITCH_X: usize = CARD_WIDTH + 1;
+    /// A card cell's height: the card plus its count-caption row, with no
+    /// inter-row gap — packed so four rows fit the 89×31 minimum.
+    const CELL_H: usize = CARD_HEIGHT + 1;
+    /// One interior column of breathing room between a panel's border and its
+    /// card grid, each side.
+    const PANEL_PAD_X: usize = 1;
+    /// Blank columns between the two panels.
+    const PANEL_GAP: usize = 3;
 
+    /// Interior card-grid width: COLS cards with a gap between each.
+    const GRID_W: usize = Self::COLS * Self::CARD_PITCH_X - 1;
+    /// A panel's full width, including its border and interior padding.
+    const PANEL_W: usize = Self::GRID_W + 2 * Self::PANEL_PAD_X + 2;
+    /// A panel's full height: the ROWS card cells plus the top and bottom
+    /// borders.
+    const PANEL_H: usize = Self::ROWS * Self::CELL_H + 2;
+    /// The two panels plus the gap between them — the fixed block width,
+    /// centered in the terminal like the board.
+    const BRIEFCASE_W: usize = 2 * Self::PANEL_W + Self::PANEL_GAP;
+    /// The fixed block height: a title row, a readout row, the panels, and a
+    /// hint row, stacked with no inter-row gaps so it packs into 31 rows.
+    const BLOCK_H: usize = 1 + 1 + Self::PANEL_H + 1;
+
+    pub fn new(config: Config) -> Self {
+        let cols = config.num_cols;
+        let rows = config.num_rows;
+
+        // A fixed-size block (title, readout, panels, hint), centered in both
+        // axes like the board — wider/taller terminals just pad the margins.
+        // Rows stack tight: title, readout, panels, hint, no gaps between.
+        let top = rows.saturating_sub(Self::BLOCK_H) / 2;
         let title_y = top;
-        let readout_y = title_y + 1 + GAP;
-        let grid_y0 = readout_y + 1 + GAP;
-        let hint_y = grid_y0 + grid_h + GAP;
+        let readout_y = title_y + 1;
+        let panel_y0 = readout_y + 1;
+        let panel_y1 = panel_y0 + Self::PANEL_H - 1;
+        let hint_y = panel_y1 + 1;
+
+        // A fixed-width two-panel block, centered like the board.
+        let left = cols.saturating_sub(Self::BRIEFCASE_W) / 2;
+        let collection = Rect::new(left, left + Self::PANEL_W - 1, panel_y0, panel_y1);
+        let deck_x0 = left + Self::PANEL_W + Self::PANEL_GAP;
+        let deck = Rect::new(deck_x0, deck_x0 + Self::PANEL_W - 1, panel_y0, panel_y1);
 
         Self {
-            center_x: config.num_cols / 2,
+            center_x: cols / 2,
             title_y,
+            readout_x: (deck.x0 + deck.x1) / 2,
             readout_y,
             hint_y,
-            grid_x0: config.num_cols.saturating_sub(grid_w) / 2,
-            grid_y0,
-            cols,
+            collection,
+            deck,
+            collection_label: (collection.x0 + 2, collection.y0),
+            deck_label: (deck.x0 + 2, deck.y0),
+            cols: Self::COLS,
+            rows: Self::ROWS,
         }
     }
 
-    /// Top-left (x, y) of the card box in cell `i` (row-major).
-    pub fn card_origin(&self, i: usize) -> (usize, usize) {
-        let (col, row) = (i % self.cols, i / self.cols);
-        (self.grid_x0 + col * Self::CELL_W, self.grid_y0 + row * Self::CELL_H)
+    /// Top-left (x, y) of the 9×5 card box at grid slot `index` (row-major, in
+    /// `0..cols*rows`) inside `panel`'s interior. Slots `0..=14` hold the 15
+    /// card types; the 16th (`index == 15`) is the empty grid corner.
+    pub fn card_origin(&self, panel: Panel, index: usize) -> (usize, usize) {
+        let border = match panel {
+            Panel::Collection => self.collection,
+            Panel::Deck => self.deck,
+        };
+        let (col, row) = (index % self.cols, index / self.cols);
+        let x0 = border.x0 + 1 + Self::PANEL_PAD_X;
+        let y0 = border.y0 + 1;
+        (x0 + col * Self::CARD_PITCH_X, y0 + row * Self::CELL_H)
     }
 }
 
@@ -462,19 +529,48 @@ mod tests {
     }
 
     #[test]
-    fn grid_layout_fits_the_minimum_terminal_for_the_full_universe() {
-        // The whole 15-card universe at 5 columns → 3 rows; the block (title,
-        // readout, grid, hint) must fit the minimum 89×31 terminal with every
-        // cell — and its caption row — on-frame and clear of the hint line.
+    fn briefcase_fits_the_minimum_terminal() {
+        // Two bordered panels — Collection | Deck — each a fixed 4×4 album of
+        // every card type, with a shared title, the "Deck: N/10" readout over
+        // the deck panel, and a controls hint, must fit the 89×31 minimum with
+        // every card slot inside its panel's border and clear of the hint.
         let (cols, rows) = (89, 31);
-        let g = GridLayout::new(cfg(cols, rows), 15, 5);
-        assert!(g.title_y < g.readout_y && g.readout_y < g.hint_y);
-        assert!(g.hint_y < rows, "hint line off-frame");
-        for i in 0..15 {
-            let (x, y) = g.card_origin(i);
-            assert!(x + CARD_WIDTH <= cols, "cell {i} off the right edge");
-            // The card (CARD_HEIGHT rows) plus its caption row must clear the hint.
-            assert!(y + CARD_HEIGHT < g.hint_y, "cell {i} overlaps the hint line");
+        let l = BriefcaseLayout::new(cfg(cols, rows));
+
+        // A fixed 4 columns × 4 rows (16 slots, 15 used) — no scrolling.
+        assert_eq!(l.cols, 4);
+        assert_eq!(l.rows, 4);
+
+        // Both panel borders sit on-frame and don't overlap (Collection left of Deck).
+        assert!(in_bounds(l.collection, cols, rows), "collection panel off-frame");
+        assert!(in_bounds(l.deck, cols, rows), "deck panel off-frame");
+        assert!(l.collection.x1 < l.deck.x0, "panels overlap");
+
+        // Chrome rows are ordered and on-frame; the readout sits over the deck panel.
+        assert!(l.title_y < l.readout_y && l.readout_y < l.hint_y, "chrome rows out of order");
+        assert!(l.hint_y < rows, "hint line off-frame");
+        assert!(l.deck.x0 <= l.readout_x && l.readout_x <= l.deck.x1, "readout not over the deck");
+
+        // Each panel's title-label anchor sits inside that panel.
+        for (anchor, pane) in [(l.collection_label, l.collection), (l.deck_label, l.deck)] {
+            assert!(pane.x0 <= anchor.0 && anchor.0 <= pane.x1, "label x outside its panel");
+            assert!(pane.y0 <= anchor.1 && anchor.1 <= pane.y1, "label y outside its panel");
+        }
+
+        // Every slot of the fixed grid (all COLS×ROWS, not a hardcoded count) in
+        // both panels lands a full 9×5 card strictly inside that panel's border,
+        // its caption row clear of the hint.
+        for panel in [Panel::Collection, Panel::Deck] {
+            let border = match panel {
+                Panel::Collection => l.collection,
+                Panel::Deck => l.deck,
+            };
+            for i in 0..(l.cols * l.rows) {
+                let (x, y) = l.card_origin(panel, i);
+                assert!(x > border.x0 && x + CARD_WIDTH <= border.x1, "slot {i} escapes panel x");
+                assert!(y > border.y0 && y + CARD_HEIGHT <= border.y1, "slot {i} escapes panel y");
+                assert!(y + CARD_HEIGHT < l.hint_y, "slot {i} overlaps the hint line");
+            }
         }
     }
 

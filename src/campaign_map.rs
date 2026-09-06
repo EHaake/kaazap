@@ -25,15 +25,21 @@ use crate::{
 /// How many stars fill the backdrop. Sparse enough to read as depth, not noise.
 const STAR_COUNT: usize = 72;
 
+/// The controls hint drawn at the foot of the info panel. A module `const` (like
+/// `cursored_label`) so it's one source of truth for the renderer and the
+/// map-entry test, which can assert its contents without a terminal.
+const HINT: &str = "↑/↓ move  ·  Enter play  ·  b shop  ·  c deck  ·  Esc menu";
+
 /// The result of a key on the map: the cursor moved, a match should launch
-/// against a planet's next opponent, or the player backed out to the menu. The
-/// app performs the launch/transition and plays the matching SFX. Ids are
-/// `&'static str` from the `const` graph.
+/// against a planet's next opponent, the shop or deck builder should open, or
+/// the player backed out to the menu. The app performs the launch/transition
+/// and plays the matching SFX. Ids are `&'static str` from the `const` graph.
 #[derive(Debug)]
 pub enum MapOutcome {
     Moved,
     Launch { planet: &'static str, opponent: &'static str },
     OpenShop,
+    OpenDeckBuilder,
     Back,
 }
 
@@ -133,6 +139,8 @@ impl CampaignMapState {
                     .map(|opponent| MapOutcome::Launch { planet: planet.id, opponent })
             }
             KeyCode::Char('b') => Some(MapOutcome::OpenShop),
+            // `c`, not `d` — `d` is wasd-right movement above.
+            KeyCode::Char('c') => Some(MapOutcome::OpenDeckBuilder),
             KeyCode::Esc | KeyCode::Char('x') => Some(MapOutcome::Back),
             _ => None,
         }
@@ -265,7 +273,7 @@ impl CampaignMapState {
             planet.blurb
         };
         draw_text(frame, x, panel.y0 + 3, status, Emphasis::Muted);
-        draw_text(frame, x, panel.y0 + 4, "↑/↓ move  ·  Enter play  ·  b shop  ·  Esc menu", Emphasis::Muted);
+        draw_text(frame, x, panel.y0 + 4, HINT, Emphasis::Muted);
     }
 }
 
@@ -388,5 +396,19 @@ mod tests {
         let mut s = CampaignMapState::new(&p);
         assert!(matches!(s.handle_input(KeyCode::Esc, &p), Some(MapOutcome::Back)));
         assert!(matches!(s.handle_input(KeyCode::Char('x'), &p), Some(MapOutcome::Back)));
+    }
+
+    #[test]
+    fn c_opens_the_deck_builder() {
+        // `c`, not `d` (which is wasd-right movement): a fresh profile has the
+        // start planet unlocked, so the map is in its normal unlocked state.
+        let p = Profile::default();
+        let mut s = CampaignMapState::new(&p);
+        assert!(matches!(s.handle_input(KeyCode::Char('c'), &p), Some(MapOutcome::OpenDeckBuilder)));
+    }
+
+    #[test]
+    fn controls_hint_advertises_the_deck_builder() {
+        assert!(HINT.contains("deck"), "controls hint must advertise the deck-builder launch key");
     }
 }

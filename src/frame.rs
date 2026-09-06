@@ -73,8 +73,9 @@ pub enum Align {
 
 /// Border line weight. Single is the default chrome everywhere; Heavy
 /// is reserved for cursor selection; Double marks a played side card on
-/// the board grid (dealer draws stay Single) — three distinct weights,
-/// three distinct meanings (design/brief.md, spec 003).
+/// the board grid (dealer draws stay Single). Distinct weights, distinct
+/// meanings (design/brief.md, spec 003). (Deck-builder album placeholders
+/// use `draw_ghost_slot`'s faint corner ticks, not a border weight — spec 015.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BorderWeight {
     Single,
