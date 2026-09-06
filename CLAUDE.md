@@ -109,17 +109,19 @@ standing instruction to Claude Code as much as a note to the human.
 
 **Product owner.** The person owns `spec.md`, attests to behavior by
 using the app at phase pauses, and decides escalations. They do not
-approve technical work: `plan.md` and `tasks.md` are signed off by Plan
-Mode plus the `skeptical-reviewer`, foundational tasks are reviewed by
-the `skeptical-reviewer` rather than the person, and what reaches the
-person is a spec-conformance summary, not an architecture review.
+approve technical work: `plan.md` and `tasks.md` are drafted by the
+`sdd-planner` and signed off by the `skeptical-reviewer`, foundational
+tasks are reviewed by the `skeptical-reviewer` rather than the person,
+and what reaches the person is a spec-conformance summary, not an
+architecture review.
 Implementation pauses after each phase unless the person says to run
 further, and whenever something unexpected bears on spec adherence.
 
 ## Model policy
 
 - **Decisions run at the best available tier**: the spec conversation,
-  plan and task drafting, Step 1 triage, orchestration of
+  plan and task drafting (the `sdd-planner` subagent, one dispatch per
+  spec on a planning bundle), Step 1 triage, orchestration of
   implementation, and the `skeptical-reviewer` when it's judging a
   decision — plan/tasks sign-off and reviews of routine-but-real
   decisions — via a per-call model override up from its default.
@@ -129,8 +131,9 @@ further, and whenever something unexpected bears on spec adherence.
   review gets a single bundle file assembled with shell — diff, task
   lines, plan sections, acceptance criteria; for the sweep, the
   documents and the spec's full diff — and reads nothing else.
-- **Review loop cap**: one review and at most one re-review per task.
-  The re-review sees the findings and the fix diff only. Blocking
+- **Review loop cap**: one review and at most one re-review per
+  invocation — task, phase, sign-off, or sweep. The re-review sees the
+  findings and the fix diff only. Blocking
   means it would fail an acceptance criterion or a test, or contradicts
   `plan.md` or `CLAUDE.md`; nothing else blocks. Anything open after
   the re-review goes to the tier log and the sweep.
@@ -171,12 +174,13 @@ live in `specs/<NNN>-<slug>/`:
 - `tasks.md` — ordered, small, independently verifiable tasks.
 
 Authorship: `spec.md` is written in the chat design conversation; since
-this project already has shipped code, Claude Code drafts `plan.md` and
-`tasks.md` in Plan Mode, against the actual codebase, committed to the
+this project already has shipped code, the `sdd-planner` subagent drafts
+`plan.md` and `tasks.md` — at the top tier, from a planning bundle,
+against the actual codebase — and the orchestrator commits them to the
 spec branch with the PR still in draft. Both are signed off before any
-implementation task starts by Plan Mode plus the `skeptical-reviewer`
-(blocking findings fixed and re-reviewed); the person receives a
-spec-conformance summary to approve, not the plan itself.
+implementation task starts by the `skeptical-reviewer` (blocking findings
+fixed and re-reviewed); the person receives a spec-conformance summary to
+approve, not the plan itself.
 
 Do not begin implementation on a feature without an approved spec and
 plan in that feature's directory. When resuming a session, check
