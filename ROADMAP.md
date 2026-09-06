@@ -263,8 +263,9 @@ spec 005's versioning).
 ### Immersion & personality (now being sequenced)
 
 Making the opponents feel like people, not just AI parameters — two
-independent slices, cheapest first; neither touches the stakes work below, so
-they can interleave freely.
+independent slices; **portraits go first** (spec 016) — banter is a voice and
+needs a face to come from — and neither touches the stakes work below, so they
+can interleave freely.
 
 - **Opponent banter** — event-driven flavor text per opponent: short lines on
   match start, a round won / lost / tied, a bust, a board-reversing card play,
@@ -273,8 +274,8 @@ they can interleave freely.
   — so this is a data table (opponent × event → a few variant lines) + a trigger
   that borrows those slots, plus a per-opponent voice guide. No layout or engine
   change; the real cost is *writing* (10 opponents). Highest personality-per-
-  effort item — **do first, no dependencies.** Opponents today carry only a
-  static `blurb` (spec 007), shown outside matches.
+  effort item, but **it follows portraits** — banter attaches to a face.
+  Opponents today carry only a static `blurb` (spec 007), shown outside matches.
 - **Opponent portraits (monochrome)** — a per-opponent character-art portrait
   (eventually lightly animated by swapping frames on the existing pulse/tick),
   shown in-match and/or on the map / select panels. **Monochrome by construction
@@ -284,8 +285,10 @@ they can interleave freely.
   art. (A colorful version would need both a rendering-layer change and a
   design-brief amendment; out of scope unless that identity call is made first,
   upstream — human-ruled: monochrome, don't assume color.) Needs a layout region
-  (the fixed board leaves free margin, or grow the 2-row opponent header) +
-  authoring ~10 portraits. Pairs with banter; do after it.
+  (an always-visible opponent-presence panel beside the board; growing the board
+  block and the minimum terminal to fit it) + authoring ~10 portraits. **Do first
+  — now spec 016 (in progress);** banter follows. In-repo generated, monochrome,
+  static (animation deferred) — the resolved calls live in `specs/016-*/spec.md`.
 
 ### Stakes, loss condition & difficulty balance (now being sequenced)
 
