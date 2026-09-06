@@ -127,7 +127,8 @@ The **two-panel KOTOR-style "briefcase" builder** (collection left, deck right,
 moving cards between panels) was considered and **deferred to a presentation
 pass sequenced with/after spec C** — it's a visual overhaul, not new
 capability, and a two-panel view earns its complexity only once the collection
-grows large. See `ROADMAP.md`.
+grows large. **Shipped in spec 015** — which grew it past "presentation-only" into
+a full-universe album with placeholders (see below). See `ROADMAP.md`.
 
 ## Campaign map (spec 009)
 
@@ -320,6 +321,37 @@ miscounted loss. The calls (both human-ruled):
   mutation-checked, so a future refactor can't silently flip it (the `cursor_confirm`
   precedent). The remaining menu-input effect wiring stays thin over the tested
   reset, following the existing untested-confirm-handler precedent.
+
+## Two-panel briefcase deck-builder (spec 015)
+
+The spec-008 single-grid side-deck builder became a two-panel "briefcase". The calls
+(all human-ruled, several across three visual-review rounds):
+
+- **A full-universe album, superseding "owned cards only"** — both panels show every card
+  type in fixed canonical slots; a type absent from a panel (unowned, or all-decked on the
+  Collection side / not-decked on the Deck side) is a faint placeholder that fills in once
+  present. This deliberately supersedes the first cut's "owned cards only" view — you now
+  see the whole set and your gaps — while acquiring cards stays the shop's job (the builder
+  never sells or grants). It also made the panels **content-sized** and **removed scrolling
+  entirely** (the fixed grid always shows the bounded set at once).
+- **Reachable from the campaign map (`c`)** — a small new capability beyond the roadmap's
+  "presentation-only" framing, taken because it delivers the "retool between nodes" feel the
+  roadmap itself calls for. `c`, since `d` is wasd-movement on the map.
+- **Return-path correction (a bug fix)** — routing the builder's Back to its launching
+  screen fixed a pre-existing bug: the campaign "incomplete deck" divert returned to the
+  menu instead of the map. The divert *mechanism* is unchanged; surfaced during planning.
+- **Placeholders are not navigable** — the selection cursor only lands on present (solid)
+  cards; it skips placeholders and won't focus an all-placeholder panel. Selecting a card
+  you can't act on carried no meaning.
+- **Placeholder style: a sparse "ghosted slot"** — faint corner ticks + the card's dimmed
+  face, not a dashed frame (which read as "almost a real card"). A `BorderWeight::Dashed`
+  weight added mid-spec was removed once corner ticks won.
+- **A distinct no-op nav cue** — a nav key that can't move plays the "declined" cue
+  (`MenuBack`, the same sound a blocked add/remove makes), not the move cue and not silence,
+  so the input registers without implying something changed.
+
+No engine, `Profile`-model, save-format, or economy change — a screen + layout reshape plus
+the one map launch key.
 
 ## Explicitly deferred out of v1
 

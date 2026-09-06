@@ -170,6 +170,16 @@ of, not guessed at here in advance.
   profile opens the map directly (unchanged). Menu/profile only — no engine, board,
   or save-format change; rendering DRYed into a shared two-choice overlay helper,
   and the irreversible wipe guarded by a mutation-checked `confirm_choice` seam.
+- **Two-panel briefcase deck-builder** (spec 015) — the side-deck builder is now a
+  two-panel "briefcase": **Collection** (left) and built **Deck** (right), each a fixed
+  album of every card type — owned shown as solid card frames with a copy count, the rest
+  as faint corner-tick "ghosted slot" placeholders — where building is moving a copy
+  across (`Tab` switch, `Enter` move; the cursor skips placeholders). Also openable from
+  the campaign map via **`c`** for between-match retooling (a small capability bump beyond
+  the roadmap's "presentation-only" framing, human-ruled), which also fixed a pre-existing
+  bug: the incomplete-deck divert returned to the menu, now the map. Content-sized panels
+  (no scrolling); a nav that can't move plays a distinct "declined" cue.
+  `deck_builder`/`layout`/`app`/`campaign_map` only — no engine, save, or economy change.
 
 ## Backlog
 
@@ -243,17 +253,10 @@ discipline** as the schema grows (reuse spec 005's versioning).
   shipped with **no rework**, plus the one anticipated test helper that seeds
   both boards (`board_at`).
 
-- **Two-panel "briefcase" deck-builder** (builds on spec 008's subsystem B) —
-  008's builder is a single grid of owned cards with in-deck/owned count
-  badges. A later, **presentation-only** pass can adopt the classic KOTOR
-  layout: your **collection on the left, your built deck on the right**, moving
-  cards across between the two panels (`Tab` to switch panels, Enter/←→ to move
-  a card). It's a visual overhaul, not new capability, so it's **sequenced
-  with/after spec C** (Economy) — a two-panel "curate from a big pile" view
-  earns its complexity once C's economy grows the collection, whereas today's
-  modest starter fits one grid. Also reinforces the campaign's "manage your
-  briefcase between matches" feel, and pairs with the spec-D map as the
-  between-nodes retooling screen. Human-requested during spec 008.
+- **Two-panel "briefcase" deck-builder** — ✅ **Shipped (spec 015** — see Shipped
+  above). Grew beyond the original "presentation-only" framing into a fixed
+  full-universe **album** with placeholders, a **`c`** map launch key, and a
+  return-path bug fix. Human-requested during spec 008.
 
 ### Other (not campaign-dependent)
 
