@@ -1,8 +1,20 @@
 # Tasks: Opponent portraits — spec 016
 
-**Status**: Approved — ready for implementation (start at T001)
+**Status**: In progress — **PAUSED at the T001 spike gate pending external art** (see Spike outcome).
 **Implements**: plan.md in this directory
 **Person approval:** plan + tasks approved; minimum 139×31 accepted (portraits always-on); the `design/brief.md` bounded exception approved (lands at T001b).
+
+**Spike outcome (T001 go/no-go, person ruling):** the render path + approach are **accepted**
+— portraits render correctly and read as faces — but the person escalated the **art authoring**
+to a more capable tool (Claude Design / Fable 5.1) to get better faces than the Claude Code
+baseline, per the spec's human-ruled escape hatch. The hand-off spec is
+`portrait-art-brief.md` in this directory (same 18×12 monochrome block-grid format, so results
+drop straight into the render path). **Consequence for the task list:** T002 is no longer
+"Claude Code authors the 9" — it becomes "**integrate + validate** the 11 externally-authored
+portraits" (drop into `assets/portraits/`, run the dimension/distinctness tests, render for the
+person's sign-off). T001's two baseline faces (`generic.txt`, `greeb.txt`) stay as placeholders
+until the replacements arrive. Implementation is **halted here** until the art comes back; the
+render-path code (T001) is committed and green.
 
 Ordered, small, independently verifiable. Each task should be completable (and
 testable) on its own. If a session ends mid-list, resume by finding the first
