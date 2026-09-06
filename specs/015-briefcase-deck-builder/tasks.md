@@ -81,7 +81,7 @@ implementer returns, and only the orchestrator commits.
   `back_destination` maps `Menu`→menu / `Map`→map (mutation-checkable, like
   `confirm_choice`); the campaign-divert-returns-to-map fix stated in the report;
   `cargo build`/`cargo test` green.*
-- [ ] **T004** — Map entry point in `src/campaign_map.rs` + `src/app.rs`:
+- [x] **T004** — Map entry point in `src/campaign_map.rs` + `src/app.rs`:
   `MapOutcome::OpenDeckBuilder`; `KeyCode::Char('c')` arm (**`c`; `d` is taken by
   wasd movement**); extend the hint to `"↑/↓ move  ·  Enter play  ·  b shop  ·  c
   deck  ·  Esc menu"` (keep the existing double-space `·` style, `campaign_map.rs:268`);
@@ -104,8 +104,9 @@ implementer returns, and only the orchestrator commits.
   no caller — `BriefcaseLayout` supersedes it; verify no references remain first)
   and note the supersession in `DECISIONS.md`. Fix the stale `CampaignMap`-arm
   comment in `app.rs` (says the campaign "win seam … arrives in T003" — a
-  pre-spec-015 task reference that now collides with this spec's T-numbers).
-  Request the pre-merge whole-spec sweep.
+  pre-spec-015 task reference that now collides with this spec's T-numbers) and
+  bring the `MapOutcome` doc comment in `campaign_map.rs` up to date (it omits
+  `OpenShop`/`OpenDeckBuilder`). Request the pre-merge whole-spec sweep.
   *Verify: `cargo build`/`cargo test` green, reported verbatim; legible 89×31
   snapshots; `ROADMAP.md` no longer lists this as future; sweep clean or findings
   resolved.*
@@ -150,3 +151,5 @@ similar size before treating the policy as settled. -->
 | T002 review (skeptical-reviewer) | opus | ~98k | signed off; 0 blocking; scroll accepted; 3 second-looks folded (comment fix, guard test, GridLayout→T005) |
 | T003 (sdd-implementer) | opus | ~84k | done; no deviations; campaign-divert→Map bug fix confirmed; 257 tests |
 | T003 review (skeptical-reviewer) | opus | ~49k | signed off; 0 blocking; routing + non-vacuous seam + bug fix verified; noted a stale comment → T005 |
+| T004 (sdd-implementer) | opus | ~49k | done; hint factored to a testable const; 259 tests |
+| T004 review (skeptical-reviewer) | opus | ~58k | signed off; 0 blocking; c-arm/app-mirror/round-trip verified; MapOutcome doc → T005 |

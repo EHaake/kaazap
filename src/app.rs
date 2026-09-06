@@ -754,6 +754,10 @@ impl App {
                             self.audio.play(Sfx::MenuSelect);
                             self.open_shop();
                         }
+                        Some(MapOutcome::OpenDeckBuilder) => {
+                            self.audio.play(Sfx::MenuSelect);
+                            self.open_deck_builder(BuilderOrigin::Map);
+                        }
                         Some(MapOutcome::Back) => {
                             self.audio.play(Sfx::MenuBack);
                             self.screen = self.start_menu();
