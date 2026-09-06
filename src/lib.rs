@@ -5,6 +5,7 @@ pub mod config;
 pub mod game;
 pub mod board;
 pub mod card;
+pub mod portrait;
 pub mod profile;
 pub mod opponent;
 pub mod opponent_select;

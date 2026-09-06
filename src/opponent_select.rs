@@ -10,9 +10,10 @@ use crossterm::event::KeyCode;
 
 use crate::{
     config::Config,
-    frame::{Emphasis, Frame, draw_text_centered},
+    frame::{Emphasis, Frame, draw_text, draw_text_centered},
     layout::MenuLayout,
     opponent::{OPPONENTS, OpponentProfile},
+    portrait::draw_portrait,
 };
 
 /// The result of a key on the select screen: the cursor moved, an opponent was
@@ -114,6 +115,14 @@ impl OpponentSelectState {
         let blurb = OPPONENTS[self.selected].blurb;
         draw_text_centered(frame, layout.center_x, y + 2, blurb, Emphasis::Normal);
         draw_text_centered(frame, layout.center_x, y + 4, HINT, Emphasis::Normal);
+
+        // Temporary raw preview of the cursored opponent's portrait, right of
+        // the centered list (T005 replaces this with a bordered presence panel).
+        let o = OPPONENTS[self.selected];
+        let px = layout.center_x + 18;
+        let py = layout.items_top;
+        draw_text(frame, px, py, o.name, Emphasis::Strong);
+        draw_portrait(frame, px, py + 1, o.portrait, Emphasis::Normal);
     }
 }
 
