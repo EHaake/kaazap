@@ -734,9 +734,9 @@ impl App {
                 }
 
                 // The campaign map: travel between unlocked planets, launch a
-                // match against a planet's next opponent, or back out. (T002
-                // launches the match; the campaign progress spine — the
-                // in-progress pointer and the win seam — arrives in T003.)
+                // match against a planet's next opponent, open the shop or deck
+                // builder, or back out. Launching a match records the in-progress
+                // node so game-over routes back to the map.
                 Screen::CampaignMap { state } => {
                     let outcome = state.handle_input(key, &self.profile);
                     // The post-win reward banner shows on arrival and clears on

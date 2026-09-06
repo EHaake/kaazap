@@ -147,33 +147,54 @@ deck (as today). The builder opens with the Collection panel active.
 
 ## Acceptance criteria
 
-- [ ] The Side Deck menu item opens a two-panel builder — **Collection** (left) and
+- [x] The Side Deck menu item opens a two-panel builder — **Collection** (left) and
       **Deck** (right), each a fixed album of every card type — with a **Deck: N/10**
       readout. Present types show a solid card + `×count` (available on the left,
       in-deck on the right); absent types show a faint ghosted-slot placeholder (corner
-      ticks + the card's dimmed face).
-- [ ] Confirming on a Collection card moves one copy into the Deck (when under 10):
+      ticks + the card's dimmed face). *(driver `GHOST_ALBUM` at 89×31: both albums of
+      all 15 types, solid `+count` vs corner-tick placeholders, "Deck: 8/10"; tests
+      `a_type_present_in_one_panel_is_a_placeholder_in_the_other`,
+      `an_unowned_type_is_a_placeholder_in_both_panels`.)*
+- [x] Confirming on a Collection card moves one copy into the Deck (when under 10):
       the available count drops, the Deck count rises, a card whose count hits zero
       becomes a placeholder in that panel, and the readout updates. Confirming on a
-      placeholder does nothing.
-- [ ] Confirming on a Deck card moves one copy back to the Collection (the reverse).
-- [ ] The player can move the cursor within a panel and switch the active panel; the
-      cursored card is the one pulsing.
-- [ ] The cursor only lands on **present (solid) cards** — placeholders are not
+      placeholder does nothing. *(driver `AFTER_ADD`: Enter on `+1` moved it
+      Collection→Deck, its Collection slot became a placeholder, readout 8/10→9/10;
+      `enter_moves_a_present_card_across_add_in_collection_remove_in_deck`,
+      `enter_on_a_placeholder_is_a_noop`.)*
+- [x] Confirming on a Deck card moves one copy back to the Collection (the reverse).
+      *(`enter_moves_a_present_card_across_add_in_collection_remove_in_deck` asserts
+      `Remove` from the Deck panel; the app applies `remove_from_deck`.)*
+- [x] The player can move the cursor within a panel and switch the active panel; the
+      cursored card is the one pulsing. *(driver `DECK_FOCUS`: Tab moved the heavy+pulse
+      cursor to the Deck panel and Collection's reverted to plain;
+      `nav_reports_moved_only_when_it_actually_moves`.)*
+- [x] The cursor only lands on **present (solid) cards** — placeholders are not
       navigable or selectable. Movement skips them, and a panel with no present cards
-      can't be focused (nothing to select there).
-- [ ] A deck can never exceed 10 or hold more copies of a card than are owned
-      (unchanged legality); a full deck rejects further adds.
-- [ ] The builder is reachable from the campaign map via a shown key and returns to
+      can't be focused (nothing to select there). *(driver: Right jumped `-1`→`±3` over
+      five placeholders; `arrows_skip_placeholders_and_wrap_to_present_slots`,
+      `vertical_move_skips_placeholders_and_the_empty_sixteenth_slot`,
+      `tab_will_not_focus_an_all_placeholder_panel`, `initial_focus_lands_on_a_present_card`.)*
+- [x] A deck can never exceed 10 or hold more copies of a card than are owned
+      (unchanged legality); a full deck rejects further adds. *(unchanged — adds/removes
+      still route through `Profile::try_add_to_deck`/`remove_from_deck`; a full 10/10 deck
+      took no further adds in the driver; spec-008 profile tests still green.)*
+- [x] The builder is reachable from the campaign map via a shown key and returns to
       the map on exit; the menu entry and the incomplete-deck divert still work and
-      return to their origins.
-- [ ] Cards render in two border weights — heavy (cursor) and plain (present) — with
+      return to their origins. *(driver `MAP`→`c`→builder→`Esc`→`BACK_TO_MAP`, map hint
+      shows `c deck`; `c_opens_the_deck_builder`, `controls_hint_advertises_the_deck_builder`,
+      `back_destination_routes_each_origin_to_its_screen`.)*
+- [x] Cards render in two border weights — heavy (cursor) and plain (present) — with
       placeholders as a faint corner-tick ghost, not a full frame; the old "double
-      border = in deck" is gone.
-- [ ] The panels are content-sized (borders hug the fixed card grid) with no
+      border = in deck" is gone. *(T009 retired `BorderWeight::Dashed`; driver
+      `GHOST_ALBUM` shows solid frames vs corner-tick placeholders; no `Double` in the
+      deck-builder.)*
+- [x] The panels are content-sized (borders hug the fixed card grid) with no
       scrolling — the full album, both panels, labels, readout, and hint are legible
       at 89×31; no panics; `cargo build` clean and `cargo test` green (the move-across
       intent, the filled/placeholder album split, and the panel/cursor logic covered).
+      *(`briefcase_fits_the_minimum_terminal` — fixed 4×4, all 16 slots contained, plus a
+      compile-time capacity guard; driver snapshots at 89×31; 262 tests, build clean.)*
 
 ## Resolved decisions
 

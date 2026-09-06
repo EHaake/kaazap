@@ -31,9 +31,9 @@ const STAR_COUNT: usize = 72;
 const HINT: &str = "↑/↓ move  ·  Enter play  ·  b shop  ·  c deck  ·  Esc menu";
 
 /// The result of a key on the map: the cursor moved, a match should launch
-/// against a planet's next opponent, or the player backed out to the menu. The
-/// app performs the launch/transition and plays the matching SFX. Ids are
-/// `&'static str` from the `const` graph.
+/// against a planet's next opponent, the shop or deck builder should open, or
+/// the player backed out to the menu. The app performs the launch/transition
+/// and plays the matching SFX. Ids are `&'static str` from the `const` graph.
 #[derive(Debug)]
 pub enum MapOutcome {
     Moved,
