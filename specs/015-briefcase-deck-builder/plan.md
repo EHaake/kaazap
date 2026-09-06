@@ -175,6 +175,18 @@ count.
   the other, that slot is filled (with the right count) on one side and a placeholder
   on the other; a type owned 0 is a placeholder in both.
 
+**T008 — placeholders are not navigable (`src/deck_builder.rs`, second visual review).**
+The selection cursor only lands on **present** slots (Collection `available>0` / Deck
+`in_deck>0`); arrow/`wasd` movement skips placeholders, landing on the next present slot
+in that direction (wrapping; stays put if the panel has a single present card). Initial
+focus and `Tab` target a panel that has present cards — a panel with none isn't
+focusable, and an action that empties the active panel moves focus to the other (if it
+has present cards). `draw` highlights a present card only via a display-cursor fallback
+(the cursored slot if present, else the first present slot), so no placeholder is ever
+cursored — even the transient frame after an add empties a slot. Enter still can't act on
+a placeholder (the cursor never rests on one; the defensive no-op stays). Re-introduces a
+minimal `first_present(panel)` focus seam that the album's always-15-slots draw dropped.
+
 ## Files
 
 - `src/layout.rs` — `BriefcaseLayout`: first a scrolling grid (T001), then the fixed

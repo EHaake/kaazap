@@ -118,7 +118,9 @@ deck (as today). The builder opens with the Collection panel active.
 - **A panel with nothing present** — the panel is never blank: every slot renders,
   as a placeholder where the type is absent. A brand-new deck shows an
   all-placeholder Deck panel; a fully-decked collection shows placeholders on the
-  Collection side. Confirming on a placeholder is a no-op (nothing to move).
+  Collection side. The cursor never lands on a placeholder — it rests on a present
+  card, and a panel with no present cards isn't focusable (nothing to select or move
+  there).
 
 ## Design requirements
 
@@ -158,6 +160,9 @@ deck (as today). The builder opens with the Collection panel active.
 - [ ] Confirming on a Deck card moves one copy back to the Collection (the reverse).
 - [ ] The player can move the cursor within a panel and switch the active panel; the
       cursored card is the one pulsing.
+- [ ] The cursor only lands on **present (solid) cards** — dashed placeholders are not
+      navigable or selectable. Movement skips them, and a panel with no present cards
+      can't be focused (nothing to select there).
 - [ ] A deck can never exceed 10 or hold more copies of a card than are owned
       (unchanged legality); a full deck rejects further adds.
 - [ ] The builder is reachable from the campaign map via a shown key and returns to

@@ -118,6 +118,19 @@ resolution; T006 re-does the layout geometry, so it's foundational. -->
   an owned-0 type is a placeholder in both; Enter on a placeholder returns `None`;
   move-across still works. `cargo build` no new warnings; `cargo test` green. (Both panels
   + placeholders confirmed by the T005 driver.)*
+- [x] **T008** — Placeholders are not navigable (`src/deck_builder.rs`). The cursor only
+  lands on **present** slots (Collection `available>0` / Deck `in_deck>0`); movement
+  skips placeholders to the next present slot (wrapping; stays if a panel has one present
+  card). Initial focus + `Tab` target a panel with present cards (none → not focusable; an
+  action that empties the active panel moves focus to the other). `draw` highlights a
+  present card only (display-cursor = cursored-if-present else the first present slot), so
+  no placeholder is ever cursored — even the frame after an add empties a slot. Add a
+  `first_present(panel)` seam.
+  *Verify: `deck_builder` tests — movement from a present slot skips placeholders to the
+  next present one; a one-present-card panel doesn't move; initial focus is a present card;
+  Tab won't focus an all-placeholder panel; Enter still acts only on present cards. `cargo
+  build` no new warnings; `cargo test` green. (Non-navigability confirmed by the T005
+  driver.)*
 
 ## Final phase — Spec close-out
 
@@ -187,3 +200,5 @@ similar size before treating the policy as settled. -->
 | T004 review (skeptical-reviewer) | opus | ~58k | signed off; 0 blocking; c-arm/app-mirror/round-trip verified; MapOutcome doc → T005 |
 | T006+T007 (sdd-implementer) | opus | ~169k | done together (atomic); album + Dashed + scroll removal; build + 259 tests |
 | T006+T007 review (skeptical-reviewer) | opus | ~111k | signed off; 0 blocking; fit/album/removal verified; added a compile-time grid-capacity guard |
+| T008 (sdd-implementer) | opus | ~158k | done; cursor skips placeholders; focus/Tab edges; 262 tests |
+| T008 review (skeptical-reviewer) | opus | ~57k | signed off; 0 blocking; movement/edges verified; flagged no-op nav SFX (product call → surfaced to person) |
