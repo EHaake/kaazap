@@ -1,6 +1,6 @@
 # Plan: Opponent portraits — spec 016
 
-**Status**: Draft — pending sign-off
+**Status**: Signed off (skeptical-reviewer) — pending person approval
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -81,8 +81,11 @@ that admitted the campaign-map starfield. The exception is narrow and stated now
 this plan *is* the approval to proceed: **opponent portraits are the one pictorial element —
 monochrome, static, opponent-only, drawn in a single fixed portrait frame, no color, no
 animation.** The card frame remains the only *card-shaped* box; the portrait frame is a distinct,
-clearly-non-card element. The brief edit + a `DECISIONS.md` entry land in the close-out task
-(§close-out); this plan's "Deviations" makes the divergence explicit before any code.
+clearly-non-card element. Per the sign-off (finding 1), the brief amendment lands in its own
+commit at **T001b** — right after the T001 spike confirms the vocabulary, before the rest of
+the portraits and panels — so the standing contract sanctions portraits before the bulk of the
+contradicting code lands; the `DECISIONS.md` entry rides the T008 close-out. Declaring the
+exception here at sign-off is what blesses it.
 
 **Glyph vocabulary (a technical choice, mine to make, gated by the spike).** Portraits use a
 small, deliberate set — quadrant/half/full block glyphs (`▁▂▄▆█▌▐▖▗▘▝▙▟` …) and at most the
@@ -175,8 +178,11 @@ rendering + constants, no dependency on `opponent.rs`:
   `min_size()`.
 - `CampaignMapLayout` gains `pub portrait_panel: Rect` on the right of the field band (width
   `PANEL_W`, ~`2 + 1 + PORTRAIT_HEIGHT` tall, near the field top), and `field.x1` shrinks to
-  `portrait_panel.x0 - 2`. Because the minimum grew to 139, the reduced field is still **wider**
-  than the old 89-wide field, so nodes reflow with more room, not less.
+  `portrait_panel.x0 - 2`. The reduced field spans more columns than the old 89-wide field, but
+  (sign-off finding 2) that does **not** by itself guarantee rail clearance: the old field had
+  no rail, so a far-right cursored label can come within ~1 cell of `portrait_panel` — T004's
+  "clear of `portrait_panel`" assertion is the real check, and if it fails, widen the field/rail
+  gap or `FIELD_MARGIN_X`.
 
 ### 4. Wire the presence panel onto every surface (shared component + three callers)
 

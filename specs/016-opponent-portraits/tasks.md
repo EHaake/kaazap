@@ -1,6 +1,6 @@
 # Tasks: Opponent portraits — spec 016
 
-**Status**: Draft — pending sign-off
+**Status**: Signed off (skeptical-reviewer) — pending person approval
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -20,10 +20,14 @@ Under the model policy, the orchestrator re-runs build + tests itself after an
 implementer returns, and only the orchestrator commits.
 
 **Foundational phases:** Phase 1 (T001) and Phase 3 (T003, T004) are foundational —
-new shared render path, the shared data-model field, and the layout/minimum-terminal
-change everything else rests on. They get a **per-task** `skeptical-reviewer` pass on
-the task's diff. Phases 2, 4, and the close-out are reviewed **at phase end**. T001 is
-additionally the spec-mandated **art-format spike** and its person pause is a go/no-go.
+the new shared render path, the shared data-model field, and the layout/minimum-terminal
+change everything else rests on — and get a **per-task** `skeptical-reviewer` pass on the
+task's diff. **T005 joins them** (the shared `draw_presence_panel` render path both later
+panels depend on — a "new shared render path" per CLAUDE.md; sign-off finding 5). Phase 2
+(T003 — the cast) and the rest of Phase 4 (T006, T007) plus the close-out are reviewed **at
+phase end**. T001 is additionally the spec-mandated **art-format spike**, its person pause a
+go/no-go; **T001b** lands the `design/brief.md` bounded exception immediately after the spike
+confirms the vocabulary (sign-off finding 1).
 
 ---
 
@@ -51,6 +55,17 @@ Per-task skeptical-reviewer pass, then a person pause (go/no-go). -->
   the person** (go/no-go): if it does not read as a face, STOP and escalate the approach
   (the spec's human-ruled escape hatch) before authoring the rest — do not proceed.*
 
+- [ ] **T001b (governance doc, its own commit)** — Amend `design/brief.md` with the bounded
+  portraits exception, now that T001's spike has confirmed the vocabulary. Add an "Amendment
+  (spec 016 — opponent portraits)" section mirroring the Motion/starfield amendment: opponent
+  portraits are the single pictorial element — monochrome, static, opponent-only, one fixed
+  portrait frame distinct from the card frame, no color, no animation — a bounded exception to
+  "avoid Unicode block-art flourishes" and the skeuomorphism boundary, naming the confirmed
+  glyph vocabulary. Pulled ahead of Phase 2 (sign-off finding 1) so the standing contract
+  sanctions portraits before the bulk of contradicting code lands. No code; the exception was
+  already blessed at plan sign-off (plan Crux 1), so no per-task review.
+  *Verify: `design/brief.md` carries the amendment; build/tests unaffected (doc-only).*
+
 ## Phase 2 — The cast (author all portraits)
 
 - [ ] **T002** — Author the remaining 9 roster portraits (`assets/portraits/{dax, vessa,
@@ -76,7 +91,9 @@ minimum terminal, and re-shapes the campaign-map field. Per-task skeptical-revie
   block, `PANEL_W × PANEL_H_INMATCH`) and `pub const IN_MATCH_MIN_WIDTH = BOARD_WIDTH +
   2*(PANEL_GAP + PANEL_W)`. In `src/config.rs`: `min_size` → `(IN_MATCH_MIN_WIDTH,
   BOARD_BLOCK_HEIGHT)`; fix the doc comment. Board centering and every existing board Rect
-  stay byte-for-byte the same.
+  stay byte-for-byte the same. (Sign-off finding 3: repointing `min_size` makes the
+  `BOARD_WIDTH` import in `config.rs` dead — drop it and add `IN_MATCH_MIN_WIDTH` in the same
+  edit so the no-new-warnings gate stays green.)
   *Verify: `cargo build`/`cargo test` green — new `board_and_panel_fit_the_minimum_terminal`:
   at `(IN_MATCH_MIN_WIDTH, 31)` `opponent_panel` is in-bounds, `opponent_panel.x0 >
   l.opponent.hand.x1`, does not overlap the board, and its bottom `<= 30`; the renamed
@@ -90,7 +107,10 @@ minimum terminal, and re-shapes the campaign-map field. Per-task skeptical-revie
   and `the_campaign_map_is_legible_at_the_minimum_terminal` run at `(IN_MATCH_MIN_WIDTH, 31)`
   and additionally assert every planet node + label stays inside the reduced `field` and
   clear of `portrait_panel` (no node/label lands on the rail). Nodes reflow into the
-  reduced-but-wider field — no `PLANETS` position edits.*
+  reduced-but-wider field — no `PLANETS` position edits. Sign-off finding 2: far-right
+  cursored-label clearance is genuinely tight (~1 cell) and is NOT guaranteed by the
+  "more room" framing — treat this assertion as a real check and bump `FIELD_MARGIN_X` or the
+  field/rail gap if it fails.*
 
 ## Phase 4 — Presence panel on every surface
 
@@ -121,12 +141,9 @@ minimum terminal, and re-shapes the campaign-map field. Per-task skeptical-revie
 
 ## Final phase — Spec close-out
 
-- [ ] **T008** — Docs, governance, driver, sweep. **Amend `design/brief.md`** with an
-  "Amendment (spec 016 — opponent portraits)" section (mirroring the Motion/starfield
-  amendment): opponent portraits are the single pictorial element — monochrome, static,
-  opponent-only, one fixed portrait frame distinct from the card frame, no color, no
-  animation — a bounded exception to "avoid Unicode block-art flourishes" and the
-  skeuomorphism boundary. `DECISIONS.md`: the portrait vocabulary, the grown minimum
+- [ ] **T008** — Docs, driver, sweep. (The `design/brief.md` bounded-exception amendment
+  already landed in its own commit at **T001b** — sign-off finding 1.) `DECISIONS.md`: the
+  portrait vocabulary, the grown minimum
   (89×31 → 139×31), the `OpponentProfile.portrait` field, authored-assets-not-a-script, the
   campaign-map rail, the reserved (empty) mirror margin. `assets/CREDITS.md`: portraits are
   original in-repo authored art (no license encumbrance). `Readme.md`: document the new
@@ -137,7 +154,12 @@ minimum terminal, and re-shapes the campaign-map field. Per-task skeptical-revie
   and wider of the in-match panel, opponent-select preview, and campaign-map rail; every
   existing screen (board, start menu, opponent-select, campaign map, deck-builder, shop)
   confirmed fitting at the new minimum and erroring cleanly below it; `ROADMAP.md` no longer
-  lists this as future; `design/brief.md` amended; sweep clean or findings resolved.*
+  lists this as future; `design/brief.md` amended (in T001b); sweep clean or findings
+  resolved. Sign-off finding 4: correct the now-stale "89 = minimum" naming/comments in
+  `briefcase_fits_the_minimum_terminal`,
+  `layout_regions_are_in_bounds_and_stacked_at_several_sizes`, and
+  `the_full_roster_and_footer_fit_the_minimum_terminal` (they still pass — only their
+  "minimum" wording misdescribes 139) and add a 139-wide case to the multi-size board test.*
 
 ---
 
@@ -178,4 +200,4 @@ treating the policy as settled. -->
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
 | Planning: draft (sdd-planner) | opus (top, inherit) | 162,098 | drafted; no escalation |
-| plan + tasks sign-off (skeptical-reviewer) | opus (decision) | | |
+| plan + tasks sign-off (skeptical-reviewer) | opus (decision) | 110,054 | **signed off**, 0 blocking; 5 second-look items folded (brief timing → T001b, T003 import, T004 rail clearance, T005 shared-path review, T008 stale-minimum wording) |
