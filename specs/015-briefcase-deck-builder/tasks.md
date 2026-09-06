@@ -139,6 +139,14 @@ resolution; T006 re-does the layout geometry, so it's foundational. -->
   *Verify: `cargo build` no new warnings (Dashed + its test gone, no dangling refs); `cargo
   test` green; the album present/placeholder split tests still pass. (Sparser look confirmed
   by the T005 driver.)*
+- [x] **T010** — Distinct no-op nav cue (`src/deck_builder.rs` + `src/app.rs`). Add
+  `BuildOutcome::Blocked`; the movement/`Tab` arms return `Moved` only when the cursor or
+  active panel actually changed, else `Blocked`; the app's `DeckBuilder` arm plays
+  `Sfx::MenuMove` for `Moved` and `Sfx::MenuBack` (the existing "declined" cue) for
+  `Blocked`. `Add`/`Remove`/`Back` unchanged.
+  *Verify: `deck_builder` tests — a nav that moves yields `Moved`; a nav that can't
+  (a one-present-card panel; `Tab` toward an all-placeholder panel) yields `Blocked`.
+  `cargo build` no new warnings; `cargo test` green.*
 
 ## Final phase — Spec close-out
 
@@ -211,3 +219,4 @@ similar size before treating the policy as settled. -->
 | T008 (sdd-implementer) | opus | ~158k | done; cursor skips placeholders; focus/Tab edges; 262 tests |
 | T008 review (skeptical-reviewer) | opus | ~57k | signed off; 0 blocking; movement/edges verified; flagged no-op nav SFX (product call → surfaced to person) |
 | T009 (sdd-implementer) | opus | ~72k | done; placeholders → ghosted-slot corner ticks; Dashed removed; 261 tests; orchestrator-verified (build/test/driver) — cosmetic swap, no subagent review; fixed a minor unused-CardView smell |
+| T010 (sdd-implementer) | opus | ~72k | done; BuildOutcome::Blocked → MenuBack for no-op nav; 262 tests; orchestrator-verified (build/test) — small wiring, no subagent review |

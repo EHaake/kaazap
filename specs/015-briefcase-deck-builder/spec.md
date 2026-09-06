@@ -209,3 +209,8 @@ deck (as today). The builder opens with the Collection panel active.
   — placeholders began as a dimmed dashed frame, then became just faint corner ticks +
   the dimmed face, because a full dashed border read as "almost a real card." Sparser so
   owned cards clearly dominate.
+- **No-op nav plays a distinct cue** (human-ruled) — a navigation key that can't move
+  (an arrow on a panel with one present card, or Tab when the other panel is all
+  placeholders) plays the "declined" cue (`MenuBack` — the same sound a blocked
+  add/remove makes), not the move cue and not silence, so the player hears that the
+  input landed but nothing changed.

@@ -197,6 +197,14 @@ was only the placeholder frame; nothing else uses it). Present cards are unaffec
 always the plain faint ghost. Border vocabulary is now heavy (cursor) / single (present)
 plus a corner-tick ghost marker (placeholder).
 
+**T010 — a distinct no-op nav cue (`src/deck_builder.rs`, `src/app.rs`, third visual
+review).** A nav key that changes nothing (an arrow that can't reach another present
+slot, or `Tab` that can't switch) currently returns `Moved`, so it plays the move sound
+on a no-op. Add `BuildOutcome::Blocked`; the movement/`Tab` arms return `Moved` only when
+the cursor or active panel actually changed, else `Blocked`. The app plays `Sfx::MenuMove`
+for `Moved` and `Sfx::MenuBack` for `Blocked` (the project's existing "declined" cue,
+already played for a blocked add/remove). `Add`/`Remove`/`Back` arms unchanged.
+
 ## Files
 
 - `src/layout.rs` — `BriefcaseLayout`: first a scrolling grid (T001), then the fixed

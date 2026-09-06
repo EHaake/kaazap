@@ -39,13 +39,15 @@ use crate::{
 };
 
 /// The result of a key on the deck-builder: the cursor moved (or the active
-/// panel switched), a copy of a card should be added to or removed from the
-/// deck, or the player is done. The app performs the add/remove through the
-/// [`Profile`] and plays the matching SFX. (`Add`/`Remove` carry the *intent*;
-/// the profile decides if it's legal.)
+/// panel switched), a nav key changed nothing (a blocked no-op), a copy of a
+/// card should be added to or removed from the deck, or the player is done. The
+/// app performs the add/remove through the [`Profile`] and plays the matching
+/// SFX — the move cue for `Moved`, the "declined" cue for `Blocked`.
+/// (`Add`/`Remove` carry the *intent*; the profile decides if it's legal.)
 #[derive(Debug, Copy, Clone)]
 pub enum BuildOutcome {
     Moved,
+    Blocked,
     Add(Card),
     Remove(Card),
     Back,
@@ -166,6 +168,12 @@ impl DeckBuilderState {
         // panel — so pin focus and the cursor back onto present slots first.
         self.revalidate(profile);
 
+        // Snapshot the post-revalidation panel/cursor state so a nav key that
+        // changes nothing (an arrow with no other present slot in range, or a
+        // `Tab` toward an all-placeholder panel) reports `Blocked` — the app
+        // then plays the "declined" cue instead of the move cue.
+        let before = (self.active, self.collection_cursor, self.deck_cursor);
+
         match key {
             KeyCode::Tab | KeyCode::BackTab => {
                 // Switch only to a panel that has present cards; an
@@ -173,23 +181,23 @@ impl DeckBuilderState {
                 if first_present(other(self.active), profile).is_some() {
                     self.active = other(self.active);
                 }
-                Some(BuildOutcome::Moved)
+                Some(self.nav_outcome(before))
             }
             KeyCode::Up | KeyCode::Char('w') => {
                 self.move_vertical(-1, profile);
-                Some(BuildOutcome::Moved)
+                Some(self.nav_outcome(before))
             }
             KeyCode::Down | KeyCode::Char('s') => {
                 self.move_vertical(1, profile);
-                Some(BuildOutcome::Moved)
+                Some(self.nav_outcome(before))
             }
             KeyCode::Left | KeyCode::Char('a') => {
                 self.move_horizontal(-1, profile);
-                Some(BuildOutcome::Moved)
+                Some(self.nav_outcome(before))
             }
             KeyCode::Right | KeyCode::Char('d') => {
                 self.move_horizontal(1, profile);
-                Some(BuildOutcome::Moved)
+                Some(self.nav_outcome(before))
             }
             // Re-validation keeps the cursor on a present slot, so this always
             // moves a real copy across. The count==0 guard is defensive (both
@@ -221,6 +229,18 @@ impl DeckBuilderState {
         match panel {
             Panel::Collection => &mut self.collection_cursor,
             Panel::Deck => &mut self.deck_cursor,
+        }
+    }
+
+    /// Classify a nav key's effect by comparing the panel/cursor state against
+    /// `before` (its pre-move snapshot): unchanged means the key couldn't move
+    /// (a single present card, or `Tab` toward an all-placeholder panel) and
+    /// yields `Blocked`; any change is a real `Moved`.
+    fn nav_outcome(&self, before: (Panel, usize, usize)) -> BuildOutcome {
+        if (self.active, self.collection_cursor, self.deck_cursor) == before {
+            BuildOutcome::Blocked
+        } else {
+            BuildOutcome::Moved
         }
     }
 
@@ -487,10 +507,11 @@ mod tests {
         // Enter/Space hit the defensive placeholder guard → no-op.
         assert!(s.handle_input(KeyCode::Enter, &p).is_none());
         assert!(s.handle_input(KeyCode::Char(' '), &p).is_none());
-        // Movement and Tab don't panic and change nothing.
-        assert!(matches!(s.handle_input(KeyCode::Right, &p), Some(BuildOutcome::Moved)));
+        // Movement and Tab don't panic and change nothing — and, changing
+        // nothing, report `Blocked` (the declined cue), not `Moved`.
+        assert!(matches!(s.handle_input(KeyCode::Right, &p), Some(BuildOutcome::Blocked)));
         assert_eq!(s.collection_cursor, 0);
-        s.handle_input(KeyCode::Tab, &p);
+        assert!(matches!(s.handle_input(KeyCode::Tab, &p), Some(BuildOutcome::Blocked)));
         assert_eq!(s.active, Panel::Collection, "no focusable panel to switch to");
         // Backing out still works.
         assert!(matches!(s.handle_input(KeyCode::Esc, &p), Some(BuildOutcome::Back)));
@@ -526,9 +547,10 @@ mod tests {
         assert!(first_present(Panel::Deck, &p).is_none(), "empty deck → all placeholders");
         assert!(first_present(Panel::Collection, &p).is_some());
 
-        s.handle_input(KeyCode::Tab, &p);
+        // The switch can't happen, so it's a `Blocked` no-op (declined cue).
+        assert!(matches!(s.handle_input(KeyCode::Tab, &p), Some(BuildOutcome::Blocked)));
         assert_eq!(s.active, Panel::Collection, "Tab does not switch to an all-placeholder Deck");
-        s.handle_input(KeyCode::BackTab, &p);
+        assert!(matches!(s.handle_input(KeyCode::BackTab, &p), Some(BuildOutcome::Blocked)));
         assert_eq!(s.active, Panel::Collection, "BackTab does not switch either");
     }
 
@@ -595,10 +617,11 @@ mod tests {
     }
 
     #[test]
-    fn a_one_present_card_panel_does_not_move_on_any_arrow() {
+    fn a_one_present_card_panel_reports_blocked_on_any_arrow() {
         // The Collection owns exactly one type (Plus1 → slot 0 present); every
         // other slot is a placeholder. No arrow (or wasd) can leave the single
-        // present slot.
+        // present slot — a no-op nav, so each reports `Blocked` (the declined
+        // cue), not `Moved`.
         let p = profile_from(vec![Card::Plus(1)], vec![]);
         let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         s.revalidate(&p);
@@ -615,9 +638,33 @@ mod tests {
             KeyCode::Char('s'),
             KeyCode::Char('d'),
         ] {
-            assert!(matches!(s.handle_input(key, &p), Some(BuildOutcome::Moved)));
+            assert!(matches!(s.handle_input(key, &p), Some(BuildOutcome::Blocked)));
             assert_eq!(s.collection_cursor, 0, "the sole present card is a fixed point under {key:?}");
         }
+    }
+
+    #[test]
+    fn nav_reports_moved_only_when_it_actually_moves() {
+        // The cue contract T010 rests on: a nav that changes the cursor or the
+        // active panel is `Moved` (move cue); one that can't is `Blocked`
+        // (declined cue). The default Collection is present at slots 0, 4, 9, so
+        // an arrow between them genuinely moves, and Tab switches to the fully
+        // decked Deck.
+        let p = default_profile();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
+        assert!(matches!(s.handle_input(KeyCode::Right, &p), Some(BuildOutcome::Moved)));
+        assert_eq!(s.collection_cursor, 4, "a real move");
+        assert!(matches!(s.handle_input(KeyCode::Tab, &p), Some(BuildOutcome::Moved)));
+        assert_eq!(s.active, Panel::Deck, "a real panel switch");
+
+        // A Collection with a single present card can't move: `Blocked`.
+        let solo = profile_from(vec![Card::Plus(1)], vec![]);
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
+        assert!(matches!(s.handle_input(KeyCode::Right, &solo), Some(BuildOutcome::Blocked)));
+        // And Tab toward an all-placeholder Deck (empty deck) can't switch:
+        // `Blocked`.
+        assert!(matches!(s.handle_input(KeyCode::Tab, &solo), Some(BuildOutcome::Blocked)));
+        assert_eq!(s.active, Panel::Collection);
     }
 
     #[test]

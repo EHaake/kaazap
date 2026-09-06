@@ -698,6 +698,9 @@ impl App {
                     let origin = state.origin();
                     match state.handle_input(key, &self.profile) {
                         Some(BuildOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                        // A nav key that couldn't move (blocked arrow or Tab)
+                        // plays the "declined" cue instead of the move cue.
+                        Some(BuildOutcome::Blocked) => self.audio.play(Sfx::MenuBack),
                         Some(BuildOutcome::Add(card)) => {
                             // Persist only edits that took effect — a rejected add
                             // (deck full or no spare copy owned) changes nothing.
