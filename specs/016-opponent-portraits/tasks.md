@@ -177,4 +177,5 @@ treating the policy as settled. -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
+| Planning: draft (sdd-planner) | opus (top, inherit) | 162,098 | drafted; no escalation |
 | plan + tasks sign-off (skeptical-reviewer) | opus (decision) | | |
