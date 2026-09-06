@@ -96,7 +96,7 @@ implementer returns, and only the orchestrator commits.
 panels and show a placeholder for every absent card type. Supersedes the scrolling
 resolution; T006 re-does the layout geometry, so it's foundational. -->
 
-- [ ] **T006 (foundational)** — `BriefcaseLayout` → a fixed content-sized album grid
+- [x] **T006 (foundational)** — `BriefcaseLayout` → a fixed content-sized album grid
   in `src/layout.rs`: drop `visible_rows`/scroll; a fixed **4 cols × 4 rows** (16
   slots, 15 used) per panel, cell pitch `CELL_H = CARD_HEIGHT + 1 = 6`; panel `Rect`s
   hug the grid and center in the terminal. Revise `briefcase_fits_the_minimum_terminal`.
@@ -104,7 +104,7 @@ resolution; T006 re-does the layout geometry, so it's foundational. -->
   and non-overlapping (`collection.x1 < deck.x0`), every slot `0..15`'s `card_origin`
   contained in its panel and clear of the hint, chrome ordered on-frame. `cargo build`
   clean; `cargo test` green.*
-- [ ] **T007** — `BorderWeight::Dashed` (`src/frame.rs`) + album redraw + scroll removal
+- [x] **T007** — `BorderWeight::Dashed` (`src/frame.rs`) + album redraw + scroll removal
   (`src/deck_builder.rs`). Add a `Dashed` weight (dashed box-drawing glyphs) as a fourth
   `BorderWeight`. Draw iterates `ALL_SIDE_CARDS` (15) per panel: present types
   (Collection `available>0` / Deck `in_deck>0`) → solid `CardView` + `×count`
@@ -185,3 +185,5 @@ similar size before treating the policy as settled. -->
 | T003 review (skeptical-reviewer) | opus | ~49k | signed off; 0 blocking; routing + non-vacuous seam + bug fix verified; noted a stale comment → T005 |
 | T004 (sdd-implementer) | opus | ~49k | done; hint factored to a testable const; 259 tests |
 | T004 review (skeptical-reviewer) | opus | ~58k | signed off; 0 blocking; c-arm/app-mirror/round-trip verified; MapOutcome doc → T005 |
+| T006+T007 (sdd-implementer) | opus | ~169k | done together (atomic); album + Dashed + scroll removal; build + 259 tests |
+| T006+T007 review (skeptical-reviewer) | opus | ~111k | signed off; 0 blocking; fit/album/removal verified; added a compile-time grid-capacity guard |
