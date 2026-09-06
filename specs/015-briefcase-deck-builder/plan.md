@@ -187,11 +187,22 @@ cursored — even the transient frame after an add empties a slot. Enter still c
 a placeholder (the cursor never rests on one; the defensive no-op stays). Re-introduces a
 minimal `first_present(panel)` focus seam that the album's always-15-slots draw dropped.
 
+**T009 — sparser placeholders: corner ticks, not a dashed frame (`src/frame.rs`,
+`src/deck_builder.rs`, third visual review).** The double-dash placeholder frame read as
+"almost full". Render a placeholder instead as a **ghosted slot** — the four faint
+(`Muted`) corner ticks `draw_ghost_slot` already draws — plus the card's dimmed face
+centered, no edges and no count. **Remove `BorderWeight::Dashed`** and its frame test (it
+was only the placeholder frame; nothing else uses it). Present cards are unaffected (still
+`Single`, Heavy+pulse when cursored); the placeholder is never cursored (T008), so it's
+always the plain faint ghost. Border vocabulary is now heavy (cursor) / single (present)
+plus a corner-tick ghost marker (placeholder).
+
 ## Files
 
 - `src/layout.rs` — `BriefcaseLayout`: first a scrolling grid (T001), then the fixed
   content-sized album grid (T006) + revised fit test.
-- `src/frame.rs` — `BorderWeight::Dashed` for placeholders (T007).
+- `src/frame.rs` — `BorderWeight::Dashed` added for placeholders (T007), then **removed**
+  in T009 when placeholders became corner-tick ghosts (`draw_ghost_slot`).
 - `src/deck_builder.rs` — the two-panel screen: reshape (T002), origin (T003), then the
   album redraw + scroll removal (T007); `Panel` + `BuilderOrigin`; tests.
 - `src/app.rs` — `open_deck_builder(origin)`, `Back` routing, four call sites, the map arm.

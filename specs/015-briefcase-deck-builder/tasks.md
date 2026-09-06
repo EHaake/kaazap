@@ -131,6 +131,14 @@ resolution; T006 re-does the layout geometry, so it's foundational. -->
   Tab won't focus an all-placeholder panel; Enter still acts only on present cards. `cargo
   build` no new warnings; `cargo test` green. (Non-navigability confirmed by the T005
   driver.)*
+- [x] **T009** — Sparser placeholders (`src/frame.rs` + `src/deck_builder.rs`). Render a
+  placeholder as a **ghosted slot**: four faint `Muted` corner ticks (`draw_ghost_slot`) +
+  the card's dimmed face centered, no edges/count — far sparser than the double-dash frame.
+  **Remove `BorderWeight::Dashed`** (only the placeholder used it) and its frame test.
+  Present cards unchanged.
+  *Verify: `cargo build` no new warnings (Dashed + its test gone, no dangling refs); `cargo
+  test` green; the album present/placeholder split tests still pass. (Sparser look confirmed
+  by the T005 driver.)*
 
 ## Final phase — Spec close-out
 
@@ -202,3 +210,4 @@ similar size before treating the policy as settled. -->
 | T006+T007 review (skeptical-reviewer) | opus | ~111k | signed off; 0 blocking; fit/album/removal verified; added a compile-time grid-capacity guard |
 | T008 (sdd-implementer) | opus | ~158k | done; cursor skips placeholders; focus/Tab edges; 262 tests |
 | T008 review (skeptical-reviewer) | opus | ~57k | signed off; 0 blocking; movement/edges verified; flagged no-op nav SFX (product call → surfaced to person) |
+| T009 (sdd-implementer) | opus | ~72k | done; placeholders → ghosted-slot corner ticks; Dashed removed; 261 tests; orchestrator-verified (build/test/driver) — cosmetic swap, no subagent review; fixed a minor unused-CardView smell |

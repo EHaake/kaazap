@@ -73,15 +73,14 @@ pub enum Align {
 
 /// Border line weight. Single is the default chrome everywhere; Heavy
 /// is reserved for cursor selection; Double marks a played side card on
-/// the board grid (dealer draws stay Single); Dashed (drawn faint) marks a
-/// deck-builder album placeholder — a card type absent from that panel
-/// (spec 015). Distinct weights, distinct meanings (design/brief.md, spec 003).
+/// the board grid (dealer draws stay Single). Distinct weights, distinct
+/// meanings (design/brief.md, spec 003). (Deck-builder album placeholders
+/// use `draw_ghost_slot`'s faint corner ticks, not a border weight — spec 015.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BorderWeight {
     Single,
     Heavy,
     Double,
-    Dashed,
 }
 
 /// The six box-drawing glyphs a border needs.
@@ -120,16 +119,6 @@ impl BorderWeight {
                 tr: '╗',
                 bl: '╚',
                 br: '╝',
-            },
-            // Dashed edges with plain (Single) corners — a light frame that,
-            // drawn faint, reads as an absent placeholder, not an owned card.
-            BorderWeight::Dashed => BoxGlyphs {
-                horiz: '╌',
-                vert: '╎',
-                tl: '┌',
-                tr: '┐',
-                bl: '└',
-                br: '┘',
             },
         }
     }
@@ -400,21 +389,6 @@ mod tests {
         assert_eq!(f[1][0].ch, '═'); // top edge
         assert_eq!(f[0][1].ch, '║'); // left edge
         assert_eq!(f[0][0].emphasis, Emphasis::Strong);
-    }
-
-    #[test]
-    fn box_dashed_weight_uses_dashed_edges_with_plain_corners() {
-        let mut f = blank(6, 5);
-        draw_box(&mut f, Rect::new(0, 3, 0, 2), BorderWeight::Dashed, Emphasis::Muted);
-        // Plain corners (shared with Single) so the frame doesn't fray.
-        assert_eq!(f[0][0].ch, '┌');
-        assert_eq!(f[3][0].ch, '┐');
-        assert_eq!(f[0][2].ch, '└');
-        assert_eq!(f[3][2].ch, '┘');
-        // Dashed edges.
-        assert_eq!(f[1][0].ch, '╌'); // top edge
-        assert_eq!(f[0][1].ch, '╎'); // left edge
-        assert_eq!(f[0][0].emphasis, Emphasis::Muted);
     }
 
     #[test]

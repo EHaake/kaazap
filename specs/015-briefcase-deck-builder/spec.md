@@ -41,11 +41,11 @@ from the 10, so deck order stays irrelevant.
    existing menu entry and the incomplete-deck divert.
 6. **A card album with placeholders.** Both panels show the full set of card types
    in fixed slots (canonical order): a type present in that panel renders as a solid
-   card with its `×count`; a type absent renders as a faint, dashed-border
-   placeholder showing the card's dimmed face, which fills in solid once you have
-   one there. The old "double = in deck" weight is retired — a card's *panel*
-   conveys deck membership, and the border set is heavy (cursor), plain (present),
-   and dashed-faint (placeholder).
+   card with its `×count`; a type absent renders as a faint **ghosted slot** — corner
+   ticks + the card's dimmed face — which fills in solid once you have one there. The
+   old "double = in deck" weight is retired; a card's *panel* conveys deck membership,
+   and the vocabulary is heavy (cursor), plain (present), and a faint corner-tick ghost
+   (placeholder).
 7. **No regression.** Deck legality (exactly 10, never more copies than owned), the
    menu entry, and the save format are all unchanged. The incomplete-deck divert's
    *mechanism* is unchanged; its return path is corrected to route back to the
@@ -77,8 +77,8 @@ from the 10, so deck order stays irrelevant.
   Legal when it holds exactly 10, each backed by an owned copy.
 - **Card album** — both panels show **all** card types in the universe, in fixed
   canonical-order slots. A slot is *filled* (solid card + count) when its type is
-  present in that panel, or a *placeholder* (faint dashed frame + dimmed face) when
-  absent.
+  present in that panel, or a *placeholder* (a faint ghosted slot — corner ticks + the
+  dimmed face) when absent.
 - **Collection panel** — the left panel: each type filled with its *available*
   count (owned − in-deck) when > 0, else a placeholder.
 - **Deck panel** — the right panel: each type filled with its *in-deck* count when
@@ -124,13 +124,12 @@ deck (as today). The builder opens with the Collection panel active.
 
 ## Design requirements
 
-- **Card-frame vocabulary (spec 002), three border weights.** Present cards are card
-  frames with their face text; the cursored card carries the **heavy** border and the
-  shared selection pulse (and nothing else does); every other present card is
-  **plain** (single). A **dashed** border drawn **faint** (dim), with the card's
-  dimmed face, marks a placeholder — so placeholders recede and never compete with
-  owned cards. All monochrome box-drawing (the dashed weight is box-drawing too); no
-  emoji/icons.
+- **Card-frame vocabulary (spec 002).** Present cards are card frames with their face
+  text; the cursored card carries the **heavy** border and the shared selection pulse
+  (and nothing else does); every other present card is **plain** (single). A placeholder
+  is a **faint ghosted slot** — just corner ticks (dim) plus the card's dimmed face, no
+  edges — so it's clearly sparser than an owned card and recedes rather than competing
+  with it. All monochrome box-drawing; no emoji/icons.
 - **Two clearly labeled panels** that read as *Collection* and *Deck* at a glance,
   with the N/10 readout owned by the Deck side.
 - **Content-sized panels, no scrolling.** Each panel's border hugs a fixed grid
@@ -151,8 +150,8 @@ deck (as today). The builder opens with the Collection panel active.
 - [ ] The Side Deck menu item opens a two-panel builder — **Collection** (left) and
       **Deck** (right), each a fixed album of every card type — with a **Deck: N/10**
       readout. Present types show a solid card + `×count` (available on the left,
-      in-deck on the right); absent types show a faint dashed placeholder with the
-      card's dimmed face.
+      in-deck on the right); absent types show a faint ghosted-slot placeholder (corner
+      ticks + the card's dimmed face).
 - [ ] Confirming on a Collection card moves one copy into the Deck (when under 10):
       the available count drops, the Deck count rises, a card whose count hits zero
       becomes a placeholder in that panel, and the readout updates. Confirming on a
@@ -160,7 +159,7 @@ deck (as today). The builder opens with the Collection panel active.
 - [ ] Confirming on a Deck card moves one copy back to the Collection (the reverse).
 - [ ] The player can move the cursor within a panel and switch the active panel; the
       cursored card is the one pulsing.
-- [ ] The cursor only lands on **present (solid) cards** — dashed placeholders are not
+- [ ] The cursor only lands on **present (solid) cards** — placeholders are not
       navigable or selectable. Movement skips them, and a panel with no present cards
       can't be focused (nothing to select there).
 - [ ] A deck can never exceed 10 or hold more copies of a card than are owned
@@ -168,8 +167,9 @@ deck (as today). The builder opens with the Collection panel active.
 - [ ] The builder is reachable from the campaign map via a shown key and returns to
       the map on exit; the menu entry and the incomplete-deck divert still work and
       return to their origins.
-- [ ] Cards render in three border weights — heavy (cursor), plain (present), and
-      faint dashed (placeholder); the old "double border = in deck" is gone.
+- [ ] Cards render in two border weights — heavy (cursor) and plain (present) — with
+      placeholders as a faint corner-tick ghost, not a full frame; the old "double
+      border = in deck" is gone.
 - [ ] The panels are content-sized (borders hug the fixed card grid) with no
       scrolling — the full album, both panels, labels, readout, and hint are legible
       at 89×31; no panics; `cargo build` clean and `cargo test` green (the move-across
@@ -191,8 +191,8 @@ deck (as today). The builder opens with the Collection panel active.
   no reorder gesture is offered.
 - **Full-universe album with placeholders** (human-ruled at the first visual review,
   refining the initial cut) — both panels show every card type in fixed slots; a type
-  absent from a panel (unowned, or all-decked / not-decked) is a faint dashed
-  placeholder with the card's dimmed face that fills in once present. This
+  absent from a panel (unowned, or all-decked / not-decked) is a faint ghosted-slot
+  placeholder (corner ticks + the card's dimmed face) that fills in once present. This
   **supersedes the earlier "owned cards only" view** — you now see the whole set and
   your gaps — while acquiring cards stays the shop's job (you still can't buy or grant
   in the builder). It also makes the panels **content-sized** and **removes scrolling
@@ -201,3 +201,11 @@ deck (as today). The builder opens with the Collection panel active.
   Back to its launching screen corrects a pre-existing bug: the campaign "incomplete
   deck" divert currently returns to the menu instead of the map. Surfaced during
   planning; the divert *mechanism* itself is untouched.
+- **Placeholders are not navigable** (human-ruled at a visual review) — the selection
+  cursor only lands on present (solid) cards, the ones actionable in that panel;
+  movement skips placeholders and a panel with none isn't focusable. Selecting a card
+  you can't act on carried no meaning.
+- **Placeholder style: a sparse ghosted slot** (human-ruled across the visual reviews)
+  — placeholders began as a dimmed dashed frame, then became just faint corner ticks +
+  the dimmed face, because a full dashed border read as "almost a real card." Sparser so
+  owned cards clearly dominate.

@@ -3,7 +3,8 @@
 //! slots (no scrolling): the **Collection** panel (left) fills a slot solid for
 //! each type you own a spare of (not placed), the **Deck** panel (right) for
 //! each type you've placed, with a `Deck: N/10` readout. A type absent from a
-//! panel is a faint dashed **placeholder** showing the card's dimmed face.
+//! panel is a faint **placeholder** — four corner ticks (a "ghosted slot")
+//! around the card's dimmed face.
 //! Building a deck is moving a card *copy* across: confirming on a present
 //! Collection card places one in the Deck, confirming on a present Deck card
 //! returns one; confirming on a placeholder does nothing. A full mode navigated
@@ -19,9 +20,9 @@
 //! on a *present* card: movement skips placeholders, and a panel with no present
 //! cards isn't focusable (`spec.md`, "The cursor only lands on present cards").
 //! A card's *panel* is what conveys whether it's in the deck, so the album uses
-//! three border weights (Heavy = cursor, Single = present, Dashed-faint =
-//! placeholder) — the old "double = in deck" weight is gone. See
-//! `specs/008-side-deck-customization` and `specs/015-briefcase-deck-builder`.
+//! two border weights (Heavy = cursor, Single = present) plus a faint corner-tick
+//! "ghosted slot" for placeholders — the old "double = in deck" weight is gone.
+//! See `specs/008-side-deck-customization` and `specs/015-briefcase-deck-builder`.
 
 use crossterm::event::KeyCode;
 
@@ -29,8 +30,11 @@ use crate::{
     CARD_HEIGHT, CARD_WIDTH, SIDE_DECK_SIZE,
     card::{ALL_SIDE_CARDS, Card, CardView},
     config::Config,
-    frame::{BorderWeight, Drawable, Emphasis, Frame, draw_box, draw_text, draw_text_centered},
-    layout::{BriefcaseLayout, Panel},
+    frame::{
+        BorderWeight, Drawable, Emphasis, Frame, draw_box, draw_ghost_slot, draw_text,
+        draw_text_centered,
+    },
+    layout::{BriefcaseLayout, Panel, Rect},
     profile::Profile,
 };
 
@@ -320,8 +324,8 @@ impl DeckBuilderState {
     /// type in its canonical slot. A type present in this panel (Collection:
     /// available > 0; Deck: in-deck > 0) is a solid card with a `×count` caption
     /// — Heavy + pulsing under the active panel's cursor, else Single + dim. A
-    /// type absent is a faint dashed placeholder showing the card's dimmed face
-    /// with no count. Only the active panel shows a cursor, and only ever on a
+    /// type absent is a faint ghosted slot — corner ticks around the card's
+    /// dimmed face, no count. Only the active panel shows a cursor, and only ever on a
     /// present slot (the display-cursor fallback), so a placeholder is never
     /// Heavy/pulse.
     fn draw_panel(
@@ -361,9 +365,9 @@ impl DeckBuilderState {
             let cursored = display_cursor == Some(i);
             let emphasis = if cursored { pulse } else { Emphasis::Muted };
 
-            let mut view = CardView::new(x, y, card.label());
             if count > 0 {
                 // Present: a solid card — Heavy under the cursor, else Single.
+                let mut view = CardView::new(x, y, card.label());
                 view.weight = if cursored { BorderWeight::Heavy } else { BorderWeight::Single };
                 view.emphasis = emphasis;
                 view.draw(frame);
@@ -373,12 +377,19 @@ impl DeckBuilderState {
                 let caption = format!("×{count}");
                 draw_text_centered(frame, x + CARD_WIDTH / 2, y + CARD_HEIGHT, &caption, emphasis);
             } else {
-                // Absent: a dashed-faint placeholder (the card's dimmed face, no
-                // count) so you see the gap without it competing with owned cards.
-                // Never cursored, so always Muted — never Heavy/pulse.
-                view.weight = BorderWeight::Dashed;
-                view.emphasis = Emphasis::Muted;
-                view.draw(frame);
+                // Absent: a ghosted slot — four faint corner ticks and the card's
+                // dimmed face centered, no edges and no count — so you see the gap
+                // without it competing with owned cards. Never cursored (T008), so
+                // always the plain faint Muted ghost, never Heavy/pulse.
+                let card_rect = Rect::new(x, x + CARD_WIDTH - 1, y, y + CARD_HEIGHT - 1);
+                draw_ghost_slot(frame, card_rect);
+                draw_text_centered(
+                    frame,
+                    x + CARD_WIDTH / 2,
+                    y + CARD_HEIGHT / 2,
+                    &card.label(),
+                    Emphasis::Muted,
+                );
             }
         }
     }
