@@ -218,6 +218,12 @@ the orchestrator re-runs the command itself before committing.
 - Open the PR as a draft immediately after pushing the branch, for a
   running diff. Only mark it ready and merge once every task in the
   spec's `tasks.md` is complete and verified.
+- **Keep merged branches — never delete them.** A merged spec or chore
+  branch stays as a historical artifact: merge without `--delete-branch`
+  (the repo does not auto-delete head branches), so each branch's own
+  commit history is preserved for a project meant to demonstrate the
+  workflow. (Spec 015's branch predates this rule and was deleted at
+  merge; the rule holds from PR #18 onward.)
 - Keep AI co-authorship attribution on commits — accurate, and worth
   keeping for a project meant to demonstrate this workflow.
 - Never force-push.
