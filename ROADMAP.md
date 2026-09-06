@@ -239,8 +239,10 @@ file — the engine works, so the campaign is now being planned in order.)
   dead flips?) remains a tracked cross-cutting item (below).
 
 Cross-cutting, not their own specs: a **balance/tuning pass** once
-progression exists (playtest-heavy, iterative), and **profile-save migration
-discipline** as the schema grows (reuse spec 005's versioning).
+progression exists (playtest-heavy, iterative — now homed as the **Difficulty
+& economy balance pass** under "Stakes, loss condition & difficulty balance"
+below), and **profile-save migration discipline** as the schema grows (reuse
+spec 005's versioning).
 
 - **Smarter / board-aware opponent AI** — ✅ **Shipped (spec 010** — see Shipped
   above and `docs/opponents.md`). Opponents read the player's board and play to
@@ -257,6 +259,68 @@ discipline** as the schema grows (reuse spec 005's versioning).
   above). Grew beyond the original "presentation-only" framing into a fixed
   full-universe **album** with placeholders, a **`c`** map launch key, and a
   return-path bug fix. Human-requested during spec 008.
+
+### Immersion & personality (now being sequenced)
+
+Making the opponents feel like people, not just AI parameters — two
+independent slices, cheapest first; neither touches the stakes work below, so
+they can interleave freely.
+
+- **Opponent banter** — event-driven flavor text per opponent: short lines on
+  match start, a round won / lost / tied, a bust, a board-reversing card play,
+  and match end. The home already exists — the in-match status band (`board.rs`
+  `draw_status`) and the round-outcome popup carry only mechanical prompts today
+  — so this is a data table (opponent × event → a few variant lines) + a trigger
+  that borrows those slots, plus a per-opponent voice guide. No layout or engine
+  change; the real cost is *writing* (10 opponents). Highest personality-per-
+  effort item — **do first, no dependencies.** Opponents today carry only a
+  static `blurb` (spec 007), shown outside matches.
+- **Opponent portraits (monochrome)** — a per-opponent character-art portrait
+  (eventually lightly animated by swapping frames on the existing pulse/tick),
+  shown in-match and/or on the map / select panels. **Monochrome by construction
+  and by design:** the frame is `Cell { ch, emphasis }` with no color path and
+  `design/brief.md` rules color out as an identity decision, so this is dithered
+  block / braille / ASCII shading using Bold/Dim as tones — *not* colored pixel
+  art. (A colorful version would need both a rendering-layer change and a
+  design-brief amendment; out of scope unless that identity call is made first,
+  upstream — human-ruled: monochrome, don't assume color.) Needs a layout region
+  (the fixed board leaves free margin, or grow the 2-row opponent header) +
+  authoring ~10 portraits. Pairs with banter; do after it.
+
+### Stakes, loss condition & difficulty balance (now being sequenced)
+
+Give failure teeth and make a better deck actually matter. Reworks spec 012's
+one-directional economy; near-term scope deliberately trimmed (human-ruled) —
+the endgame and the mode-identity question are deferred, below.
+
+- **Wager & loss condition** — make the economy two-directional: **stake credits
+  on a campaign match** (a win pays the stake, a loss costs it), and **going
+  broke ends the run** — you lose the campaign and start over. "Start over" is a
+  **full reset** (reuse spec 014's `reset_to_starter` — back to the basic starting
+  deck *and* seed credits, settings surviving), which is what makes wagers
+  genuinely risky: a bad run costs the deck you built, not just some credits. (A
+  softer *keep-your-cards* restart is a noted future difficulty-lever if full
+  reset playtests too punishing.) Reworks spec 012, where a win currently grants
+  **both** credits and a free card and a loss costs nothing (re-fight the wall for
+  free) — the free card drop likely goes away or gets rare, so cards come from the
+  shop, bought with wagered credits. **Deferred to a later spec/discussion
+  (human-ruled):** what "beating the game" awards (the endgame/victory) and the
+  casual-campaign-vs-roguelike-mode identity question (see **E · Roguelike
+  mode**); for now stakes go *into* the existing campaign.
+- **Difficulty & economy balance pass** — the concrete home for the cross-cutting
+  balance pass noted above: tune the curve across the **three coupled levers —
+  opponents** (the per-opponent stand threshold, side-deck quality, `AiStrategy`,
+  and misplay rate), **cards** (shop prices vs. the 15-card universe's power), and
+  **economy** (ante floors, payouts, starting credits) — so a better deck is a
+  real, near-required edge. Invariant to tune toward: a **basic deck's win-rate
+  against later opponents drops below the rate at which safe minimum-wager grinding
+  can fund the next card tier**, so progress needs better cards or bigger, riskier
+  bets. Caveat (human-flagged): "cards required" is *probabilistic* in a
+  high-variance game — you tilt per-match odds, you don't guarantee a basic-deck
+  loss — and the knife-edge (too hard = unfair/grindy, too soft = cards optional)
+  only settles by playtest, so build with tunable constants. Needs the wager loop
+  live first. Distinct from the global **Difficulty setting** (easy / normal /
+  hard) in *Other* — that's a player-facing selector layered on this baseline curve.
 
 ### Other (not campaign-dependent)
 
