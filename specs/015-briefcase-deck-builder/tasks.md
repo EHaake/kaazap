@@ -150,10 +150,10 @@ resolution; T006 re-does the layout geometry, so it's foundational. -->
 
 ## Final phase — Spec close-out
 
-- [ ] **T005** — Driver verification + close-out. Back up + checksum-restore the
+- [x] **T005** — Driver verification + close-out. Back up + checksum-restore the
   real profile (standing data-safety practice); stage a profile with duplicates AND
-  some types unowned so both panels show a mix of filled cards and faint-dashed
-  placeholders. Capture 89×31 and ~120-wide snapshots of: both panels (filled +
+  some types unowned so both panels show a mix of filled cards and faint corner-tick
+  (ghosted-slot) placeholders. Capture 89×31 and ~120-wide snapshots of: both panels (filled +
   placeholders), a move-across (counts + readout updating; a card becoming a
   placeholder), and map `c` → builder → `Esc` → back to the **map**. Check off `spec.md` acceptance criteria with evidence. Update
   `ROADMAP.md` (mark the briefcase shipped; drop it from future) and `DECISIONS.md`

@@ -225,9 +225,9 @@ already played for a blocked add/remove). `Add`/`Remove`/`Back` arms unchanged.
   contained and clearing the hint. **Revised by T006** to the fixed album grid: assert
   `cols == 4`, `rows == 4`, and every slot `0..15` contained (was `visible_rows >= 3`).
 - **Screen input:** panel switch changes `active`; `Enter` in Collection yields `Add(cursored)`,
-  in Deck yields `Remove(cursored)`; cursor movement + wrap; scroll clamps and keeps the cursor
-  visible; `Esc`/`x` → `Back`; unknown keys ignored (follow the existing `deck_builder.rs` test
-  style).
+  in Deck yields `Remove(cursored)`; cursor movement + wrap (**superseded by T008 / the album
+  redesign**: the cursor skips placeholders and there is no scroll); `Esc`/`x` → `Back`; unknown
+  keys ignored (follow the existing `deck_builder.rs` test style).
 - **Origin routing:** a `DeckBuilderState::new(Map)` reports `Map`; the `Back` branch selects
   the map vs the menu (test at whatever seam is reachable without a terminal — the `origin()`
   accessor plus the app-arm branch).

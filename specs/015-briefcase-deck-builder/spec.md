@@ -160,8 +160,9 @@ deck (as today). The builder opens with the Collection panel active.
       becomes a placeholder in that panel, and the readout updates. Confirming on a
       placeholder does nothing. *(driver `AFTER_ADD`: Enter on `+1` moved it
       Collection→Deck, its Collection slot became a placeholder, readout 8/10→9/10;
-      `enter_moves_a_present_card_across_add_in_collection_remove_in_deck`,
-      `enter_on_a_placeholder_is_a_noop`.)*
+      `enter_moves_a_present_card_across_add_in_collection_remove_in_deck`;
+      placeholders are non-navigable (T008) so Enter can't reach one — the defensive
+      no-op is exercised by `both_panels_all_placeholders_is_inert_and_never_panics`.)*
 - [x] Confirming on a Deck card moves one copy back to the Collection (the reverse).
       *(`enter_moves_a_present_card_across_add_in_collection_remove_in_deck` asserts
       `Remove` from the Deck panel; the app applies `remove_from_deck`.)*

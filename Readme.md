@@ -50,7 +50,8 @@ sudo dnf install alsa-lib-devel
 The **Side Deck** menu item (or **`c`** from the campaign map) opens a two-panel
 "briefcase" deck-builder: your **Collection** on the left, your built **Deck** on
 the right, each an album of every card type — the ones you have shown as solid
-cards with a copy count, the ones you don't as faint placeholders. Move the
+cards with a copy count, the rest — those absent from that panel — as faint
+placeholders. Move the
 selection with the arrows (or `w`/`a`/`s`/`d`), **Tab** to switch panels, and
 **Enter** to move a copy across — adding one from the Collection or returning one
 from the Deck. Your side deck (the 10 cards your hand is dealt from each match)
