@@ -120,34 +120,54 @@ fn scroll_to_reveal(scroll: usize, cursor_row: usize, visible_rows: usize, total
     s.min(max_scroll)
 }
 
+/// Where the deck-builder was opened from, so `Back` returns there. The three
+/// entry points funnel through the app's `open_deck_builder(origin)`, and the
+/// `BuildOutcome::Back` arm routes on this — the menu vs. the campaign map. It
+/// also fixes a pre-existing bug where the campaign-launch "incomplete deck"
+/// divert dropped the player on the *menu* instead of the map (`spec.md`,
+/// "Return-path correction").
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum BuilderOrigin {
+    Menu,
+    Map,
+}
+
 #[derive(Debug)]
 pub struct DeckBuilderState {
     active: Panel,
     collection_cursor: usize, // index into collection_rows()
     deck_cursor: usize,       // index into deck_rows()
     collection_scroll: usize, // first visible row of the collection grid
+    origin: BuilderOrigin,    // where Back returns to (menu vs. campaign map)
 }
 
 impl Default for DeckBuilderState {
     fn default() -> Self {
-        Self::new()
+        Self::new(BuilderOrigin::Menu)
     }
 }
 
 impl DeckBuilderState {
-    /// A fresh builder. Focus defaults to the Collection and is normalized onto
-    /// a non-empty panel at the top of `handle_input` (`focus_nonempty`) — so an
-    /// all-decked profile with no spares lands on the Deck once a key is pressed.
-    /// (The starter collection can't be emptied, so Collection is always a valid
-    /// default at open.) Param-less so the app's three entry points stay
-    /// unchanged; origin tracking (return routing) is a separate task.
-    pub fn new() -> Self {
+    /// A fresh builder opened from `origin` (the menu or the campaign map),
+    /// which `Back` returns to. Focus defaults to the Collection and is
+    /// normalized onto a non-empty panel at the top of `handle_input`
+    /// (`focus_nonempty`) — so an all-decked profile with no spares lands on the
+    /// Deck once a key is pressed. (The starter collection can't be emptied, so
+    /// Collection is always a valid default at open.)
+    pub fn new(origin: BuilderOrigin) -> Self {
         Self {
             active: Panel::Collection,
             collection_cursor: 0,
             deck_cursor: 0,
             collection_scroll: 0,
+            origin,
         }
+    }
+
+    /// Where this builder was opened from — the app's `Back` arm routes on it
+    /// (the menu vs. the campaign map).
+    pub fn origin(&self) -> BuilderOrigin {
+        self.origin
     }
 
     /// Handle a key against the current `profile`: `Tab`/`BackTab` switch the
@@ -406,7 +426,7 @@ mod tests {
     #[test]
     fn tab_switches_the_active_panel() {
         let p = default_profile();
-        let mut s = DeckBuilderState::new();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         s.focus_nonempty(&p);
         assert_eq!(s.active, Panel::Collection, "opens on the collection");
 
@@ -423,7 +443,7 @@ mod tests {
         // the active panel now, so Enter in the Collection adds and Enter in the
         // Deck removes.
         let p = default_profile();
-        let mut s = DeckBuilderState::new();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         s.focus_nonempty(&p);
 
         let coll_under = collection_rows(&p)[s.collection_cursor].0;
@@ -475,7 +495,7 @@ mod tests {
     fn initial_focus_rests_on_a_nonempty_panel() {
         // Default: collection has spares → opens on the Collection.
         let p = default_profile();
-        let mut s = DeckBuilderState::new();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         s.focus_nonempty(&p);
         assert_eq!(s.active, Panel::Collection);
 
@@ -486,7 +506,7 @@ mod tests {
             empty_deck.remove_from_deck(c);
         }
         assert!(deck_rows(&empty_deck).is_empty(), "sanity: the deck side is empty");
-        let mut s = DeckBuilderState::new();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         s.active = Panel::Deck;
         s.focus_nonempty(&empty_deck);
         assert_eq!(s.active, Panel::Collection);
@@ -504,7 +524,7 @@ mod tests {
     fn arrows_move_and_wrap_over_the_active_grid() {
         // The 10-type deck panel at 4 columns is a multi-row grid to move over.
         let p = default_profile();
-        let mut s = DeckBuilderState::new();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         s.handle_input(KeyCode::Tab, &p); // → Deck
         assert_eq!(s.active, Panel::Deck);
         assert_eq!(s.deck_cursor, 0);
@@ -536,7 +556,7 @@ mod tests {
         let cols = BriefcaseLayout::COLS;
         assert!(deck.len() % cols != 0, "test needs a ragged last row");
 
-        let mut s = DeckBuilderState::new();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         s.handle_input(KeyCode::Tab, &p); // → Deck
         let ragged_col = cols - 1; // a column whose bottom-row cell is absent
         for _ in 0..ragged_col {
@@ -585,7 +605,7 @@ mod tests {
         let total_rows = coll.len().div_ceil(cols);
         assert!(total_rows > MIN_VISIBLE_ROWS, "test needs a scrolling collection");
 
-        let mut s = DeckBuilderState::new();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         s.focus_nonempty(&p);
         assert_eq!(s.active, Panel::Collection);
         assert_eq!(s.collection_scroll, 0);
@@ -609,10 +629,20 @@ mod tests {
     #[test]
     fn esc_and_x_back_out_and_unknown_keys_are_ignored() {
         let p = default_profile();
-        let mut s = DeckBuilderState::new();
+        let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         assert!(matches!(s.handle_input(KeyCode::Esc, &p), Some(BuildOutcome::Back)));
         assert!(matches!(s.handle_input(KeyCode::Char('x'), &p), Some(BuildOutcome::Back)));
         assert!(s.handle_input(KeyCode::Char('z'), &p).is_none());
+    }
+
+    #[test]
+    fn new_records_the_origin_for_back_routing() {
+        // The origin is what the app's `Back` arm routes on: a builder opened
+        // from the campaign map must return there, not to the menu (the
+        // pre-existing divert bug spec 015 fixes). Both variants, so flipping
+        // the field's initialization is caught.
+        assert_eq!(DeckBuilderState::new(BuilderOrigin::Map).origin(), BuilderOrigin::Map);
+        assert_eq!(DeckBuilderState::new(BuilderOrigin::Menu).origin(), BuilderOrigin::Menu);
     }
 
     #[test]

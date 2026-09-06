@@ -10,7 +10,7 @@ use crate::{
     campaign_map::{CampaignMapState, MapOutcome},
     card::Card,
     config::Config,
-    deck_builder::{BuildOutcome, DeckBuilderState},
+    deck_builder::{BuildOutcome, BuilderOrigin, DeckBuilderState},
     economy::{self, WinReward},
     frame::{
         Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_centered,
@@ -295,6 +295,24 @@ fn confirm_choice(on_yes: bool, key: KeyCode) -> ConfirmChoice {
     }
 }
 
+/// Where the deck-builder's `Back` returns to — the menu or the campaign map.
+/// A pure mapping from the [`BuilderOrigin`] it was opened with (the
+/// `confirm_choice` pattern: a routing decision pulled out of the handler so it
+/// is unit-testable without an `App`, whose `screen` is private). The
+/// `BuildOutcome::Back` arm matches this to `start_menu()` vs. `open_campaign_map()`.
+#[derive(Debug, PartialEq, Eq)]
+enum BackTo {
+    Menu,
+    Map,
+}
+
+fn back_destination(origin: BuilderOrigin) -> BackTo {
+    match origin {
+        BuilderOrigin::Menu => BackTo::Menu,
+        BuilderOrigin::Map => BackTo::Map,
+    }
+}
+
 pub struct App {
     pub config: Config,
     screen: Screen,
@@ -372,7 +390,7 @@ impl App {
     /// 10, so this only diverts a player who deliberately under-filled.
     fn open_opponent_select(&mut self) {
         if !self.profile.deck_is_valid() {
-            self.open_deck_builder();
+            self.open_deck_builder(BuilderOrigin::Menu);
             return;
         }
         self.screen = Screen::OpponentSelect {
@@ -380,11 +398,11 @@ impl App {
         };
     }
 
-    /// Open the deck-builder screen (from the menu's Side Deck item, or when a
-    /// match start finds the deck incomplete).
-    fn open_deck_builder(&mut self) {
+    /// Open the deck-builder screen from `origin` (the menu's Side Deck item, the
+    /// campaign map, or an incomplete-deck divert), which `Back` returns to.
+    fn open_deck_builder(&mut self, origin: BuilderOrigin) {
         self.screen = Screen::DeckBuilder {
-            state: DeckBuilderState::new(),
+            state: DeckBuilderState::new(origin),
         };
     }
 
@@ -442,7 +460,9 @@ impl App {
     /// the confirmed discard-and-launch.
     fn launch_campaign_node(&mut self, planet: &str, opponent: &str) {
         if !self.profile.deck_is_valid() {
-            self.open_deck_builder();
+            // Origin is the map: fixing an incomplete deck mid-campaign returns
+            // to the campaign map, not the menu (spec 015 return-path fix).
+            self.open_deck_builder(BuilderOrigin::Map);
         } else if let Some(opp) = opponent_by_id(opponent) {
             let node = NodeRef {
                 planet: planet.to_string(),
@@ -671,33 +691,44 @@ impl App {
                 // outcome is owned, so `state`'s borrow ends before the
                 // `&mut self` edits below (same NLL pattern as the arms above);
                 // `&self.profile` is a disjoint field, so reading it for the
-                // scrutinee is fine alongside `&mut self.screen`.
-                Screen::DeckBuilder { state } => match state.handle_input(key, &self.profile) {
-                    Some(BuildOutcome::Moved) => self.audio.play(Sfx::MenuMove),
-                    Some(BuildOutcome::Add(card)) => {
-                        // Persist only edits that took effect — a rejected add
-                        // (deck full or no spare copy owned) changes nothing.
-                        if self.profile.try_add_to_deck(card) {
-                            self.audio.play(Sfx::MenuSelect);
-                            self.profile.save();
-                        } else {
+                // scrutinee is fine alongside `&mut self.screen`. `origin` (a
+                // Copy) is read up front so `Back` can route on it after
+                // `state`'s borrow is done — the menu vs. the campaign map.
+                Screen::DeckBuilder { state } => {
+                    let origin = state.origin();
+                    match state.handle_input(key, &self.profile) {
+                        Some(BuildOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                        Some(BuildOutcome::Add(card)) => {
+                            // Persist only edits that took effect — a rejected add
+                            // (deck full or no spare copy owned) changes nothing.
+                            if self.profile.try_add_to_deck(card) {
+                                self.audio.play(Sfx::MenuSelect);
+                                self.profile.save();
+                            } else {
+                                self.audio.play(Sfx::MenuBack);
+                            }
+                        }
+                        Some(BuildOutcome::Remove(card)) => {
+                            if self.profile.remove_from_deck(card) {
+                                self.audio.play(Sfx::MenuSelect);
+                                self.profile.save();
+                            } else {
+                                self.audio.play(Sfx::MenuBack); // none in the deck
+                            }
+                        }
+                        // Return to wherever the builder was opened from: the
+                        // menu, or — correcting a pre-existing bug — the campaign
+                        // map when a mid-campaign divert sent us here.
+                        Some(BuildOutcome::Back) => {
                             self.audio.play(Sfx::MenuBack);
+                            match back_destination(origin) {
+                                BackTo::Menu => self.screen = self.start_menu(),
+                                BackTo::Map => self.open_campaign_map(),
+                            }
                         }
+                        None => {}
                     }
-                    Some(BuildOutcome::Remove(card)) => {
-                        if self.profile.remove_from_deck(card) {
-                            self.audio.play(Sfx::MenuSelect);
-                            self.profile.save();
-                        } else {
-                            self.audio.play(Sfx::MenuBack); // none in the deck
-                        }
-                    }
-                    Some(BuildOutcome::Back) => {
-                        self.audio.play(Sfx::MenuBack);
-                        self.screen = self.start_menu();
-                    }
-                    None => {}
-                },
+                }
 
                 // The campaign map: travel between unlocked planets, launch a
                 // match against a planet's next opponent, or back out. (T002
@@ -957,7 +988,7 @@ impl App {
             MenuItem::SideDeck => {
                 // Build your side deck — independent of any match; the deck
                 // persists and the next match deals from it.
-                self.open_deck_builder();
+                self.open_deck_builder(BuilderOrigin::Menu);
             }
             MenuItem::HowToPlay => {
                 self.modal = Some(Modal::Help(Overlay::new(OverlayKind::HowToPlay, self.config)));
@@ -1177,6 +1208,16 @@ mod tests {
             assert_eq!(confirm_choice(false, k), Toggle);
         }
         assert_eq!(confirm_choice(true, KeyCode::Char('z')), Ignore);
+    }
+
+    #[test]
+    fn back_destination_routes_each_origin_to_its_screen() {
+        // The deck-builder's `Back` returns to where it was opened from (spec
+        // 015). This pure seam is the whole routing decision — the arm's match
+        // on it is a fixed dispatch — so flipping either arm here (Menu → Map or
+        // Map → Menu) is caught, including the campaign-divert-returns-to-map fix.
+        assert_eq!(back_destination(BuilderOrigin::Menu), BackTo::Menu);
+        assert_eq!(back_destination(BuilderOrigin::Map), BackTo::Map);
     }
 
     #[test]

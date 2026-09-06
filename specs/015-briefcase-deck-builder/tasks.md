@@ -67,7 +67,7 @@ implementer returns, and only the orchestrator commits.
 
 <!-- T003 touches the shared Back arm (foundational). -->
 
-- [ ] **T003 (foundational)** — Origin tracking in `src/deck_builder.rs` +
+- [x] **T003 (foundational)** — Origin tracking in `src/deck_builder.rs` +
   `src/app.rs`: `enum BuilderOrigin { Menu, Map }` (`Copy`) on `DeckBuilderState`
   with `origin()`; `open_deck_builder(origin)`; `BuildOutcome::Back` branches
   `Menu => start_menu()`, `Map => open_campaign_map()`; update the three existing
@@ -102,8 +102,10 @@ implementer returns, and only the orchestrator commits.
   campaign-divert bug fix); README only if entry wording changed. Remove the
   now-orphaned `GridLayout` + its fit test from `src/layout.rs` (T002 left it with
   no caller — `BriefcaseLayout` supersedes it; verify no references remain first)
-  and note the supersession in `DECISIONS.md`. Request the pre-merge whole-spec
-  sweep.
+  and note the supersession in `DECISIONS.md`. Fix the stale `CampaignMap`-arm
+  comment in `app.rs` (says the campaign "win seam … arrives in T003" — a
+  pre-spec-015 task reference that now collides with this spec's T-numbers).
+  Request the pre-merge whole-spec sweep.
   *Verify: `cargo build`/`cargo test` green, reported verbatim; legible 89×31
   snapshots; `ROADMAP.md` no longer lists this as future; sweep clean or findings
   resolved.*
@@ -146,3 +148,5 @@ similar size before treating the policy as settled. -->
 | T001 review (skeptical-reviewer) | opus | ~48k | signed off; 0 blocking; geometry + non-vacuous test verified |
 | T002 (sdd-implementer) | opus | ~156k | done; scroll deviation flagged + accepted; build + 254 tests |
 | T002 review (skeptical-reviewer) | opus | ~98k | signed off; 0 blocking; scroll accepted; 3 second-looks folded (comment fix, guard test, GridLayout→T005) |
+| T003 (sdd-implementer) | opus | ~84k | done; no deviations; campaign-divert→Map bug fix confirmed; 257 tests |
+| T003 review (skeptical-reviewer) | opus | ~49k | signed off; 0 blocking; routing + non-vacuous seam + bug fix verified; noted a stale comment → T005 |
