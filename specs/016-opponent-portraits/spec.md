@@ -49,19 +49,32 @@ is why they land first.
 
 ## Acceptance criteria
 
-- [ ] Each of the 10 roster opponents shows a **distinct** portrait in-match.
-- [ ] The opponent portrait is visible throughout every campaign and Quick Play
-  match.
-- [ ] The portrait also appears when previewing an opponent (opponent-select;
-  focused campaign-map node).
-- [ ] Portraits are monochrome and legible as faces — eyes and expression
+- [x] Each of the 10 roster opponents shows a **distinct** portrait in-match.
+  *(Evidence: `roster_portraits_are_pairwise_distinct_and_default_is_generic`;
+  driver — cursoring the roster shows 10 distinct faces, none blank.)*
+- [x] The opponent portrait is visible throughout every campaign and Quick Play
+  match. *(Evidence: T006 draws it every frame from `state.opponent_profile`;
+  driver — the panel is beside the board for the whole match, Quick Play and campaign.)*
+- [x] The portrait also appears when previewing an opponent (opponent-select;
+  focused campaign-map node). *(Evidence: T005 opponent-select preview + T007 campaign
+  rail; driver-confirmed on both.)*
+- [x] Portraits are monochrome and legible as faces — eyes and expression
   discernible — verified by looking at the running game, not only by tests.
-- [ ] The fallback opponent shows the generic portrait; the panel is never empty.
-- [ ] The minimum terminal size is updated and documented (README), and every
+  *(Evidence: person sign-off on the Fable-authored faces + the panels in the running
+  game; monochrome is structural — `frame.rs` has no color path.)*
+- [x] The fallback opponent shows the generic portrait; the panel is never empty.
+  *(Evidence: `DEFAULT_OPPONENT.portrait == generic` test; T007's
+  next→last→`unwrap_or(DEFAULT_OPPONENT)` chain has no blank path — reviewer-confirmed.)*
+- [x] The minimum terminal size is updated and documented (README), and every
   existing screen (board, start menu, opponent-select, campaign map, deck-builder,
   shop) still fits at the new minimum; below it, the game errors clearly with the
-  required dimensions.
-- [ ] Build and tests green; **no color introduced** — monochrome preserved.
+  required dimensions. *(Evidence: `min_size() == (139,31)` test; `Readme.md` documents
+  it; fit tests run at 139×31 — board+panel, campaign map, briefcase, roster — and every
+  other screen is a centered block that already fit 89, so it fits wider; `from_terminal`/
+  `draw_too_small` error below the minimum, unchanged, reading `min_size()`.)*
+- [x] Build and tests green; **no color introduced** — monochrome preserved.
+  *(Evidence: 267 tests green, no new warnings; the render model has no color API —
+  portraits draw only `draw_text`/`draw_box` with an `Emphasis`.)*
 
 ## Non-goals
 

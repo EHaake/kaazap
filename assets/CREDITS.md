@@ -14,3 +14,14 @@ All sound effects in `assets/sfx/` are synthesized by
 `scripts/gen_sfx.py` — square/triangle-wave blips generated from scratch,
 so they carry no third-party licensing. Re-run that script to regenerate
 them.
+
+## Portraits
+
+The opponent portraits in `assets/portraits/*.txt` are original, in-repo
+authored **monochrome block art** — plain-text `18×12` character grids, no
+third-party or trademarked assets, no license encumbrance. They were authored
+to an in-repo specification
+(`specs/016-opponent-portraits/portrait-art-brief.md`) and validated and
+integrated by Claude Code (spec 016). The alien designs are original and
+reproduce no trademarked species — the same stance as the game's original
+planet names and its no-copyrighted-music rule.

@@ -277,11 +277,11 @@ pub struct BriefcaseLayout {
 
 // The album is a fixed COLS×ROWS grid with one slot per card type. If the card
 // universe ever outgrows that grid, the fixed layout would silently overflow
-// (`card_origin` past a panel) — grow the grid and re-check the 89×31 fit rather
+// (`card_origin` past a panel) — grow the grid and re-check the 139×31 fit rather
 // than letting it slide. Ties the hardcoded ROWS/COLS to `ALL_SIDE_CARDS`.
 const _: () = assert!(
     crate::card::ALL_SIDE_CARDS.len() <= BriefcaseLayout::COLS * BriefcaseLayout::ROWS,
-    "ALL_SIDE_CARDS outgrew the briefcase album grid; grow BriefcaseLayout::ROWS/COLS and re-check the 89×31 fit",
+    "ALL_SIDE_CARDS outgrew the briefcase album grid; grow BriefcaseLayout::ROWS/COLS and re-check the 139×31 fit",
 );
 
 impl BriefcaseLayout {
@@ -295,7 +295,7 @@ impl BriefcaseLayout {
     /// pitch the board grid uses.
     const CARD_PITCH_X: usize = CARD_WIDTH + 1;
     /// A card cell's height: the card plus its count-caption row, with no
-    /// inter-row gap — packed so four rows fit the 89×31 minimum.
+    /// inter-row gap — packed so four rows fit the 139×31 minimum.
     const CELL_H: usize = CARD_HEIGHT + 1;
     /// One interior column of breathing room between a panel's border and its
     /// card grid, each side.
@@ -399,7 +399,7 @@ mod tests {
     fn layout_regions_are_in_bounds_and_stacked_at_several_sizes() {
         // The fixed board fits the frame and its bands stack — at the
         // minimum size and larger (where it's centered with margin).
-        for (cols, rows) in [(89, 31), (180, 48), (120, 40)] {
+        for (cols, rows) in [(89, 31), (139, 31), (180, 48), (120, 40)] {
             let l = BoardLayout::new(cfg(cols, rows));
             assert_side_sane(l.player, cols, rows);
             assert_side_sane(l.opponent, cols, rows);
@@ -584,9 +584,9 @@ mod tests {
     fn briefcase_fits_the_minimum_terminal() {
         // Two bordered panels — Collection | Deck — each a fixed 4×4 album of
         // every card type, with a shared title, the "Deck: N/10" readout over
-        // the deck panel, and a controls hint, must fit the 89×31 minimum with
+        // the deck panel, and a controls hint, must fit the 139×31 minimum with
         // every card slot inside its panel's border and clear of the hint.
-        let (cols, rows) = (89, 31);
+        let (cols, rows) = (IN_MATCH_MIN_WIDTH, 31);
         let l = BriefcaseLayout::new(cfg(cols, rows));
 
         // A fixed 4 columns × 4 rows (16 slots, 15 used) — no scrolling.

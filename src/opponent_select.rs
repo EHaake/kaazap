@@ -193,10 +193,13 @@ mod tests {
 
     #[test]
     fn the_full_roster_and_footer_fit_the_minimum_terminal() {
-        // At the 89×31 minimum the title, all opponents, the blurb (drawn at
+        // At the 139×31 minimum the title, all opponents, the blurb (drawn at
         // `y + 2`) and the controls hint (`y + 4`) must all land on-frame — the
         // footer reserve passed to MenuLayout is what makes the grown roster fit.
-        let config = Config { num_cols: 89, num_rows: 31 };
+        // (Width is irrelevant here — this guards the vertical fit — but track the
+        // real minimum so the name stays honest.)
+        use crate::layout::IN_MATCH_MIN_WIDTH;
+        let config = Config { num_cols: IN_MATCH_MIN_WIDTH, num_rows: 31 };
         let layout = MenuLayout::new(config, 1, OPPONENTS.len(), 6);
         let after_items = layout.items_top + OPPONENTS.len() * layout.item_spacing;
         let hint_y = after_items + 4; // must match `draw`

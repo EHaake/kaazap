@@ -23,7 +23,9 @@ side-deck cards for tougher matchups ahead.
 > campaign map** — travel a node-based star map, Outer Rim → Core, clearing
 > each world's opponents to unlock the next — and **a campaign economy**
 > (wins earn credits and drop cards; a shop on the map sells from a pool that
-> unlocks by how far core-ward you've reached) are in place; the balance pass
+> unlocks by how far core-ward you've reached), and **opponent portraits** (a
+> low-resolution monochrome face for every opponent, shown beside the board
+> in-match and in the select/map previews) are in place; the balance pass
 > and stretch features are what's ahead — see `ROADMAP.md` for the full picture.
 
 ## Building & running
@@ -44,6 +46,11 @@ sudo apt install libasound2-dev
 # Fedora/RHEL
 sudo dnf install alsa-lib-devel
 ```
+
+**Terminal size:** Kaazap needs a terminal at least **139 × 31** (columns ×
+rows) — the fixed board plus the always-visible opponent-portrait panel beside
+it. Below that it shows the required size and exits rather than rendering
+broken; enlarge the terminal and run again.
 
 ## How to play
 
