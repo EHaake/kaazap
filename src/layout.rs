@@ -1,4 +1,5 @@
 use crate::{CARD_HEIGHT, CARD_WIDTH, HAND_SIZE, H_PAD, MAX_TABLE_CARDS, V_PAD, config::Config};
+use crate::portrait::{PANEL_GAP, PANEL_H_INMATCH, PANEL_W};
 
 // A card slot is a card plus one cell of gap, in each axis.
 const CARD_SLOT_W: usize = CARD_WIDTH + 1;
@@ -31,6 +32,11 @@ pub const BOARD_BLOCK_HEIGHT: usize =
 /// the minimum terminal width: a full GRID_COLS-card hand on each side of
 /// the divider.
 pub const BOARD_WIDTH: usize = 2 * (H_PAD + HAND_SIZE * CARD_SLOT_W) + 1;
+
+/// The minimum terminal width in match: the centered board plus symmetric
+/// left/right panel margins. The right margin holds the opponent presence
+/// panel; the equal left margin is reserved empty for a future player panel.
+pub const IN_MATCH_MIN_WIDTH: usize = BOARD_WIDTH + 2 * (PANEL_GAP + PANEL_W); // 139: board + symmetric left/right panel margins (the left is reserved empty for a future player panel)
 
 #[derive(Debug, Copy, Clone)]
 pub struct Rect {
@@ -71,6 +77,8 @@ pub struct BoardLayout {
     pub player: SideLayout,
     pub opponent: SideLayout,
     pub status: Rect, // two rows (alert over prompt) below the hand
+    // The opponent presence panel in the right margin, top-aligned with the board block.
+    pub opponent_panel: Rect,
 }
 
 impl BoardLayout {
@@ -116,11 +124,18 @@ impl BoardLayout {
             y_status + STATUS_H - 1,
         );
 
+        // Opponent presence panel: fixed-size, anchored in the right margin PANEL_GAP
+        // past the centered board's right edge, top-aligned with the board block. The
+        // equal left margin is left empty — reserved for a future player-status panel.
+        let panel_x0 = left + BOARD_WIDTH + PANEL_GAP;
+        let opponent_panel = Rect::new(panel_x0, panel_x0 + PANEL_W - 1, top, top + PANEL_H_INMATCH - 1);
+
         Self {
             divider_x,
             player,
             opponent,
             status,
+            opponent_panel,
         }
     }
 }
@@ -400,6 +415,21 @@ mod tests {
         let l = BoardLayout::new(cfg(180, 48));
         assert!(l.player.hand.x1 < l.divider_x);
         assert!(l.opponent.hand.x0 > l.divider_x);
+    }
+
+    #[test]
+    fn board_and_panel_fit_the_minimum_terminal() {
+        // At the grown minimum the opponent presence panel sits in the right
+        // margin, on-frame, right of the opponent half (no overlap with the
+        // board's content), top-aligned with the board block.
+        let (cols, rows) = (IN_MATCH_MIN_WIDTH, 31);
+        let l = BoardLayout::new(cfg(cols, rows));
+        assert!(in_bounds(l.opponent_panel, cols, rows), "opponent panel off-frame");
+        // The board's rightmost Rect is the opponent hand/header/status (all
+        // share that right edge); the panel sits strictly right of it.
+        assert!(l.opponent_panel.x0 > l.opponent.hand.x1, "panel overlaps the board");
+        assert!(l.opponent_panel.y1 <= 30, "panel bottom below the board block");
+        assert!(l.opponent_panel.y1 <= rows - 1, "panel bottom off-frame");
     }
 
     #[test]

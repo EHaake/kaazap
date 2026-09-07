@@ -1,6 +1,6 @@
 pub(crate) use crossterm::terminal;
 
-use crate::layout::{BOARD_BLOCK_HEIGHT, BOARD_WIDTH};
+use crate::layout::{BOARD_BLOCK_HEIGHT, IN_MATCH_MIN_WIDTH};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Config {
@@ -9,12 +9,12 @@ pub struct Config {
 }
 
 impl Config {
-    /// The smallest terminal the layout supports, as (cols, rows). The
-    /// board is a fixed-size block, so the minimum terminal is exactly big
-    /// enough to hold it — ~89 × 30, wider than a classic 80×24 terminal.
-    /// Larger terminals center the same block and pad the margins.
+    /// The smallest terminal the layout supports, as (cols, rows). The board
+    /// is a fixed-size block, but an always-visible in-match panel sits beside
+    /// it, so the minimum is the board plus symmetric panel margins — 139 × 31.
+    /// Wider/taller terminals center the board and pad the margins.
     pub fn min_size() -> (usize, usize) {
-        (BOARD_WIDTH, BOARD_BLOCK_HEIGHT)
+        (IN_MATCH_MIN_WIDTH, BOARD_BLOCK_HEIGHT)
     }
 
     /// Does a terminal of this size meet the minimum?
@@ -63,12 +63,10 @@ mod tests {
     }
 
     #[test]
-    fn config_min_size_is_the_fixed_board_size() {
-        // The minimum terminal is exactly the fixed board — one source of
-        // truth, no independent guess.
-        let (min_cols, min_rows) = Config::min_size();
-        assert_eq!(min_cols, BOARD_WIDTH);
-        assert_eq!(min_rows, BOARD_BLOCK_HEIGHT);
-        assert_eq!((min_cols, min_rows), (89, 31)); // pins the concrete size
+    fn config_min_size_is_board_plus_panel_margins() {
+        // The minimum terminal is the board plus symmetric panel margins —
+        // one source of truth, no independent guess.
+        assert_eq!(Config::min_size(), (IN_MATCH_MIN_WIDTH, BOARD_BLOCK_HEIGHT));
+        assert_eq!(Config::min_size(), (139, 31)); // pins the concrete size
     }
 }

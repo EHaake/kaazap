@@ -9,6 +9,15 @@ use crate::frame::{Emphasis, Frame, draw_text};
 pub const PORTRAIT_WIDTH: usize = 18;
 pub const PORTRAIT_HEIGHT: usize = 12;
 
+/// Presence-panel geometry, derived from the portrait block so the in-match
+/// panel and the game's minimum terminal width move together if the portrait
+/// is ever resized. PANEL_H_INMATCH reserves rows below the portrait for the
+/// later banter line / round pips (spec 016 reserves the space, doesn't build it).
+const PANEL_PAD_X: usize = 1;
+pub const PANEL_GAP: usize = 3;
+pub const PANEL_W: usize = PORTRAIT_WIDTH + 2 * PANEL_PAD_X + 2; // 22: portrait + interior pad + border
+pub const PANEL_H_INMATCH: usize = 2 + 1 + PORTRAIT_HEIGHT + 1 + 2; // 18: border, name, portrait, gap, reserved
+
 /// Draw a portrait's art with its top-left at (x, y): each line of `art` is
 /// drawn left-to-right at (x, y + row) via `draw_text`. Clip-safe — every cell
 /// goes through `draw_char`'s bounds guard, so an off-frame position (or a
