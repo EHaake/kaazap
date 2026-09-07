@@ -53,7 +53,7 @@ immediately after the spike confirms the vocabulary (sign-off finding 1).
 the spec-mandated spike — prove one portrait reads as a face before authoring the rest.
 Per-task skeptical-reviewer pass, then a person pause (go/no-go). -->
 
-- [ ] **T001 (foundational, spike, review: per-task)** — Create `src/portrait.rs` (add to `src/lib.rs`):
+- [x] **T001 (foundational, spike, review: per-task)** — Create `src/portrait.rs` (add to `src/lib.rs`):
   `pub const PORTRAIT_WIDTH = 18` / `PORTRAIT_HEIGHT = 12`; `draw_portrait(frame, x, y,
   art, emphasis)` drawing each art line via `draw_text`, clip-safe like `CardView::draw`.
   Author **two** original monochrome art files — `assets/portraits/generic.txt` and
@@ -84,7 +84,7 @@ Per-task skeptical-reviewer pass, then a person pause (go/no-go). -->
 
 ## Phase 2 — The cast (author all portraits)
 
-- [ ] **T002** — Author the remaining 9 roster portraits (`assets/portraits/{dax, vessa,
+- [x] **T002** — Author the remaining 9 roster portraits (`assets/portraits/{dax, vessa,
   nima, toran, brakka, rix, kesh, magistrate, sovereign}.txt`), each original (no
   trademarked species), monochrome, dimensions-valid, expression fitting the opponent's
   blurb/difficulty; repoint each `OpponentProfile.portrait` to its own file (copies T001's
@@ -221,3 +221,4 @@ treating the policy as settled. -->
 | plan + tasks sign-off (skeptical-reviewer) | opus (decision) | 110,054 | **signed off**, 0 blocking; 5 second-look items folded (brief timing → T001b, T003 import, T004 rail clearance, T005 shared-path review, T008 stale-minimum wording) |
 | T001 impl — code scaffolding (sdd-implementer) | opus (one down) | 55,663 | done; flagged that `game.rs:1688` is a full `OpponentProfile` literal (not `..DEFAULT_OPPONENT`), so it needed the new field — a minor plan §2 inaccuracy, handled. Art files authored by the orchestrator (spike creative core), not dispatched. |
 | T001 review (skeptical-reviewer) | opus (per-task) | 39,472 | **signed off**, 0 blocking. Non-blocking notes (logged, deferred to sweep): (1) block/shade glyphs `█▀▄▓░` are East-Asian *Ambiguous* width — a pre-existing project-wide assumption shared with the box borders + title art, not a T001 regression; (2) plan §2 game.rs claim (above); (3) clip test omits direct right-edge horizontal-overrun case (covered transitively via `draw_text`); (4) placement test uses ASCII not a multibyte glyph (sound via `draw_text`); (5) temporary opponent-select preview could graze a long blurb — verified no overlap (blurb row ≫ portrait rows) and T005 replaces it anyway. |
+| T001 spike gate (person) + T002 art (external, Fable 5.1 session per `portrait-art-brief.md`) | fable (art session); orchestrator integrated | n/a (art session not metered here) | spike **go**; all 11 portraits (incl. re-authored `generic`/`greeb`) delivered, validated 12×≤18 / palette-only / pairwise distinct, signed off by the person; roster repointed, T002 invariant tests added; 265 tests green. T001b still open. |
