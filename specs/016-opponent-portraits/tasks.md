@@ -140,7 +140,7 @@ skeptical-reviewer pass; T004 is reviewed at phase end. -->
   *Verify: `cargo build`/`cargo test` green — `preview_rect(min)` is on-frame and its `x0 >`
   the widest roster row's right edge (no overlap with the list). Driver: opponent-select
   shows a bordered portrait + name panel beside the list.*
-- [ ] **T006** — In-match panel. In `src/board.rs`, `BoardView::draw` calls
+- [x] **T006** — In-match panel. In `src/board.rs`, `BoardView::draw` calls
   `draw_presence_panel(self.layout.opponent_panel, state.opponent_profile.name,
   state.opponent_profile.portrait)` after the board. (Copies the `draw_side`/layout-driven
   drawing style already in `board.rs`.)

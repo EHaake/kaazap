@@ -7,6 +7,7 @@ use crate::{
     game::{GamePhase, GameState, RoundOutcome},
     layout::{BoardLayout, GRID_COLS, Rect, SideLayout, card_slot},
     player::{Player, PlayerState},
+    portrait::draw_presence_panel,
 };
 
 // Interior padding around a popup's text, inside its border.
@@ -259,6 +260,16 @@ impl BoardView {
 
         // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
+
+        // Opponent presence panel in the right margin, beside the board —
+        // always visible for the whole match (spec 016). Clear of the board's
+        // cards and the centered outcome popup.
+        draw_presence_panel(
+            frame,
+            self.layout.opponent_panel,
+            state.opponent_profile.name,
+            state.opponent_profile.portrait,
+        );
     }
 }
 
