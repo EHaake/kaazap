@@ -131,7 +131,7 @@ skeptical-reviewer pass; T004 is reviewed at phase end. -->
 
 ## Phase 4 — Presence panel on every surface
 
-- [ ] **T005 (shared component)** — Add `draw_presence_panel(frame, panel: Rect, name, art)`
+- [x] **T005 (shared component)** — Add `draw_presence_panel(frame, panel: Rect, name, art)`
   to `src/portrait.rs`: `BorderWeight::Single` box, `name` (`Emphasis::Strong`, centered top
   interior), `draw_portrait` centered below, remaining height left blank (reserved
   banter/pips). Replace T001's raw opponent-select preview with a call to it over a pure

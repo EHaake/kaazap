@@ -2,7 +2,8 @@
 //! counterpart to card.rs's CardView. Pure rendering + dimensions, with no
 //! dependency on opponent.rs (the art strings live with the profiles). Spec 016.
 
-use crate::frame::{Emphasis, Frame, draw_text};
+use crate::frame::{Align, BorderWeight, Emphasis, Frame, draw_box, draw_text, draw_text_in};
+use crate::layout::Rect;
 
 /// The fixed art-block size every portrait is authored to: PORTRAIT_HEIGHT
 /// lines of at most PORTRAIT_WIDTH cells, one glyph per cell.
@@ -27,6 +28,22 @@ pub fn draw_portrait(frame: &mut Frame, x: usize, y: usize, art: &str, emphasis:
     for (row, line) in art.lines().enumerate() {
         draw_text(frame, x, y + row, line, emphasis);
     }
+}
+
+/// A bordered opponent-presence panel: a single-weight box with the opponent
+/// `name` (Strong) centered on the top interior row and the portrait centered
+/// below it. Any panel height beyond that is left blank — the reserved space
+/// for the later banter line / round pips (spec 016 reserves, doesn't build).
+/// One drawer, three callers (opponent-select preview, in-match panel, campaign
+/// rail); each sizes the `panel` Rect. Clip-safe (delegates to clip-safe drawers).
+pub fn draw_presence_panel(frame: &mut Frame, panel: Rect, name: &str, art: &str) {
+    draw_box(frame, panel, BorderWeight::Single, Emphasis::Normal);
+    let interior = Rect::new(panel.x0 + 1, panel.x1 - 1, panel.y0 + 1, panel.y1 - 1);
+    // Name on the top interior row, centered, Strong.
+    draw_text_in(frame, interior, 0, Align::Center, name, Emphasis::Strong);
+    // Portrait centered horizontally, on the row just below the name.
+    let px = interior.x0 + interior.width().saturating_sub(PORTRAIT_WIDTH) / 2;
+    draw_portrait(frame, px, panel.y0 + 2, art, Emphasis::Normal);
 }
 
 #[cfg(test)]
