@@ -71,7 +71,7 @@ Per-task skeptical-reviewer pass, then a person pause (go/no-go). -->
   the person** (go/no-go): if it does not read as a face, STOP and escalate the approach
   (the spec's human-ruled escape hatch) before authoring the rest — do not proceed.*
 
-- [ ] **T001b (governance doc, its own commit)** — Amend `design/brief.md` with the bounded
+- [x] **T001b (governance doc, its own commit)** — Amend `design/brief.md` with the bounded
   portraits exception, now that T001's spike has confirmed the vocabulary. Add an "Amendment
   (spec 016 — opponent portraits)" section mirroring the Motion/starfield amendment: opponent
   portraits are the single pictorial element — monochrome, static, opponent-only, one fixed

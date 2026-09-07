@@ -135,6 +135,27 @@ with face text — nothing more. No table texture, no card-back art
 beyond the `?` face, no simulated depth or stacking offsets. The board
 is a layout, not a picture of a table.
 
+**Amendment (spec 016 — opponent portraits).** The rules above rule out
+pictorial elements — "avoid Unicode block-art flourishes… outside the
+existing title art," and cards as the only physical metaphor. Opponent
+portraits are the single, bounded exception: each opponent (and a generic
+fallback) gets one low-resolution **monochrome** face, so the cast reads as
+characters and the coming banter has a face to attach to. The exception is
+deliberately narrow — **static** (no animation, ever — the Motion rules
+above still hold), **opponent-only** (no player portrait; the mirrored space
+is reserved, empty), drawn in **one fixed portrait frame distinct from the
+card frame** (so the card frame stays the only *card-shaped* box and the
+portrait reads as a clearly-non-card element), and **no color** (depth comes
+from glyph density, not from any attribute or hue — the monochrome palette is
+untouched). Confirmed glyph vocabulary (art-format spike, T001): the full and
+shade blocks `█ ▓ ▒ ░`, the half blocks `▀ ▄ ▌ ▐`, the quadrant blocks
+`▖ ▗ ▘ ▝ ▙ ▟ ▛ ▜ ▚ ▞`, and space — one glyph per cell, rendered at uniform
+plain weight (`emphasis.normal`); plain characters allowed sparingly for a
+fine feature. Portraits are original designs (no trademarked species), in the
+spirit of the game's original planet names. (Human-ruled; recorded here per
+the "amend before contradicting" rule rather than letting a spec quietly
+break the principle.)
+
 ## Screens to design
 
 Mapping to spec flows (details live in the spec, not here):
