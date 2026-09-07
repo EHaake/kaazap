@@ -1,6 +1,6 @@
 # Tasks: Opponent portraits — spec 016
 
-**Status**: In progress — **Phases 1–4 complete** (render path, all 11 portraits, panel geometry + grown 139×31 minimum, presence panel wired onto opponent-select, the in-match board, and the campaign-map rail — driver-attested, phase-end review signed off). **PAUSED for person attestation before the T008 close-out** (docs, DECISIONS/README/ROADMAP/CREDITS, spec-criteria check-off, pre-merge sweep). The spike-gate escalation (below) is resolved: portraits were externally authored and integrated in T002.
+**Status**: **All tasks complete (T001–T008).** Person attested the panels; pre-merge whole-spec sweep came back **merge-clean** (0 blocking, non-blocking cleanups applied). 267 tests green, no warnings; branch pushed to draft PR #19. **Awaiting the person's go to mark the PR ready and merge to `main`.** The spike-gate escalation (below) is resolved: portraits were externally authored (Fable 5.1) and integrated in T002.
 **Implements**: plan.md in this directory
 **Person approval:** plan + tasks approved; minimum 139×31 accepted (portraits always-on); the `design/brief.md` bounded exception approved (lands at T001b).
 
@@ -158,7 +158,7 @@ skeptical-reviewer pass; T004 is reviewed at phase end. -->
 
 ## Final phase — Spec close-out
 
-- [ ] **T008** — Docs, driver, sweep. (The `design/brief.md` bounded-exception amendment
+- [x] **T008** — Docs, driver, sweep. (The `design/brief.md` bounded-exception amendment
   already landed in its own commit at **T001b** — sign-off finding 1.) `DECISIONS.md`: the
   portrait vocabulary, the grown minimum
   (89×31 → 139×31), the `OpponentProfile.portrait` field, authored-assets-not-a-script, the
@@ -230,3 +230,5 @@ treating the policy as settled. -->
 | T006 in-match panel (orchestrator) | opus (top) | trivial | 2-line wiring (import + one `draw_presence_panel` call in `board.rs`); done at the orchestrator tier as sub-dispatch-threshold, not an escape-hatch miss. |
 | T007 campaign-map rail (orchestrator) | opus (top) | trivial | import + next→last→default resolution chain + one call in `campaign_map.rs`; done at the orchestrator tier as sub-dispatch-threshold. |
 | Phase 4 review (skeptical-reviewer, phase-end, T005–T007) | opus (default) | 25,108 | **signed off**, 0 blocking. Non-blocking, all resolved: (1) name overflow into the 20-col interior — confirmed longest name "The Magistrate" (14) fits; (2) T003/T004 Rects taken on faith — confirmed clear of live content by the driver render (panels sit clean beside board and on the map); (3) `next_opponent=Some(bad id)` skips the last-opponent fallback → still `DEFAULT_OPPONENT`, never blank (invariant violation anyway). Driver-attested at 180-wide: opponent-select bordered panel, in-match right-margin panel, campaign rail all render; board/nodes unchanged. |
+| T008 — close-out docs + stale-minimum fixes (orchestrator) | opus (top) | n/a | DECISIONS/CREDITS/README/ROADMAP updated; spec.md criteria checked with evidence; stale "89×31" test wording fixed + (139,31) case added; 267 tests green. |
+| Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | 58,192 | **merge-clean**, 0 blocking. Non-blocking cleanups applied: removed 9 stale "temporary generic — T002 repoints" comments in `opponent.rs` (sat above the already-correct per-opponent `include_str!`); `CREDITS.md` now names Fable 5.1 as the art author (matching DECISIONS). Noted-no-action: `plan.md`'s "Claude-authored" is historical drift (DECISIONS is the record of record), `portrait-art-brief.md` confirmed committed, the `layout`↔`portrait` mutual import is the intended single-source design. |

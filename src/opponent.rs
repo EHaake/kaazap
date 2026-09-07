@@ -126,7 +126,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Aggressive,
         misplay: 0.22, // green and reckless — pushes and slips
-        // temporary generic portrait — T002 repoints to dax.txt
         portrait: include_str!("../assets/portraits/dax.txt"),
     },
     OpponentProfile {
@@ -149,7 +148,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Aggressive,
         misplay: 0.15,
-        // temporary generic portrait — T002 repoints to vessa.txt
         portrait: include_str!("../assets/portraits/vessa.txt"),
     },
     OpponentProfile {
@@ -172,7 +170,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Cautious,
         misplay: 0.15,
-        // temporary generic portrait — T002 repoints to nima.txt
         portrait: include_str!("../assets/portraits/nima.txt"),
     },
     OpponentProfile {
@@ -184,7 +181,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         side_deck: &DEFAULT_SIDE_DECK,
         strategy: AiStrategy::Cautious,
         misplay: 0.10,
-        // temporary generic portrait — T002 repoints to toran.txt
         portrait: include_str!("../assets/portraits/toran.txt"),
     },
     OpponentProfile {
@@ -207,7 +203,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Aggressive,
         misplay: 0.12,
-        // temporary generic portrait — T002 repoints to brakka.txt
         portrait: include_str!("../assets/portraits/brakka.txt"),
     },
     OpponentProfile {
@@ -230,7 +225,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Calculating,
         misplay: 0.05,
-        // temporary generic portrait — T002 repoints to rix.txt
         portrait: include_str!("../assets/portraits/rix.txt"),
     },
     OpponentProfile {
@@ -253,7 +247,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Aggressive,
         misplay: 0.06,
-        // temporary generic portrait — T002 repoints to kesh.txt
         portrait: include_str!("../assets/portraits/kesh.txt"),
     },
     OpponentProfile {
@@ -276,7 +269,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Calculating,
         misplay: 0.0, // the master — essentially never slips
-        // temporary generic portrait — T002 repoints to magistrate.txt
         portrait: include_str!("../assets/portraits/magistrate.txt"),
     },
     OpponentProfile {
@@ -303,7 +295,6 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         // range + recovery + the tiebreaker, so it almost always holds the exact
         // card to hit, recover, or steal a tie.
         misplay: 0.0,
-        // temporary generic portrait — T002 repoints to sovereign.txt
         portrait: include_str!("../assets/portraits/sovereign.txt"),
     },
 ];
