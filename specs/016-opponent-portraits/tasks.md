@@ -148,7 +148,7 @@ skeptical-reviewer pass; T004 is reviewed at phase end. -->
   opponent → generic portrait) and a campaign match — the opponent portrait + name panel is
   visible beside the board throughout the match; the board itself is unchanged and still
   centered. Snapshot at 139×31 and wider.*
-- [ ] **T007** — Campaign-map preview. In `src/campaign_map.rs`, `draw` resolves the focused
+- [x] **T007** — Campaign-map preview. In `src/campaign_map.rs`, `draw` resolves the focused
   planet's shown opponent (`run.next_opponent(planet)`, else the planet's last opponent,
   else `DEFAULT_OPPONENT`) and calls `draw_presence_panel(layout.portrait_panel, name,
   portrait)`. (Uses `opponent_by_id`, already imported.)
