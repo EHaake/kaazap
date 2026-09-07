@@ -1,6 +1,6 @@
 # Tasks: Opponent portraits — spec 016
 
-**Status**: In progress — **PAUSED at the T001 spike gate pending external art** (see Spike outcome).
+**Status**: In progress — **Phases 1–3 complete** (render path, all 11 portraits, panel geometry + grown 139×31 minimum). Next: **Phase 4** (T005–T007 wire the presence panel onto opponent-select, the in-match board, and the campaign-map rail — the first player-visible panels). The spike-gate escalation (below) is resolved: portraits were externally authored and integrated in T002.
 **Implements**: plan.md in this directory
 **Person approval:** plan + tasks approved; minimum 139×31 accepted (portraits always-on); the `design/brief.md` bounded exception approved (lands at T001b).
 
@@ -116,7 +116,7 @@ skeptical-reviewer pass; T004 is reviewed at phase end. -->
   l.opponent.hand.x1`, does not overlap the board, and its bottom `<= 30`; the renamed
   min-size test asserts `min_size() == (139, 31)` and `== (IN_MATCH_MIN_WIDTH,
   BOARD_BLOCK_HEIGHT)`. Report the new minimum (139×31) in the task note.*
-- [ ] **T004 (foundational)** — Campaign-map portrait rail. In `src/layout.rs`
+- [x] **T004 (foundational)** — Campaign-map portrait rail. In `src/layout.rs`
   `CampaignMapLayout::new`: add `pub portrait_panel: Rect` on the right of the field band
   (`PANEL_W` wide, `2 + 1 + PORTRAIT_HEIGHT` tall, near the field top) and shrink `field.x1`
   to `portrait_panel.x0 - 2`. Move the two map guard tests to the new minimum.
@@ -224,3 +224,5 @@ treating the policy as settled. -->
 | T001 spike gate (person) + T002 art (external, Fable 5.1 session per `portrait-art-brief.md`) | fable (art session); orchestrator integrated | n/a (art session not metered here) | spike **go**; all 11 portraits (incl. re-authored `generic`/`greeb`) delivered, validated 12×≤18 / palette-only / pairwise distinct, signed off by the person; roster repointed, T002 invariant tests added; 265 tests green. T001b still open. |
 | T003 impl — panel geometry + grown minimum (sdd-implementer) | opus (one down) | 37,501 | done, no deviations; board Rects/centering byte-for-byte unchanged; flagged that campaign-map tests hardcode `(89,31)` → T004 moves them. 266 tests green. |
 | T003 review (skeptical-reviewer) | opus (per-task) | 24,410 | **signed off**, 0 blocking (arithmetic re-derived: panel 117..138 at 139-min, symmetric 25-col margins). Non-blocking notes (logged, sweep): (1) fit test's overlap guard asserts `x0 > opponent.hand.x1` (board *content* edge 109) not the board-*block* edge 113 — the plan's specified assertion, panel at 117 clears both; (2) test hardcodes rows `31` not `BOARD_BLOCK_HEIGHT`; (3) zero right-edge slack at the minimum (intentional, symmetric-margin design); (4) other-screen fit at 139 not checked here — satisfied by construction (every other screen is a centered block that already fits 89, so it fits wider) and confirmed by the T008 sweep/driver. |
+| T004 impl — campaign-map portrait rail (sdd-implementer) | opus (one down) | 38,888 | done, no deviations; `FIELD_RAIL_GAP=2`, no bump needed — far-right cursored label (planet "zenith") clears the rail by 14 cells at the wider 139-min field (sign-off finding 2's ~1-cell tightness was an artifact of the old 89 field). Stale "89×31" comments in the moved tests corrected. |
+| T004 review (skeptical-reviewer, phase-end) | opus (default) | 25,891 | **signed off**, 0 blocking; strong second-look: rail *vertical* bounds were untested (reviewer lacked the consts to confirm) → orchestrator added `portrait_panel` to the fits test's in-bounds loop + `portrait_panel.y1 < panel.y0` (computed clear: y1=16 vs bottom info band at row 26). Minor non-blocking: `FIELD_RAIL_GAP=2` leaves one clear column (cosmetic). |
