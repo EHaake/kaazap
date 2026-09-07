@@ -34,13 +34,16 @@ implementer returns, and only the orchestrator commits.
 
 **Foundational phases:** Phase 1 (T001) and Phase 3 (T003, T004) are foundational —
 the new shared render path, the shared data-model field, and the layout/minimum-terminal
-change everything else rests on — and get a **per-task** `skeptical-reviewer` pass on the
-task's diff. **T005 joins them** (the shared `draw_presence_panel` render path both later
-panels depend on — a "new shared render path" per CLAUDE.md; sign-off finding 5). Phase 2
-(T003 — the cast) and the rest of Phase 4 (T006, T007) plus the close-out are reviewed **at
-phase end**. T001 is additionally the spec-mandated **art-format spike**, its person pause a
-go/no-go; **T001b** lands the `design/brief.md` bounded exception immediately after the spike
-confirms the vocabulary (sign-off finding 1).
+change everything else rests on. Under the constitution's current review cadence the default
+is a **per-phase** `skeptical-reviewer` pass; only the two tasks whose mistake is genuinely
+expensive to unwind carry `review: per-task` — **T001** (the `portrait.rs` render primitive
+plus the `OpponentProfile.portrait` data-model field a dozen roster entries depend on) and
+**T003** (the grown minimum terminal + in-match panel geometry that re-shapes every screen's
+layout constraint). Every other task — T002, T004, T005, T006, T007, and the close-out — is
+reviewed **at phase end** (T004 and T005, foundational/shared but contained, ride their
+phase's review rather than their own). T001 is additionally the spec-mandated **art-format
+spike**, its person pause a go/no-go; **T001b** lands the `design/brief.md` bounded exception
+immediately after the spike confirms the vocabulary (sign-off finding 1).
 
 ---
 
@@ -50,7 +53,7 @@ confirms the vocabulary (sign-off finding 1).
 the spec-mandated spike — prove one portrait reads as a face before authoring the rest.
 Per-task skeptical-reviewer pass, then a person pause (go/no-go). -->
 
-- [ ] **T001 (foundational, spike)** — Create `src/portrait.rs` (add to `src/lib.rs`):
+- [ ] **T001 (foundational, spike, review: per-task)** — Create `src/portrait.rs` (add to `src/lib.rs`):
   `pub const PORTRAIT_WIDTH = 18` / `PORTRAIT_HEIGHT = 12`; `draw_portrait(frame, x, y,
   art, emphasis)` drawing each art line via `draw_text`, clip-safe like `CardView::draw`.
   Author **two** original monochrome art files — `assets/portraits/generic.txt` and
@@ -95,9 +98,10 @@ Per-task skeptical-reviewer pass, then a person pause (go/no-go). -->
 ## Phase 3 — Layout foundation: presence panel + grown minimum
 
 <!-- Foundational: adds the opponent panel to the board layout, raises the enforced
-minimum terminal, and re-shapes the campaign-map field. Per-task skeptical-reviewer pass. -->
+minimum terminal, and re-shapes the campaign-map field. T003 gets a per-task
+skeptical-reviewer pass; T004 is reviewed at phase end. -->
 
-- [ ] **T003 (foundational)** — In-match panel geometry + the grown minimum. Add the panel
+- [ ] **T003 (foundational, review: per-task)** — In-match panel geometry + the grown minimum. Add the panel
   size consts to `src/portrait.rs` (`PANEL_W`, `PANEL_H_INMATCH`, `PANEL_GAP`, derived from
   `PORTRAIT_WIDTH/HEIGHT` — plan §Design). In `src/layout.rs`: add `pub opponent_panel: Rect`
   to `BoardLayout` (anchored `left + BOARD_WIDTH + PANEL_GAP`, top-aligned with the board
@@ -181,11 +185,12 @@ minimum terminal, and re-shapes the campaign-map field. Per-task skeptical-revie
 Read `CLAUDE.md`, `design/brief.md`, and `specs/016-opponent-portraits/{spec,plan,tasks}.md`,
 then implement from the first unchecked task. Involvement level is **product owner**.
 Dispatch each routine task to the `sdd-implementer` per the model policy; verify by running
-the build and tests yourself, then commit. **Foundational tasks (T001, T003, T004):** run the
-`skeptical-reviewer` after the task, scoped to that task's diff, its plan section, and its
-acceptance criteria (a shell-assembled bundle). **T002, T005–T007:** review at phase end.
-Pause for the person after each phase, and whenever something unexpected bears on spec
-adherence.
+the build and tests yourself, then commit. **Tasks marked `review: per-task` (T001, T003):**
+run the `skeptical-reviewer` after the task, scoped to that task's diff, its plan section, and
+its acceptance criteria (a shell-assembled bundle), one review plus at most one re-review, and
+re-run the verification command yourself before committing. **Every other task (T002, T004,
+T005–T007) and the close-out:** review at phase end. Pause for the person after each phase,
+and whenever something unexpected bears on spec adherence.
 
 **T001 is a hard gate:** it is the spec-mandated art-format spike. After building it, the
 person must *look* and confirm the portrait reads as a face (eyes + expression) in monochrome.
@@ -215,4 +220,4 @@ treating the policy as settled. -->
 | Planning: draft (sdd-planner) | opus (top, inherit) | 162,098 | drafted; no escalation |
 | plan + tasks sign-off (skeptical-reviewer) | opus (decision) | 110,054 | **signed off**, 0 blocking; 5 second-look items folded (brief timing → T001b, T003 import, T004 rail clearance, T005 shared-path review, T008 stale-minimum wording) |
 | T001 impl — code scaffolding (sdd-implementer) | opus (one down) | 55,663 | done; flagged that `game.rs:1688` is a full `OpponentProfile` literal (not `..DEFAULT_OPPONENT`), so it needed the new field — a minor plan §2 inaccuracy, handled. Art files authored by the orchestrator (spike creative core), not dispatched. |
-| T001 review (skeptical-reviewer) | opus (default) | 39,472 | **signed off**, 0 blocking. Non-blocking notes (logged, deferred to sweep): (1) block/shade glyphs `█▀▄▓░` are East-Asian *Ambiguous* width — a pre-existing project-wide assumption shared with the box borders + title art, not a T001 regression; (2) plan §2 game.rs claim (above); (3) clip test omits direct right-edge horizontal-overrun case (covered transitively via `draw_text`); (4) placement test uses ASCII not a multibyte glyph (sound via `draw_text`); (5) temporary opponent-select preview could graze a long blurb — verified no overlap (blurb row ≫ portrait rows) and T005 replaces it anyway. |
+| T001 review (skeptical-reviewer) | opus (per-task) | 39,472 | **signed off**, 0 blocking. Non-blocking notes (logged, deferred to sweep): (1) block/shade glyphs `█▀▄▓░` are East-Asian *Ambiguous* width — a pre-existing project-wide assumption shared with the box borders + title art, not a T001 regression; (2) plan §2 game.rs claim (above); (3) clip test omits direct right-edge horizontal-overrun case (covered transitively via `draw_text`); (4) placement test uses ASCII not a multibyte glyph (sound via `draw_text`); (5) temporary opponent-select preview could graze a long blurb — verified no overlap (blurb row ≫ portrait rows) and T005 replaces it anyway. |
