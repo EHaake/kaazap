@@ -353,6 +353,53 @@ The spec-008 single-grid side-deck builder became a two-panel "briefcase". The c
 No engine, `Profile`-model, save-format, or economy change — a screen + layout reshape plus
 the one map launch key.
 
+## Opponent portraits (spec 016)
+
+Every opponent (plus a generic fallback) got a face — a low-resolution monochrome
+portrait shown beside the board in-match and as a preview in opponent-select and on
+a focused campaign-map node. The calls:
+
+- **A bounded pictorial exception to the monochrome brief, amended before the code
+  landed.** `design/brief.md` ruled out block-art flourishes and made cards the only
+  physical metaphor. Rather than quietly break that, the brief gained an amendment (its
+  own commit, right after the art-format spike): opponent portraits are the single
+  pictorial element — **monochrome, static, opponent-only, one fixed portrait frame
+  distinct from the card frame, no color, no animation**. The card frame stays the only
+  card-shaped box; the portrait frame is a clearly-non-card element. Human-ruled at plan
+  sign-off.
+- **Glyph vocabulary (spike-confirmed).** A fixed **18×12** grid, one glyph per cell,
+  drawn at uniform plain weight — depth comes from **glyph density**, not attribute
+  layers or color (the render model has no color path). The palette is the full/shade
+  blocks `█ ▓ ▒ ░`, the half blocks `▀ ▄ ▌ ▐`, the quadrant blocks
+  `▖ ▗ ▘ ▝ ▙ ▟ ▛ ▜ ▚ ▞`, and space.
+- **Authored assets, not a generation script — and who authored them.** Procedurally
+  synthesizing a *recognizable face* isn't feasible, so the spec's "script and/or authored
+  assets" took the authored branch. The mandated **art-format spike** (one portrait, looked
+  at in the running game) confirmed the approach reads as a face; at the go/no-go the person
+  **escalated the actual authoring to a more capable tool** (Fable 5.1) against an in-repo
+  specification (`specs/016-opponent-portraits/portrait-art-brief.md`), with Claude Code
+  **validating** (12 lines × ≤18 cols, palette-only, pairwise-distinct) and **integrating**
+  them. Original alien designs, no trademarked species (the planet-names / no-copyrighted-
+  music stance). Recorded in `assets/CREDITS.md`.
+- **`OpponentProfile.portrait` is data, not logic** — a `&'static str` embedded with
+  `include_str!`, like `blurb`. An unknown or absent id resolves to `DEFAULT_OPPONENT`,
+  whose portrait is the generic, so the panel is **never blank** (the Quick Play default and
+  any unmapped opponent show the generic).
+- **The always-visible in-match panel grew the minimum terminal, 89×31 → 139×31.** The
+  board keeps its exact layout and stays centered; the opponent-presence panel is drawn in
+  the **right margin**, and the equal **left margin is reserved empty** for a future
+  player-status panel (the layout is intentionally asymmetric for now). `IN_MATCH_MIN_WIDTH`
+  and the panel width both derive from the portrait size, so they move together; below the
+  minimum the existing too-small machinery errors with the required size, unchanged.
+- **Reserved, not built.** The in-match panel reserves rows below the portrait for the
+  coming banter line + round pips (the next personality spec); the two preview panels use a
+  snug rect with no reserved rows. One shared `draw_presence_panel` drawer serves all three
+  surfaces; the campaign map reserves a right-side rail (the node field reflows to clear it,
+  no planet-position edits).
+
+No engine, AI, save-format, or campaign-logic change — a render path, authored assets, one
+data field, and a layout/minimum-terminal change.
+
 ## Explicitly deferred out of v1
 
 - **Full side-deck customization** (building your own 10-card deck from a

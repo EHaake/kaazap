@@ -180,6 +180,20 @@ of, not guessed at here in advance.
   bug: the incomplete-deck divert returned to the menu, now the map. Content-sized panels
   (no scrolling); a nav that can't move plays a distinct "declined" cue.
   `deck_builder`/`layout`/`app`/`campaign_map` only — no engine, save, or economy change.
+- **Opponent portraits** (spec 016) — every opponent (plus a generic fallback) now has a
+  face: a low-resolution **monochrome** portrait shown in an always-visible
+  **opponent-presence panel** beside the board in-match, and as a preview in Quick Play
+  opponent-select and on a focused campaign-map node. A new `portrait.rs` render path
+  (`draw_portrait` + a shared `draw_presence_panel`), one authored `.txt` art asset per
+  opponent (`assets/portraits/`), and a `portrait` field on `OpponentProfile` (data, not
+  logic, with the generic as the never-blank fallback). The always-on panel **grew the
+  minimum terminal 89×31 → 139×31** — the board is unchanged and still centered, the panel
+  sits in the right margin, and the equal left margin is reserved empty for a future
+  player-status panel; the panel also reserves rows for the coming banter line + round pips.
+  Monochrome by construction (no color path), blessed by a `design/brief.md` bounded-
+  exception amendment. Portraits are original block art (no trademarked species), authored
+  to an in-repo brief and validated/integrated by Claude Code after the mandated art-format
+  spike. Banter (below) follows — it now has a face to come from.
 
 ## Backlog
 
@@ -263,9 +277,9 @@ spec 005's versioning).
 ### Immersion & personality (now being sequenced)
 
 Making the opponents feel like people, not just AI parameters — two
-independent slices; **portraits go first** (spec 016) — banter is a voice and
-needs a face to come from — and neither touches the stakes work below, so they
-can interleave freely.
+independent slices; **portraits shipped first** (spec 016 — see Shipped) —
+banter is a voice and needs a face to come from, and now has one — and neither
+touches the stakes work below, so they can interleave freely.
 
 - **Opponent banter** — event-driven flavor text per opponent: short lines on
   match start, a round won / lost / tied, a bust, a board-reversing card play,
@@ -276,19 +290,16 @@ can interleave freely.
   change; the real cost is *writing* (10 opponents). Highest personality-per-
   effort item, but **it follows portraits** — banter attaches to a face.
   Opponents today carry only a static `blurb` (spec 007), shown outside matches.
-- **Opponent portraits (monochrome)** — a per-opponent character-art portrait
-  (eventually lightly animated by swapping frames on the existing pulse/tick),
-  shown in-match and/or on the map / select panels. **Monochrome by construction
-  and by design:** the frame is `Cell { ch, emphasis }` with no color path and
-  `design/brief.md` rules color out as an identity decision, so this is dithered
-  block / braille / ASCII shading using Bold/Dim as tones — *not* colored pixel
-  art. (A colorful version would need both a rendering-layer change and a
-  design-brief amendment; out of scope unless that identity call is made first,
-  upstream — human-ruled: monochrome, don't assume color.) Needs a layout region
-  (an always-visible opponent-presence panel beside the board; growing the board
-  block and the minimum terminal to fit it) + authoring ~10 portraits. **Do first
-  — now spec 016 (in progress);** banter follows. In-repo generated, monochrome,
-  static (animation deferred) — the resolved calls live in `specs/016-*/spec.md`.
+- **Opponent portraits (monochrome)** — ✅ **Shipped (spec 016** — see Shipped above
+  and `DECISIONS.md`). A monochrome character-art portrait per opponent (plus a generic
+  fallback), shown in an always-visible presence panel beside the board and as a preview
+  in opponent-select and on the campaign map. As anticipated it needed a layout region and
+  a grown minimum terminal (**89×31 → 139×31**), and stayed monochrome by construction (no
+  color path), sanctioned by a `design/brief.md` bounded-exception amendment. The mandated
+  art-format spike proved the approach; the portraits were then authored to an in-repo brief
+  by a more capable tool and validated/integrated by Claude Code. **Light animation**
+  (swapping frames on the pulse/tick) stayed **deferred** to a later spec; **banter** (above)
+  is the next slice and now has a face to attach to.
 
 ### Stakes, loss condition & difficulty balance (now being sequenced)
 

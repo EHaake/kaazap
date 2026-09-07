@@ -18,7 +18,8 @@ use crate::{
     economy::WinReward,
     frame::{Emphasis, Frame, draw_char, draw_text, draw_text_centered},
     layout::CampaignMapLayout,
-    opponent::opponent_by_id,
+    opponent::{DEFAULT_OPPONENT, opponent_by_id},
+    portrait::draw_presence_panel,
     profile::Profile,
 };
 
@@ -202,6 +203,16 @@ impl CampaignMapState {
 
         self.draw_header(frame, &layout, run, profile.credits(), last_reward);
         self.draw_panel(frame, &layout, run);
+
+        // Focused planet's opponent preview in the right rail: the next
+        // opponent to play, else the planet's last opponent (a cleared planet
+        // still shows its resident face), else the generic fallback.
+        let planet = PLANETS[self.cursor];
+        let shown_id = run
+            .next_opponent(&planet)
+            .or_else(|| planet.opponents.last().copied());
+        let shown = shown_id.and_then(|id| opponent_by_id(id)).unwrap_or(DEFAULT_OPPONENT);
+        draw_presence_panel(frame, layout.portrait_panel, shown.name, shown.portrait);
     }
 
     fn draw_starfield(&self, frame: &mut Frame, layout: &CampaignMapLayout) {

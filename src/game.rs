@@ -1694,6 +1694,7 @@ mod tests {
             side_deck: &DECK,
             strategy: AiStrategy::Basic,
             misplay: 0.0,
+            portrait: DEFAULT_OPPONENT.portrait,
         };
 
         let assert_opponent_hand_from_deck = |gs: &GameState, when: &str| {

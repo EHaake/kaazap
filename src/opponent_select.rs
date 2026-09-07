@@ -11,9 +11,20 @@ use crossterm::event::KeyCode;
 use crate::{
     config::Config,
     frame::{Emphasis, Frame, draw_text_centered},
-    layout::MenuLayout,
+    layout::{MenuLayout, Rect},
     opponent::{OPPONENTS, OpponentProfile},
+    portrait::{PANEL_W, PORTRAIT_HEIGHT, draw_presence_panel},
 };
+
+/// The opponent-preview panel Rect: a snug bordered panel (border + name +
+/// portrait, no reserved rows) to the right of the centered roster list.
+fn preview_rect(config: &Config) -> Rect {
+    let layout = MenuLayout::new(*config, 1, OPPONENTS.len(), 6);
+    let x0 = layout.center_x + 18; // clears the widest roster row
+    let y0 = layout.items_top; // top-aligned with the list
+    let h = 2 + 1 + PORTRAIT_HEIGHT; // top+bottom border, name row, portrait — snug
+    Rect::new(x0, x0 + PANEL_W - 1, y0, y0 + h - 1)
+}
 
 /// The result of a key on the select screen: the cursor moved, an opponent was
 /// chosen, or the player backed out. Lets the app play the matching menu SFX
@@ -114,12 +125,32 @@ impl OpponentSelectState {
         let blurb = OPPONENTS[self.selected].blurb;
         draw_text_centered(frame, layout.center_x, y + 2, blurb, Emphasis::Normal);
         draw_text_centered(frame, layout.center_x, y + 4, HINT, Emphasis::Normal);
+
+        // The cursored opponent's presence panel, right of the centered list.
+        let o = OPPONENTS[self.selected];
+        draw_presence_panel(frame, preview_rect(config), o.name, o.portrait);
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn preview_panel_is_on_frame_and_clear_of_the_list_at_the_minimum() {
+        use crate::layout::IN_MATCH_MIN_WIDTH;
+        let config = Config { num_cols: IN_MATCH_MIN_WIDTH, num_rows: 31 };
+        let r = preview_rect(&config);
+        // on-frame
+        assert!(r.x1 < config.num_cols && r.y1 < config.num_rows, "preview off-frame: {r:?}");
+        // clear of the widest roster row (rows are centered on center_x)
+        let center_x = config.num_cols / 2;
+        let widest = OPPONENTS.iter()
+            .map(|o| format!("\u{25b8} {}  \u{2014}  {}", o.name, o.difficulty).chars().count())
+            .max().unwrap();
+        let list_right_edge = center_x + widest / 2; // draw_text_centered right extent
+        assert!(r.x0 > list_right_edge, "preview x0 {} overlaps the list (right edge {list_right_edge})", r.x0);
+    }
 
     #[test]
     fn navigation_wraps_over_the_roster() {
@@ -162,10 +193,13 @@ mod tests {
 
     #[test]
     fn the_full_roster_and_footer_fit_the_minimum_terminal() {
-        // At the 89×31 minimum the title, all opponents, the blurb (drawn at
+        // At the 139×31 minimum the title, all opponents, the blurb (drawn at
         // `y + 2`) and the controls hint (`y + 4`) must all land on-frame — the
         // footer reserve passed to MenuLayout is what makes the grown roster fit.
-        let config = Config { num_cols: 89, num_rows: 31 };
+        // (Width is irrelevant here — this guards the vertical fit — but track the
+        // real minimum so the name stays honest.)
+        use crate::layout::IN_MATCH_MIN_WIDTH;
+        let config = Config { num_cols: IN_MATCH_MIN_WIDTH, num_rows: 31 };
         let layout = MenuLayout::new(config, 1, OPPONENTS.len(), 6);
         let after_items = layout.items_top + OPPONENTS.len() * layout.item_spacing;
         let hint_y = after_items + 4; // must match `draw`

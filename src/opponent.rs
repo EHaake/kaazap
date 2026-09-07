@@ -56,6 +56,10 @@ pub struct OpponentProfile {
     /// error" dash. Higher for easy opponents, `0.0` for the master and the
     /// default (so the default stays deterministic for tests).
     pub misplay: f32,
+    /// Monochrome block-art face shown in the presence panel and previews
+    /// (spec 016). Authored art under `assets/portraits/`, embedded at compile
+    /// time; the generic file is the fallback for the default opponent.
+    pub portrait: &'static str,
 }
 
 /// The neutral default opponent — the pre-roster "Opponent" behavior
@@ -72,6 +76,7 @@ pub const DEFAULT_OPPONENT: OpponentProfile = OpponentProfile {
     side_deck: &DEFAULT_SIDE_DECK,
     strategy: AiStrategy::Basic,
     misplay: 0.0, // deterministic baseline — keeps the AI tests deterministic
+    portrait: include_str!("../assets/portraits/generic.txt"),
 };
 
 /// The selectable roster, ordered easiest → hardest. Names and blurbs are
@@ -99,6 +104,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Basic,
         misplay: 0.25, // a rookie — makes real mistakes
+        portrait: include_str!("../assets/portraits/greeb.txt"),
     },
     OpponentProfile {
         id: "dax",
@@ -120,6 +126,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Aggressive,
         misplay: 0.22, // green and reckless — pushes and slips
+        portrait: include_str!("../assets/portraits/dax.txt"),
     },
     OpponentProfile {
         id: "vessa",
@@ -141,6 +148,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Aggressive,
         misplay: 0.15,
+        portrait: include_str!("../assets/portraits/vessa.txt"),
     },
     OpponentProfile {
         id: "nima",
@@ -162,6 +170,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Cautious,
         misplay: 0.15,
+        portrait: include_str!("../assets/portraits/nima.txt"),
     },
     OpponentProfile {
         id: "toran",
@@ -172,6 +181,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         side_deck: &DEFAULT_SIDE_DECK,
         strategy: AiStrategy::Cautious,
         misplay: 0.10,
+        portrait: include_str!("../assets/portraits/toran.txt"),
     },
     OpponentProfile {
         id: "brakka",
@@ -193,6 +203,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Aggressive,
         misplay: 0.12,
+        portrait: include_str!("../assets/portraits/brakka.txt"),
     },
     OpponentProfile {
         id: "rix",
@@ -214,6 +225,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Calculating,
         misplay: 0.05,
+        portrait: include_str!("../assets/portraits/rix.txt"),
     },
     OpponentProfile {
         id: "kesh",
@@ -235,6 +247,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Aggressive,
         misplay: 0.06,
+        portrait: include_str!("../assets/portraits/kesh.txt"),
     },
     OpponentProfile {
         id: "magistrate",
@@ -256,6 +269,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         ],
         strategy: AiStrategy::Calculating,
         misplay: 0.0, // the master — essentially never slips
+        portrait: include_str!("../assets/portraits/magistrate.txt"),
     },
     OpponentProfile {
         id: "sovereign",
@@ -281,6 +295,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         // range + recovery + the tiebreaker, so it almost always holds the exact
         // card to hit, recover, or steal a tie.
         misplay: 0.0,
+        portrait: include_str!("../assets/portraits/sovereign.txt"),
     },
 ];
 
@@ -335,6 +350,31 @@ mod tests {
                 assert_ne!(a.id, b.id, "duplicate opponent id: {}", a.id);
             }
         }
+    }
+
+    #[test]
+    fn every_portrait_has_valid_dimensions() {
+        use crate::portrait::{PORTRAIT_HEIGHT, PORTRAIT_WIDTH};
+        let all = OPPONENTS.iter().chain(std::iter::once(&DEFAULT_OPPONENT));
+        for o in all {
+            let art = o.portrait;
+            assert_eq!(art.lines().count(), PORTRAIT_HEIGHT, "{}: wrong line count", o.id);
+            for (i, line) in art.lines().enumerate() {
+                assert!(line.chars().count() <= PORTRAIT_WIDTH, "{} line {i} too wide", o.id);
+            }
+        }
+    }
+
+    #[test]
+    fn roster_portraits_are_pairwise_distinct_and_default_is_generic() {
+        for (i, a) in OPPONENTS.iter().enumerate() {
+            for b in &OPPONENTS[i + 1..] {
+                assert_ne!(a.portrait, b.portrait, "{} and {} share a portrait", a.id, b.id);
+            }
+            assert_ne!(a.portrait, DEFAULT_OPPONENT.portrait, "{} uses the generic face", a.id);
+        }
+        assert!(!DEFAULT_OPPONENT.portrait.is_empty());
+        assert_eq!(DEFAULT_OPPONENT.portrait, include_str!("../assets/portraits/generic.txt"));
     }
 
     #[test]
