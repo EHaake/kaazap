@@ -162,6 +162,17 @@ reaction (which shows through `AwaitingNextRound`, the "next round" pause) clear
 round's play begins. The match-end line has no following round, so it persists on the game-over
 screen (desired). `banter_last` is untouched by the clear, preserving §4.
 
+**Rematch greeting (found at the T005 review).** A rematch (`new_game` in place, after game over)
+does not run the fresh-match seed path (`app.rs:493`) — it resets `GameState` inside the existing
+`Screen::InGame`, so without help the match-end line would linger into the new match and no
+match-start greeting would fire, missing the "a line fires on match start" criterion for the
+rematch case. A rematch is the *only* in-game `game_over` true→false transition, so it is a clean
+diff signal: `pub fn match_restarted(prev, curr) -> bool = prev.game_over && !curr.game_over`.
+`update_banter` checks it **first** (a match start outranks the round-level branches) and seeds a
+greeting: `pick(banter_for(id).match_start, self.banter_last, rng)` into both `banter` and
+`banter_last`. No input-path or borrow changes — it rides the existing per-tick diff. (Leaving to
+the menu exits `InGame`, where `update_banter` early-returns, so no false trigger.)
+
 ## Design
 
 New geometry constant (in `portrait.rs`, with the panel geometry it derives from):
