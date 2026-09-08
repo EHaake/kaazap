@@ -1,8 +1,8 @@
 # Tasks: Opponent banter — spec 017
 
-> **Status:** Signed off by skeptical-reviewer (with notes, applied). Awaiting person approval.
+> **Status:** Approved — implementation in progress.
 **Implements**: plan.md in this directory
-**Person approval:** pending (skeptical-reviewer signed off; person's spec-conformance approval and technical-lead sign-off not yet given — no implementation task starts until then).
+**Person approval:** granted (product-owner spec-conformance + technical-lead sign-off, after skeptical-reviewer sign-off with notes applied).
 
 Ordered, small, independently verifiable. Each task should be completable (and
 testable) on its own. If a session ends mid-list, resume by finding the first

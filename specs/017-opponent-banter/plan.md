@@ -1,6 +1,6 @@
 # Plan: Opponent banter — spec 017
 
-> **Status:** Signed off by skeptical-reviewer (with notes, applied). Awaiting person approval.
+> **Status:** Approved — skeptical-reviewer signed off (notes applied), person approved (product-owner + technical-lead). Implementation started.
 **Implements**: `spec.md` in this directory
 
 ## Context
