@@ -192,6 +192,6 @@ treating the policy as settled. -->
 | Phase 3 review (skeptical-reviewer) | opus (default) | ~26.0K | APPROVE WITH NOTES; panel unchanged, border-untouched proof genuine, pips correct; pip-centering half-cell-left note carried to T005 |
 | T004 impl (sdd-implementer) | opus (one down) | ~42.8K | done; 286 tests, no warnings, only app.rs (verbatim); let-chain form matches existing app.rs idiom |
 | T005 impl (sdd-implementer) | opus (one down) | ~20.2K | done; 286 tests, no warnings, only board.rs+app.rs (verbatim); param order draw(state,cursor,banter,pulse,frame) |
-| Phase 4 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
+| Phase 4 review (skeptical-reviewer) | opus (default) | ~24.8K | APPROVE WITH NOTES; both tick sites, seeding, transient invariant, no double-fire all sound; in-match-only confirmed by grep (extras only in board.rs) |
 | T006 close-out (orchestrator) | opus (top) | _TBD_ | _pending_ |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
