@@ -94,7 +94,7 @@ shared draw_presence_panel so the two preview callers are untouched. Reviewed at
 
 ## Phase 4 — Wire banter onto the in-match board
 
-- [ ] **T004** — Banter state + per-tick update in `src/app.rs`. Add fields `banter:
+- [x] **T004** — Banter state + per-tick update in `src/app.rs`. Add fields `banter:
   Option<&'static str>` and `prev_banter: Option<BanterSnapshot>` (grouped with `prev_audio`).
   Add `fn update_banter(&mut self)` mirroring `emit_audio_cues` (`app.rs:511`): snapshot the
   current `GameState`; on a `banter_event` from `prev_banter`, set `self.banter =
@@ -190,7 +190,7 @@ treating the policy as settled. -->
 | Phase 2 review (skeptical-reviewer) | opus (default) | ~27.3K | APPROVE WITH NOTES; POV/class correct across all 10, voices distinct; 3 taste notes carried to T005 |
 | T003 impl (sdd-implementer) | opus (one down) | ~26.3K | done; 286 tests pass (verbatim); draw_presence_panel unchanged; removed now-stale ROUND_PIPS dead_code allow |
 | Phase 3 review (skeptical-reviewer) | opus (default) | ~26.0K | APPROVE WITH NOTES; panel unchanged, border-untouched proof genuine, pips correct; pip-centering half-cell-left note carried to T005 |
-| T004 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
+| T004 impl (sdd-implementer) | opus (one down) | ~42.8K | done; 286 tests, no warnings, only app.rs (verbatim); let-chain form matches existing app.rs idiom |
 | T005 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
 | Phase 4 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T006 close-out (orchestrator) | opus (top) | _TBD_ | _pending_ |

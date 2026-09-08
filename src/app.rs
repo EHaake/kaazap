@@ -5,6 +5,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use crate::{
     SELECTION_PULSE_MS,
     audio::{Audio, AudioSnapshot, Sfx, audio_cues},
+    banter::{BanterSnapshot, banter_event, banter_for, lines_for, pick},
     board::BoardView,
     campaign::NodeRef,
     campaign_map::{CampaignMapState, MapOutcome},
@@ -332,6 +333,12 @@ pub struct App {
     // The last in-game audio snapshot; the next one is diffed against it to
     // decide which SFX to play. None outside a game.
     prev_audio: Option<AudioSnapshot>,
+    // The opponent's current banter line, shown in the portrait panel. None
+    // outside a game, or when there's no appropriate line for the state yet.
+    banter: Option<&'static str>,
+    // The last in-game banter snapshot; the next is diffed against it to
+    // decide which line class fires. None outside a game.
+    prev_banter: Option<BanterSnapshot>,
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
@@ -359,6 +366,8 @@ impl App {
             settings,
             profile,
             prev_audio: None,
+            banter: None,
+            prev_banter: None,
             too_small: None,
             last_reward: None,
         }
@@ -490,6 +499,9 @@ impl App {
         self.profile.campaign_mut().set_in_progress(campaign);
         self.profile.save();
 
+        // Capture the id before `opponent` is moved into the game state; the
+        // greeting seeds the opening banter line.
+        let opp_id = opponent.id;
         self.screen = Screen::InGame {
             game_state: Box::new(GameState::with_opponent(
                 opponent,
@@ -500,6 +512,10 @@ impl App {
         // Fresh game — the first snapshot seeds silently, so the empty
         // starting board plays no cues.
         self.prev_audio = None;
+        // Seed the banter with the opponent's greeting; the first snapshot
+        // seeds the diff silently.
+        self.prev_banter = None;
+        self.banter = Some(pick(banter_for(opp_id).match_start, None, &mut rand::rng()));
         // Persist immediately (overwriting any prior save), so quitting right
         // away still leaves a resumable game and Continue appears next launch.
         self.save_game();
@@ -519,6 +535,25 @@ impl App {
             }
         }
         self.prev_audio = Some(curr);
+    }
+
+    /// Update the opponent's banter line for whatever just changed, by diffing
+    /// the current state against the previous snapshot — mirroring
+    /// `emit_audio_cues`. A no-op outside a game. On a fired event, picks a line
+    /// from the opponent's voice, never repeating the currently-shown one.
+    fn update_banter(&mut self) {
+        let (curr, id) = match &self.screen {
+            Screen::InGame { game_state, .. } => {
+                (BanterSnapshot::of(game_state), game_state.opponent_profile.id)
+            }
+            _ => return,
+        };
+        if let Some(prev) = self.prev_banter
+            && let Some(ev) = banter_event(&prev, &curr)
+        {
+            self.banter = Some(pick(lines_for(banter_for(id), ev), self.banter, &mut rand::rng()));
+        }
+        self.prev_banter = Some(curr);
     }
 
     /// Re-lay-out for a new (valid) terminal size and resume play. Game
@@ -796,6 +831,7 @@ impl App {
 
         // After any input, sound whatever just changed in the game.
         self.emit_audio_cues();
+        self.update_banter();
     }
 
     /// Route a key to the open settings panel: move between rows, adjust the
@@ -970,6 +1006,10 @@ impl App {
                     // the restored board doesn't replay cues for cards already
                     // on the table.
                     self.prev_audio = None;
+                    // Blank the banter on resume — no greeting for a match
+                    // already underway; the next event supplies a line.
+                    self.prev_banter = None;
+                    self.banter = None;
                 }
             }
             MenuItem::StartCampaign => {
@@ -1066,6 +1106,7 @@ impl App {
         // Sound the opponent's moves and round/game resolutions, which
         // happen here in the update rather than from a player keypress.
         self.emit_audio_cues();
+        self.update_banter();
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
