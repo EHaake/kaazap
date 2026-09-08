@@ -159,7 +159,7 @@ phase-based clearing, and spaces the pips. Reviewed at phase end. -->
   *Verify: `cargo build --all-targets` / `cargo test -q` green — tests: the pip row spans
   `ROUND_PIPS*2-1` with a blank between glyphs, exactly `ROUND_PIPS` markers, `rounds_won` filled,
   centered within the interior, clip-safe. Driver at T005c.*
-- [ ] **T005d** — Rematch greeting (gap found at the Phase 5 review). In `src/banter.rs` add
+- [x] **T005d** — Rematch greeting (gap found at the Phase 5 review). In `src/banter.rs` add
   `pub fn match_restarted(prev, curr) -> bool = prev.game_over && !curr.game_over` (with a test:
   true only on game_over true→false). In `src/app.rs` `update_banter`, check `match_restarted`
   **before** the event / `play_resumed` branches; on it, seed a match-start greeting into both
@@ -244,6 +244,6 @@ treating the policy as settled. -->
 | T005a impl (phase-based clear) | opus (sdd-implementer pins model: opus regardless of session model — the mid-spec settings.json flip to a Sonnet *orchestrator* did not change the implementer tier; policy amended on main, resolved) | ~44.1K | done; 288 tests pass (verbatim), only banter.rs+app.rs source; player_engaged + play_resumed + banter_last |
 | T005b impl (spaced pips) | opus (pinned) | ~22.6K | done; 289 tests pass (verbatim), only portrait.rs; per-glyph stride-2 draw + spacing test |
 | Phase 5 review (skeptical-reviewer) | opus (pinned) | ~46.3K | APPROVE; clear/no-repeat/persist/pips all sound (traced setup_next_round); surfaced rematch-greeting gap → T005d |
-| T005d impl (rematch greeting) | opus (pinned) | _TBD_ | _pending_ |
+| T005d impl (rematch greeting) | opus (pinned) | ~22.1K | done; 290 tests pass (verbatim), only banter.rs+app.rs; match_restarted branch checked first in update_banter |
 | T006 close-out (orchestrator) | sonnet (orchestrator) | _TBD_ | _pending_ |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |

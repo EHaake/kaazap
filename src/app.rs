@@ -5,7 +5,9 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use crate::{
     SELECTION_PULSE_MS,
     audio::{Audio, AudioSnapshot, Sfx, audio_cues},
-    banter::{BanterSnapshot, banter_event, banter_for, lines_for, pick, play_resumed},
+    banter::{
+        BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
+    },
     board::BoardView,
     campaign::NodeRef,
     campaign_map::{CampaignMapState, MapOutcome},
@@ -556,7 +558,15 @@ impl App {
             _ => return,
         };
         if let Some(prev) = self.prev_banter {
-            if let Some(ev) = banter_event(&prev, &curr) {
+            if match_restarted(&prev, &curr) {
+                // A rematch began in place (game_over true→false): seed a fresh
+                // match-start greeting so it fires like a match entered from the
+                // menu, not the lingering closing line (spec 017 §8 rematch
+                // note). A match start outranks the round-level branches.
+                let line = pick(banter_for(id).match_start, self.banter_last, &mut rand::rng());
+                self.banter = Some(line);
+                self.banter_last = Some(line);
+            } else if let Some(ev) = banter_event(&prev, &curr) {
                 // A new event: pick a line, avoiding the last one shown, and
                 // record it in both fields.
                 let line = pick(lines_for(banter_for(id), ev), self.banter_last, &mut rand::rng());

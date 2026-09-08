@@ -69,6 +69,16 @@ pub fn play_resumed(prev: &BanterSnapshot, curr: &BanterSnapshot) -> bool {
     curr.player_engaged && !prev.player_engaged
 }
 
+/// Whether a match has just *restarted* across `prev` → `curr`: the true→false
+/// transition of [`BanterSnapshot::game_over`]. A rematch (`new_game` in place,
+/// after game over) is the only in-game `game_over` true→false transition, so
+/// this is a clean diff signal that a fresh match has begun without leaving
+/// `Screen::InGame` — `App` uses it to seed a match-start greeting (spec 017 §8
+/// rematch note). Pure — unit-tested.
+pub fn match_restarted(prev: &BanterSnapshot, curr: &BanterSnapshot) -> bool {
+    prev.game_over && !curr.game_over
+}
+
 /// The banter event for the transition `prev` → `curr`, or `None` if nothing
 /// new fires. Ordered precedence (spec 017 §5): **match end** (the closing line)
 /// beats a **bust** (the vivid reaction) beats a **round outcome** (the plain
@@ -399,6 +409,18 @@ mod tests {
         assert!(!play_resumed(&idle, &idle));
         assert!(!play_resumed(&engaged, &engaged));
         assert!(!play_resumed(&engaged, &idle));
+    }
+
+    #[test]
+    fn match_restarted_only_on_game_over_true_to_false_transition() {
+        let over = BanterSnapshot { game_over: true, ..EMPTY };
+        let live = BanterSnapshot { game_over: false, ..EMPTY };
+        // true -> false: a rematch begins in place.
+        assert!(match_restarted(&over, &live));
+        // No restart in either steady state, and none when a match just ended.
+        assert!(!match_restarted(&live, &live));
+        assert!(!match_restarted(&over, &over));
+        assert!(!match_restarted(&live, &over));
     }
 
     #[test]
