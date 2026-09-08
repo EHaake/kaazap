@@ -107,7 +107,7 @@ shared draw_presence_panel so the two preview callers are untouched. Reviewed at
   *Verify: `cargo build --all-targets` / `cargo test -q` green (the behavior is exercised by the
   T001 pure-logic tests; the wiring itself is driver-verified at T006). Report that no
   `game.rs`/`save.rs`/AI file was touched.*
-- [ ] **T005** — Thread the line into the board. In `src/board.rs`, add a `banter: Option<&str>`
+- [x] **T005** — Thread the line into the board. In `src/board.rs`, add a `banter: Option<&str>`
   parameter to `BoardView::draw` and, after the existing `draw_presence_panel` call
   (`board.rs:267`), call `draw_presence_extras(frame, self.layout.opponent_panel, banter,
   state.opponent.rounds_won)`. In `src/app.rs`, pass `self.banter` at the `board_view.draw`
@@ -191,7 +191,7 @@ treating the policy as settled. -->
 | T003 impl (sdd-implementer) | opus (one down) | ~26.3K | done; 286 tests pass (verbatim); draw_presence_panel unchanged; removed now-stale ROUND_PIPS dead_code allow |
 | Phase 3 review (skeptical-reviewer) | opus (default) | ~26.0K | APPROVE WITH NOTES; panel unchanged, border-untouched proof genuine, pips correct; pip-centering half-cell-left note carried to T005 |
 | T004 impl (sdd-implementer) | opus (one down) | ~42.8K | done; 286 tests, no warnings, only app.rs (verbatim); let-chain form matches existing app.rs idiom |
-| T005 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
+| T005 impl (sdd-implementer) | opus (one down) | ~20.2K | done; 286 tests, no warnings, only board.rs+app.rs (verbatim); param order draw(state,cursor,banter,pulse,frame) |
 | Phase 4 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T006 close-out (orchestrator) | opus (top) | _TBD_ | _pending_ |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |

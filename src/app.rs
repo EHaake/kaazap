@@ -1119,7 +1119,7 @@ impl App {
         match &self.screen {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
-                self.board_view.draw(game_state, cursor, pulse, frame)
+                self.board_view.draw(game_state, cursor, self.banter, pulse, frame)
             }
             Screen::OpponentSelect { state } => state.draw(frame, &self.config, pulse),
             Screen::DeckBuilder { state } => state.draw(frame, &self.config, &self.profile, pulse),
