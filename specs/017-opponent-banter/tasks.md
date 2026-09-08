@@ -59,7 +59,7 @@ everything else rests on. Per-task skeptical-reviewer pass. -->
 
 ## Phase 2 — The voices (content)
 
-- [ ] **T002** — Author the 10 roster `BanterSet`s in `src/banter.rs` (`greeb`, `dax`, `vessa`,
+- [x] **T002** — Author the 10 roster `BanterSet`s in `src/banter.rs` (`greeb`, `dax`, `vessa`,
   `nima`, `toran`, `brakka`, `rix`, `kesh`, `magistrate`, `sovereign`), each a **distinct** voice
   consistent with the opponent's `difficulty`/`blurb` (`opponent.rs`) — the rookie eager and
   rattled, the veteran dry, the boss cold — covering all eight event classes with a few variants
@@ -180,7 +180,7 @@ treating the policy as settled. -->
 | plan + tasks sign-off (skeptical-reviewer) | opus (per-call override, per person's request — not the usual fable) | ~59.1K | signed off with notes; Note 1 (repeatable-class ≥2-line floor) applied to plan §4 + T001/T002 |
 | T001 impl (sdd-implementer) | opus (one down) | ~42.1K | done; build clean, 276 tests pass (orchestrator re-ran) |
 | T001 review (skeptical-reviewer, per-task) | opus (one down, per policy — planner's "fable" row was wrong) | ~33.5K | APPROVE WITH NOTES; 2 non-blocking carried (intra-class distinctness→T002, ROUND_PIPS single-source→sweep) |
-| T002 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
+| T002 impl (sdd-implementer) | opus (one down) | ~35.2K | done; 282 tests pass (verbatim, not per-task); +1 additive test (no line shared across sets) |
 | Phase 2 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T003 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
 | Phase 3 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |

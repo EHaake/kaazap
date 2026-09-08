@@ -141,16 +141,134 @@ const GENERIC: BanterSet = BanterSet {
     match_loss: &["Well played."],
 };
 
-/// Placeholder roster voice (T002 authors the real lines and the other nine).
+/// Greeb (Rookie) — green and eager: jittery, over-excited, apologetic when he
+/// loses, and yelps when he busts. Surprised by his own wins.
 const GREEB: BanterSet = BanterSet {
-    match_start: &["Here goes!"],
-    round_win: &["Got one!", "Hah, mine!"],
-    round_loss: &["Aw, yours.", "Fine, fine."],
-    round_tie: &["A tie?", "Even, huh."],
-    opponent_bust: &["Too much!", "Oops, over."],
-    player_bust: &["You popped!", "Over you go!"],
-    match_win: &["I did it!"],
-    match_loss: &["Good game."],
+    match_start: &["Here goes nothing!", "Okay, okay, ready!"],
+    round_win: &["I got one! Whoa!", "Did that just work?"],
+    round_loss: &["Aw, shucks.", "Sorry, sorry!"],
+    round_tie: &["A tie? Phew.", "Even? Okay!"],
+    opponent_bust: &["Yikes, too much!", "No no no, over!"],
+    player_bust: &["Oh! You popped!", "Phew, not me!"],
+    match_win: &["I actually won!"],
+    match_loss: &["Aw, well played."],
+};
+
+/// Dax Runo (Greenhorn) — a cocky kid: brash trash-talk, struts on a win, makes
+/// excuses when it goes wrong, and busts big.
+const DAX: BanterSet = BanterSet {
+    match_start: &["Watch and learn.", "This'll be quick."],
+    round_win: &["Too easy.", "Boom. Called it."],
+    round_loss: &["Lucky. So lucky.", "Bah, whatever."],
+    round_tie: &["Tch, a tie.", "Even? Boring."],
+    opponent_bust: &["Ah, come on!", "Blew it big."],
+    player_bust: &["Ha! Nice one, kid.", "Told you. Bust."],
+    match_win: &["Not even close."],
+    match_loss: &["Rematch. Now."],
+};
+
+/// Vessa Korr (Scrapper) — street-hard and defiant: takes the hit and swings
+/// back, never done even when she's down.
+const VESSA: BanterSet = BanterSet {
+    match_start: &["Come on then.", "Let's scrap."],
+    round_win: &["That's how.", "Chalk it up."],
+    round_loss: &["Fine. I'm not done.", "You'll pay for that."],
+    round_tie: &["Nobody blinks.", "Locked up."],
+    opponent_bust: &["Pushed too hard.", "Ah, hell."],
+    player_bust: &["Ha, you cracked.", "Down you go."],
+    match_win: &["Still standing."],
+    match_loss: &["Next time's mine."],
+};
+
+/// Nima Sarn (Broker) — cool and mercantile: everything is a transaction, wins
+/// are profit, losses a minor cost. Never ruffled.
+const NIMA: BanterSet = BanterSet {
+    match_start: &["Let's talk terms.", "Credits on the line."],
+    round_win: &["Profit.", "Into the ledger."],
+    round_loss: &["A minor cost.", "I'll recoup it."],
+    round_tie: &["We break even.", "No margin lost."],
+    opponent_bust: &["Overspent.", "A bad investment."],
+    player_bust: &["That'll cost you.", "Poor accounting."],
+    match_win: &["Business is good."],
+    match_loss: &["I've paid worse."],
+};
+
+/// Old Toran (Veteran) — dry, calm, wry: he's seen it all, understated, with a
+/// faint teaching tone.
+const TORAN: BanterSet = BanterSet {
+    match_start: &["Sit. Let's play.", "Been at this awhile."],
+    round_win: &["Patience wins.", "As it goes."],
+    round_loss: &["Nicely done.", "You've got an eye."],
+    round_tie: &["Even hands.", "Happens."],
+    opponent_bust: &["Ah, greedy of me.", "Should've held."],
+    player_bust: &["Over you go.", "Reached too far."],
+    match_win: &["Age and cunning."],
+    match_loss: &["Well earned, that."],
+};
+
+/// Brakka (Bruiser) — big, booming brute: blunt bravado, dares and taunts, and
+/// laughs off his own busts.
+const BRAKKA: BanterSet = BanterSet {
+    match_start: &["Try to keep up!", "Sit down, small fry."],
+    round_win: &["Crushed it!", "Ha! Feel that?"],
+    round_loss: &["Pah, a scratch.", "Enjoy it, runt."],
+    round_tie: &["A standoff!", "Nobody flinched!"],
+    opponent_bust: &["Bah! Too greedy!", "Ha! Blew past it!"],
+    player_bust: &["Ha! Splat!", "Too big for ya!"],
+    match_win: &["Smashed you flat!"],
+    match_loss: &["Bah! You got lucky!"],
+};
+
+/// Rix Vandal (Ace) — precise and clinical: talks in odds and math, arrogant,
+/// with open disdain for sloppy play.
+const RIX: BanterSet = BanterSet {
+    match_start: &["The odds favor me.", "Precision wins."],
+    round_win: &["Calculated.", "As predicted."],
+    round_loss: &["A rounding error.", "Statistically rare."],
+    round_tie: &["A null result.", "Perfectly balanced."],
+    opponent_bust: &["Miscalculated.", "An error. Rare."],
+    player_bust: &["Predictable.", "Sloppy math."],
+    match_win: &["The math held."],
+    match_loss: &["A variance. Once."],
+};
+
+/// Kesh Varn (Duelist) — sharp and dangerous: a duelist's menace and honor,
+/// clipped threats, blade imagery.
+const KESH: BanterSet = BanterSet {
+    match_start: &["Blades out.", "Guard yourself."],
+    round_win: &["First blood.", "A clean cut."],
+    round_loss: &["A fair touch.", "Well struck."],
+    round_tie: &["Blade to blade.", "We cross even."],
+    opponent_bust: &["My edge slipped.", "Cut too deep."],
+    player_bust: &["You overreached.", "Your guard broke."],
+    match_win: &["The edge was mine."],
+    match_loss: &["A worthy blade."],
+};
+
+/// The Magistrate (Master) — imperious cold authority: pronounces rather than
+/// talks, in the language of law, judgment, and sentence.
+const MAGISTRATE: BanterSet = BanterSet {
+    match_start: &["Court is in session.", "State your case."],
+    round_win: &["So ruled.", "The verdict stands."],
+    round_loss: &["Noted for appeal.", "A minor objection."],
+    round_tie: &["Case adjourned.", "No ruling yet."],
+    opponent_bust: &["I overstepped.", "A misjudgment."],
+    player_bust: &["Guilty. Overreach.", "Sentence: bust."],
+    match_win: &["The law prevails."],
+    match_loss: &["An unusual verdict."],
+};
+
+/// The Sovereign (Kingpin) — regal and glacial: minimal words, utterly
+/// untouchable, the house always wins; even the rare loss is dismissed.
+const SOVEREIGN: BanterSet = BanterSet {
+    match_start: &["Begin.", "The house awaits."],
+    round_win: &["Naturally.", "As it must be."],
+    round_loss: &["Amusing.", "A trifle."],
+    round_tie: &["Inconsequential.", "It matters not."],
+    opponent_bust: &["A rare indulgence.", "How careless."],
+    player_bust: &["Beneath me.", "Of course."],
+    match_win: &["The house wins."],
+    match_loss: &["Enjoy it. Briefly."],
 };
 
 /// The voice for opponent `id`: the roster set, or [`GENERIC`] for `"default"`
@@ -158,6 +276,15 @@ const GREEB: BanterSet = BanterSet {
 pub fn banter_for(id: &str) -> &'static BanterSet {
     match id {
         "greeb" => &GREEB,
+        "dax" => &DAX,
+        "vessa" => &VESSA,
+        "nima" => &NIMA,
+        "toran" => &TORAN,
+        "brakka" => &BRAKKA,
+        "rix" => &RIX,
+        "kesh" => &KESH,
+        "magistrate" => &MAGISTRATE,
+        "sovereign" => &SOVEREIGN,
         _ => &GENERIC,
     }
 }
@@ -310,5 +437,148 @@ mod tests {
         assert_eq!(banter_for("nonexistent-id").match_start, GENERIC.match_start);
         // The placeholder roster id resolves to a different voice.
         assert_ne!(banter_for("greeb").match_start, GENERIC.match_start);
+    }
+
+    // ---- T002: the ten roster voices --------------------------------------
+
+    /// The ten roster ids, in tasks.md order.
+    const ROSTER_IDS: [&str; 10] = [
+        "greeb", "dax", "vessa", "nima", "toran", "brakka", "rix", "kesh",
+        "magistrate", "sovereign",
+    ];
+
+    /// All eight classes of a set, in a fixed order.
+    fn classes(set: &'static BanterSet) -> [&'static [&'static str]; 8] {
+        [
+            set.match_start,
+            set.round_win,
+            set.round_loss,
+            set.round_tie,
+            set.opponent_bust,
+            set.player_bust,
+            set.match_win,
+            set.match_loss,
+        ]
+    }
+
+    /// The five *repeatable* classes (must carry >= 2 distinct lines).
+    fn repeatable(set: &'static BanterSet) -> [&'static [&'static str]; 5] {
+        [set.round_win, set.round_loss, set.round_tie, set.opponent_bust, set.player_bust]
+    }
+
+    /// GENERIC plus the ten roster sets — every set the game can voice.
+    fn all_sets() -> Vec<(&'static str, &'static BanterSet)> {
+        let mut v = vec![("default", &GENERIC as &'static BanterSet)];
+        for id in ROSTER_IDS {
+            v.push((id, banter_for(id)));
+        }
+        v
+    }
+
+    /// A concatenation proxy for whole-set equality (BanterSet isn't PartialEq).
+    fn set_fingerprint(set: &'static BanterSet) -> String {
+        classes(set).iter().flat_map(|c| c.iter().copied()).collect::<Vec<_>>().join("|")
+    }
+
+    #[test]
+    fn every_line_of_every_set_fits_the_panel() {
+        use crate::portrait::BANTER_MAX_WIDTH;
+        for (id, set) in all_sets() {
+            for class in classes(set) {
+                for line in class {
+                    assert!(
+                        line.chars().count() <= BANTER_MAX_WIDTH,
+                        "{id}: line {line:?} exceeds BANTER_MAX_WIDTH"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn every_set_non_empty_with_repeatable_floor() {
+        for (id, set) in all_sets() {
+            for class in classes(set) {
+                assert!(!class.is_empty(), "{id} has a blank class");
+            }
+            for class in repeatable(set) {
+                assert!(class.len() >= 2, "{id}: repeatable class must carry >= 2 lines");
+            }
+        }
+    }
+
+    #[test]
+    fn every_class_of_every_set_has_distinct_lines() {
+        // Carried from the T001 review: `pick` loops forever on an all-equal
+        // pool, so no class may hold a duplicate variant.
+        for (id, set) in all_sets() {
+            for class in classes(set) {
+                for i in 0..class.len() {
+                    for j in (i + 1)..class.len() {
+                        assert_ne!(
+                            class[i], class[j],
+                            "{id}: duplicate line {:?} within a class",
+                            class[i]
+                        );
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn roster_sets_are_pairwise_distinct_and_differ_from_generic() {
+        let generic = set_fingerprint(&GENERIC);
+        let roster: Vec<(&str, String)> =
+            ROSTER_IDS.iter().map(|&id| (id, set_fingerprint(banter_for(id)))).collect();
+        for (id, fp) in &roster {
+            assert_ne!(*fp, generic, "{id} matches GENERIC");
+        }
+        for i in 0..roster.len() {
+            for j in (i + 1)..roster.len() {
+                assert_ne!(
+                    roster[i].1, roster[j].1,
+                    "{} and {} share a voice",
+                    roster[i].0, roster[j].0
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn no_line_is_shared_across_any_two_sets() {
+        // Stronger than fingerprint distinctness: no individual line may recur
+        // in another set (including GENERIC).
+        let sets = all_sets();
+        for a in 0..sets.len() {
+            for b in (a + 1)..sets.len() {
+                let (id_a, set_a) = sets[a];
+                let (id_b, set_b) = sets[b];
+                for class_a in classes(set_a) {
+                    for line in class_a {
+                        for class_b in classes(set_b) {
+                            assert!(
+                                !class_b.contains(line),
+                                "{id_a} and {id_b} share the line {line:?}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn banter_for_maps_each_roster_id_to_a_non_generic_set() {
+        let generic = set_fingerprint(&GENERIC);
+        for id in ROSTER_IDS {
+            assert_ne!(
+                set_fingerprint(banter_for(id)),
+                generic,
+                "{id} resolves to GENERIC"
+            );
+        }
+        assert_eq!(set_fingerprint(banter_for("default")), generic);
+        assert_eq!(set_fingerprint(banter_for("nonexistent-id")), generic);
     }
 }
