@@ -27,9 +27,16 @@ game state), so the real work is the *writing* and the panel wiring.
   - **round outcome** — their round win (gloat), your round win (grudging), a tie;
   - **a bust** — the opponent busting (rueful) or the player busting (mocking);
   - **match end** — a closing line on the final win or loss.
-- The most recent line **persists until the next event** — no timers, no fade. The
-  match-start greeting seeds the line; each later event replaces it. Between events
-  (mid-round hits/stands) the last line simply stays.
+- A line appears on its event and **stays through its reaction window** — the
+  round-end / between-rounds pause, and the pre-first-move opening — then **clears
+  when the next round's active play begins**: the match-start greeting clears on the
+  player's first action, and each round's reaction clears once the following round is
+  underway. During active play the panel's banter row is simply blank (the pips
+  remain, anchoring the space). No wall-clock timer and no fade — clearing is tied to
+  the round rhythm, so a line is on screen exactly when there's something to react to
+  and gone once the player is playing again. *(Revised at the spec-017 attestation
+  from the original "persists until the next event" default, which lingered a
+  reaction through the whole next round — human-ruled: option B, phase-based clear.)*
 - **In-match only.** The opponent-select and campaign-map previews still show just
   name + portrait — they're for *choosing* an opponent, not watching one react.
 - Banter never competes with the board's mechanical prompts (turn / "OVER 20!" /
@@ -108,3 +115,7 @@ game state), so the real work is the *writing* and the panel wiring.
 - **Delegated defaults** (mine to set, revisitable at the phase attestation):
   event-driven replace with no timers; opponent-only pips; the generic fallback
   minimal and neutral; banter transient (not saved).
+- **Attestation ruling (spec 017 T005 pause):** the "persists until the next event"
+  default was revised to **phase-based clearing** (a line clears when the next round's
+  play begins; blank between; pips retained) — the lingering reaction read as stale.
+  Pips are **spaced apart** rather than contiguous. [human-ruled]

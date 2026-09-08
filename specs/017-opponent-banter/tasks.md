@@ -126,6 +126,44 @@ shared draw_presence_panel so the two preview callers are untouched. Reviewed at
   render note:** the three pips center half a cell left of the panel's true center (integer
   division, consistent with `draw_text_in`'s own convention) — cosmetic, confirm it looks right.*
 
+**T005 attestation outcome (person, 2026-09-07):** core attested green — monochrome, greeting
+with no filled pips, round-win/loss/tie reactions all appropriate, one pip fills on an opponent
+round win. Two revisions ruled: **(B) phase-based clearing** — a reaction lingered through the
+whole next round; it now clears when the next round's play begins (blank between, pips retained)
+— and **spaced-apart pips** (contiguous read as cramped). Both are in Phase 5 below; close-out
+(T006) follows them. Voice taste notes above were heard and left as-is.
+
+## Phase 5 — Attestation revisions (human-ruled at T005)
+
+<!-- Revises the delegated "persists until the next event" default (spec.md, plan.md §8) to
+phase-based clearing, and spaces the pips. Reviewed at phase end. -->
+
+- [ ] **T005a** — Phase-based banter clearing. In `src/banter.rs`: add `player_engaged: bool` to
+  `BanterSnapshot` (set in `of`: `!player.dealer_row.is_empty() || !player.played_row.is_empty()
+  || player.stood`), and add `pub fn play_resumed(prev, curr) -> bool` = `curr.player_engaged &&
+  !prev.player_engaged` (plan §8). In `src/app.rs`: add a `banter_last: Option<&'static str>`
+  field beside `banter` (init `None`); in `update_banter`, feed `pick` with `self.banter_last`
+  (not `self.banter`) and set both `banter` and `banter_last` to the picked line on an event; on
+  `play_resumed` (and no event) set `self.banter = None` (leave `banter_last`); seed `banter_last`
+  = the greeting at fresh start and `None` on resume (plan §Design 4). Nothing else changes.
+  (Copies the existing snapshot-diff pattern.)
+  *Verify: `cargo build --all-targets` / `cargo test -q` green — tests: `play_resumed` true only
+  on the false→true `player_engaged` transition; `BanterSnapshot::of` has `player_engaged` false
+  at a pristine round start and true after a hit/stand/played card; no-repeat survives the clear
+  (banter=None, banter_last retained → next same-event pick avoids the prior line). Driver at
+  T005c: greeting clears on first hit; a round reaction clears when the next round starts.*
+- [ ] **T005b** — Space the pips. In `src/portrait.rs` `draw_presence_extras`, draw the pips
+  per-glyph at stride 2 (one blank cell between) over a centered span of `ROUND_PIPS * 2 - 1`,
+  filled (`Strong`) / empty (`Muted`) as before (plan §6/§Design 2). Update the T003 pip test for
+  the new layout. Leave `draw_presence_panel` unchanged.
+  *Verify: `cargo build --all-targets` / `cargo test -q` green — tests: the pip row spans
+  `ROUND_PIPS*2-1` with a blank between glyphs, exactly `ROUND_PIPS` markers, `rounds_won` filled,
+  centered within the interior, clip-safe. Driver at T005c.*
+- [ ] **T005c** — Driver re-verify + person re-attest. Rebuild and drive a match (back up +
+  checksum-restore the real profile/saves first): confirm the greeting clears on the first hit,
+  each round reaction clears when the next round begins (blank between, pips remain), and the pips
+  are visibly spaced. **PAUSE for the person** to confirm the revised feel before close-out.
+
 ## Final phase — Spec close-out
 
 - [ ] **T006** — Docs, driver, sweep. `DECISIONS.md`: banter is transient (never saved), lives on
@@ -193,5 +231,8 @@ treating the policy as settled. -->
 | T004 impl (sdd-implementer) | opus (one down) | ~42.8K | done; 286 tests, no warnings, only app.rs (verbatim); let-chain form matches existing app.rs idiom |
 | T005 impl (sdd-implementer) | opus (one down) | ~20.2K | done; 286 tests, no warnings, only board.rs+app.rs (verbatim); param order draw(state,cursor,banter,pulse,frame) |
 | Phase 4 review (skeptical-reviewer) | opus (default) | ~24.8K | APPROVE WITH NOTES; both tick sites, seeding, transient invariant, no double-fire all sound; in-match-only confirmed by grep (extras only in board.rs) |
+| T005a impl (phase-based clear) | opus (one down) | _TBD_ | _pending_ |
+| T005b impl (spaced pips) | opus (one down) | _TBD_ | _pending_ |
+| Phase 5 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T006 close-out (orchestrator) | opus (top) | _TBD_ | _pending_ |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |

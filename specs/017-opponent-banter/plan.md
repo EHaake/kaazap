@@ -61,6 +61,14 @@ The current line is presentation, not game state, and must not reach the save fi
 `BoardView::draw` gains a `banter: Option<&str>` parameter (its only new input); `App::draw`
 passes `self.banter`.
 
+A second field, `banter_last: Option<&'static str>`, retains the **most recently shown** line
+independently of whether it is currently displayed. Phase-based clearing (tension §8) blanks
+`banter` (sets it `None`) while a round is played, but the no-back-to-back rule (§4) must still
+avoid repeating the previous line when the *next* event fires — otherwise two consecutive round
+wins, blanked apart, could show the identical quip and violate acceptance criterion 3. So `pick`
+is fed `banter_last` (not `banter`), and `banter_last` is updated only when a new line is picked,
+never cleared by the phase-clear. Both are transient `App` state, never saved.
+
 ### 2. Reuse-or-parallel the audio snapshot — **parallel**, keeping banter self-contained
 
 Banter needs a prev/curr diff of a few game facts (per-side bust, round outcome, game over). It
@@ -114,8 +122,10 @@ bust-that-ends-a-non-final-round reads the bust line, not the round-loss line. E
 ### 6. Pips — opponent-only, first-to-3, read live
 
 `opponent.rounds_won` (0–3) drives the pips, read at draw time so they update as rounds resolve
-with no event wiring. Rendered as three glyphs in the pip reserved row: `rounds_won` filled +
-the rest empty. **Opponent-only** per spec 016's intentional asymmetry and the spec's delegated
+with no event wiring. Rendered as three glyphs in the pip reserved row, **each separated by a
+single blank cell** (`● ○ ○`, span `ROUND_PIPS * 2 − 1 = 5`, centered) — revised at the T005
+attestation, the contiguous `●○○` read as cramped: `rounds_won` filled + the rest empty.
+**Opponent-only** per spec 016's intentional asymmetry and the spec's delegated
 default (the player's mirror pips arrive with the future player-status panel) — surfaced here for
 attestation, revisitable. Glyphs are monochrome: filled pips at `Emphasis::Strong` (bold,
 still no color) for glanceability, empty at `Emphasis::Muted`. Proposed glyphs `●`/`○` (see
@@ -129,8 +139,28 @@ one).
 The in-match panel's interior is 16 rows (`PANEL_H_INMATCH − 2`): name (row 0), portrait (rows
 1–12), gap (row 13), **banter (row 14)**, **pips (row 15)**. `draw_presence_extras` computes the
 interior the same way `draw_presence_panel` does and draws banter via `draw_text_in` (which clips
-to the interior width, so an over-long line can never overrun) and the pip string on the row
+to the interior width, so an over-long line can never overrun) and the pips on the row
 below. Banter width is bounded by `BANTER_MAX_WIDTH = PANEL_W − 2 = 20`.
+
+### 8. Phase-based clearing (attestation revision) — a line clears when the next round's play begins
+
+*(Revised at the T005 attestation from the original "persists until the next event"; human-ruled
+option B.)* A reaction line should be on screen while there is something to react to and gone once
+the player is playing again — not linger through a whole subsequent round. The clear is driven by
+the **round rhythm**, not a wall clock (no timer, no idle-fade), which is deterministic and
+unit-testable and needs no per-frame expiry bookkeeping.
+
+The unifying signal is the player's **first action of a round**. `BanterSnapshot` gains
+`player_engaged: bool` = "the player has drawn a dealer card, played a side card, or stood this
+round" (`!player.dealer_row.is_empty() || !player.played_row.is_empty() || player.stood`). It is
+`false` at every round's pristine start (each round deals no card until the player hits) and at
+match start. A pure `play_resumed(prev, curr) -> bool` returns `curr.player_engaged &&
+!prev.player_engaged` — the false→true transition. `update_banter` clears `self.banter` to `None`
+on that transition (when no new event fires the same tick). This one rule covers both cases: the
+match-start greeting clears on the player's first hit/stand of round 1, and each round-end
+reaction (which shows through `AwaitingNextRound`, the "next round" pause) clears when the next
+round's play begins. The match-end line has no following round, so it persists on the game-over
+screen (desired). `banter_last` is untouched by the clear, preserving §4.
 
 ## Design
 
@@ -149,9 +179,13 @@ New module (added to `lib.rs`), pure logic + content, no dependency on rendering
   MatchWin, MatchLoss }` — from the **opponent's** point of view (RoundWin = the opponent won
   the round; MatchWin = the opponent won the match).
 - `pub struct BanterSnapshot { o_bust, p_bust, outcome: Option<RoundOutcome>, game_over: bool,
-  opp_won_game: bool }` + `pub fn of(gs: &GameState) -> BanterSnapshot`, mirroring
-  `AudioSnapshot::of` (reads `opponent.bust`, `player.bust`, `round_outcome`,
-  `GamePhase::GameOver { winner }`).
+  opp_won_game: bool, player_engaged: bool }` + `pub fn of(gs: &GameState) -> BanterSnapshot`,
+  mirroring `AudioSnapshot::of` (reads `opponent.bust`, `player.bust`, `round_outcome`,
+  `GamePhase::GameOver { winner }`; `player_engaged` = `!player.dealer_row.is_empty() ||
+  !player.played_row.is_empty() || player.stood`, per tension §8).
+- `pub fn play_resumed(prev: &BanterSnapshot, curr: &BanterSnapshot) -> bool` — `curr.player_engaged
+  && !prev.player_engaged`, the player's first action of a round (tension §8), the phase-clear
+  signal.
 - `pub fn banter_event(prev: &BanterSnapshot, curr: &BanterSnapshot) -> Option<BanterEvent>` —
   ordered precedence (§5): game-over-new → `MatchWin`/`MatchLoss`; opponent-bust-new →
   `OpponentBust`; player-bust-new → `PlayerBust`; outcome-newly-set → `RoundWin`
@@ -171,9 +205,10 @@ New module (added to `lib.rs`), pure logic + content, no dependency on rendering
 - `pub const BANTER_MAX_WIDTH`, `const ROUND_PIPS`.
 - `pub fn draw_presence_extras(frame, panel: Rect, banter: Option<&str>, opponent_rounds_won:
   usize)` — computes the panel interior, draws `banter` (if `Some`) centered on interior row 14
-  via `draw_text_in` (clip-safe), and the pip string on interior row 15: `opponent_rounds_won`
-  filled glyphs (`Emphasis::Strong`) + `ROUND_PIPS − rounds_won` empty (`Emphasis::Muted`),
-  centered. Clip-safe like the other portrait drawers. **`draw_presence_panel` is unchanged** —
+  via `draw_text_in` (clip-safe), and the pips on interior row 15: `opponent_rounds_won` filled
+  glyphs (`Emphasis::Strong`) + `ROUND_PIPS − rounds_won` empty (`Emphasis::Muted`), drawn
+  **per-glyph at stride 2** (one blank cell between pips, §6) over a centered span of
+  `ROUND_PIPS * 2 − 1`. Clip-safe like the other portrait drawers. **`draw_presence_panel` is unchanged** —
   this is a separate function called only by the in-match board, so the two preview callers show
   name + portrait only (acceptance criterion).
 
@@ -187,18 +222,23 @@ Nothing else in the board changes; the board's own status band / mechanical prom
 
 ### 4. `src/app.rs` — banter state, seeding, and the per-tick update
 
-- Fields: `banter: Option<&'static str>` (current line) and `prev_banter: Option<BanterSnapshot>`
-  (the diff seed), grouped with `prev_audio` as transient in-game state.
+- Fields: `banter: Option<&'static str>` (current line shown), `banter_last: Option<&'static str>`
+  (last line shown, for `pick`'s no-repeat — retained across the phase-clear, §1), and
+  `prev_banter: Option<BanterSnapshot>` (the diff seed), grouped with `prev_audio` as transient
+  in-game state.
 - `fn update_banter(&mut self)` — mirrors `emit_audio_cues`: snapshot the current `GameState`;
-  if `prev_banter` is `Some(prev)` and `banter_event(&prev, &curr)` yields an event, set
-  `self.banter = Some(pick(lines_for(banter_for(id), ev), self.banter, &mut rand::rng()))` where
-  `id = game_state.opponent_profile.id`; then `self.prev_banter = Some(curr)`. Called right after
-  `emit_audio_cues` at both tick sites (`app.rs:798`, `app.rs:1068`).
+  if `prev_banter` is `Some(prev)`, then **on an event** (`banter_event(&prev, &curr)` yields
+  `ev`) set `let line = pick(lines_for(banter_for(id), ev), self.banter_last, &mut rand::rng());
+  self.banter = Some(line); self.banter_last = Some(line);` (where `id =
+  game_state.opponent_profile.id`); **else on `play_resumed(&prev, &curr)`** set `self.banter =
+  None` (the phase-clear, §8 — `banter_last` untouched). Then `self.prev_banter = Some(curr)`.
+  Called right after `emit_audio_cues` at both tick sites (`app.rs:798`, `app.rs:1068`).
 - **Seeding** (`app.rs:493` fresh / `app.rs:965` resume, beside the existing `prev_audio = None`):
-  fresh match → `self.prev_banter = None; self.banter = Some(pick(banter_for(opponent.id)
-  .match_start, None, &mut rand::rng()))` (the greeting seeds the line); resume →
-  `self.prev_banter = None; self.banter = None` (blank — the spec's "an appropriate line for the
-  current state, or none"; the next event replaces it).
+  fresh match → `self.prev_banter = None;` and seed the greeting into **both** fields:
+  `let line = pick(banter_for(opponent.id).match_start, None, &mut rand::rng()); self.banter =
+  Some(line); self.banter_last = Some(line);`; resume → `self.prev_banter = None; self.banter =
+  None; self.banter_last = None;` (blank — the spec's "an appropriate line for the current state,
+  or none"; the next event replaces it).
 - `App::draw` passes `self.banter` into `board_view.draw` (`app.rs:1081`).
 
 ## Files
@@ -239,6 +279,15 @@ Each behavioral claim names the task that owns its check. Two claims are human-a
 - **Distinct voices (proxy)** (T002): the 10 roster `BanterSet`s are pairwise distinct and each
   differs from `GENERIC` (concatenated-lines proxy). Guards "each of the 10 speaks in a distinct
   voice" — the machine-checkable proxy; "reads as a distinct voice" is the human part below.
+- **Phase-based clear** (T005a): `play_resumed` is `true` exactly on the `player_engaged`
+  false→true transition and `false` otherwise (both false, both true, true→false); a
+  `BanterSnapshot::of` on a pristine round start has `player_engaged == false`, and after a
+  dealt/played/stood player it is `true`. Guards tension §8. **No-repeat survives the clear**
+  (T005a): with `banter` cleared to `None` but `banter_last` retained, a subsequent same-event
+  `pick` still avoids the previous line — guards acceptance criterion 3 across the blank.
+- **Pips are spaced** (T005b): the pip row spans `ROUND_PIPS * 2 − 1` cells with a blank between
+  each glyph, still exactly `ROUND_PIPS` markers with `rounds_won` filled, centered, within the
+  interior (updates the T003 pip test for the stride-2 layout).
 - **Panel extras render correctly** (T003): `draw_presence_extras` is clip-safe off-frame; the
   pip row for `rounds_won` in `0..=3` has exactly `ROUND_PIPS` markers with `rounds_won` filled;
   a banter line at `BANTER_MAX_WIDTH` lands within the interior and one longer is clipped (no
