@@ -79,7 +79,7 @@ everything else rests on. Per-task skeptical-reviewer pass. -->
 <!-- Foundational: the in-match-only drawer for the banter line + pips, kept separate from the
 shared draw_presence_panel so the two preview callers are untouched. Reviewed at phase end. -->
 
-- [ ] **T003 (foundational)** — In `src/portrait.rs`, add `draw_presence_extras(frame, panel:
+- [x] **T003 (foundational)** — In `src/portrait.rs`, add `draw_presence_extras(frame, panel:
   Rect, banter: Option<&str>, opponent_rounds_won: usize)`: compute the panel interior as
   `draw_presence_panel` does, draw `banter` (if `Some`) centered on interior row 14 via
   `draw_text_in` (clip-safe), and the pip string on interior row 15 — `opponent_rounds_won`
@@ -186,7 +186,7 @@ treating the policy as settled. -->
 | T001 review (skeptical-reviewer, per-task) | opus (one down, per policy — planner's "fable" row was wrong) | ~33.5K | APPROVE WITH NOTES; 2 non-blocking carried (intra-class distinctness→T002, ROUND_PIPS single-source→sweep) |
 | T002 impl (sdd-implementer) | opus (one down) | ~35.2K | done; 282 tests pass (verbatim, not per-task); +1 additive test (no line shared across sets) |
 | Phase 2 review (skeptical-reviewer) | opus (default) | ~27.3K | APPROVE WITH NOTES; POV/class correct across all 10, voices distinct; 3 taste notes carried to T005 |
-| T003 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
+| T003 impl (sdd-implementer) | opus (one down) | ~26.3K | done; 286 tests pass (verbatim); draw_presence_panel unchanged; removed now-stale ROUND_PIPS dead_code allow |
 | Phase 3 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T004 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
 | T005 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |

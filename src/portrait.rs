@@ -23,7 +23,6 @@ pub const PANEL_H_INMATCH: usize = 2 + 1 + PORTRAIT_HEIGHT + 1 + 2; // 18: borde
 /// round pips (first-to-3, matching `ROUND_PIPS` uses in game.rs). Used by the
 /// banter fit test (`banter.rs`) and the in-match panel-extras drawer (T003).
 pub const BANTER_MAX_WIDTH: usize = PANEL_W - 2; // 20: interior width lines must fit
-#[allow(dead_code)] // consumed by draw_presence_extras (T003)
 const ROUND_PIPS: usize = 3; // first-to-3
 
 /// Draw a portrait's art with its top-left at (x, y): each line of `art` is
@@ -51,6 +50,40 @@ pub fn draw_presence_panel(frame: &mut Frame, panel: Rect, name: &str, art: &str
     // Portrait centered horizontally, on the row just below the name.
     let px = interior.x0 + interior.width().saturating_sub(PORTRAIT_WIDTH) / 2;
     draw_portrait(frame, px, panel.y0 + 2, art, Emphasis::Normal);
+}
+
+/// Draw the in-match-only presence extras over an already-drawn presence panel:
+/// the opponent `banter` line (if `Some`) centered on interior row 14, and the
+/// opponent's round-win pips on interior row 15. Computes the interior exactly
+/// as `draw_presence_panel` does. `opponent_rounds_won` filled glyphs (Strong)
+/// followed by the remaining empty glyphs (Muted), the whole run centered. This
+/// is a separate drawer called only by the in-match board, so the two preview
+/// callers of `draw_presence_panel` keep showing name + portrait only.
+/// Clip-safe (delegates to clip-safe `draw_text`/`draw_text_in`).
+pub fn draw_presence_extras(
+    frame: &mut Frame,
+    panel: Rect,
+    banter: Option<&str>,
+    opponent_rounds_won: usize,
+) {
+    let interior = Rect::new(panel.x0 + 1, panel.x1 - 1, panel.y0 + 1, panel.y1 - 1);
+
+    // Banter on interior row 14, centered — draw_text_in clips to the interior
+    // width so an over-long line can never overrun the border.
+    if let Some(line) = banter {
+        draw_text_in(frame, interior, 14, Align::Center, line, Emphasis::Normal);
+    }
+
+    // Pips on interior row 15: `filled` filled glyphs then the rest empty, the
+    // whole ROUND_PIPS-wide run centered. Two emphases, so drawn in two segments
+    // rather than one draw_text_in.
+    let filled = opponent_rounds_won.min(ROUND_PIPS);
+    let start_x = interior.x0 + interior.width().saturating_sub(ROUND_PIPS) / 2;
+    let pip_y = interior.y0 + 15;
+    let filled_str: String = std::iter::repeat('●').take(filled).collect();
+    let empty_str: String = std::iter::repeat('○').take(ROUND_PIPS - filled).collect();
+    draw_text(frame, start_x, pip_y, &filled_str, Emphasis::Strong);
+    draw_text(frame, start_x + filled, pip_y, &empty_str, Emphasis::Muted);
 }
 
 #[cfg(test)]
@@ -92,5 +125,89 @@ mod tests {
         let mut f = blank(w, h);
         draw_portrait(&mut f, 0, h - 1, "a\nb\nc", Emphasis::Normal);
         assert_eq!(f[0][h - 1].ch, 'a'); // fitting row landed
+    }
+
+    // A full-size in-match panel anchored at the frame origin, and the frame to
+    // draw it into. Interior spans x 1..=PANEL_W-2, y 1..=PANEL_H_INMATCH-2;
+    // banter lands on interior row 14 (y = 15), pips on interior row 15 (y = 16).
+    fn inmatch_panel() -> (Frame, Rect) {
+        let f = blank(PANEL_W, PANEL_H_INMATCH);
+        let panel = Rect::new(0, PANEL_W - 1, 0, PANEL_H_INMATCH - 1);
+        (f, panel)
+    }
+
+    #[test]
+    fn draw_presence_extras_is_clip_safe_off_frame() {
+        // panel entirely past the right edge — nothing lands, no panic
+        let mut f = blank(4, 4);
+        let panel = Rect::new(99, 99 + PANEL_W - 1, 0, PANEL_H_INMATCH - 1);
+        draw_presence_extras(&mut f, panel, Some("hello"), 2);
+
+        // panel past the bottom edge — no panic
+        let mut f = blank(4, 4);
+        let panel = Rect::new(0, PANEL_W - 1, 99, 99 + PANEL_H_INMATCH - 1);
+        draw_presence_extras(&mut f, panel, Some("hello"), 2);
+
+        // empty frame — no panic
+        let mut f: Frame = Vec::new();
+        let panel = Rect::new(0, PANEL_W - 1, 0, PANEL_H_INMATCH - 1);
+        draw_presence_extras(&mut f, panel, Some("hello"), 3);
+    }
+
+    #[test]
+    fn pip_row_carries_exactly_round_pips_markers() {
+        for rounds_won in 0..=ROUND_PIPS {
+            let (mut f, panel) = inmatch_panel();
+            draw_presence_extras(&mut f, panel, None, rounds_won);
+
+            let pip_y = 16; // interior.y0 (1) + 15
+            let mut filled = 0;
+            let mut empty = 0;
+            for col in f.iter() {
+                match col[pip_y].ch {
+                    '●' => filled += 1,
+                    '○' => empty += 1,
+                    _ => {}
+                }
+            }
+            assert_eq!(filled, rounds_won, "filled pips for rounds_won={rounds_won}");
+            assert_eq!(empty, ROUND_PIPS - rounds_won, "empty pips for rounds_won={rounds_won}");
+            assert_eq!(filled + empty, ROUND_PIPS, "total pips for rounds_won={rounds_won}");
+        }
+    }
+
+    #[test]
+    fn rounds_won_over_round_pips_is_clamped() {
+        let (mut f, panel) = inmatch_panel();
+        draw_presence_extras(&mut f, panel, None, 99);
+        let pip_y = 16;
+        let filled = f.iter().filter(|col| col[pip_y].ch == '●').count();
+        let empty = f.iter().filter(|col| col[pip_y].ch == '○').count();
+        assert_eq!(filled, ROUND_PIPS);
+        assert_eq!(empty, 0);
+    }
+
+    #[test]
+    fn banter_fits_inside_interior_and_clips_at_the_border() {
+        let banter_y = 15; // interior.y0 (1) + 14
+        let left_border = 0; // panel.x0
+        let right_border = PANEL_W - 1; // panel.x1
+
+        // A line exactly BANTER_MAX_WIDTH long lands fully inside the interior.
+        let fit: String = std::iter::repeat('x').take(BANTER_MAX_WIDTH).collect();
+        let (mut f, panel) = inmatch_panel();
+        draw_presence_extras(&mut f, panel, Some(&fit), 0);
+        for x in 1..=(PANEL_W - 2) {
+            assert_eq!(f[x][banter_y].ch, 'x', "interior col {x} should carry banter");
+        }
+        assert_ne!(f[left_border][banter_y].ch, 'x', "left border untouched");
+        assert_ne!(f[right_border][banter_y].ch, 'x', "right border untouched");
+
+        // A line longer than the interior is clipped: nothing on or past the border.
+        let long: String = std::iter::repeat('y').take(BANTER_MAX_WIDTH + 10).collect();
+        let (mut f, panel) = inmatch_panel();
+        draw_presence_extras(&mut f, panel, Some(&long), 0);
+        assert_ne!(f[left_border][banter_y].ch, 'y', "left border untouched");
+        assert_ne!(f[right_border][banter_y].ch, 'y', "right border untouched");
     }
 }
