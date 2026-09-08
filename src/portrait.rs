@@ -74,16 +74,22 @@ pub fn draw_presence_extras(
         draw_text_in(frame, interior, 14, Align::Center, line, Emphasis::Normal);
     }
 
-    // Pips on interior row 15: `filled` filled glyphs then the rest empty, the
-    // whole ROUND_PIPS-wide run centered. Two emphases, so drawn in two segments
-    // rather than one draw_text_in.
+    // Pips on interior row 15: `filled` filled glyphs then the rest empty, drawn
+    // one glyph at a time at stride 2 (a single blank cell between each) so the
+    // row reads `● ○ ○` rather than cramped. The whole span is
+    // `ROUND_PIPS * 2 - 1` cells wide, centered in the interior.
     let filled = opponent_rounds_won.min(ROUND_PIPS);
-    let start_x = interior.x0 + interior.width().saturating_sub(ROUND_PIPS) / 2;
+    let span = ROUND_PIPS * 2 - 1;
+    let start_x = interior.x0 + interior.width().saturating_sub(span) / 2;
     let pip_y = interior.y0 + 15;
-    let filled_str: String = std::iter::repeat('●').take(filled).collect();
-    let empty_str: String = std::iter::repeat('○').take(ROUND_PIPS - filled).collect();
-    draw_text(frame, start_x, pip_y, &filled_str, Emphasis::Strong);
-    draw_text(frame, start_x + filled, pip_y, &empty_str, Emphasis::Muted);
+    for i in 0..ROUND_PIPS {
+        let (glyph, emphasis) = if i < filled {
+            ('●', Emphasis::Strong)
+        } else {
+            ('○', Emphasis::Muted)
+        };
+        draw_text(frame, start_x + i * 2, pip_y, &glyph.to_string(), emphasis);
+    }
 }
 
 #[cfg(test)]
@@ -185,6 +191,33 @@ mod tests {
         let empty = f.iter().filter(|col| col[pip_y].ch == '○').count();
         assert_eq!(filled, ROUND_PIPS);
         assert_eq!(empty, 0);
+    }
+
+    #[test]
+    fn pip_glyphs_are_spaced_one_blank_cell_apart() {
+        let (mut f, panel) = inmatch_panel();
+        draw_presence_extras(&mut f, panel, None, 1);
+
+        let pip_y = 16;
+        // Collect the columns carrying a pip glyph, left to right.
+        let cols: Vec<usize> = f
+            .iter()
+            .enumerate()
+            .filter(|(_, col)| matches!(col[pip_y].ch, '●' | '○'))
+            .map(|(x, _)| x)
+            .collect();
+
+        assert_eq!(cols.len(), ROUND_PIPS, "one glyph per pip");
+        // Consecutive glyphs sit two cells apart, so the cell between them is
+        // never itself a pip glyph.
+        for pair in cols.windows(2) {
+            assert_eq!(pair[1] - pair[0], 2, "glyphs at stride 2");
+            let between = pair[0] + 1;
+            assert!(
+                !matches!(f[between][pip_y].ch, '●' | '○'),
+                "cell {between} between glyphs must not be a pip glyph"
+            );
+        }
     }
 
     #[test]

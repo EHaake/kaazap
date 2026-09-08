@@ -152,7 +152,7 @@ phase-based clearing, and spaces the pips. Reviewed at phase end. -->
   at a pristine round start and true after a hit/stand/played card; no-repeat survives the clear
   (banter=None, banter_last retained → next same-event pick avoids the prior line). Driver at
   T005c: greeting clears on first hit; a round reaction clears when the next round starts.*
-- [ ] **T005b** — Space the pips. In `src/portrait.rs` `draw_presence_extras`, draw the pips
+- [x] **T005b** — Space the pips. In `src/portrait.rs` `draw_presence_extras`, draw the pips
   per-glyph at stride 2 (one blank cell between) over a centered span of `ROUND_PIPS * 2 - 1`,
   filled (`Strong`) / empty (`Muted`) as before (plan §6/§Design 2). Update the T003 pip test for
   the new layout. Leave `draw_presence_panel` unchanged.
@@ -231,8 +231,8 @@ treating the policy as settled. -->
 | T004 impl (sdd-implementer) | opus (one down) | ~42.8K | done; 286 tests, no warnings, only app.rs (verbatim); let-chain form matches existing app.rs idiom |
 | T005 impl (sdd-implementer) | opus (one down) | ~20.2K | done; 286 tests, no warnings, only board.rs+app.rs (verbatim); param order draw(state,cursor,banter,pulse,frame) |
 | Phase 4 review (skeptical-reviewer) | opus (default) | ~24.8K | APPROVE WITH NOTES; both tick sites, seeding, transient invariant, no double-fire all sound; in-match-only confirmed by grep (extras only in board.rs) |
-| T005a impl (phase-based clear) | opus (one down) — SEE FLAG: .claude/settings.json flipped to sonnet mid-spec; actual dispatch tier now uncertain, pending person ruling | ~44.1K | done; 288 tests pass (verbatim), only banter.rs+app.rs source; player_engaged + play_resumed + banter_last |
-| T005b impl (spaced pips) | opus (one down) | _TBD_ | _pending_ |
+| T005a impl (phase-based clear) | opus (sdd-implementer pins model: opus regardless of session model — the mid-spec settings.json flip to a Sonnet *orchestrator* did not change the implementer tier; policy amended on main, resolved) | ~44.1K | done; 288 tests pass (verbatim), only banter.rs+app.rs source; player_engaged + play_resumed + banter_last |
+| T005b impl (spaced pips) | opus (pinned) | ~22.6K | done; 289 tests pass (verbatim), only portrait.rs; per-glyph stride-2 draw + spacing test |
 | Phase 5 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T006 close-out (orchestrator) | opus (top) | _TBD_ | _pending_ |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
