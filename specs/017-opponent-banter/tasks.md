@@ -138,7 +138,7 @@ whole next round; it now clears when the next round's play begins (blank between
 <!-- Revises the delegated "persists until the next event" default (spec.md, plan.md §8) to
 phase-based clearing, and spaces the pips. Reviewed at phase end. -->
 
-- [ ] **T005a** — Phase-based banter clearing. In `src/banter.rs`: add `player_engaged: bool` to
+- [x] **T005a** — Phase-based banter clearing. In `src/banter.rs`: add `player_engaged: bool` to
   `BanterSnapshot` (set in `of`: `!player.dealer_row.is_empty() || !player.played_row.is_empty()
   || player.stood`), and add `pub fn play_resumed(prev, curr) -> bool` = `curr.player_engaged &&
   !prev.player_engaged` (plan §8). In `src/app.rs`: add a `banter_last: Option<&'static str>`
@@ -231,7 +231,7 @@ treating the policy as settled. -->
 | T004 impl (sdd-implementer) | opus (one down) | ~42.8K | done; 286 tests, no warnings, only app.rs (verbatim); let-chain form matches existing app.rs idiom |
 | T005 impl (sdd-implementer) | opus (one down) | ~20.2K | done; 286 tests, no warnings, only board.rs+app.rs (verbatim); param order draw(state,cursor,banter,pulse,frame) |
 | Phase 4 review (skeptical-reviewer) | opus (default) | ~24.8K | APPROVE WITH NOTES; both tick sites, seeding, transient invariant, no double-fire all sound; in-match-only confirmed by grep (extras only in board.rs) |
-| T005a impl (phase-based clear) | opus (one down) | _TBD_ | _pending_ |
+| T005a impl (phase-based clear) | opus (one down) — SEE FLAG: .claude/settings.json flipped to sonnet mid-spec; actual dispatch tier now uncertain, pending person ruling | ~44.1K | done; 288 tests pass (verbatim), only banter.rs+app.rs source; player_engaged + play_resumed + banter_last |
 | T005b impl (spaced pips) | opus (one down) | _TBD_ | _pending_ |
 | Phase 5 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T006 close-out (orchestrator) | opus (top) | _TBD_ | _pending_ |

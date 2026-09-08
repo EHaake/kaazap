@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyModifiers};
 use crate::{
     SELECTION_PULSE_MS,
     audio::{Audio, AudioSnapshot, Sfx, audio_cues},
-    banter::{BanterSnapshot, banter_event, banter_for, lines_for, pick},
+    banter::{BanterSnapshot, banter_event, banter_for, lines_for, pick, play_resumed},
     board::BoardView,
     campaign::NodeRef,
     campaign_map::{CampaignMapState, MapOutcome},
@@ -336,6 +336,10 @@ pub struct App {
     // The opponent's current banter line, shown in the portrait panel. None
     // outside a game, or when there's no appropriate line for the state yet.
     banter: Option<&'static str>,
+    // The most recently shown banter line, kept independently of `banter` so
+    // the no-back-to-back-repeat rule survives the phase-clear (spec 017 §1):
+    // `pick` is fed this, and it is never cleared by the phase-clear.
+    banter_last: Option<&'static str>,
     // The last in-game banter snapshot; the next is diffed against it to
     // decide which line class fires. None outside a game.
     prev_banter: Option<BanterSnapshot>,
@@ -367,6 +371,7 @@ impl App {
             profile,
             prev_audio: None,
             banter: None,
+            banter_last: None,
             prev_banter: None,
             too_small: None,
             last_reward: None,
@@ -515,7 +520,9 @@ impl App {
         // Seed the banter with the opponent's greeting; the first snapshot
         // seeds the diff silently.
         self.prev_banter = None;
-        self.banter = Some(pick(banter_for(opp_id).match_start, None, &mut rand::rng()));
+        let line = pick(banter_for(opp_id).match_start, None, &mut rand::rng());
+        self.banter = Some(line);
+        self.banter_last = Some(line);
         // Persist immediately (overwriting any prior save), so quitting right
         // away still leaves a resumable game and Continue appears next launch.
         self.save_game();
@@ -548,10 +555,19 @@ impl App {
             }
             _ => return,
         };
-        if let Some(prev) = self.prev_banter
-            && let Some(ev) = banter_event(&prev, &curr)
-        {
-            self.banter = Some(pick(lines_for(banter_for(id), ev), self.banter, &mut rand::rng()));
+        if let Some(prev) = self.prev_banter {
+            if let Some(ev) = banter_event(&prev, &curr) {
+                // A new event: pick a line, avoiding the last one shown, and
+                // record it in both fields.
+                let line = pick(lines_for(banter_for(id), ev), self.banter_last, &mut rand::rng());
+                self.banter = Some(line);
+                self.banter_last = Some(line);
+            } else if play_resumed(&prev, &curr) {
+                // The next round's play has begun and no new line fired: clear
+                // the shown line (spec 017 §8), but keep `banter_last` so the
+                // no-repeat rule still holds across the blank (§1).
+                self.banter = None;
+            }
         }
         self.prev_banter = Some(curr);
     }
@@ -1010,6 +1026,7 @@ impl App {
                     // already underway; the next event supplies a line.
                     self.prev_banter = None;
                     self.banter = None;
+                    self.banter_last = None;
                 }
             }
             MenuItem::StartCampaign => {

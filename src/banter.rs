@@ -35,6 +35,10 @@ pub struct BanterSnapshot {
     outcome: Option<RoundOutcome>,
     game_over: bool,
     opp_won_game: bool,
+    /// The player has acted this round — drawn a dealer card, played a side
+    /// card, or stood. `false` at every round's pristine start and at match
+    /// start; drives phase-based banter clearing (spec 017 §8).
+    player_engaged: bool,
 }
 
 impl BanterSnapshot {
@@ -49,8 +53,20 @@ impl BanterSnapshot {
             outcome: gs.round_outcome,
             game_over,
             opp_won_game,
+            player_engaged: !gs.player.dealer_row.is_empty()
+                || !gs.player.played_row.is_empty()
+                || gs.player.stood,
         }
     }
+}
+
+/// Whether the player's play has *resumed* across `prev` → `curr`: the
+/// false→true transition of [`BanterSnapshot::player_engaged`], i.e. the
+/// player's first action of a round. `App` clears the current banter line on
+/// this transition (spec 017 §8), so a reaction shown through the "next round"
+/// pause is gone once the next round's play begins. Pure — unit-tested.
+pub fn play_resumed(prev: &BanterSnapshot, curr: &BanterSnapshot) -> bool {
+    curr.player_engaged && !prev.player_engaged
 }
 
 /// The banter event for the transition `prev` → `curr`, or `None` if nothing
@@ -300,7 +316,14 @@ mod tests {
         game_over: bool,
         opp_won_game: bool,
     ) -> BanterSnapshot {
-        BanterSnapshot { o_bust, p_bust, outcome, game_over, opp_won_game }
+        BanterSnapshot {
+            o_bust,
+            p_bust,
+            outcome,
+            game_over,
+            opp_won_game,
+            player_engaged: false,
+        }
     }
 
     const EMPTY: BanterSnapshot = BanterSnapshot {
@@ -309,6 +332,7 @@ mod tests {
         outcome: None,
         game_over: false,
         opp_won_game: false,
+        player_engaged: false,
     };
 
     #[test]
@@ -363,6 +387,43 @@ mod tests {
         // Game-over already true in prev — not new.
         let over = snap(false, false, None, true, true);
         assert_eq!(banter_event(&over, &over), None);
+    }
+
+    #[test]
+    fn play_resumed_only_on_false_to_true_engaged_transition() {
+        let idle = BanterSnapshot { player_engaged: false, ..EMPTY };
+        let engaged = BanterSnapshot { player_engaged: true, ..EMPTY };
+        // false -> true: the player's first action of a round.
+        assert!(play_resumed(&idle, &engaged));
+        // No transition in either steady state, and no clear on disengage.
+        assert!(!play_resumed(&idle, &idle));
+        assert!(!play_resumed(&engaged, &engaged));
+        assert!(!play_resumed(&engaged, &idle));
+    }
+
+    #[test]
+    fn of_player_engaged_reflects_the_players_first_action() {
+        use crate::card::{Card, PlayedCard};
+        use crate::game::GameState;
+
+        // Pristine round start: no dealer card drawn, nothing played, not stood.
+        let gs = GameState::new();
+        assert!(!BanterSnapshot::of(&gs).player_engaged);
+
+        // After a hit (a dealer card on the table).
+        let mut hit = GameState::new();
+        hit.player.dealer_row.push(PlayedCard { card: Card::Dealer(5), value: 5 });
+        assert!(BanterSnapshot::of(&hit).player_engaged);
+
+        // After playing a side card.
+        let mut played = GameState::new();
+        played.player.played_row.push(PlayedCard { card: Card::Plus(3), value: 3 });
+        assert!(BanterSnapshot::of(&played).player_engaged);
+
+        // After standing.
+        let mut stood = GameState::new();
+        stood.player.stood = true;
+        assert!(BanterSnapshot::of(&stood).player_engaged);
     }
 
     #[test]
