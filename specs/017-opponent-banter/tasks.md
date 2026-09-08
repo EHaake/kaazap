@@ -1,8 +1,8 @@
 # Tasks: Opponent banter — spec 017
 
-> **Status:** Draft — pending sign-off
+> **Status:** Signed off by skeptical-reviewer (with notes, applied). Awaiting person approval.
 **Implements**: plan.md in this directory
-**Person approval:** pending (plan + tasks not yet signed off).
+**Person approval:** pending (skeptical-reviewer signed off; person's spec-conformance approval and technical-lead sign-off not yet given — no implementation task starts until then).
 
 Ordered, small, independently verifiable. Each task should be completable (and
 testable) on its own. If a session ends mid-list, resume by finding the first
@@ -52,8 +52,10 @@ everything else rests on. Per-task skeptical-reviewer pass. -->
   — new tests: `banter_event` returns the right event and honors precedence for game-over
   (over a co-firing bust/outcome), each bust, each outcome, and `None` on a stale/no-change diff;
   `pick` never returns `last` for a ≥2-line pool and returns the sole line for a 1-line pool;
-  every class of `GENERIC` (and of `banter_for("default")` / an unknown id) is non-empty; every
-  `GENERIC` line `chars().count() <= BANTER_MAX_WIDTH`.*
+  every class of `GENERIC` (and of `banter_for("default")` / an unknown id) is non-empty and
+  `GENERIC`'s five repeatable classes (`round_win`/`round_loss`/`round_tie`/`opponent_bust`/
+  `player_bust`) each have `len() >= 2` (plan §4 — so a repeatable event can't repeat a sole line
+  back-to-back); every `GENERIC` line `chars().count() <= BANTER_MAX_WIDTH`.*
 
 ## Phase 2 — The voices (content)
 
@@ -65,9 +67,10 @@ everything else rests on. Per-task skeptical-reviewer pass. -->
   `BanterSet` const pattern.)
   *Verify: `cargo build --all-targets` / `cargo test -q` green — tests: every line of every class
   of every roster set (and `GENERIC`) `chars().count() <= BANTER_MAX_WIDTH`; every class of every
-  set is non-empty; the 10 roster sets are pairwise distinct and each differs from `GENERIC`
-  (concatenated-lines proxy). Driver/person: read the sets — 10 distinct, in-character voices,
-  none blank, none another opponent's voice.*
+  set is non-empty and every set's five repeatable classes (`round_win`/`round_loss`/`round_tie`/
+  `opponent_bust`/`player_bust`) have `len() >= 2` (plan §4); the 10 roster sets are pairwise
+  distinct and each differs from `GENERIC` (concatenated-lines proxy). Driver/person: read the
+  sets — 10 distinct, in-character voices, none blank, none another opponent's voice.*
 
 ## Phase 3 — Panel-extras render path (foundational, contained)
 
@@ -169,7 +172,7 @@ treating the policy as settled. -->
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
 | Planning: draft (sdd-planner) | opus (per-call override, per person's request — not the usual fable) | ~94.4K | drafted |
-| plan + tasks sign-off (skeptical-reviewer) | fable (decision) | _TBD_ | _pending_ |
+| plan + tasks sign-off (skeptical-reviewer) | opus (per-call override, per person's request — not the usual fable) | ~59.1K | signed off with notes; Note 1 (repeatable-class ≥2-line floor) applied to plan §4 + T001/T002 |
 | T001 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
 | T001 review (skeptical-reviewer, per-task) | fable (per-task) | _TBD_ | _pending_ |
 | T002 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |

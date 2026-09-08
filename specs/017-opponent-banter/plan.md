@@ -1,6 +1,6 @@
 # Plan: Opponent banter — spec 017
 
-> **Status:** Draft — pending sign-off
+> **Status:** Signed off by skeptical-reviewer (with notes, applied). Awaiting person approval.
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -87,13 +87,20 @@ took (art in `assets/portraits/`, not inline).
 
 ### 4. No back-to-back repeat — pick a variant ≠ the currently-shown line
 
-The criterion: "a given event does not repeat the same line twice in a row." Because each event
-class has its own disjoint line pool, consecutive lines from *different* events are already
-distinct; the only repeat risk is the **same** event firing twice in a row. Tracking just the
-currently-shown line (`self.banter`) and requiring the newly-picked line `!= that line` enforces
-"no two identical lines in a row," which is at least as strong as the criterion. So no per-class
-history is needed — a single `pick(lines, last: Option<&str>, rng) -> &'static str` that avoids
-`last` when the pool has >1 entry. Pure and unit-tested (`rand` is already a dependency).
+The criterion: "a given event does not repeat the same line twice in a row." `pick` tracks the
+currently-shown line (`self.banter`, the *globally* last-shown line regardless of which event
+produced it) and requires the newly-picked line `!= that line`. So no per-class history is needed
+— a single `pick(lines, last: Option<&str>, rng) -> &'static str` that avoids `last` when the
+pool has >1 entry. Pure and unit-tested (`rand` is already a dependency).
+
+One hole to close in authoring, not code: `pick` on a **single-line pool returns that sole
+line**, so a *repeatable* event class (`RoundWin`/`RoundLoss`/`RoundTie` — the opponent can win
+or lose rounds back-to-back — and `OpponentBust`/`PlayerBust` — the same side can bust in
+consecutive rounds) authored with only one variant would repeat back-to-back and violate the
+criterion. So the **five repeatable classes carry ≥2 lines each** for every voice (including
+`GENERIC`); the non-repeatable classes (`MatchStart`, `MatchWin`, `MatchLoss` — each fires at
+most once per match) may have one. A test asserts the ≥2 floor for the repeatable classes across
+every set, so a one-line repeatable class can't ship green.
 
 ### 5. Event precedence — match-end > bust > round-outcome
 
@@ -219,8 +226,11 @@ Each behavioral claim names the task that owns its check. Two claims are human-a
   set outcome; a repeated/stale snapshot yields `None`. Guards "a line fires on match start, each
   round win/loss/tie, each bust, and match end" and the precedence design.
 - **No back-to-back repeat** (T001): for a ≥2-line pool, `pick(pool, Some(prev), rng)` never
-  returns `prev` across many draws; for a 1-line pool it returns that line. Guards "a given event
-  does not repeat the same line twice in a row."
+  returns `prev` across many draws; for a 1-line pool it returns that line. Paired with the
+  **repeatable-class floor** (T001 generic; T002 roster): every set's five repeatable classes
+  (`round_win`, `round_loss`, `round_tie`, `opponent_bust`, `player_bust`) have `len() >= 2`, so
+  `pick` always has an alternative when the same event fires in consecutive rounds. Together these
+  guard "a given event does not repeat the same line twice in a row."
 - **Every event class is non-empty for every voice** (T001 generic; T002 roster): `banter_for`
   for `"default"`, every roster id, and an unknown id returns a set whose eight classes are each
   non-empty. Guards "never blank"; the unknown-id case guards the generic fallback.
