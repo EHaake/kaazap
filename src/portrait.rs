@@ -19,6 +19,13 @@ pub const PANEL_GAP: usize = 3;
 pub const PANEL_W: usize = PORTRAIT_WIDTH + 2 * PANEL_PAD_X + 2; // 22: portrait + interior pad + border
 pub const PANEL_H_INMATCH: usize = 2 + 1 + PORTRAIT_HEIGHT + 1 + 2; // 18: border, name, portrait, gap, reserved
 
+/// The panel interior width a banter line must fit within, and the number of
+/// round pips (first-to-3, matching `ROUND_PIPS` uses in game.rs). Used by the
+/// banter fit test (`banter.rs`) and the in-match panel-extras drawer (T003).
+pub const BANTER_MAX_WIDTH: usize = PANEL_W - 2; // 20: interior width lines must fit
+#[allow(dead_code)] // consumed by draw_presence_extras (T003)
+const ROUND_PIPS: usize = 3; // first-to-3
+
 /// Draw a portrait's art with its top-left at (x, y): each line of `art` is
 /// drawn left-to-right at (x, y + row) via `draw_text`. Clip-safe — every cell
 /// goes through `draw_char`'s bounds guard, so an off-frame position (or a

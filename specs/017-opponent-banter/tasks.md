@@ -35,7 +35,7 @@ the close-out — is reviewed at phase end.
 <!-- Foundational: the event diff, the line-selection rule, and the BanterSet/BanterEvent shape
 everything else rests on. Per-task skeptical-reviewer pass. -->
 
-- [ ] **T001 (foundational, review: per-task)** — Create `src/banter.rs` (add to `src/lib.rs`).
+- [x] **T001 (foundational, review: per-task)** — Create `src/banter.rs` (add to `src/lib.rs`).
   Define `BanterEvent` (MatchStart, RoundWin, RoundLoss, RoundTie, OpponentBust, PlayerBust,
   MatchWin, MatchLoss — opponent's POV); `BanterSnapshot { o_bust, p_bust, outcome, game_over,
   opp_won_game }` + `of(&GameState)` mirroring `AudioSnapshot::of` (`audio.rs:268`);
@@ -69,8 +69,10 @@ everything else rests on. Per-task skeptical-reviewer pass. -->
   of every roster set (and `GENERIC`) `chars().count() <= BANTER_MAX_WIDTH`; every class of every
   set is non-empty and every set's five repeatable classes (`round_win`/`round_loss`/`round_tie`/
   `opponent_bust`/`player_bust`) have `len() >= 2` (plan §4); the 10 roster sets are pairwise
-  distinct and each differs from `GENERIC` (concatenated-lines proxy). Driver/person: read the
-  sets — 10 distinct, in-character voices, none blank, none another opponent's voice.*
+  distinct and each differs from `GENERIC` (concatenated-lines proxy); **within every class of
+  every set, the lines are distinct** (no duplicate variants — carried from the T001 review:
+  guards `pick` against a pool of all-equal lines, which could otherwise loop). Driver/person:
+  read the sets — 10 distinct, in-character voices, none blank, none another opponent's voice.*
 
 ## Phase 3 — Panel-extras render path (foundational, contained)
 
@@ -130,7 +132,10 @@ shared draw_presence_panel so the two preview callers are untouched. Reviewed at
   snapshots at 139×31 and wider showing the in-match banter line + pips, and the unchanged
   opponent-select / campaign-map previews; the sweep confirms no `game.rs`/`player.rs`/`card.rs`/
   `save.rs`/AI/`audio.rs` change and that banter never enters the save format; `ROADMAP.md` no
-  longer lists this as future; sweep clean or findings resolved.*
+  longer lists this as future; sweep clean or findings resolved. **Carried from T001 review:** the
+  sweep owns the repo-wide single-source check on `ROUND_PIPS` (`portrait.rs`) vs the first-to-3
+  win threshold in `game.rs` — confirm they aren't a drift-prone double encoding, or note the
+  accepted duplication (display geometry vs game logic).*
 
 ---
 
@@ -173,8 +178,8 @@ treating the policy as settled. -->
 |---|---|---|---|
 | Planning: draft (sdd-planner) | opus (per-call override, per person's request — not the usual fable) | ~94.4K | drafted |
 | plan + tasks sign-off (skeptical-reviewer) | opus (per-call override, per person's request — not the usual fable) | ~59.1K | signed off with notes; Note 1 (repeatable-class ≥2-line floor) applied to plan §4 + T001/T002 |
-| T001 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
-| T001 review (skeptical-reviewer, per-task) | fable (per-task) | _TBD_ | _pending_ |
+| T001 impl (sdd-implementer) | opus (one down) | ~42.1K | done; build clean, 276 tests pass (orchestrator re-ran) |
+| T001 review (skeptical-reviewer, per-task) | opus (one down, per policy — planner's "fable" row was wrong) | ~33.5K | APPROVE WITH NOTES; 2 non-blocking carried (intra-class distinctness→T002, ROUND_PIPS single-source→sweep) |
 | T002 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
 | Phase 2 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T003 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
