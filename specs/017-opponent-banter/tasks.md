@@ -122,7 +122,9 @@ shared draw_presence_panel so the two preview callers are untouched. Reviewed at
   weigh here:** (1) Toran's "Over you go." vs Vessa's "Down you go." (both player_bust) are a
   faint rhyme back-to-back; (2) Dax calling the player "kid" when Dax is himself the roster's
   cocky kid; (3) Sovereign's round_loss ("Amusing."/"A trifle.") and match_loss ("Enjoy it.
-  Briefly.") sit in one adjacent flat register — by design, but worth an ear.*
+  Briefly.") sit in one adjacent flat register — by design, but worth an ear. **Phase 3 review
+  render note:** the three pips center half a cell left of the panel's true center (integer
+  division, consistent with `draw_text_in`'s own convention) — cosmetic, confirm it looks right.*
 
 ## Final phase — Spec close-out
 
@@ -187,7 +189,7 @@ treating the policy as settled. -->
 | T002 impl (sdd-implementer) | opus (one down) | ~35.2K | done; 282 tests pass (verbatim, not per-task); +1 additive test (no line shared across sets) |
 | Phase 2 review (skeptical-reviewer) | opus (default) | ~27.3K | APPROVE WITH NOTES; POV/class correct across all 10, voices distinct; 3 taste notes carried to T005 |
 | T003 impl (sdd-implementer) | opus (one down) | ~26.3K | done; 286 tests pass (verbatim); draw_presence_panel unchanged; removed now-stale ROUND_PIPS dead_code allow |
-| Phase 3 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
+| Phase 3 review (skeptical-reviewer) | opus (default) | ~26.0K | APPROVE WITH NOTES; panel unchanged, border-untouched proof genuine, pips correct; pip-centering half-cell-left note carried to T005 |
 | T004 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
 | T005 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
 | Phase 4 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
