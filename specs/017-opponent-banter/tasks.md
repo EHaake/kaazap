@@ -118,7 +118,11 @@ shared draw_presence_panel so the two preview callers are untouched. Reviewed at
   persists between events; pips fill as the opponent wins rounds; the board's own prompts are
   undisturbed; opponent-select and the campaign map still show name + portrait only. Snapshot at
   139×31 and wider. **PAUSE for the person** (phase attestation): confirm the voices read as
-  distinct and in character, and that everything is monochrome.*
+  distinct and in character, and that everything is monochrome. **Phase 2 review taste notes to
+  weigh here:** (1) Toran's "Over you go." vs Vessa's "Down you go." (both player_bust) are a
+  faint rhyme back-to-back; (2) Dax calling the player "kid" when Dax is himself the roster's
+  cocky kid; (3) Sovereign's round_loss ("Amusing."/"A trifle.") and match_loss ("Enjoy it.
+  Briefly.") sit in one adjacent flat register — by design, but worth an ear.*
 
 ## Final phase — Spec close-out
 
@@ -181,7 +185,7 @@ treating the policy as settled. -->
 | T001 impl (sdd-implementer) | opus (one down) | ~42.1K | done; build clean, 276 tests pass (orchestrator re-ran) |
 | T001 review (skeptical-reviewer, per-task) | opus (one down, per policy — planner's "fable" row was wrong) | ~33.5K | APPROVE WITH NOTES; 2 non-blocking carried (intra-class distinctness→T002, ROUND_PIPS single-source→sweep) |
 | T002 impl (sdd-implementer) | opus (one down) | ~35.2K | done; 282 tests pass (verbatim, not per-task); +1 additive test (no line shared across sets) |
-| Phase 2 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
+| Phase 2 review (skeptical-reviewer) | opus (default) | ~27.3K | APPROVE WITH NOTES; POV/class correct across all 10, voices distinct; 3 taste notes carried to T005 |
 | T003 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
 | Phase 3 review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T004 impl (sdd-implementer) | opus (one down) | _TBD_ | _pending_ |
