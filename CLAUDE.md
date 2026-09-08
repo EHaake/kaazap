@@ -119,14 +119,15 @@ further, and whenever something unexpected bears on spec adherence.
 
 ## Model policy
 
-- **Tiers by name**: top tier `fable`; step-down `opus`. These two
-  names are the only place a model is spelled out; everything below
-  refers to them.
-- **The session runs at the step-down tier, at medium effort**, set in
-  this repo's `.claude/settings.json` — written at project setup from
-  the skill's `assets/settings-template.json` (`"model": "opus"`,
-  `"effortLevel": "medium"`, and the same level under
-  `"modelSettings"` for the step-down model's full ID). If that file
+- **Tiers by name**: top tier `fable`; the implementation-and-review
+  tier `opus`; the orchestrator tier `sonnet`. These three names are
+  the only place a model is spelled out; everything below refers to
+  them.
+- **The orchestrating session runs at `sonnet`, at medium effort**, set
+  in this repo's `.claude/settings.json` — written at project setup
+  from the skill's `assets/settings-template.json` (`"model":
+  "sonnet"`, `"effortLevel": "medium"`, and the same level under
+  `"modelSettings"` for the orchestrator model's full ID). If that file
   is missing or lacks these keys, recreate it from the template and
   commit it before dispatching anything; nobody creates it by hand.
   Project settings outrank user settings, so a model picked in the
@@ -135,8 +136,11 @@ further, and whenever something unexpected bears on spec adherence.
   orchestrating session takes thousands of bookkeeping turns and
   re-sends its whole context on each one; measured across the first
   specs, that re-send volume was eight to nine times the implementers'
-  and was the dominant cost of the entire workflow. It doesn't need
-  the top tier or deep reasoning to assemble a bundle and tick a box.
+  and was the dominant cost of the entire workflow. It doesn't need a
+  higher tier or deep reasoning to assemble a bundle and tick a box —
+  `sonnet` is the cheapest tier that does the orchestration reliably,
+  which is why the orchestrator sits below the implementers, not above
+  them.
 - **The top tier runs only inside the decisions**: the `sdd-planner`
   (one dispatch per spec) and the `skeptical-reviewer` on plan/tasks
   sign-off and on routine-but-real decision reviews — each dispatched
@@ -145,17 +149,19 @@ further, and whenever something unexpected bears on spec adherence.
   medium, so reasoning stays at full strength where it matters.
 - **Spec conversations happen in a Claude Code session of their own**,
   at the top tier, and end when the spec is approved — never inside an
-  orchestrating session. A session in this repo opens at the step-down
-  tier, so a spec session states its model first and, if it's the
-  step-down tier, asks the person to switch to the top tier for this
-  session — the model selector in the app, or `/model fable` — before
-  continuing. `.claude/settings.json` pins effort per model, so
-  picking the top tier brings high effort with it and the next session
-  still opens at the step-down tier. (The project's very first spec,
-  with no codebase yet, happened in chat.)
-- **The `skeptical-reviewer` runs one tier down by default** (its
+  orchestrating session. A session in this repo opens at the
+  orchestrator tier (`sonnet`), so a spec session states its model
+  first and, since that's not the top tier, asks the person to switch
+  to the top tier for this session — the model selector in the app, or
+  `/model fable` — before continuing. `.claude/settings.json` pins
+  effort per model, so picking the top tier brings high effort with it
+  and the next session still opens at the orchestrator tier. (The
+  project's very first spec, with no codebase yet, happened in chat.)
+- **The `skeptical-reviewer` runs at `opus` by default** (its
   definition says `opus`) for per-phase reviews, the per-task reviews
-  the planner marks, and the pre-merge sweep. Each
+  the planner marks, and the pre-merge sweep — a tier above the
+  orchestrator that dispatches it, and the same tier as the
+  implementers whose work it reviews. Each
   review gets a single bundle file assembled with shell — diff, task
   lines, plan sections, acceptance criteria; for the sweep, the
   documents and the spec's full diff — and reads nothing else.
@@ -165,7 +171,7 @@ further, and whenever something unexpected bears on spec adherence.
   means it would fail an acceptance criterion or a test, or contradicts
   `plan.md` or `CLAUDE.md`; nothing else blocks. Anything open after
   the re-review goes to the tier log and the sweep.
-- **Implementation runs one tier down**, in the `sdd-implementer`
+- **Implementation runs at `opus`**, in the `sdd-implementer`
   subagent, one task per dispatch, sequentially. The orchestrating
   session triages each task, dispatches routine ones on a task bundle
   assembled with shell (task line, plan section, acceptance criteria,
@@ -185,16 +191,26 @@ further, and whenever something unexpected bears on spec adherence.
   shell command; bundle assembly and dispatch back to back. Every turn
   saved is one fewer re-send of the whole context.
 - **Fallback**: if the top tier's usage budget runs out, dispatch the
-  planner and sign-off at the step-down tier for the rest of the
-  window (drop the override). Nothing else changes; the tier log
-  records what ran.
+  planner and sign-off at `opus` for the rest of the window (drop the
+  override) — and a spec conversation that can't reach the top tier
+  runs at `opus` too. Nothing else changes; the tier log records what
+  ran.
 - **Escape hatch**: two failed verifications on one task, or a "stopped
   on a judgment call" the orchestrator considers well-specified, and
   the orchestrator does that task itself, noting the
   miss in `tasks.md`.
-- **Third tier**: off. <!-- Turn on per project once the first spec's
-  tier log justifies it: "Sonnet for tasks with an automated Verify
-  check, a named pattern file, and a small footprint." -->
+- **Why three tiers, and who sits where**: `sonnet` orchestrates
+  (cheapest reliable bundle-assembly and bookkeeping, the dominant cost
+  center), `opus` does the work that needs real reasoning close to the
+  code — implementation, per-phase/per-task/sweep review — and `fable`
+  is reserved for the decisions with the longest reach: the plan/tasks
+  the whole build inherits (`sdd-planner`), the sign-off and
+  routine-but-real decision reviews, and the spec conversations
+  themselves. The orchestrator deliberately runs *below* the
+  implementers it dispatches. (This supersedes the earlier
+  "orchestrator at the step-down tier, third tier off" arrangement,
+  amended 2026-09-07 once the orchestrator's cost profile was clear;
+  the `sdd-implementer` was never sonnet.)
 - **Log token usage per implementer run and per reviewer invocation**,
   plus tier misses, in `tasks.md`'s tier log for the first spec under
   this policy, and compare against a previous spec before treating the
