@@ -225,9 +225,9 @@ spec total against a previous spec of similar size before treating the policy as
 | Phase 1 review (skeptical-reviewer) | opus | ~57.3K | passed; no blocking; 3 non-blocking cleanups → folded into T008 |
 | T004 impl (sdd-implementer) | opus | ~19.2K | done; build clean, 319 tests pass; draw_text_overlay extracted, draw_border/add_content inlined+removed |
 | T005 impl (sdd-implementer) | opus | ~46.2K | done; build clean, 319 tests pass; twin call sites + both reset sites wired; only src/app.rs touched |
-| T005 review (skeptical-reviewer, per-task) | fable (top-tier budget recovered; per-call override applied) | ~30.9K | signed off, no blocking; 2 non-blocking notes (1 → T008 plan-text fix; 1 already in T007 checklist) |
+| T005 review (skeptical-reviewer, per-task) | fable (ran; but budget NOT actually recovered — orchestrator misjudged a successful dispatch as recovery; Erik ruled 2026-09-09 the opus fallback stays) | ~30.9K | signed off, no blocking; 2 non-blocking notes (1 → T008 plan-text fix; 1 already in T007 checklist) |
 | T006 impl (sdd-implementer) | opus | ~22.6K | done; build clean, 319 tests pass; Modal::PlayLog variant + L/Esc routing; temp `Some(Modal::PlayLog) => {}` draw stub (T007 replaces) |
 | T007 impl (sdd-implementer) | opus | ~62.2K | done; build clean, 321 tests pass (2 new); draw arm w/ max-clamped OverlayLayout budget; empty-section placeholders folded into render_lines (Phase-1 carryover). ATTESTATION PENDING (Erik) |
-| Phase 2 review (skeptical-reviewer) | fable (top-tier budget recovered) | ~44.1K | signed off, no blocking; 2 actionable non-blocking notes → T008 (tighten tiny-budget test; record the short-terminal clip as a known non-issue), 2 cosmetic → attestation |
+| Phase 2 review (skeptical-reviewer) | fable (ran; budget NOT recovered — same orchestrator misjudgment as the T005 row; opus fallback stays per Erik 2026-09-09; T008 sweep runs on opus fallback) | ~44.1K | signed off, no blocking; 2 actionable non-blocking notes → T008 (tighten tiny-budget test; record the short-terminal clip as a known non-issue), 2 cosmetic → attestation |
 | T008 close-out (orchestrator) | | | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | | | |
