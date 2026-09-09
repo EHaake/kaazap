@@ -90,6 +90,12 @@ in `observe` and the rendering change.
 
 ## 2. `src/overlay.rs` — a scrollable, padded overlay draw path
 
+> **Shipped divergence (recorded in DECISIONS.md):** the box is sized *directly*
+> to ~38% wide × ~58% tall (not via `OverlayLayout::new` at ~70% as sketched
+> below) — `OverlayLayout`'s fixed padding ballooned a percentage-sized box
+> toward full-screen, and the owner then halved the width. The overflow/scroll
+> contract below is as built; only the box-sizing paragraph is superseded.
+
 `draw_text_overlay` (spec 018) stays for the three static overlays — **do not
 change it**. Add a second public function for the play log:
 
