@@ -71,22 +71,32 @@ game state), so the real work is the *writing* and the panel wiring.
 
 ## Acceptance criteria
 
-- [ ] Each of the 10 roster opponents speaks in a **distinct** voice; the same event
-  from two opponents reads differently.
-- [ ] A line fires on **match start, each round win/loss/tie, each bust (player or
-  opponent), and match end**, shown in the panel line beneath the portrait.
-- [ ] Lines **vary** — a given event does not repeat the same line twice in a row
-  within a match.
-- [ ] The panel's **round-win pips** reflect the opponent's round wins (0–3) and
-  update as rounds resolve.
-- [ ] Banter and pips appear **only in the in-match panel**; opponent-select and the
-  campaign map still show name + portrait with no banter/pips.
-- [ ] Banter never clips or overruns the panel, never overlaps the portrait / name /
-  pips, and never disturbs the board's mechanical prompts (which are unchanged).
-- [ ] The generic fallback opponent shows a neutral line (never blank, never another
-  opponent's voice).
-- [ ] Build and tests green; **no engine, save-format, or AI change**; monochrome
-  preserved. Verified by playing a match and reading the lines, not only by tests.
+- [x] Each of the 10 roster opponents speaks in a **distinct** voice; the same event
+  from two opponents reads differently. *(T002/T005e: 10 authored voices; pairwise-distinct
+  + no-line-shared tests; Phase 2 + T005e content reviews verified POV/character; person
+  attested.)*
+- [x] A line fires on **match start, each round win/loss/tie, each bust (player or
+  opponent), and match end**, shown in the panel line beneath the portrait. *(banter_event +
+  precedence, unit-tested; seeded fresh + on rematch (match_restarted); driver-observed.)*
+- [x] Lines **vary** — a given event does not repeat the same line twice in a row
+  within a match. *(pick avoids the last line via banter_last across the phase-clear;
+  repeatable classes ≥3; unit-tested.)*
+- [x] The panel's **round-win pips** reflect the opponent's round wins (0–3) and
+  update as rounds resolve. *(draw_presence_extras reads opponent.rounds_won live; count/clamp
+  tests; driver-observed ○ ○ ○ → ● ○ ○.)*
+- [x] Banter and pips appear **only in the in-match panel**; opponent-select and the
+  campaign map still show name + portrait with no banter/pips. *(draw_presence_extras called
+  only from board.rs; grep-confirmed previews call only draw_presence_panel; driver-observed.)*
+- [x] Banter never clips or overruns the panel, never overlaps the portrait / name /
+  pips, and never disturbs the board's mechanical prompts (which are unchanged). *(fit ≤
+  BANTER_MAX_WIDTH + border-untouched tests; the board status band is untouched; driver-observed.)*
+- [x] The generic fallback opponent shows a neutral line (never blank, never another
+  opponent's voice). *(GENERIC set; banter_for("default")/unknown → GENERIC; non-empty +
+  distinct-from-roster tests.)*
+- [x] Build and tests green; **no engine, save-format, or AI change**; monochrome
+  preserved. Verified by playing a match and reading the lines, not only by tests. *(290 tests
+  green; only banter.rs/portrait.rs/board.rs/app.rs touched; glyphs + Emphasis, no color;
+  person attested by playing.)*
 
 ## Non-goals
 

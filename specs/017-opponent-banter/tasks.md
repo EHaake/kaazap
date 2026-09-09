@@ -187,7 +187,7 @@ phase-based clearing, and spaces the pips. Reviewed at phase end. -->
 
 ## Final phase — Spec close-out
 
-- [ ] **T006** — Docs, driver, sweep. `DECISIONS.md`: banter is transient (never saved), lives on
+- [x] **T006** — Docs, driver, sweep. `DECISIONS.md`: banter is transient (never saved), lives on
   `App`; the event precedence (match-end > bust > round-outcome); opponent-only pips (the
   delegated default, revisited at attestation); the generic neutral fallback; voices in `banter.rs`
   rather than on `OpponentProfile`, and why. `ROADMAP.md`: mark opponent banter shipped; drop from
@@ -258,6 +258,6 @@ treating the policy as settled. -->
 | T005d impl (rematch greeting) | opus (pinned) | ~22.1K | done; 290 tests pass (verbatim), only banter.rs+app.rs; match_restarted branch checked first in update_banter |
 | T005c driver re-verify + attest | sonnet (orchestrator drove) | n/a | attested: phase-clear + spaced pips confirmed live (greeting clears on 1st hit, reaction persists through pause then clears on next round's 1st action); person OK'd feel |
 | T005e impl (deepen line pools) | opus (pinned) | ~52.3K | done; 290 tests pass (verbatim), only banter.rs; all 11 voices deepened (repeatable ~4/≥3, others ≥2), Greeb "Nngh, lucky!" swap |
-| T005e content review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
-| T006 close-out (orchestrator) | sonnet (orchestrator) | _TBD_ | _pending_ |
-| Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
+| T005e content review (skeptical-reviewer) | opus (default) | ~30.5K | APPROVE WITH NOTES; POV/class correct all 11 voices, in-character, GENERIC clean, no trademark, Greeb swap confirmed; 3 taste notes for close-out skim |
+| T006 close-out (orchestrator) | sonnet (orchestrator) | n/a | done; DECISIONS/ROADMAP updated, 8/8 criteria ticked with evidence; 290 tests green |
+| Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | ~57.5K | CLEAN WITH NOTES; all 8 criteria code+test-backed, no engine/save/AI change, docs match; ROUND_PIPS resolved as layout geometry (DECISIONS note added); no blocking |
