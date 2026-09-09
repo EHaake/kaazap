@@ -128,7 +128,7 @@ Phase ends with the person's play-and-read attestation (T007). -->
   (as-yet-borderless/stub or, if T007 already landed, full) overlay and `L`/`Esc` close it; `l`
   during a sign choice still commits the minus sign; `m` still mutes under the overlay.*
 
-- [ ] **T007** — Draw the play log + attest. In `src/app.rs`, add a `Some(Modal::PlayLog)` arm to
+- [x] **T007** — Draw the play log + attest. In `src/app.rs`, add a `Some(Modal::PlayLog)` arm to
   the modal-draw match (`app.rs:1160`) that, on `Screen::InGame`, builds
   `self.play_log.render_lines(<inner-height budget from self.config>)` and calls
   `overlay::draw_text_overlay(self.config, &lines, frame)`. No resize arm is needed (content is
@@ -219,7 +219,7 @@ spec total against a previous spec of similar size before treating the policy as
 | T005 impl (sdd-implementer) | opus | ~46.2K | done; build clean, 319 tests pass; twin call sites + both reset sites wired; only src/app.rs touched |
 | T005 review (skeptical-reviewer, per-task) | fable (top-tier budget recovered; per-call override applied) | ~30.9K | signed off, no blocking; 2 non-blocking notes (1 → T008 plan-text fix; 1 already in T007 checklist) |
 | T006 impl (sdd-implementer) | opus | ~22.6K | done; build clean, 319 tests pass; Modal::PlayLog variant + L/Esc routing; temp `Some(Modal::PlayLog) => {}` draw stub (T007 replaces) |
-| T007 impl (sdd-implementer) | | | |
+| T007 impl (sdd-implementer) | opus | ~62.2K | done; build clean, 321 tests pass (2 new); draw arm w/ max-clamped OverlayLayout budget; empty-section placeholders folded into render_lines (Phase-1 carryover). ATTESTATION PENDING (Erik) |
 | Phase 2 review (skeptical-reviewer) | | | |
 | T008 close-out (orchestrator) | | | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | | | |

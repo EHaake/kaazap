@@ -323,13 +323,23 @@ impl PlayLog {
     /// oldest. A round is bounded (~26 move lines), so this stays a small pure
     /// trim — no pagination.
     pub fn render_lines(&self, inner_height_budget: usize) -> Vec<String> {
-        let outcome_lines: Vec<String> =
-            self.outcomes.iter().map(|s| self.outcome_line(s)).collect();
+        // Each section shows an indented placeholder when it is otherwise empty
+        // — at match start (and right after a new round / rematch) the log has
+        // no outcomes and/or no moves, and a bare header reads unfinished. The
+        // placeholders are part of the fixed (never-trimmed) section, since they
+        // only appear when the section has nothing else to show.
+        let outcome_lines: Vec<String> = if self.outcomes.is_empty() {
+            vec!["  (none yet)".to_string()]
+        } else {
+            self.outcomes.iter().map(|s| self.outcome_line(s)).collect()
+        };
         let move_lines: Vec<String> = self.moves.iter().map(|m| self.move_line(m)).collect();
+        let move_placeholder = move_lines.is_empty();
 
         // The fixed part that is never trimmed: title, outcomes header, every
-        // outcome line, the blank separator, and the moves header.
-        let fixed_count = 4 + outcome_lines.len();
+        // outcome line (or the empty placeholder), the blank separator, the
+        // moves header, and — when there are no moves — the moves placeholder.
+        let fixed_count = 4 + outcome_lines.len() + usize::from(move_placeholder);
         let move_budget = inner_height_budget.saturating_sub(fixed_count);
         let dropped = move_lines.len().saturating_sub(move_budget);
 
@@ -339,7 +349,11 @@ impl PlayLog {
         lines.extend(outcome_lines);
         lines.push(String::new());
         lines.push("This round".to_string());
-        lines.extend(move_lines.into_iter().skip(dropped));
+        if move_placeholder {
+            lines.push("  (no moves yet)".to_string());
+        } else {
+            lines.extend(move_lines.into_iter().skip(dropped));
+        }
         lines
     }
 }
@@ -1008,5 +1022,28 @@ mod tests {
         // The most recent two (drew 4, drew 5) are kept, oldest-first.
         assert!(move_lines[0].contains("drew 4"));
         assert!(move_lines[1].contains("drew 5"));
+    }
+
+    #[test]
+    fn render_lines_empty_log_shows_a_placeholder_under_each_header() {
+        // At match start both lists are empty — each header is followed by its
+        // indented placeholder rather than nothing.
+        let log = PlayLog::default();
+        let lines = log.render_lines(100);
+
+        assert_eq!(lines[0], "Play Log");
+        let outcomes_at = lines.iter().position(|l| l == "Round outcomes").unwrap();
+        let moves_at = lines.iter().position(|l| l == "This round").unwrap();
+        assert_eq!(lines[outcomes_at + 1], "  (none yet)");
+        assert_eq!(lines[moves_at + 1], "  (no moves yet)");
+    }
+
+    #[test]
+    fn render_lines_does_not_panic_at_tiny_budgets() {
+        // Both placeholders are part of the fixed section, so a budget below the
+        // fixed count must saturate rather than panic.
+        let log = PlayLog::default();
+        let _ = log.render_lines(0);
+        let _ = log.render_lines(4);
     }
 }

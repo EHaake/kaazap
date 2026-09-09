@@ -24,7 +24,7 @@ use crate::{
     menu::{MenuItem, MenuOutcome, MenuState},
     opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
-    overlay::{Overlay, OverlayKind},
+    overlay::{Overlay, OverlayKind, draw_text_overlay},
     play_log::PlayLog,
     player::Player,
     profile::Profile,
@@ -1223,9 +1223,25 @@ impl App {
             Some(Modal::ConfirmNewCampaign { on_yes }) => {
                 self.draw_confirm_new_campaign(*on_yes, pulse, frame)
             }
-            // Temporary stub so the match stays exhaustive; T007 replaces this
-            // with the real play-log draw.
-            Some(Modal::PlayLog) => {}
+            Some(Modal::PlayLog) => {
+                // Only meaningful in-match; the L toggle can only open it there,
+                // but guard anyway. No resize arm is needed (unlike Modal::Help,
+                // which caches an Overlay): the content is rebuilt every draw from
+                // self.play_log and self.config, and resize() already keeps
+                // self.config current.
+                if matches!(self.screen, Screen::InGame { .. }) {
+                    // Budget = the inner height draw_text_overlay will actually
+                    // have. Build the max-clamped layout it would build for a
+                    // full-frame box and read its inner height, so render_lines'
+                    // most-recent-trim drops exactly the lines the box clamp
+                    // would.
+                    let budget = OverlayLayout::new(self.config, self.config.num_cols, self.config.num_rows)
+                        .inner
+                        .height();
+                    let lines = self.play_log.render_lines(budget);
+                    draw_text_overlay(self.config, &lines, frame);
+                }
+            }
             None => {}
         }
     }
