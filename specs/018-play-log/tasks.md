@@ -96,7 +96,7 @@ the app wiring both depend on. T001 gets a per-task skeptical-reviewer pass. -->
 live, toggle, and draw. T005 (twin-call capture) carries a per-task review; the rest at phase end.
 Phase ends with the person's play-and-read attestation (T007). -->
 
-- [ ] **T004** — Content-driven overlay draw in `src/overlay.rs`. Extract the body of the private
+- [x] **T004** — Content-driven overlay draw in `src/overlay.rs`. Extract the body of the private
   `draw_overlay` into `pub fn draw_text_overlay(config: Config, content: &[String], frame: &mut
   Frame)` (measure → `OverlayLayout::new` → `clear_rect` → `draw_box` → first-line-centered /
   rest-left `draw_text_in`) and make `Overlay::draw_overlay` a one-line delegation to it. No
@@ -210,7 +210,7 @@ spec total against a previous spec of similar size before treating the policy as
 | T002 impl (sdd-implementer) | opus | ~43.2K | done; build clean, 312 tests pass; T001-review carryovers folded in |
 | T003 impl (sdd-implementer) | opus | ~42.5K | done; build clean, 319 tests pass (7 new); stale #[allow(dead_code)] on opponent_name to clean |
 | Phase 1 review (skeptical-reviewer) | opus | ~57.3K | passed; no blocking; 3 non-blocking cleanups → folded into T008 |
-| T004 impl (sdd-implementer) | | | |
+| T004 impl (sdd-implementer) | opus | ~19.2K | done; build clean, 319 tests pass; draw_text_overlay extracted, draw_border/add_content inlined+removed |
 | T005 impl (sdd-implementer) | | | |
 | T005 review (skeptical-reviewer, per-task) | | | |
 | T006 impl (sdd-implementer) | | | |
