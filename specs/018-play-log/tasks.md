@@ -105,7 +105,7 @@ Phase ends with the person's play-and-read attestation (T007). -->
   pass; report that `Overlay`'s public behavior is unchanged (static overlays still render via the
   extracted fn). Driver (optional): the `?` / How to Play overlays look identical.*
 
-- [ ] **T005 (review: per-task)** — Capture wiring on `App` in `src/app.rs`. Add the field
+- [x] **T005 (review: per-task)** — Capture wiring on `App` in `src/app.rs`. Add the field
   `play_log: PlayLog` (grouped with `prev_banter`, init `PlayLog::default()`). Add `fn
   update_play_log(&mut self)` mirroring `update_banter` (early-return off `Screen::InGame`, else
   `self.play_log.observe(game_state)`) and call it right after `update_banter` at **both** sites:
@@ -161,6 +161,11 @@ Phase ends with the person's play-and-read attestation (T007). -->
   the `draw_text_overlay` extraction; `Modal::PlayLog` capturing input while the game keeps ticking
   (no pause). `ROADMAP.md`: mark the play log shipped; drop from future. Check off `spec.md`
   acceptance criteria with evidence. Request the pre-merge whole-spec sweep.
+  *T005-review carryover to fold in here (plan.md doc fix): plan §7 and §3-app say the resume site
+  reads `game.opponent.name`, but `GameState.opponent` (a `PlayerState`) has no such field usable
+  here — the name lives on `game.opponent_profile.name` (a `&'static str`), which is what the code
+  correctly uses. Correct `game.opponent.name` → `game.opponent_profile.name` in plan.md §7 and §3
+  so the plan doesn't teach the next reader a wrong field.*
   *Phase-1-review carryover cleanups to fold in here (src/play_log.rs, all non-blocking): (a) delete
   the now-stale `#[allow(dead_code)]` on `PlayLog.opponent_name` (`render_lines` reads it, so it no
   longer warns); (b) add `assert!(!log.outcomes.is_empty())` to the round-reset test so "outcomes
@@ -211,8 +216,8 @@ spec total against a previous spec of similar size before treating the policy as
 | T003 impl (sdd-implementer) | opus | ~42.5K | done; build clean, 319 tests pass (7 new); stale #[allow(dead_code)] on opponent_name to clean |
 | Phase 1 review (skeptical-reviewer) | opus | ~57.3K | passed; no blocking; 3 non-blocking cleanups → folded into T008 |
 | T004 impl (sdd-implementer) | opus | ~19.2K | done; build clean, 319 tests pass; draw_text_overlay extracted, draw_border/add_content inlined+removed |
-| T005 impl (sdd-implementer) | | | |
-| T005 review (skeptical-reviewer, per-task) | | | |
+| T005 impl (sdd-implementer) | opus | ~46.2K | done; build clean, 319 tests pass; twin call sites + both reset sites wired; only src/app.rs touched |
+| T005 review (skeptical-reviewer, per-task) | fable (top-tier budget recovered; per-call override applied) | ~30.9K | signed off, no blocking; 2 non-blocking notes (1 → T008 plan-text fix; 1 already in T007 checklist) |
 | T006 impl (sdd-implementer) | | | |
 | T007 impl (sdd-implementer) | | | |
 | Phase 2 review (skeptical-reviewer) | | | |
