@@ -69,24 +69,43 @@ opponent-agnostic.
 
 ## Acceptance criteria
 
-- [ ] A dedicated key opens the play log overlay in-match; the same key and
-      `Esc` close it.
-- [ ] While open, the overlay lists the current round's moves in order, each
+- [x] A dedicated key opens the play log overlay in-match; the same key and
+      `Esc` close it. — `L` opens / `L`/`Esc` close, routed as `Modal::PlayLog`
+      in `app.rs` (T006); person-attested at the T007 pause.
+- [x] While open, the overlay lists the current round's moves in order, each
       tagged with the acting side and showing the value/card and the resulting
-      total; a move made while it's open appears without reopening it.
-- [ ] Dealer draws, hand-card plays (with the chosen sign / flip resolution),
+      total; a move made while it's open appears without reopening it. —
+      `moves_since` ordering + per-move total tests (T001); live update while
+      open person-attested (T007), rebuilt each frame from live state (the
+      `tick`-site `update_play_log`, no pause).
+- [x] Dealer draws, hand-card plays (with the chosen sign / flip resolution),
       stands, and busts are all recorded, for both the player and the opponent.
-- [ ] A separate section lists completed rounds this match, in order; each
+      — `play_log.rs` tests cover a draw, a fixed play, a `±`/tiebreaker at each
+      sign, a flip (identity + post-flip total), a stand, and a bust (T001);
+      both-sides ordering pinned by the player-flip-busts-opponent test.
+- [x] A separate section lists completed rounds this match, in order; each
       entry shows the winner (or tie), both sides' final totals, and how the
       round resolved (bust and which side, stand, or filled-table auto-stand).
-- [ ] When a new round begins, the move list is empty while the
-      round-outcomes list still shows prior rounds.
-- [ ] Starting a new match / rematch clears both sections.
-- [ ] Nothing about the log is written to or read from the save file; a
-      resumed match opens with an empty log and logs from resume onward.
-- [ ] The log never reveals an opponent hand card before it is played — it
-      records moves as they happen, i.e. once already visible on the board.
-- [ ] `cargo build --all-targets` and `cargo test` are green.
+      — `summarize_round` precedence tests (lone bust, both-bust, filled-table,
+      double-stand) + `render_lines` outcome-line substring tests (T002/T003).
+- [x] When a new round begins, the move list is empty while the
+      round-outcomes list still shows prior rounds. —
+      `completed_round_then_empty_rows_clears_moves` asserts `moves` empty and
+      `outcomes` non-empty after the reset (T001, tightened in T008).
+- [x] Starting a new match / rematch clears both sections. —
+      `game_over_true_to_false_clears_both_lists` + the both-conditions test
+      (T001); `reset()` at `start_match`/resume clears on entry.
+- [x] Nothing about the log is written to or read from the save file; a
+      resumed match opens with an empty log and logs from resume onward. —
+      `PlayLog` is `App`-only, never in `save.rs` (confirmed by the pre-merge
+      sweep diff); `observe_from_none_seeds_silently` pins the resume-seeds-only
+      behavior; `reset` at `Continue`.
+- [x] The log never reveals an opponent hand card before it is played — it
+      records moves as they happen, i.e. once already visible on the board. —
+      capture reads only `played_row` (a card lands there the tick it plays);
+      person-attested at T007.
+- [x] `cargo build --all-targets` and `cargo test` are green. — build clean,
+      321 tests pass (reported verbatim in T008 / the tier log).
 
 ## Non-goals
 

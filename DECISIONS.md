@@ -492,3 +492,63 @@ day one, but treated as real discipline from here on, not aspirational.
   a human touching the panel. Per the simplicity rule, the rendering layer does
   not import a game-layer constant for a value this stable. (Pre-merge sweep,
   spec 017 — resolving a carried T001-review note.)
+
+## Play log (spec 018)
+
+An in-match, toggleable **play log** overlay (`L` to open, `L`/`Esc` to close):
+the current round's moves in order (dealer draws, hand plays with the resolved
+sign/flip, stands, busts — each with the resulting total) plus a running list
+of this match's round outcomes. The calls:
+
+- **Presentation, never game state — a `PlayLog` on `App`, never serialized.**
+  Like banter (spec 017), the log is transient `App` state; nothing about it
+  reaches `save.rs`. A resumed mid-match save opens with an empty log and logs
+  only from resume onward — the restored board is never back-logged (the first
+  `observe` after `reset` seeds silently). No engine, save-format, AI, or
+  card-behavior change; monochrome by construction (glyphs + `Emphasis`, no
+  color path).
+- **Capture is a per-tick delta diff, not engine hooks.** The spec's "the
+  `apply_*_action` methods are the natural recording points" is a why-it's-cheap
+  note, *not* a license to mutate from `game.rs` — the constitution forbids
+  observing code that mutates, and this spec forbids engine change. So the log
+  **observes from the outside**, diffing successive `GameState`s exactly as
+  `audio.rs` and `banter.rs` do. Banter fires *one* event per transition; the
+  log reconstructs *every* discrete move as an ordered list, resting on a
+  test-pinned invariant: **at most one card is added to one side per capture**,
+  so a side's `score()` after the diff is exactly its post-move total.
+- **The twin-call discipline is load-bearing.** `update_play_log` is called at
+  **both** sites `update_banter` is — after input in `handle_key` and every
+  frame in `tick`. The `tick` call is what captures the opponent's timer-driven
+  moves (the very moves the spec says are hardest to follow); a keypress-only
+  call site would miss them.
+- **Round-outcome resolution is a precedence classification: bust >
+  filled-table > stand.** A round can end with mixed causes (one side stands,
+  the other auto-stands on a full table), so "how it resolved" needs a single
+  defined rule: both busted → both-bust (a tie); one busted → that side's bust;
+  else a filled table → filled-table auto-stand; else a plain stand. This
+  precedence is a design decision, not spec-settled, so it is pinned by a test.
+- **The first *dynamic* overlay — `draw_text_overlay` extracted.** The three
+  prior overlays are static `include_str!` text; the play log renders live
+  per-frame content. Rather than shoehorn dynamic content into `Overlay`, the
+  box machinery (measure → layout → clear → border → per-line text) was
+  extracted into a public free `overlay::draw_text_overlay(config, &[String],
+  frame)`; `Overlay::draw_overlay` delegates to it and the static overlays are
+  behaviorally unchanged. The log builds its `Vec<String>` from
+  `PlayLog::render_lines` and calls it directly — content rebuilt each frame
+  from live state, so `Modal::PlayLog` needs no resize-rebuild arm.
+- **`Modal::PlayLog` captures input but does not pause the game.** By the
+  constitution's own line, a panel opened over `Screen::InGame` and dismissed
+  back to it is a modal — the same category as How to Play. `tick` never
+  consults `self.modal`, so the board keeps advancing and the opponent's timer
+  keeps running while the log is up; the overlay is rebuilt from live state each
+  frame, so a move made while it's open appears immediately. Like every other
+  modal it captures input (you can't play a card until it closes), but the
+  *game* is not paused.
+- **Known non-issue: the fixed section yields to the box on an impossibly short
+  terminal.** `render_lines` never trims the fixed part (title, outcomes,
+  headers, placeholders) — only the move lines, keeping the most recent that
+  fit (the spec's stated acceptable degradation). On a terminal short enough
+  that `fixed_count > inner_height_budget` (~rows ≤ 10 with several outcomes —
+  below what `Config::from_terminal` admits for an in-match layout, so
+  unreachable in practice) the fixed lines clip off the bottom rather than
+  trim. Logged as a known non-issue; no code change. (Phase-2 review.)

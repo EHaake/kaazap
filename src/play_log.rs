@@ -210,8 +210,7 @@ pub struct PlayLog {
     outcomes: Vec<RoundSummary>,
     /// The current round's moves; cleared at each new round.
     moves: Vec<Move>,
-    /// The opponent's name, used as a side label by the overlay renderer (T003).
-    #[allow(dead_code)]
+    /// The opponent's name, used as a side label by the overlay renderer.
     opponent_name: String,
     /// The diff seed; `None` makes the next `observe` seed silently.
     prev: Option<PlayLogSnapshot>,
@@ -633,10 +632,12 @@ mod tests {
         log.observe(&mid);
         assert_eq!(log.moves.len(), 1);
 
-        // The next round empties all four rows -> the move list clears.
+        // The next round empties all four rows -> the move list clears, but the
+        // round-outcomes list persists across the new round.
         let next = empty_gs();
         log.observe(&next);
         assert!(log.moves.is_empty());
+        assert!(!log.outcomes.is_empty());
     }
 
     #[test]
@@ -1044,6 +1045,11 @@ mod tests {
         // fixed count must saturate rather than panic.
         let log = PlayLog::default();
         let _ = log.render_lines(0);
-        let _ = log.render_lines(4);
+        // At a budget below the fixed count the placeholders still survive —
+        // they live in the never-trimmed fixed part, so a regression that moved
+        // them into the trimmable move region would otherwise pass silently.
+        let lines = log.render_lines(4);
+        assert!(lines.iter().any(|l| l == "  (none yet)"));
+        assert!(lines.iter().any(|l| l == "  (no moves yet)"));
     }
 }

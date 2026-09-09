@@ -283,7 +283,7 @@ three static overlays are byte-for-byte unchanged in behavior.
   at **both** sites: `handle_key` (`app.rs:860`) and `tick` (`app.rs:1136`).
 - **Reset**: `self.play_log.reset(<opponent name>)` at `start_match` (`app.rs:512`, using the
   opponent's name/id before the profile is moved into the game state) and at `Continue`
-  (`app.rs:1027`, using `game.opponent.name`).
+  (`app.rs:1027`, using `game.opponent_profile.name`).
 - **Toggle / routing** in `handle_key`: when `Modal::PlayLog` is open, `L` or `Esc` closes it
   (play the back cue, consistent with Help). When no modal is open and the screen is
   `Screen::InGame`, `L` opens `Modal::PlayLog` (`m`-mute stays ahead of it, unchanged). Capital
