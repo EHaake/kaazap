@@ -194,6 +194,20 @@ of, not guessed at here in advance.
   exception amendment. Portraits are original block art (no trademarked species), authored
   to an in-repo brief and validated/integrated by Claude Code after the mandated art-format
   spike. Banter (below) follows — it now has a face to come from.
+- **Opponent banter** (spec 017) — every opponent now has a **voice**: short flavor lines
+  in the opponent's own register, fired on match events (match start, each round
+  won/lost/tied, each bust, match end) in the presence panel's reserved line beneath the
+  portrait, and the panel's reserved **round-win pips** now fill in (opponent-only,
+  first-to-3). Ten distinct roster voices plus a neutral generic fallback, several variant
+  lines per event class, chosen not to repeat back-to-back. A line lives through its
+  reaction window and **clears when the next round's play begins** (phase-based, no timer —
+  revised from "persist until the next event" at the person's attestation), blank between
+  with the pips anchoring the space. A new `banter.rs` (event-diff mirroring the audio
+  snapshot pattern + the authored line tables, keyed by opponent `id`) and an in-match-only
+  `draw_presence_extras` filling spec 016's reserved rows; `App` holds the transient line
+  (never saved). **No engine, save-format, or AI change; monochrome preserved.** Lines
+  authored in-repo by Claude Code (the person edits what doesn't land). Reactions to
+  individual card plays and a player-side pips panel stay deferred.
 
 ## Backlog
 
@@ -281,15 +295,16 @@ independent slices; **portraits shipped first** (spec 016 — see Shipped) —
 banter is a voice and needs a face to come from, and now has one — and neither
 touches the stakes work below, so they can interleave freely.
 
-- **Opponent banter** — event-driven flavor text per opponent: short lines on
-  match start, a round won / lost / tied, a bust, a board-reversing card play,
-  and match end. The home already exists — the in-match status band (`board.rs`
-  `draw_status`) and the round-outcome popup carry only mechanical prompts today
-  — so this is a data table (opponent × event → a few variant lines) + a trigger
-  that borrows those slots, plus a per-opponent voice guide. No layout or engine
-  change; the real cost is *writing* (10 opponents). Highest personality-per-
-  effort item, but **it follows portraits** — banter attaches to a face.
-  Opponents today carry only a static `blurb` (spec 007), shown outside matches.
+- **Opponent banter (monochrome)** — ✅ **Shipped (spec 017** — see Shipped above and
+  `DECISIONS.md`). Event-driven flavor lines per opponent on match start, each round
+  won / lost / tied, each bust, and match end — plus the panel's opponent round-win pips.
+  The home turned out to be **not** the board's status band (that stays mechanical) but the
+  presence panel's own reserved line beneath the portrait (spec 016). Ten distinct voices +
+  a neutral fallback in a new `banter.rs`, event detection mirroring the audio snapshot
+  diff, no layout/engine/save/AI change. As anticipated the real cost was the *writing*.
+  The "board-reversing card play" reaction stayed **deferred** (reacts to the four event
+  classes only). Opponents still also carry the static `blurb` (spec 007), shown outside
+  matches.
 - **Opponent portraits (monochrome)** — ✅ **Shipped (spec 016** — see Shipped above
   and `DECISIONS.md`). A monochrome character-art portrait per opponent (plus a generic
   fallback), shown in an always-visible presence panel beside the board and as a preview

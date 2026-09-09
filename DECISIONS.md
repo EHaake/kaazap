@@ -437,3 +437,58 @@ No tests exist in the codebase as of the project's pickup (last commit
 Jan 2026). Going forward, game logic gets unit test coverage as it's
 written or touched — not retroactively applied to every existing line on
 day one, but treated as real discipline from here on, not aspirational.
+
+## Opponent banter (spec 017)
+
+- **Home: the presence panel's reserved line, in-match only.** Spec 016's
+  panel deliberately reserved two rows beneath the portrait; banter fills the
+  upper one and the round-win pips the lower. The board's own status band and
+  round-outcome popup stay mechanical — banter never competes with the play
+  prompts. The opponent-select and campaign-map previews keep showing name +
+  portrait only (a separate `draw_presence_extras`, in-match callers only; the
+  shared `draw_presence_panel` is unchanged).
+- **Presentation, not game state.** Banter is transient `App` state
+  (`banter` / `banter_last` / `prev_banter`), never written to the save. A
+  resumed match shows an appropriate line for the current state (or none),
+  not the exact last quip. No engine, save-format, or AI change; monochrome
+  preserved by construction (glyphs + `Emphasis`, no color path).
+- **Events reuse the audio-layer pattern.** A `banter.rs` `BanterSnapshot` is
+  diffed each tick (mirroring `AudioSnapshot`/`audio_cues`) into an event with
+  precedence **match-end > bust > round-outcome**, so one line shows per tick.
+  The engine itself stays silent; `App` observes it from outside, exactly like
+  the SFX layer.
+- **Voices live in `banter.rs`, keyed by `id` — not on `OpponentProfile`.**
+  A set of lines across eight event classes per opponent would bury the roster's
+  balance data (thresholds, decks). The voices are collected where they can be
+  read and edited together — the same split portraits took (art in
+  `assets/portraits/`, not inline). Ten distinct roster voices + a neutral,
+  characterless `GENERIC` fallback (never blank, never another opponent's voice).
+- **No back-to-back repeat.** `pick` avoids the last-shown line; `banter_last`
+  retains it across a blank so the rule holds even when the line clears between
+  events. Repeatable event classes carry ≥3 lines (≥2 for once-per-match) so
+  `pick` always has an alternative. Lines authored in-repo by Claude Code — the
+  person edits what doesn't land (unlike the portraits, escalated to a design
+  tool). [human-ruled]
+- **Clearing is phase-based, not timed (revised at attestation).** The initial
+  delegated default — a line persists until the next event — read as stale: a
+  reaction lingered through the whole next round. Ruled at the T005 attestation
+  to **option B**: a line lives through its reaction window (the round-end /
+  between-rounds pause and the pre-first-move opening) and clears when the next
+  round's play begins — detected by the player's first action of a round
+  (`play_resumed`), no wall-clock timer. Blank between, with the pips anchoring
+  the space. A rematch (`new_game` in place, the only in-game game-over→playing
+  transition) re-seeds a greeting via `match_restarted`. [human-ruled]
+- **Round-win pips are opponent-only, spaced (revised at attestation).** The
+  panel shows the opponent's round wins (0–3, first-to-3), read live from
+  `opponent.rounds_won`. Opponent-only per spec 016's intentional asymmetry —
+  the player's mirror pips arrive with the future player-status panel; the board
+  headers keep the numeric "Rounds won: N" for both sides. Drawn with one blank
+  cell between glyphs (`● ○ ○`) after the contiguous form read as cramped at
+  attestation. [human-ruled]
+- **The pip count (`ROUND_PIPS = 3`) is layout geometry, deliberately not
+  coupled to the engine's first-to-3 threshold.** The panel reserves a fixed
+  physical slot; changing match length would force a panel redesign regardless,
+  so the pip count can't silently drift into a wrong-but-rendering state without
+  a human touching the panel. Per the simplicity rule, the rendering layer does
+  not import a game-layer constant for a value this stable. (Pre-merge sweep,
+  spec 017 — resolving a carried T001-review note.)
