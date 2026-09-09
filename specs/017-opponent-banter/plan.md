@@ -278,9 +278,10 @@ Each behavioral claim names the task that owns its check. Two claims are human-a
   round win/loss/tie, each bust, and match end" and the precedence design.
 - **No back-to-back repeat** (T001): for a ≥2-line pool, `pick(pool, Some(prev), rng)` never
   returns `prev` across many draws; for a 1-line pool it returns that line. Paired with the
-  **repeatable-class floor** (T001 generic; T002 roster): every set's five repeatable classes
-  (`round_win`, `round_loss`, `round_tie`, `opponent_bust`, `player_bust`) have `len() >= 2`, so
-  `pick` always has an alternative when the same event fires in consecutive rounds. Together these
+  **repeatable-class floor** (T001 generic; T002 roster; raised to ≥3 in T005e): every set's five
+  repeatable classes (`round_win`, `round_loss`, `round_tie`, `opponent_bust`, `player_bust`) carry
+  enough lines that `pick` always has an alternative when the same event fires in consecutive
+  rounds. Together these
   guard "a given event does not repeat the same line twice in a row."
 - **Every event class is non-empty for every voice** (T001 generic; T002 roster): `banter_for`
   for `"default"`, every roster id, and an unknown id returns a set whose eight classes are each
