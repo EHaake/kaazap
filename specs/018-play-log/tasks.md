@@ -43,8 +43,10 @@ the app wiring both depend on. T001 gets a per-task skeptical-reviewer pass. -->
   / tensions §2/§5), `match_restarted(prev, curr)` and `round_reset(prev, gs)` (tension §7); and
   `PlayLog { outcomes, moves, opponent_name, prev }` with `reset(&mut self, opponent_name: &str)`
   and `observe(&mut self, gs)` (seed silently on `prev = None`; on a rematch clear both lists; on a
-  round reset clear `moves`; else append `moves_since`). Round-outcome capture is T002 — leave the
-  `outcomes` push as a TODO stub for now (`observe` compiles, outcomes stays empty). (Copies the
+  round reset clear `moves`; else append `moves_since`). Round-outcome capture is T002 — but so the
+  `outcomes: Vec<RoundSummary>` field compiles, **declare the small `Resolution` and `RoundSummary`
+  data types here in T001** (their `summarize_round` producer lands in T002); leave the `outcomes`
+  push as a TODO stub for now (`observe` compiles, outcomes stays empty). (Copies the
   snapshot/diff pattern of `banter.rs` `BanterSnapshot`/`banter_event` + `App::update_banter`
   seeding.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green (reported verbatim) —
@@ -103,7 +105,8 @@ Phase ends with the person's play-and-read attestation (T007). -->
   `self.play_log.observe(game_state)`) and call it right after `update_banter` at **both** sites:
   `handle_key` (`app.rs:860`) and `tick` (`app.rs:1136`). Add `self.play_log.reset(<opponent
   name>)` at `start_match` (`app.rs:512`, name from the opponent before it is moved) and at
-  `Continue`/resume (`app.rs:1027`, `game.opponent.name`). No overlay/toggle yet — capture only.
+  `Continue`/resume (`app.rs:1027`, `game.opponent.name` — read the name **before** `game` is moved
+  into the `Box` on the next line, `app.rs:1028`). No overlay/toggle yet — capture only.
   (Copies the `prev_banter` seeding + twin-call `update_banter` pattern exactly.)
   *Verify: `cargo build --all-targets` / `cargo test -q` green (capture logic is covered by the
   Phase 1 tests; the wiring is driver-verified at T007). Report that both call sites are present
@@ -123,7 +126,10 @@ Phase ends with the person's play-and-read attestation (T007). -->
   the modal-draw match (`app.rs:1160`) that, on `Screen::InGame`, builds
   `self.play_log.render_lines(<inner-height budget from self.config>)` and calls
   `overlay::draw_text_overlay(self.config, &lines, frame)`. No resize arm is needed (content is
-  rebuilt each draw from `self.config`; note this in the diff). (Copies the `Some(Modal::Help(..))
+  rebuilt each draw from `self.config`; note this in the diff). **Derive the `inner_height_budget`
+  passed to `render_lines` from the same `OverlayLayout` the draw uses** (or otherwise ensure the
+  app-side budget agrees with `draw_text_overlay`'s real inner height), so the §8 most-recent-trim
+  and the box clamp drop the same lines; confirm agreement in the driver check. (Copies the `Some(Modal::Help(..))
   => overlay.draw(frame)` draw arm + T004's `draw_text_overlay`.)
   *Verify: `cargo build --all-targets` / `cargo test -q` green. Driver (back up + checksum-restore
   the real profile/saves first): in Quick Play and a Campaign match — `L` opens a centered,
@@ -183,7 +189,7 @@ spec total against a previous spec of similar size before treating the policy as
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
 | Planning: draft (sdd-planner) | opus (documented fallback — top-tier budget short) | ~143.5K | drafted |
-| plan + tasks sign-off (skeptical-reviewer) | | | |
+| plan + tasks sign-off (skeptical-reviewer) | opus (documented fallback — top-tier budget short) | ~62.5K | signed off; 3 non-blocking notes folded into T001/T005/T007 text |
 | T001 impl (sdd-implementer) | | | |
 | T001 review (skeptical-reviewer, per-task) | | | |
 | T002 impl (sdd-implementer) | | | |
