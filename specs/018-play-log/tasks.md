@@ -171,6 +171,14 @@ Phase ends with the person's play-and-read attestation (T007). -->
   longer warns); (b) add `assert!(!log.outcomes.is_empty())` to the round-reset test so "outcomes
   persist across a new round" is pinned, not just inspected; (c) add a `render_lines(0)` (budget
   below `fixed_count`) no-panic assertion to close the zero-budget gap.*
+  *Phase-2-review carryover to fold in here (all non-blocking): (d) tighten
+  `render_lines_does_not_panic_at_tiny_budgets` to also assert both placeholders survive at budget 4
+  (they live in the fixed part, so a regression that moved them out would otherwise pass silently);
+  (e) record in DECISIONS.md the one place plan §8's "fixed section is never trimmed" yields to the
+  box: on a terminal short enough that `fixed_count > inner_height_budget` (~rows ≤ 10 with several
+  outcomes — below what `Config::from_terminal` admits, so unreachable in practice) the fixed lines
+  clip off the bottom rather than trim. Known non-issue; no code change. Note T007 already folded in
+  the (b)/(c) equivalents via its empty-log test — reconcile rather than duplicate.*
   *Verify: `cargo build --all-targets` / `cargo test -q` green, reported verbatim; legible snapshots
   at 139×31 and wider showing the open log over the board; the sweep confirms no
   `game.rs`/`player.rs`/`card.rs`/`save.rs` change and that the log never enters the save format;
@@ -220,6 +228,6 @@ spec total against a previous spec of similar size before treating the policy as
 | T005 review (skeptical-reviewer, per-task) | fable (top-tier budget recovered; per-call override applied) | ~30.9K | signed off, no blocking; 2 non-blocking notes (1 → T008 plan-text fix; 1 already in T007 checklist) |
 | T006 impl (sdd-implementer) | opus | ~22.6K | done; build clean, 319 tests pass; Modal::PlayLog variant + L/Esc routing; temp `Some(Modal::PlayLog) => {}` draw stub (T007 replaces) |
 | T007 impl (sdd-implementer) | opus | ~62.2K | done; build clean, 321 tests pass (2 new); draw arm w/ max-clamped OverlayLayout budget; empty-section placeholders folded into render_lines (Phase-1 carryover). ATTESTATION PENDING (Erik) |
-| Phase 2 review (skeptical-reviewer) | | | |
+| Phase 2 review (skeptical-reviewer) | fable (top-tier budget recovered) | ~44.1K | signed off, no blocking; 2 actionable non-blocking notes → T008 (tighten tiny-budget test; record the short-terminal clip as a known non-issue), 2 cosmetic → attestation |
 | T008 close-out (orchestrator) | | | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | | | |
