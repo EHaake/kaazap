@@ -51,24 +51,35 @@ match legible; scrolling + a bigger window keep that legible when it's long.
 
 ## Acceptance criteria
 
-- [ ] The log shows every round of the current match, each with its own moves in
+- [x] The log shows every round of the current match, each with its own moves in
       order (not collapsed to an outcome line); prior rounds' moves remain
-      visible (via scrolling) after new rounds begin.
-- [ ] Each round's header shows its result once resolved — winner/tie, both
+      visible (via scrolling) after new rounds begin. — `rounds: Vec<RoundLog>`;
+      `round_reset` starts a new round instead of clearing (pinned by the
+      "new round keeps the prior round's moves" test); driver-attested over a
+      3-round match.
+- [x] Each round's header shows its result once resolved — winner/tie, both
       totals, and how it resolved (bust/which side, filled-table, or stand); the
-      in-progress round is marked as such.
-- [ ] `↑`/`↓` scroll by a line and `PgUp`/`PgDn` by a page when the transcript
+      in-progress round is marked as such. — `render_body` per-round header
+      tests (result once resolved / "(in progress)" while live); attested.
+- [x] `↑`/`↓` scroll by a line and `PgUp`/`PgDn` by a page when the transcript
       exceeds the window; scrolling is clamped at both ends (no panic, no blank
-      overscroll).
-- [ ] The log opens showing the latest moves and follows live moves while pinned
+      overscroll). — `draw_scrollable_overlay` clamp test (usize::MAX→bottom,
+      overscroll clamps, zero→top); driver-attested (`▲/▼` hints, view moved).
+- [x] The log opens showing the latest moves and follows live moves while pinned
       to the bottom; after scrolling up it holds position until scrolled back
-      down.
-- [ ] The window is visibly larger than the spec-018 content-sized box, with
-      interior padding, and remains centered, bordered, and monochrome.
-- [ ] Starting a new match / rematch clears the transcript; a resumed match opens
+      down. — `App` follow flag + draw-fn re-pin; driver-attested.
+- [x] The window is visibly larger than the spec-018 content-sized box, with
+      interior padding, and remains centered, bordered, and monochrome. —
+      ~38%×58% centered box with title/rule/breathing row + side insets;
+      attested (width halved at owner's request).
+- [x] Starting a new match / rematch clears the transcript; a resumed match opens
       empty and logs from resume onward; nothing about the log touches the save.
-- [ ] The static overlays (How to Play, the `?` helps) are unchanged.
-- [ ] `cargo build --all-targets` and `cargo test` are green.
+      — `reset`/`match_restarted` clear all rounds (tests); `PlayLog` never
+      serialized (confirmed by the sweep diff).
+- [x] The static overlays (How to Play, the `?` helps) are unchanged. —
+      `draw_text_overlay`/`measure`/`Overlay` untouched; `measure` tests pass.
+- [x] `cargo build --all-targets` and `cargo test` are green. — build clean,
+      319 tests pass (reported verbatim at close-out).
 
 ## Non-goals
 
