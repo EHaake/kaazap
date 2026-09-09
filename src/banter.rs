@@ -111,9 +111,9 @@ pub fn banter_event(prev: &BanterSnapshot, curr: &BanterSnapshot) -> Option<Bant
 
 /// A voice: one line pool per event class, all `&'static`. The five *repeatable*
 /// classes (`round_win`/`round_loss`/`round_tie`/`opponent_bust`/`player_bust` —
-/// events that can fire in consecutive rounds) carry ≥2 lines each so [`pick`]
+/// events that can fire in consecutive rounds) carry ≥3 lines each so [`pick`]
 /// always has an alternative and can honor the no-back-to-back-repeat rule; the
-/// three once-per-match classes may have one.
+/// three once-per-match classes (`match_start`/`match_win`/`match_loss`) carry ≥2.
 pub struct BanterSet {
     pub match_start: &'static [&'static str],
     pub round_win: &'static [&'static str],
@@ -157,144 +157,144 @@ pub fn pick(lines: &[&'static str], last: Option<&str>, rng: &mut impl rand::Rng
 /// The neutral, characterless voice — used for the default opponent and as the
 /// fallback for any unknown id. Never blank, never a roster voice.
 const GENERIC: BanterSet = BanterSet {
-    match_start: &["Let's play."],
-    round_win: &["That one's mine.", "A point to me."],
-    round_loss: &["Your round.", "Take it."],
-    round_tie: &["A draw.", "Dead even."],
-    opponent_bust: &["Too far.", "Over I go."],
-    player_bust: &["You went over.", "Busted."],
-    match_win: &["I win."],
-    match_loss: &["Well played."],
+    match_start: &["Let's play.", "Ready to begin.", "Shall we?"],
+    round_win: &["That one's mine.", "A point to me.", "My round.", "One for me."],
+    round_loss: &["Your round.", "Take it.", "You win that.", "Point to you."],
+    round_tie: &["A draw.", "Dead even.", "All square.", "No winner."],
+    opponent_bust: &["Too far.", "Over I go.", "I went over.", "Past twenty."],
+    player_bust: &["You went over.", "Busted.", "You busted.", "Past the line."],
+    match_win: &["I win.", "The game's mine."],
+    match_loss: &["Well played.", "You take it."],
 };
 
-/// Greeb (Rookie) — green and eager: jittery, over-excited, apologetic when he
-/// loses, and yelps when he busts. Surprised by his own wins.
+/// Greeb (Rookie) — green and eager: jittery, over-excited, rattled and
+/// flustered when he loses, and yelps when he busts. Surprised by his own wins.
 const GREEB: BanterSet = BanterSet {
-    match_start: &["Here goes nothing!", "Okay, okay, ready!"],
-    round_win: &["I got one! Whoa!", "Did that just work?"],
-    round_loss: &["Aw, shucks.", "Sorry, sorry!"],
-    round_tie: &["A tie? Phew.", "Even? Okay!"],
-    opponent_bust: &["Yikes, too much!", "No no no, over!"],
-    player_bust: &["Oh! You popped!", "Phew, not me!"],
-    match_win: &["I actually won!"],
-    match_loss: &["Aw, well played."],
+    match_start: &["Here goes nothing!", "Okay, okay, ready!", "Deep breath!"],
+    round_win: &["I got one! Whoa!", "Did that just work?", "Yes! Ha, yes!", "I did it!"],
+    round_loss: &["Aw, shucks.", "Nngh, lucky!", "Dang it!", "So close, ah!"],
+    round_tie: &["A tie? Phew.", "Even? Okay!", "We match! Wow.", "Both stuck!"],
+    opponent_bust: &["Yikes, too much!", "No no no, over!", "Aah, too far!", "I blew it!"],
+    player_bust: &["Oh! You popped!", "Phew, not me!", "You went boom!", "Eep, over you!"],
+    match_win: &["I actually won!", "Me? I won! Wow!"],
+    match_loss: &["Aw, well played.", "Gosh, good game."],
 };
 
 /// Dax Runo (Greenhorn) — a cocky kid: brash trash-talk, struts on a win, makes
 /// excuses when it goes wrong, and busts big.
 const DAX: BanterSet = BanterSet {
-    match_start: &["Watch and learn.", "This'll be quick."],
-    round_win: &["Too easy.", "Boom. Called it."],
-    round_loss: &["Lucky. So lucky.", "Bah, whatever."],
-    round_tie: &["Tch, a tie.", "Even? Boring."],
-    opponent_bust: &["Ah, come on!", "Blew it big."],
-    player_bust: &["Ha! Nice one, kid.", "Told you. Bust."],
-    match_win: &["Not even close."],
-    match_loss: &["Rematch. Now."],
+    match_start: &["Watch and learn.", "This'll be quick.", "Sit tight, kid."],
+    round_win: &["Too easy.", "Boom. Called it.", "Get used to it.", "All day, kid."],
+    round_loss: &["Lucky. So lucky.", "Bah, whatever.", "Fluke. A fluke.", "Won't happen twice."],
+    round_tie: &["Tch, a tie.", "Even? Boring.", "Push. Yawn.", "Nobody's problem."],
+    opponent_bust: &["Ah, come on!", "Blew it big.", "Rigged, I swear.", "One bad move!"],
+    player_bust: &["Ha! Nice one, kid.", "Told you. Bust.", "Amateur hour.", "Whoops. Splat."],
+    match_win: &["Not even close.", "Told ya so."],
+    match_loss: &["Rematch. Now.", "Best of ten?"],
 };
 
 /// Vessa Korr (Scrapper) — street-hard and defiant: takes the hit and swings
 /// back, never done even when she's down.
 const VESSA: BanterSet = BanterSet {
-    match_start: &["Come on then.", "Let's scrap."],
-    round_win: &["That's how.", "Chalk it up."],
-    round_loss: &["Fine. I'm not done.", "You'll pay for that."],
-    round_tie: &["Nobody blinks.", "Locked up."],
-    opponent_bust: &["Pushed too hard.", "Ah, hell."],
-    player_bust: &["Ha, you cracked.", "Down you go."],
-    match_win: &["Still standing."],
-    match_loss: &["Next time's mine."],
+    match_start: &["Come on then.", "Let's scrap.", "Bring it."],
+    round_win: &["That's how.", "Chalk it up.", "Hit and done.", "One in the bank."],
+    round_loss: &["Fine. I'm not done.", "You'll pay for that.", "Cheap shot.", "I'm still here."],
+    round_tie: &["Nobody blinks.", "Locked up.", "Toe to toe.", "Neither backs off."],
+    opponent_bust: &["Pushed too hard.", "Ah, hell.", "Overswung.", "My own fault."],
+    player_bust: &["Ha, you cracked.", "Down you go.", "Glass jaw.", "That's a knockout."],
+    match_win: &["Still standing.", "You're done."],
+    match_loss: &["Next time's mine.", "This ain't over."],
 };
 
 /// Nima Sarn (Broker) — cool and mercantile: everything is a transaction, wins
 /// are profit, losses a minor cost. Never ruffled.
 const NIMA: BanterSet = BanterSet {
-    match_start: &["Let's talk terms.", "Credits on the line."],
-    round_win: &["Profit.", "Into the ledger."],
-    round_loss: &["A minor cost.", "I'll recoup it."],
-    round_tie: &["We break even.", "No margin lost."],
-    opponent_bust: &["Overspent.", "A bad investment."],
-    player_bust: &["That'll cost you.", "Poor accounting."],
-    match_win: &["Business is good."],
-    match_loss: &["I've paid worse."],
+    match_start: &["Let's talk terms.", "Credits on the line.", "Open the books."],
+    round_win: &["Profit.", "Into the ledger.", "Pure margin.", "Paid in full."],
+    round_loss: &["A minor cost.", "I'll recoup it.", "Write it off.", "A slim loss."],
+    round_tie: &["We break even.", "No margin lost.", "Balanced books.", "A wash."],
+    opponent_bust: &["Overspent.", "A bad investment.", "Overleveraged.", "Bought too high."],
+    player_bust: &["That'll cost you.", "Poor accounting.", "Insolvent.", "You overpaid."],
+    match_win: &["Business is good.", "A tidy return."],
+    match_loss: &["I've paid worse.", "A rare deficit."],
 };
 
 /// Old Toran (Veteran) — dry, calm, wry: he's seen it all, understated, with a
 /// faint teaching tone.
 const TORAN: BanterSet = BanterSet {
-    match_start: &["Sit. Let's play.", "Been at this awhile."],
-    round_win: &["Patience wins.", "As it goes."],
-    round_loss: &["Nicely done.", "You've got an eye."],
-    round_tie: &["Even hands.", "Happens."],
-    opponent_bust: &["Ah, greedy of me.", "Should've held."],
-    player_bust: &["Over you go.", "Reached too far."],
-    match_win: &["Age and cunning."],
-    match_loss: &["Well earned, that."],
+    match_start: &["Sit. Let's play.", "Been at this awhile.", "Let's see it."],
+    round_win: &["Patience wins.", "As it goes.", "Slow and sure.", "Old habits."],
+    round_loss: &["Nicely done.", "You've got an eye.", "Sharp, that.", "Good instinct."],
+    round_tie: &["Even hands.", "Happens.", "So it goes.", "A fair split."],
+    opponent_bust: &["Ah, greedy of me.", "Should've held.", "Too eager.", "My mistake."],
+    player_bust: &["Over you go.", "Reached too far.", "One too many.", "Ah, patience."],
+    match_win: &["Age and cunning.", "Years still tell."],
+    match_loss: &["Well earned, that.", "You've learned."],
 };
 
 /// Brakka (Bruiser) — big, booming brute: blunt bravado, dares and taunts, and
 /// laughs off his own busts.
 const BRAKKA: BanterSet = BanterSet {
-    match_start: &["Try to keep up!", "Sit down, small fry."],
-    round_win: &["Crushed it!", "Ha! Feel that?"],
-    round_loss: &["Pah, a scratch.", "Enjoy it, runt."],
-    round_tie: &["A standoff!", "Nobody flinched!"],
-    opponent_bust: &["Bah! Too greedy!", "Ha! Blew past it!"],
-    player_bust: &["Ha! Splat!", "Too big for ya!"],
-    match_win: &["Smashed you flat!"],
-    match_loss: &["Bah! You got lucky!"],
+    match_start: &["Try to keep up!", "Sit down, small fry.", "Fists up!"],
+    round_win: &["Crushed it!", "Ha! Feel that?", "Boom! Down you go!", "Squashed ya!"],
+    round_loss: &["Pah, a scratch.", "Enjoy it, runt.", "Barely felt it.", "Grr, cheap hit!"],
+    round_tie: &["A standoff!", "Nobody flinched!", "Head to head!", "Two rocks clash!"],
+    opponent_bust: &["Bah! Too greedy!", "Ha! Blew past it!", "Whoops, big swing!", "Overdid it! Ha!"],
+    player_bust: &["Ha! Splat!", "Too big for ya!", "Smashed to bits!", "Flattened!"],
+    match_win: &["Smashed you flat!", "Ha! Timber!"],
+    match_loss: &["Bah! You got lucky!", "Grr! Again!"],
 };
 
 /// Rix Vandal (Ace) — precise and clinical: talks in odds and math, arrogant,
 /// with open disdain for sloppy play.
 const RIX: BanterSet = BanterSet {
-    match_start: &["The odds favor me.", "Precision wins."],
-    round_win: &["Calculated.", "As predicted."],
-    round_loss: &["A rounding error.", "Statistically rare."],
-    round_tie: &["A null result.", "Perfectly balanced."],
-    opponent_bust: &["Miscalculated.", "An error. Rare."],
-    player_bust: &["Predictable.", "Sloppy math."],
-    match_win: &["The math held."],
-    match_loss: &["A variance. Once."],
+    match_start: &["The odds favor me.", "Precision wins.", "Run the numbers."],
+    round_win: &["Calculated.", "As predicted.", "Within tolerance.", "Exactly to plan."],
+    round_loss: &["A rounding error.", "Statistically rare.", "An outlier.", "Noise in the data."],
+    round_tie: &["A null result.", "Perfectly balanced.", "Zero net.", "A dead heat."],
+    opponent_bust: &["Miscalculated.", "An error. Rare.", "Off by a margin.", "A slight overshoot."],
+    player_bust: &["Predictable.", "Sloppy math.", "Amateur variance.", "Wholly expected."],
+    match_win: &["The math held.", "Odds confirmed."],
+    match_loss: &["A variance. Once.", "Improbable, yet."],
 };
 
 /// Kesh Varn (Duelist) — sharp and dangerous: a duelist's menace and honor,
 /// clipped threats, blade imagery.
 const KESH: BanterSet = BanterSet {
-    match_start: &["Blades out.", "Guard yourself."],
-    round_win: &["First blood.", "A clean cut."],
-    round_loss: &["A fair touch.", "Well struck."],
-    round_tie: &["Blade to blade.", "We cross even."],
-    opponent_bust: &["My edge slipped.", "Cut too deep."],
-    player_bust: &["You overreached.", "Your guard broke."],
-    match_win: &["The edge was mine."],
-    match_loss: &["A worthy blade."],
+    match_start: &["Blades out.", "Guard yourself.", "En garde."],
+    round_win: &["First blood.", "A clean cut.", "You're wide open.", "Straight through."],
+    round_loss: &["A fair touch.", "Well struck.", "A worthy parry.", "Point to your blade."],
+    round_tie: &["Blade to blade.", "We cross even.", "Locked guards.", "Steel on steel."],
+    opponent_bust: &["My edge slipped.", "Cut too deep.", "Overextended.", "A wild swing."],
+    player_bust: &["You overreached.", "Your guard broke.", "Sloppy footwork.", "Disarmed."],
+    match_win: &["The edge was mine.", "First to the kill."],
+    match_loss: &["A worthy blade.", "Sharper than most."],
 };
 
 /// The Magistrate (Master) — imperious cold authority: pronounces rather than
 /// talks, in the language of law, judgment, and sentence.
 const MAGISTRATE: BanterSet = BanterSet {
-    match_start: &["Court is in session.", "State your case."],
-    round_win: &["So ruled.", "The verdict stands."],
-    round_loss: &["Noted for appeal.", "A minor objection."],
-    round_tie: &["Case adjourned.", "No ruling yet."],
-    opponent_bust: &["I overstepped.", "A misjudgment."],
-    player_bust: &["Guilty. Overreach.", "Sentence: bust."],
-    match_win: &["The law prevails."],
-    match_loss: &["An unusual verdict."],
+    match_start: &["Court is in session.", "State your case.", "Order. Begin."],
+    round_win: &["So ruled.", "The verdict stands.", "Case closed.", "By my authority."],
+    round_loss: &["Noted for appeal.", "A minor objection.", "Struck from record.", "The court concedes."],
+    round_tie: &["Case adjourned.", "No ruling yet.", "A hung jury.", "Recess."],
+    opponent_bust: &["I overstepped.", "A misjudgment.", "Beyond my writ.", "An overreach."],
+    player_bust: &["Guilty. Overreach.", "Sentence: bust.", "Contempt of court.", "The line was law."],
+    match_win: &["The law prevails.", "Justice is served."],
+    match_loss: &["An unusual verdict.", "Appeal granted."],
 };
 
 /// The Sovereign (Kingpin) — regal and glacial: minimal words, utterly
 /// untouchable, the house always wins; even the rare loss is dismissed.
 const SOVEREIGN: BanterSet = BanterSet {
-    match_start: &["Begin.", "The house awaits."],
-    round_win: &["Naturally.", "As it must be."],
-    round_loss: &["Amusing.", "A trifle."],
-    round_tie: &["Inconsequential.", "It matters not."],
-    opponent_bust: &["A rare indulgence.", "How careless."],
-    player_bust: &["Beneath me.", "Of course."],
-    match_win: &["The house wins."],
-    match_loss: &["Enjoy it. Briefly."],
+    match_start: &["Begin.", "The house awaits.", "You may sit."],
+    round_win: &["Naturally.", "As it must be.", "Inevitable.", "The house rises."],
+    round_loss: &["Amusing.", "A trifle.", "Fleeting.", "Savor it."],
+    round_tie: &["Inconsequential.", "It matters not.", "Meaningless.", "A pause, merely."],
+    opponent_bust: &["A rare indulgence.", "How careless.", "A slip. Once.", "Beneath my custom."],
+    player_bust: &["Beneath me.", "Of course.", "As expected.", "Predictably."],
+    match_win: &["The house wins.", "It was never yours."],
+    match_loss: &["Enjoy it. Briefly.", "A rounding, no more."],
 };
 
 /// The voice for opponent `id`: the roster set, or [`GENERIC`] for `"default"`
@@ -461,7 +461,9 @@ mod tests {
 
     #[test]
     fn pick_returns_sole_line_for_single_line_pool() {
-        let pool = GENERIC.match_start;
+        // Every real pool now carries >= 2 lines (T005e), so exercise `pick`'s
+        // single-line branch with a local one-line pool.
+        let pool: &[&'static str] = &["Only line."];
         assert_eq!(pool.len(), 1);
         let mut rng = rand::rng();
         // Even asked to avoid the only line, it returns it.
@@ -481,10 +483,10 @@ mod tests {
             g.match_win,
             g.match_loss,
         ] {
-            assert!(!class.is_empty(), "GENERIC has a blank class");
+            assert!(class.len() >= 2, "GENERIC class must carry >= 2 lines");
         }
         for class in [g.round_win, g.round_loss, g.round_tie, g.opponent_bust, g.player_bust] {
-            assert!(class.len() >= 2, "repeatable class must carry >= 2 lines");
+            assert!(class.len() >= 3, "repeatable class must carry >= 3 lines");
         }
     }
 
@@ -582,10 +584,10 @@ mod tests {
     fn every_set_non_empty_with_repeatable_floor() {
         for (id, set) in all_sets() {
             for class in classes(set) {
-                assert!(!class.is_empty(), "{id} has a blank class");
+                assert!(class.len() >= 2, "{id}: every class must carry >= 2 lines");
             }
             for class in repeatable(set) {
-                assert!(class.len() >= 2, "{id}: repeatable class must carry >= 2 lines");
+                assert!(class.len() >= 3, "{id}: repeatable class must carry >= 3 lines");
             }
         }
     }

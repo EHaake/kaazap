@@ -169,7 +169,7 @@ phase-based clearing, and spaces the pips. Reviewed at phase end. -->
   *Verify: `cargo build --all-targets` / `cargo test -q` green — test `match_restarted` (true only
   on game_over true→false; false both-false/both-true/false→true). Driver at T005c: after a game
   over, press to play again → a fresh greeting shows, not the lingering closing line.*
-- [ ] **T005e** — Deepen the line pools (person-requested at T005c: "add multiple lines per
+- [x] **T005e** — Deepen the line pools (person-requested at T005c: "add multiple lines per
   state"). In `src/banter.rs`, expand every voice (the 10 roster sets **and** `GENERIC`) so each
   **repeatable** class (`round_win`/`round_loss`/`round_tie`/`opponent_bust`/`player_bust`) has
   ~4 distinct lines (floor raised to **≥3**), `match_start` has ~3 (**≥2**), and `match_win`/
@@ -257,6 +257,7 @@ treating the policy as settled. -->
 | Phase 5 review (skeptical-reviewer) | opus (pinned) | ~46.3K | APPROVE; clear/no-repeat/persist/pips all sound (traced setup_next_round); surfaced rematch-greeting gap → T005d |
 | T005d impl (rematch greeting) | opus (pinned) | ~22.1K | done; 290 tests pass (verbatim), only banter.rs+app.rs; match_restarted branch checked first in update_banter |
 | T005c driver re-verify + attest | sonnet (orchestrator drove) | n/a | attested: phase-clear + spaced pips confirmed live (greeting clears on 1st hit, reaction persists through pause then clears on next round's 1st action); person OK'd feel |
-| T005e impl (deepen line pools) | opus (pinned) | _TBD_ | _pending_ |
+| T005e impl (deepen line pools) | opus (pinned) | ~52.3K | done; 290 tests pass (verbatim), only banter.rs; all 11 voices deepened (repeatable ~4/≥3, others ≥2), Greeb "Nngh, lucky!" swap |
+| T005e content review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
 | T006 close-out (orchestrator) | sonnet (orchestrator) | _TBD_ | _pending_ |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
