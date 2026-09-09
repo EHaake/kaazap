@@ -45,34 +45,10 @@ impl Overlay {
         }
     }
 
-    /// Draw already-loaded content into the overlay's inner box. The
-    /// first line is treated as a title and centered; the rest are
-    /// left-aligned so lists and columns stay lined up.
-    fn add_content(&self, content: &[String], layout: OverlayLayout, frame: &mut Frame) {
-        for (i, line) in content.iter().enumerate() {
-            if i == 0 {
-                draw_text_in(frame, layout.inner, 0, Align::Center, line.trim(), Emphasis::Normal);
-            } else {
-                draw_text_in(frame, layout.inner, i, Align::Left, line, Emphasis::Normal);
-            }
-        }
-    }
-
-    /// Draw border helper
-    ///
-    fn draw_border(&self, layout: OverlayLayout, frame: &mut Frame) {
-        draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
-    }
-
     /// Size the box to the content, then draw box and text
     ///
     fn draw_overlay(&self, content: &[String], frame: &mut Frame) {
-        let (width, height) = measure(content);
-        let layout = OverlayLayout::new(self.config, width, height);
-
-        clear_rect(frame, layout.outer);
-        self.draw_border(layout, frame);
-        self.add_content(content, layout, frame);
+        draw_text_overlay(self.config, content, frame);
     }
 
     pub fn draw(&self, frame: &mut Frame) {
@@ -80,6 +56,27 @@ impl Overlay {
         // per-kind width/height constants to keep in sync with the files
         let content = self.read_text_from_file();
         self.draw_overlay(&content, frame);
+    }
+}
+
+/// Size a box to `content` and draw it into `frame`: measure the text,
+/// build the layout, clear the region, draw the border, then draw the
+/// text — the first line centered as a title, the rest left-aligned so
+/// lists and columns stay lined up. Exposed as a free function so
+/// dynamic content (e.g. the play log) can render through the same box
+/// machinery without going through `Overlay`.
+pub fn draw_text_overlay(config: Config, content: &[String], frame: &mut Frame) {
+    let (width, height) = measure(content);
+    let layout = OverlayLayout::new(config, width, height);
+
+    clear_rect(frame, layout.outer);
+    draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
+    for (i, line) in content.iter().enumerate() {
+        if i == 0 {
+            draw_text_in(frame, layout.inner, 0, Align::Center, line.trim(), Emphasis::Normal);
+        } else {
+            draw_text_in(frame, layout.inner, i, Align::Left, line, Emphasis::Normal);
+        }
     }
 }
 

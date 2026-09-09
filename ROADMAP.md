@@ -208,6 +208,21 @@ of, not guessed at here in advance.
   (never saved). **No engine, save-format, or AI change; monochrome preserved.** Lines
   authored in-repo by Claude Code (the person edits what doesn't land). Reactions to
   individual card plays and a player-side pips panel stay deferred.
+- **Play log / move history** (spec 018) — an in-match, on-demand **play log**: a
+  toggleable overlay (**`L`** to open, `L`/`Esc` to close) recording the current
+  round's moves as they happen — both sides' dealer draws, hand plays (with the
+  resolved `+`/`−` sign or flip), stands, and busts, each with the resulting total —
+  plus a running list of this match's round outcomes (winner/tie, both totals, and
+  how it resolved: bust / filled-table / stand). It **does not pause** the game — the
+  opponent's think timer keeps running and the log updates live under the overlay.
+  **Ephemeral**: transient `App` state, never saved — a resumed match opens with an
+  empty log and logs from resume on. Built as the project's first **dynamic** overlay
+  (the static-text `draw_overlay` machinery was extracted into a public
+  `draw_text_overlay`); capture is a per-tick delta diff of `GameState` (the
+  audio/banter pattern), so **no engine, save-format, AI, or card-behavior change**;
+  monochrome by construction. Applies to both Quick Play and Campaign. Filtering,
+  search, cross-round move detail, and an always-on side panel stayed **out of scope**
+  (the reserved left margin is still earmarked for the future player-status panel).
 
 ## Backlog
 
@@ -367,14 +382,6 @@ the endgame and the mode-identity question are deferred, below.
   can scale how well opponents actually *think* — e.g. globally nudging the
   misplay rate and/or the effective threshold, not merely the raw stand
   thresholds. Suggested during the post-spec-009 review.
-- **Play log / move history** — a running record of every move both
-  players make during a game (dealer draws, cards played with their
-  chosen sign, flips, stands, busts, round outcomes), shown as it
-  happens. Presentation is open for future discussion: a side panel, a
-  toggleable pane, or a separate popup the player invokes with a
-  keypress. Would build on spec 002's overlay frame and monochrome
-  vocabulary. The engine already routes all state changes through
-  apply_*_action, so those are the natural points to record from.
 - **Considered animation pass** — deliberate, sparse animations that
   guide the eye during play: a dealt card arriving, a flip resolving,
   a total changing, round transitions. Builds on spec 002's selection

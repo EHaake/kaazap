@@ -7,6 +7,7 @@ pub mod board;
 pub mod card;
 pub mod portrait;
 pub mod banter;
+pub mod play_log;
 pub mod profile;
 pub mod opponent;
 pub mod opponent_select;

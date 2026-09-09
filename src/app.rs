@@ -24,7 +24,8 @@ use crate::{
     menu::{MenuItem, MenuOutcome, MenuState},
     opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
-    overlay::{Overlay, OverlayKind},
+    overlay::{Overlay, OverlayKind, draw_text_overlay},
+    play_log::PlayLog,
     player::Player,
     profile::Profile,
     screen::Screen,
@@ -266,6 +267,9 @@ enum Modal {
     /// wiping progress, credits, and collection back to the starter. `on_yes` is
     /// the highlighted choice, defaulting to No — the safe option (spec 014).
     ConfirmNewCampaign { on_yes: bool },
+    /// The in-match move-history overlay (spec 018). Unit-like — it carries no
+    /// data; its content is rebuilt from live state on each draw.
+    PlayLog,
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
@@ -345,6 +349,11 @@ pub struct App {
     // The last in-game banter snapshot; the next is diffed against it to
     // decide which line class fires. None outside a game.
     prev_banter: Option<BanterSnapshot>,
+    // The in-game play log: an ordered record of the current round's moves and
+    // the match's resolved round outcomes, built by diffing successive game
+    // states. Empty outside a game; reset at match entry, mirroring the banter
+    // seeding above.
+    play_log: PlayLog,
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
@@ -375,6 +384,7 @@ impl App {
             banter: None,
             banter_last: None,
             prev_banter: None,
+            play_log: PlayLog::default(),
             too_small: None,
             last_reward: None,
         }
@@ -506,9 +516,11 @@ impl App {
         self.profile.campaign_mut().set_in_progress(campaign);
         self.profile.save();
 
-        // Capture the id before `opponent` is moved into the game state; the
-        // greeting seeds the opening banter line.
+        // Capture the id (and name) before `opponent` is moved into the game
+        // state; the greeting seeds the opening banter line, and the name seeds
+        // the play log's opponent label.
         let opp_id = opponent.id;
+        let opp_name = opponent.name;
         self.screen = Screen::InGame {
             game_state: Box::new(GameState::with_opponent(
                 opponent,
@@ -525,6 +537,9 @@ impl App {
         let line = pick(banter_for(opp_id).match_start, None, &mut rand::rng());
         self.banter = Some(line);
         self.banter_last = Some(line);
+        // Fresh match — reset the play log; the first snapshot seeds its diff
+        // silently, mirroring the banter/audio seeding above.
+        self.play_log.reset(opp_name);
         // Persist immediately (overwriting any prior save), so quitting right
         // away still leaves a resumable game and Continue appears next launch.
         self.save_game();
@@ -582,6 +597,17 @@ impl App {
         self.prev_banter = Some(curr);
     }
 
+    /// Update the play log for whatever just changed, by feeding the current
+    /// game state to the log's diff — mirroring `update_banter`. A no-op
+    /// outside a game. The log observes the state; it never mutates it.
+    fn update_play_log(&mut self) {
+        let game_state = match &self.screen {
+            Screen::InGame { game_state, .. } => game_state,
+            _ => return,
+        };
+        self.play_log.observe(game_state);
+    }
+
     /// Re-lay-out for a new (valid) terminal size and resume play. Game
     /// state is untouched — only the presentation is rebuilt.
     pub fn resize(&mut self, config: Config) {
@@ -633,6 +659,15 @@ impl App {
                 self.modal = None;
                 self.audio.play(Sfx::MenuBack);
             }
+        } else if matches!(self.modal, Some(Modal::PlayLog)) {
+            // The play-log overlay (spec 018) is dismissed with L (the same key
+            // that opens it) or Esc. The game keeps ticking underneath and all
+            // other keys are captured, exactly as the help overlay ignores
+            // non-dismiss keys. Closing sounds the back cue.
+            if matches!(key, KeyCode::Char('L') | KeyCode::Esc) {
+                self.modal = None;
+                self.audio.play(Sfx::MenuBack);
+            }
         } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
             self.handle_campaign_entry_input(key);
         } else if matches!(self.modal, Some(Modal::ConfirmNewCampaign { .. })) {
@@ -658,6 +693,14 @@ impl App {
                     | Screen::CampaignMap { .. }
                     | Screen::Shop { .. } => None,
                 };
+            }
+
+            // Capital L opens the in-match play-log overlay (spec 018). Only
+            // in-game, and only L — lowercase l stays the sign-minus binding in
+            // the game-action path below. Return so it doesn't fall through.
+            if key == KeyCode::Char('L') && matches!(&self.screen, Screen::InGame { .. }) {
+                self.modal = Some(Modal::PlayLog);
+                return;
             }
 
             // A finished campaign match returns to the map on an acknowledgement
@@ -858,6 +901,7 @@ impl App {
         // After any input, sound whatever just changed in the game.
         self.emit_audio_cues();
         self.update_banter();
+        self.update_play_log();
     }
 
     /// Route a key to the open settings panel: move between rows, adjust the
@@ -1024,6 +1068,9 @@ impl App {
                     // resumed board instead of a selection.
                     let mut cursor = HandCursor::default();
                     cursor.normalize(&game.player.hand);
+                    // Read the opponent's name before `game` is moved into the
+                    // Box; it seeds the play log's opponent label below.
+                    let opp_name = game.opponent_profile.name;
                     self.screen = Screen::InGame {
                         game_state: Box::new(game),
                         cursor,
@@ -1037,6 +1084,10 @@ impl App {
                     self.prev_banter = None;
                     self.banter = None;
                     self.banter_last = None;
+                    // Reset the play log for the resumed match; its first
+                    // observe seeds silently, so a resumed match is not
+                    // back-logged.
+                    self.play_log.reset(opp_name);
                 }
             }
             MenuItem::StartCampaign => {
@@ -1134,6 +1185,7 @@ impl App {
         // happen here in the update rather than from a player keypress.
         self.emit_audio_cues();
         self.update_banter();
+        self.update_play_log();
     }
 
     pub fn draw(&mut self, frame: &mut Frame) {
@@ -1170,6 +1222,25 @@ impl App {
             }
             Some(Modal::ConfirmNewCampaign { on_yes }) => {
                 self.draw_confirm_new_campaign(*on_yes, pulse, frame)
+            }
+            Some(Modal::PlayLog) => {
+                // Only meaningful in-match; the L toggle can only open it there,
+                // but guard anyway. No resize arm is needed (unlike Modal::Help,
+                // which caches an Overlay): the content is rebuilt every draw from
+                // self.play_log and self.config, and resize() already keeps
+                // self.config current.
+                if matches!(self.screen, Screen::InGame { .. }) {
+                    // Budget = the inner height draw_text_overlay will actually
+                    // have. Build the max-clamped layout it would build for a
+                    // full-frame box and read its inner height, so render_lines'
+                    // most-recent-trim drops exactly the lines the box clamp
+                    // would.
+                    let budget = OverlayLayout::new(self.config, self.config.num_cols, self.config.num_rows)
+                        .inner
+                        .height();
+                    let lines = self.play_log.render_lines(budget);
+                    draw_text_overlay(self.config, &lines, frame);
+                }
             }
             None => {}
         }
