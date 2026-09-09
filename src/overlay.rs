@@ -1,4 +1,4 @@
-use crate::{config::Config, frame::{Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text_in}, layout::OverlayLayout};
+use crate::{config::Config, frame::{Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text_in}, layout::{OverlayLayout, Rect}};
 
 #[derive(Debug, Copy, Clone)]
 pub enum OverlayKind {
@@ -109,41 +109,55 @@ pub fn draw_scrollable_overlay(
     scroll: usize,
     frame: &mut Frame,
 ) -> ScrollResult {
-    // Target ~70% of the screen; OverlayLayout centers, clamps to the frame,
-    // and adds the interior padding — the same path the static overlays use.
-    let w = (config.num_cols * 7 / 10).max(SCROLL_MIN_W);
-    let h = (config.num_rows * 7 / 10).max(SCROLL_MIN_H);
-    let layout = OverlayLayout::new(config, w, h);
+    // A roomy but not full-screen box — clearly larger and airier than spec
+    // 018's content-sized overlay, yet leaving a margin so a normal
+    // multi-round match overflows into scrolling. Sized directly rather than
+    // through `OverlayLayout` (whose fixed padding is tuned for the small
+    // static overlays and would push this near full-screen).
+    let cols = config.num_cols;
+    let rows = config.num_rows;
+    let box_w = (cols * 72 / 100).clamp(SCROLL_MIN_W.min(cols).max(1), cols.saturating_sub(4).max(1));
+    let box_h = (rows * 58 / 100).clamp(SCROLL_MIN_H.min(rows).max(1), rows.saturating_sub(2).max(1));
+    let x0 = cols.saturating_sub(box_w) / 2;
+    let y0 = rows.saturating_sub(box_h) / 2;
+    let outer = Rect::new(x0, x0 + box_w.saturating_sub(1), y0, y0 + box_h.saturating_sub(1));
 
-    clear_rect(frame, layout.outer);
-    draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
+    clear_rect(frame, outer);
+    draw_box(frame, outer, BorderWeight::Single, Emphasis::Normal);
 
-    let inner = layout.inner;
+    // Interior inset two columns each side (border + one padding column) for
+    // breathing room; one row for the border top/bottom.
+    let inner = Rect::new(
+        outer.x0 + 2,
+        outer.x1.saturating_sub(2),
+        outer.y0 + 1,
+        outer.y1.saturating_sub(1),
+    );
     let inner_w = inner.width();
     let inner_h = inner.height();
 
-    // Body viewport height: all inner rows but the title, rule, and hint.
-    let vh = inner_h.saturating_sub(3);
+    // Interior rows: 0 title, 1 rule, 2 blank (breathing room), 3.. body, last
+    // row the scroll hint. Body viewport = inner_h minus those four rows.
+    let vh = inner_h.saturating_sub(4);
     let max_off = body.len().saturating_sub(vh);
     let scroll = scroll.min(max_off);
     let at_top = scroll == 0;
     let at_bottom = scroll == max_off;
 
-    // Row 0: title, centered.
     draw_text_in(frame, inner, 0, Align::Center, title.trim(), Emphasis::Normal);
-    // Row 1: a horizontal rule the full inner width.
     if inner_h > 1 {
         let rule: String = "─".repeat(inner_w);
         draw_text_in(frame, inner, 1, Align::Left, &rule, Emphasis::Normal);
     }
-    // Rows 2..: the body viewport (draw_text_in clips lines wider than the rect).
+    // Body viewport at rows 3.. (row 2 left blank). draw_text_in clips lines
+    // wider than the rect, so no manual truncation is needed.
     let end = (scroll + vh).min(body.len());
     for (i, line) in body[scroll..end].iter().enumerate() {
-        draw_text_in(frame, inner, 2 + i, Align::Left, line, Emphasis::Normal);
+        draw_text_in(frame, inner, 3 + i, Align::Left, line, Emphasis::Normal);
     }
-    // Last inner row: the scroll hint, with arrows marking more above/below —
-    // only when the body actually overflows the viewport.
-    if inner_h >= 3 && max_off > 0 {
+    // Scroll hint on the last inner row, arrows marking more above/below — only
+    // when the body actually overflows the viewport.
+    if inner_h >= 4 && max_off > 0 {
         let up = if at_top { ' ' } else { '▲' };
         let down = if at_bottom { ' ' } else { '▼' };
         let hint = format!("{up} ↑/↓ · PgUp/PgDn {down}");
