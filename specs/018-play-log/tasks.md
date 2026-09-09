@@ -118,7 +118,7 @@ Phase ends with the person's play-and-read attestation (T007). -->
   Phase 1 tests; the wiring is driver-verified at T007). Report that both call sites are present
   (`handle_key` + `tick`) and that no `game.rs`/`player.rs`/`card.rs`/`save.rs` file was touched.*
 
-- [ ] **T006** — Toggle + routing in `src/app.rs`. Add the unit-like `Modal::PlayLog` variant to
+- [x] **T006** — Toggle + routing in `src/app.rs`. Add the unit-like `Modal::PlayLog` variant to
   the `Modal` enum (`app.rs:253`). In `handle_key`: when `Modal::PlayLog` is open, `L` or `Esc`
   closes it (play `Sfx::MenuBack`, as Help does); when no modal is open and the screen is
   `Screen::InGame`, `L` opens `Modal::PlayLog`. Leave the `m`-mute check ahead of modal routing and
@@ -218,7 +218,7 @@ spec total against a previous spec of similar size before treating the policy as
 | T004 impl (sdd-implementer) | opus | ~19.2K | done; build clean, 319 tests pass; draw_text_overlay extracted, draw_border/add_content inlined+removed |
 | T005 impl (sdd-implementer) | opus | ~46.2K | done; build clean, 319 tests pass; twin call sites + both reset sites wired; only src/app.rs touched |
 | T005 review (skeptical-reviewer, per-task) | fable (top-tier budget recovered; per-call override applied) | ~30.9K | signed off, no blocking; 2 non-blocking notes (1 → T008 plan-text fix; 1 already in T007 checklist) |
-| T006 impl (sdd-implementer) | | | |
+| T006 impl (sdd-implementer) | opus | ~22.6K | done; build clean, 319 tests pass; Modal::PlayLog variant + L/Esc routing; temp `Some(Modal::PlayLog) => {}` draw stub (T007 replaces) |
 | T007 impl (sdd-implementer) | | | |
 | Phase 2 review (skeptical-reviewer) | | | |
 | T008 close-out (orchestrator) | | | |

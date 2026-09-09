@@ -267,6 +267,9 @@ enum Modal {
     /// wiping progress, credits, and collection back to the starter. `on_yes` is
     /// the highlighted choice, defaulting to No — the safe option (spec 014).
     ConfirmNewCampaign { on_yes: bool },
+    /// The in-match move-history overlay (spec 018). Unit-like — it carries no
+    /// data; its content is rebuilt from live state on each draw.
+    PlayLog,
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
@@ -656,6 +659,15 @@ impl App {
                 self.modal = None;
                 self.audio.play(Sfx::MenuBack);
             }
+        } else if matches!(self.modal, Some(Modal::PlayLog)) {
+            // The play-log overlay (spec 018) is dismissed with L (the same key
+            // that opens it) or Esc. The game keeps ticking underneath and all
+            // other keys are captured, exactly as the help overlay ignores
+            // non-dismiss keys. Closing sounds the back cue.
+            if matches!(key, KeyCode::Char('L') | KeyCode::Esc) {
+                self.modal = None;
+                self.audio.play(Sfx::MenuBack);
+            }
         } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
             self.handle_campaign_entry_input(key);
         } else if matches!(self.modal, Some(Modal::ConfirmNewCampaign { .. })) {
@@ -681,6 +693,14 @@ impl App {
                     | Screen::CampaignMap { .. }
                     | Screen::Shop { .. } => None,
                 };
+            }
+
+            // Capital L opens the in-match play-log overlay (spec 018). Only
+            // in-game, and only L — lowercase l stays the sign-minus binding in
+            // the game-action path below. Return so it doesn't fall through.
+            if key == KeyCode::Char('L') && matches!(&self.screen, Screen::InGame { .. }) {
+                self.modal = Some(Modal::PlayLog);
+                return;
             }
 
             // A finished campaign match returns to the map on an acknowledgement
@@ -1203,6 +1223,9 @@ impl App {
             Some(Modal::ConfirmNewCampaign { on_yes }) => {
                 self.draw_confirm_new_campaign(*on_yes, pulse, frame)
             }
+            // Temporary stub so the match stays exhaustive; T007 replaces this
+            // with the real play-log draw.
+            Some(Modal::PlayLog) => {}
             None => {}
         }
     }
