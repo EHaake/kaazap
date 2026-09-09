@@ -155,7 +155,7 @@ Phase ends with the person's play-and-read attestation (T007). -->
 
 ## Final phase — Spec close-out
 
-- [ ] **T008** — Docs, driver, sweep. `DECISIONS.md`: the play log is transient (never saved),
+- [x] **T008** — Docs, driver, sweep. `DECISIONS.md`: the play log is transient (never saved),
   lives on `App` as a `PlayLog`, captured by the twin-call per-tick delta diff (not engine hooks);
   the round-resolution precedence (bust > filled-table > stand); the first *dynamic* overlay and
   the `draw_text_overlay` extraction; `Modal::PlayLog` capturing input while the game keeps ticking
@@ -227,7 +227,7 @@ spec total against a previous spec of similar size before treating the policy as
 | T005 impl (sdd-implementer) | opus | ~46.2K | done; build clean, 319 tests pass; twin call sites + both reset sites wired; only src/app.rs touched |
 | T005 review (skeptical-reviewer, per-task) | fable (ran; but budget NOT actually recovered — orchestrator misjudged a successful dispatch as recovery; Erik ruled 2026-09-09 the opus fallback stays) | ~30.9K | signed off, no blocking; 2 non-blocking notes (1 → T008 plan-text fix; 1 already in T007 checklist) |
 | T006 impl (sdd-implementer) | opus | ~22.6K | done; build clean, 319 tests pass; Modal::PlayLog variant + L/Esc routing; temp `Some(Modal::PlayLog) => {}` draw stub (T007 replaces) |
-| T007 impl (sdd-implementer) | opus | ~62.2K | done; build clean, 321 tests pass (2 new); draw arm w/ max-clamped OverlayLayout budget; empty-section placeholders folded into render_lines (Phase-1 carryover). ATTESTATION PENDING (Erik) |
+| T007 impl (sdd-implementer) | opus | ~62.2K | done; build clean, 321 tests pass (2 new); draw arm w/ max-clamped OverlayLayout budget; empty-section placeholders folded into render_lines (Phase-1 carryover). Erik attested the T007 play-and-read behavior (2026-09-09) |
 | Phase 2 review (skeptical-reviewer) | fable (ran; budget NOT recovered — same orchestrator misjudgment as the T005 row; opus fallback stays per Erik 2026-09-09; T008 sweep runs on opus fallback) | ~44.1K | signed off, no blocking; 2 actionable non-blocking notes → T008 (tighten tiny-budget test; record the short-terminal clip as a known non-issue), 2 cosmetic → attestation |
-| T008 close-out (orchestrator) | | | |
-| Pre-merge whole-spec sweep (skeptical-reviewer) | | | |
+| T008 close-out (orchestrator) | claude-opus-4-8 | — | done; DECISIONS/ROADMAP/spec updated, plan field-name fix + (a)/(b)/(d) test carryovers folded; build clean, 321 tests pass; 139×31 + 160×40 log-over-board snapshots captured (profile/saves checksum-restored) |
+| Pre-merge whole-spec sweep (skeptical-reviewer) | opus (documented fallback — top-tier budget short) | ~110.7K | CLEAN on code — no blocking code findings; verified no game/player/card/save change, PlayLog never serialized, monochrome, capture/precedence/ordering/toggle sound. One record-reconciliation note (spec cited T007 attestation while tier log still read "PENDING") — resolved here: Erik attested T007 (2026-09-09), tier log updated; no code change, no re-review |
