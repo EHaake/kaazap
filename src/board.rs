@@ -7,7 +7,7 @@ use crate::{
     game::{GamePhase, GameState, RoundOutcome},
     layout::{BoardLayout, GRID_COLS, Rect, SideLayout, card_slot},
     player::{Player, PlayerState},
-    portrait::draw_presence_panel,
+    portrait::{draw_presence_extras, draw_presence_panel},
 };
 
 // Interior padding around a popup's text, inside its border.
@@ -232,7 +232,7 @@ impl BoardView {
 
     /// Draw the current game state
     ///
-    pub fn draw(&self, state: &GameState, cursor: &HandCursor, pulse: Emphasis, frame: &mut Frame) {
+    pub fn draw(&self, state: &GameState, cursor: &HandCursor, banter: Option<&str>, pulse: Emphasis, frame: &mut Frame) {
         let (alert, base) = self.status_lines(state, cursor);
 
         // Vertical divider spans the block: from the header down through
@@ -270,6 +270,7 @@ impl BoardView {
             state.opponent_profile.name,
             state.opponent_profile.portrait,
         );
+        draw_presence_extras(frame, self.layout.opponent_panel, banter, state.opponent.rounds_won);
     }
 }
 
