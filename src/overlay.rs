@@ -116,7 +116,7 @@ pub fn draw_scrollable_overlay(
     // static overlays and would push this near full-screen).
     let cols = config.num_cols;
     let rows = config.num_rows;
-    let box_w = (cols * 72 / 100).clamp(SCROLL_MIN_W.min(cols).max(1), cols.saturating_sub(4).max(1));
+    let box_w = (cols * 38 / 100).clamp(SCROLL_MIN_W.min(cols).max(1), cols.saturating_sub(4).max(1));
     let box_h = (rows * 58 / 100).clamp(SCROLL_MIN_H.min(rows).max(1), rows.saturating_sub(2).max(1));
     let x0 = cols.saturating_sub(box_w) / 2;
     let y0 = rows.saturating_sub(box_h) / 2;
