@@ -170,39 +170,39 @@ const GENERIC: BanterSet = BanterSet {
 /// Greeb (Rookie) — green and eager: jittery, over-excited, rattled and
 /// flustered when he loses, and yelps when he busts. Surprised by his own wins.
 const GREEB: BanterSet = BanterSet {
-    match_start: &["Here goes nothing!", "Okay, okay, ready!", "Deep breath!"],
-    round_win: &["I got one! Whoa!", "Did that just work?", "Yes! Ha, yes!", "I did it!"],
-    round_loss: &["Aw, shucks.", "Nngh, lucky!", "Dang it!", "So close, ah!"],
-    round_tie: &["A tie? Phew.", "Even? Okay!", "We match! Wow.", "Both stuck!"],
-    opponent_bust: &["Yikes, too much!", "No no no, over!", "Aah, too far!", "I blew it!"],
-    player_bust: &["Oh! You popped!", "Phew, not me!", "You went boom!", "Eep, over you!"],
-    match_win: &["I actually won!", "Me? I won! Wow!"],
+    match_start: &["Here goes nothing!", "Okay, okay, ready!", "Deep breath, Greeb."],
+    round_win: &["I got one?! Whoa!", "Did that just work?", "Yes! Ha, it worked!", "I-I actually did it!"],
+    round_loss: &["Aw, shucks.", "You're really good!", "Dang it, so close!", "G-good one, ah!"],
+    round_tie: &["A tie? Phew!", "Even? Okay, okay!", "W-we match! Wow.", "Both stuck! Yikes."],
+    opponent_bust: &["Yikes, too much!", "No no no, over!", "Aah, I blew it!", "Too far, too far!"],
+    player_bust: &["Oh! You popped!", "Phew, not me!", "Eep, you went over!", "Y-you busted! Wow."],
+    match_win: &["I actually won?!", "Me? I won! Wow!"],
     match_loss: &["Aw, well played.", "Gosh, good game."],
 };
 
 /// Dax Runo (Greenhorn) — a cocky kid: brash trash-talk, struts on a win, makes
 /// excuses when it goes wrong, and busts big.
 const DAX: BanterSet = BanterSet {
-    match_start: &["Watch and learn.", "This'll be quick.", "Sit tight, kid."],
+    match_start: &["Watch and learn.", "This'll be quick.", "Sit tight, rookie."],
     round_win: &["Too easy.", "Boom. Called it.", "Get used to it.", "All day, kid."],
-    round_loss: &["Lucky. So lucky.", "Bah, whatever.", "Fluke. A fluke.", "Won't happen twice."],
-    round_tie: &["Tch, a tie.", "Even? Boring.", "Push. Yawn.", "Nobody's problem."],
-    opponent_bust: &["Ah, come on!", "Blew it big.", "Rigged, I swear.", "One bad move!"],
-    player_bust: &["Ha! Nice one, kid.", "Told you. Bust.", "Amateur hour.", "Whoops. Splat."],
-    match_win: &["Not even close.", "Told ya so."],
-    match_loss: &["Rematch. Now.", "Best of ten?"],
+    round_loss: &["Lucky. So lucky.", "Bah, whatever.", "That's a fluke!", "Won't happen twice."],
+    round_tie: &["Tch, a tie.", "Even? Boring.", "Push. Yawn.", "Nobody wins? Lame."],
+    opponent_bust: &["Ah, come on!", "Blew it big time.", "Rigged, I swear!", "Ugh, one bad move!"],
+    player_bust: &["Ha! Nice one, kid.", "Told you. Splat.", "Amateur hour.", "Whoops. Busted."],
+    match_win: &["Not even close.", "Told ya so, kid."],
+    match_loss: &["Rematch. Right now.", "Best of nine?!"],
 };
 
 /// Vessa Korr (Scrapper) — street-hard and defiant: takes the hit and swings
 /// back, never done even when she's down.
 const VESSA: BanterSet = BanterSet {
-    match_start: &["Come on then.", "Let's scrap.", "Bring it."],
+    match_start: &["Come on then.", "Let's scrap.", "Bring it, then."],
     round_win: &["That's how.", "Chalk it up.", "Hit and done.", "One in the bank."],
-    round_loss: &["Fine. I'm not done.", "You'll pay for that.", "Cheap shot.", "I'm still here."],
-    round_tie: &["Nobody blinks.", "Locked up.", "Toe to toe.", "Neither backs off."],
-    opponent_bust: &["Pushed too hard.", "Ah, hell.", "Overswung.", "My own fault."],
+    round_loss: &["Fine. I'm not done.", "You'll pay for that.", "Cheap shot.", "Damn, you're quick."],
+    round_tie: &["Nobody blinks.", "Locked up tight.", "Toe to toe.", "Neither backs off."],
+    opponent_bust: &["Pushed too hard.", "Ah, hell.", "Overswung it.", "My own damn fault."],
     player_bust: &["Ha, you cracked.", "Down you go.", "Glass jaw.", "That's a knockout."],
-    match_win: &["Still standing.", "You're done."],
+    match_win: &["Still standing.", "You're done, kid."],
     match_loss: &["Next time's mine.", "This ain't over."],
 };
 
@@ -214,35 +214,35 @@ const NIMA: BanterSet = BanterSet {
     round_loss: &["A minor cost.", "I'll recoup it.", "Write it off.", "A slim loss."],
     round_tie: &["We break even.", "No margin lost.", "Balanced books.", "A wash."],
     opponent_bust: &["Overspent.", "A bad investment.", "Overleveraged.", "Bought too high."],
-    player_bust: &["That'll cost you.", "Poor accounting.", "Insolvent.", "You overpaid."],
-    match_win: &["Business is good.", "A tidy return."],
+    player_bust: &["That'll cost you.", "Poor accounting.", "I own you now.", "Debt collected."],
+    match_win: &["I always collect.", "A tidy return."],
     match_loss: &["I've paid worse.", "A rare deficit."],
 };
 
 /// Old Toran (Veteran) — dry, calm, wry: he's seen it all, understated, with a
 /// faint teaching tone.
 const TORAN: BanterSet = BanterSet {
-    match_start: &["Sit. Let's play.", "Been at this awhile.", "Let's see it."],
-    round_win: &["Patience wins.", "As it goes.", "Slow and sure.", "Old habits."],
-    round_loss: &["Nicely done.", "You've got an eye.", "Sharp, that.", "Good instinct."],
+    match_start: &["Sit. Let's play.", "Been at this awhile.", "Let's see it, then."],
+    round_win: &["Patience wins.", "As it goes.", "Slow and sure.", "Old habits, boy."],
+    round_loss: &["Nicely done.", "You've got an eye.", "Sharp, that.", "Not bad. Not bad."],
     round_tie: &["Even hands.", "Happens.", "So it goes.", "A fair split."],
-    opponent_bust: &["Ah, greedy of me.", "Should've held.", "Too eager.", "My mistake."],
-    player_bust: &["Over you go.", "Reached too far.", "One too many.", "Ah, patience."],
+    opponent_bust: &["Ah, greedy of me.", "Should've held.", "Too eager, old man.", "My mistake."],
+    player_bust: &["Over you go.", "Reached too far.", "One too many, hm?", "Patience, lad."],
     match_win: &["Age and cunning.", "Years still tell."],
-    match_loss: &["Well earned, that.", "You've learned."],
+    match_loss: &["Well earned, that.", "You've learned well."],
 };
 
 /// Brakka (Bruiser) — big, booming brute: blunt bravado, dares and taunts, and
 /// laughs off his own busts.
 const BRAKKA: BanterSet = BanterSet {
-    match_start: &["Try to keep up!", "Sit down, small fry.", "Fists up!"],
-    round_win: &["Crushed it!", "Ha! Feel that?", "Boom! Down you go!", "Squashed ya!"],
-    round_loss: &["Pah, a scratch.", "Enjoy it, runt.", "Barely felt it.", "Grr, cheap hit!"],
+    match_start: &["Try to keep up!", "Sit down, small fry!", "Fists up, runt!"],
+    round_win: &["Crushed it!", "Ha! Feel that?!", "Boom! Down ya go!", "Squashed ya flat!"],
+    round_loss: &["Pah, a scratch!", "Enjoy it, runt.", "Barely felt that.", "Grr, cheap hit!"],
     round_tie: &["A standoff!", "Nobody flinched!", "Head to head!", "Two rocks clash!"],
-    opponent_bust: &["Bah! Too greedy!", "Ha! Blew past it!", "Whoops, big swing!", "Overdid it! Ha!"],
-    player_bust: &["Ha! Splat!", "Too big for ya!", "Smashed to bits!", "Flattened!"],
-    match_win: &["Smashed you flat!", "Ha! Timber!"],
-    match_loss: &["Bah! You got lucky!", "Grr! Again!"],
+    opponent_bust: &["Bah! Too greedy!", "Ha! Blew right past!", "Whoops, big swing!", "Overdid it! Haha!"],
+    player_bust: &["HA! Splat!", "Too big for ya!", "Smashed to bits!", "Flattened ya!"],
+    match_win: &["Smashed ya to bits!", "Ha! Timber!"],
+    match_loss: &["Bah! You got lucky!", "Grr! Again! Again!"],
 };
 
 /// Rix Vandal (Ace) — precise and clinical: talks in odds and math, arrogant,
@@ -250,23 +250,23 @@ const BRAKKA: BanterSet = BanterSet {
 const RIX: BanterSet = BanterSet {
     match_start: &["The odds favor me.", "Precision wins.", "Run the numbers."],
     round_win: &["Calculated.", "As predicted.", "Within tolerance.", "Exactly to plan."],
-    round_loss: &["A rounding error.", "Statistically rare.", "An outlier.", "Noise in the data."],
-    round_tie: &["A null result.", "Perfectly balanced.", "Zero net.", "A dead heat."],
+    round_loss: &["A rounding error.", "Statistically rare.", "An outlier.", "Noise. Nothing more."],
+    round_tie: &["A null result.", "Precisely even.", "Zero net.", "A dead heat."],
     opponent_bust: &["Miscalculated.", "An error. Rare.", "Off by a margin.", "A slight overshoot."],
-    player_bust: &["Predictable.", "Sloppy math.", "Amateur variance.", "Wholly expected."],
+    player_bust: &["Predictable.", "Sloppy. Pitiful.", "Amateur variance.", "You were the error."],
     match_win: &["The math held.", "Odds confirmed."],
-    match_loss: &["A variance. Once.", "Improbable, yet."],
+    match_loss: &["A variance. Once.", "Improbable. Yet."],
 };
 
 /// Kesh Varn (Duelist) — sharp and dangerous: a duelist's menace and honor,
 /// clipped threats, blade imagery.
 const KESH: BanterSet = BanterSet {
     match_start: &["Blades out.", "Guard yourself.", "En garde."],
-    round_win: &["First blood.", "A clean cut.", "You're wide open.", "Straight through."],
+    round_win: &["First blood.", "A clean cut.", "Through the guard.", "To the heart."],
     round_loss: &["A fair touch.", "Well struck.", "A worthy parry.", "Point to your blade."],
     round_tie: &["Blade to blade.", "We cross even.", "Locked guards.", "Steel on steel."],
     opponent_bust: &["My edge slipped.", "Cut too deep.", "Overextended.", "A wild swing."],
-    player_bust: &["You overreached.", "Your guard broke.", "Sloppy footwork.", "Disarmed."],
+    player_bust: &["You overreached.", "Your guard broke.", "One breath left.", "Disarmed."],
     match_win: &["The edge was mine.", "First to the kill."],
     match_loss: &["A worthy blade.", "Sharper than most."],
 };
@@ -274,14 +274,14 @@ const KESH: BanterSet = BanterSet {
 /// The Magistrate (Master) — imperious cold authority: pronounces rather than
 /// talks, in the language of law, judgment, and sentence.
 const MAGISTRATE: BanterSet = BanterSet {
-    match_start: &["Court is in session.", "State your case.", "Order. Begin."],
+    match_start: &["Court is in session.", "State your case.", "Order. We begin."],
     round_win: &["So ruled.", "The verdict stands.", "Case closed.", "By my authority."],
     round_loss: &["Noted for appeal.", "A minor objection.", "Struck from record.", "The court concedes."],
-    round_tie: &["Case adjourned.", "No ruling yet.", "A hung jury.", "Recess."],
+    round_tie: &["Case adjourned.", "No ruling yet.", "A hung jury.", "We recess."],
     opponent_bust: &["I overstepped.", "A misjudgment.", "Beyond my writ.", "An overreach."],
-    player_bust: &["Guilty. Overreach.", "Sentence: bust.", "Contempt of court.", "The line was law."],
+    player_bust: &["Condemned.", "Sentence: bust.", "Contempt of court.", "The line was law."],
     match_win: &["The law prevails.", "Justice is served."],
-    match_loss: &["An unusual verdict.", "Appeal granted."],
+    match_loss: &["An odd verdict.", "Appeal granted."],
 };
 
 /// The Sovereign (Kingpin) — regal and glacial: minimal words, utterly
@@ -292,7 +292,7 @@ const SOVEREIGN: BanterSet = BanterSet {
     round_loss: &["Amusing.", "A trifle.", "Fleeting.", "Savor it."],
     round_tie: &["Inconsequential.", "It matters not.", "Meaningless.", "A pause, merely."],
     opponent_bust: &["A rare indulgence.", "How careless.", "A slip. Once.", "Beneath my custom."],
-    player_bust: &["Beneath me.", "Of course.", "As expected.", "Predictably."],
+    player_bust: &["You were warned.", "Beneath me.", "A mercy, granted.", "The house owns you."],
     match_win: &["The house wins.", "It was never yours."],
     match_loss: &["Enjoy it. Briefly.", "A rounding, no more."],
 };

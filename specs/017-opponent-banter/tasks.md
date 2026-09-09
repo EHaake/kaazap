@@ -185,6 +185,18 @@ phase-based clearing, and spaces the pips. Reviewed at phase end. -->
   each round reaction clears when the next round begins (blank between, pips remain), and the pips
   are visibly spaced. **PAUSE for the person** to confirm the revised feel before close-out.
 
+- [x] **T005f** — Personality/spice pass (person-requested after close-out: "give them more
+  personality… make them spicy… immersive"). Elevate every **roster** voice in `src/banter.rs`
+  — push each character to its edge (villains colder/more menacing, brutes bigger, cocky ones
+  more insufferable), keep the lines that already land, and fix the T005e review overlaps
+  (Sovereign player_bust one-beat, Greeb/Dax both "lucky", the brute-leaning Kesh win line).
+  **Keep `GENERIC` deliberately flat/characterless** (do not spice it). All constraints hold:
+  ≤ `BANTER_MAX_WIDTH`, floors (repeatable ≥3, others ≥2), intra-class distinct, no line shared
+  across sets or with GENERIC, correct POV per class. Mild edge (a "hell"/"damn" for the rough
+  ones) is fine; no hard profanity. Only `banter.rs`.
+  *Verify: `cargo build --all-targets` / `cargo test -q` green — all existing content tests pass
+  over the rewritten pools. Content review for POV/character/trademark; person skims + attests.*
+
 ## Final phase — Spec close-out
 
 - [x] **T006** — Docs, driver, sweep. `DECISIONS.md`: banter is transient (never saved), lives on
@@ -261,3 +273,5 @@ treating the policy as settled. -->
 | T005e content review (skeptical-reviewer) | opus (default) | ~30.5K | APPROVE WITH NOTES; POV/class correct all 11 voices, in-character, GENERIC clean, no trademark, Greeb swap confirmed; 3 taste notes for close-out skim |
 | T006 close-out (orchestrator) | sonnet (orchestrator) | n/a | done; DECISIONS/ROADMAP updated, 8/8 criteria ticked with evidence; 290 tests green |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | ~57.5K | CLEAN WITH NOTES; all 8 criteria code+test-backed, no engine/save/AI change, docs match; ROUND_PIPS resolved as layout geometry (DECISIONS note added); no blocking |
+| T005f impl (personality/spice pass) | opus (pinned) | ~56.5K | done; 290 tests pass (verbatim), only banter.rs; all 10 roster voices elevated, GENERIC left flat, 3 T005e notes fixed |
+| T005f content review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
