@@ -35,7 +35,7 @@ T004, T006, T007, and the close-out — is reviewed at phase end.
 <!-- Foundational: the capture diff, the round summary, and the render formatting the overlay and
 the app wiring both depend on. T001 gets a per-task skeptical-reviewer pass. -->
 
-- [ ] **T001 (foundational, review: per-task)** — Create `src/play_log.rs` (add to `src/lib.rs`).
+- [x] **T001 (foundational, review: per-task)** — Create `src/play_log.rs` (add to `src/lib.rs`).
   Define `Move { Draw{side,value,total}, Play{side,card:PlayedCard,total}, Stand{side,total},
   Bust{side,total} }`; `PlayLogSnapshot` (eight per-side lens/flags + `game_over` +
   `outcome_present`) + `PlayLogSnapshot::of(&GameState)`; the pure `moves_since(prev, gs) ->
@@ -58,18 +58,24 @@ the app wiring both depend on. T001 gets a per-task skeptical-reviewer pass. -->
   one-card invariant); `observe` from `prev = None` emits nothing; a completed round then an
   empty-rows state clears `moves`; a `game_over` true→false clears both lists.*
 
-- [ ] **T002** — Round-outcome summarization in `src/play_log.rs`. Add `Resolution { Bust(Player),
-  BothBust, FilledTable, Stand }`, `RoundSummary { outcome, player_total, opponent_total,
-  resolution }`, and the pure `summarize_round(gs) -> RoundSummary` with the plan §6 precedence
-  (both-bust → `BothBust`; one bust → `Bust(side)`; else full table → `FilledTable`; else
-  `Stand`), totals from `player.score()`/`opponent.score()`. Wire the T001 stub: in `observe`, on
-  `outcome_present` `false`→`true`, push `summarize_round(gs)` onto `outcomes`. (Copies T001's pure
-  helpers + the `finalize_round` fact-reading in `game.rs`.)
+- [ ] **T002** — Round-outcome summarization in `src/play_log.rs`. The `Resolution { Bust(Player),
+  BothBust, FilledTable, Stand }` and `RoundSummary { outcome, player_total, opponent_total,
+  resolution }` types were already declared in T001; add the pure `summarize_round(gs) ->
+  RoundSummary` with the plan §6 precedence (both-bust → `BothBust`; one bust → `Bust(side)`; else
+  full table → `FilledTable`; else `Stand`), totals from `player.score()`/`opponent.score()`. Wire
+  the T001 stub: in `observe`'s else-branch, replace the `let _newly_resolved = …;` line with a real
+  `if newly_resolved { self.outcomes.push(summarize_round(gs)); }` (and drop the now-unused
+  underscore binding). (Copies T001's pure helpers + the `finalize_round` fact-reading in `game.rs`.)
   *Verify: `cargo build --all-targets` / `cargo test -q` green — tests: `summarize_round`
   classifies a lone player bust, a lone opponent bust, a both-bust tie, a full-table auto-stand
   with no bust, and a plain double-stand, each with the right outcome and both totals; end-to-end
   `observe` over a finished round appends exactly one `RoundSummary` and none while the round is
   live.*
+  *T001-review carryover to fold in here (same file): add a direct `reset()` test (clears a
+  populated log + stores `opponent_name`); add a test where both `match_restarted` and `round_reset`
+  conditions hold at once, pinning that `match_restarted` wins; and replace the artificial flip
+  fixture in `play_log.rs` test 9 with one that actually mutates an opponent card so the
+  flip-induced opponent total is exercised rather than tautological.*
 
 - [ ] **T003** — Render the log to lines in `src/play_log.rs`. Add the pure
   `PlayLog::render_lines(&self, inner_height_budget: usize) -> Vec<String>`: title (line 0), a
@@ -190,8 +196,8 @@ spec total against a previous spec of similar size before treating the policy as
 |---|---|---|---|
 | Planning: draft (sdd-planner) | opus (documented fallback — top-tier budget short) | ~143.5K | drafted |
 | plan + tasks sign-off (skeptical-reviewer) | opus (documented fallback — top-tier budget short) | ~62.5K | signed off; 3 non-blocking notes folded into T001/T005/T007 text |
-| T001 impl (sdd-implementer) | | | |
-| T001 review (skeptical-reviewer, per-task) | | | |
+| T001 impl (sdd-implementer) | opus | ~70.9K | done; build clean, 303 tests pass (13 new) |
+| T001 review (skeptical-reviewer, per-task) | opus | ~55.1K | signed off; 3 non-blocking test-quality notes → folded into T002 |
 | T002 impl (sdd-implementer) | | | |
 | T003 impl (sdd-implementer) | | | |
 | Phase 1 review (skeptical-reviewer) | | | |
