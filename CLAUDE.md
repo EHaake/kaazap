@@ -120,14 +120,16 @@ further, and whenever something unexpected bears on spec adherence.
 ## Model policy
 
 - **Tiers by name**: top tier `fable`; the implementation-and-review
-  tier `opus`; the orchestrator tier `sonnet`. These three names are
-  the only place a model is spelled out; everything below refers to
-  them.
-- **The orchestrating session runs at `sonnet`, at medium effort**, set
-  in this repo's `.claude/settings.json` — written at project setup
-  from the skill's `assets/settings-template.json` (`"model":
-  "sonnet"`, `"effortLevel": "medium"`, and the same level under
-  `"modelSettings"` for the orchestrator model's full ID). If that file
+  tier `opus`; the orchestrator tier `claude-opus-4-8` (the full ID —
+  a previous-generation model has no short alias). These three names
+  are the only place a model is spelled out; everything below refers
+  to them.
+- **The orchestrating session runs at `claude-opus-4-8`, at medium
+  effort**, set in this repo's `.claude/settings.json` — written at
+  project setup from the skill's `assets/settings-template.json`
+  (`"model": "claude-opus-4-8"`, `"effortLevel": "medium"`, and the
+  same level under `"modelSettings"` for the orchestrator model's full
+  ID). If that file
   is missing or lacks these keys, recreate it from the template and
   commit it before dispatching anything; nobody creates it by hand.
   Project settings outrank user settings, so a model picked in the
@@ -137,10 +139,10 @@ further, and whenever something unexpected bears on spec adherence.
   re-sends its whole context on each one; measured across the first
   specs, that re-send volume was eight to nine times the implementers'
   and was the dominant cost of the entire workflow. It doesn't need a
-  higher tier or deep reasoning to assemble a bundle and tick a box —
-  `sonnet` is the cheapest tier that does the orchestration reliably,
-  which is why the orchestrator sits below the implementers, not above
-  them.
+  higher tier or deep reasoning to assemble a bundle and tick a box,
+  and it makes no design decisions. If it drops the protocol (a skipped
+  review, a stale `tasks.md` edit, a task done by hand), the first fix
+  is high effort, one line in the same file — not a model change.
 - **The top tier runs only inside the decisions**: the `sdd-planner`
   (one dispatch per spec) and the `skeptical-reviewer` on plan/tasks
   sign-off and on routine-but-real decision reviews — each dispatched
@@ -148,10 +150,13 @@ further, and whenever something unexpected bears on spec adherence.
   agent definitions carry `effort: high`, which overrides the session's
   medium, so reasoning stays at full strength where it matters.
 - **Spec conversations happen in a Claude Code session of their own**,
-  at the top tier, and end when the spec is approved — never inside an
-  orchestrating session. A session in this repo opens at the
-  orchestrator tier (`sonnet`), so a spec session states its model
-  first and, since that's not the top tier, asks the person to switch
+  at the top tier, and end with a new session (not `/clear`, which
+  keeps the model) when the spec is approved — never inside an
+  orchestrating session. The spec session's last message is the
+  continuation prompt that starts planning in the new session. A
+  session in this repo opens at the orchestrator tier
+  (`claude-opus-4-8`), so a spec session states its model first and,
+  since that's not the top tier, asks the person to switch
   to the top tier for this session — the model selector in the app, or
   `/model fable` — before continuing. `.claude/settings.json` pins
   effort per model, so picking the top tier brings high effort with it
@@ -187,6 +192,16 @@ further, and whenever something unexpected bears on spec adherence.
   turn count; a phase boundary is where the carried context has the
   least remaining value. Compact mid-phase only if the context grows
   large; never clear mid-task.
+- **Every session-ending pause ends with a continuation prompt.** When
+  the next step belongs in a fresh session — after a phase pause,
+  after a spec is approved, after a merge with the next spec waiting
+  on `ROADMAP.md` — the report's last item is the exact prompt to
+  paste there, in its own fenced block. It names the spec directory,
+  the files to read, where to resume, the involvement level, the
+  pause cadence, and any model switch the next session needs. Write
+  anything the next session needs to a file first; the prompt points
+  at files. If nothing can proceed until the person decides
+  something, say so instead.
 - **Batch the bookkeeping**: commit, checkbox, and tier-log row in one
   shell command; bundle assembly and dispatch back to back. Every turn
   saved is one fewer re-send of the whole context.
@@ -199,18 +214,21 @@ further, and whenever something unexpected bears on spec adherence.
   on a judgment call" the orchestrator considers well-specified, and
   the orchestrator does that task itself, noting the
   miss in `tasks.md`.
-- **Why three tiers, and who sits where**: `sonnet` orchestrates
-  (cheapest reliable bundle-assembly and bookkeeping, the dominant cost
-  center), `opus` does the work that needs real reasoning close to the
-  code — implementation, per-phase/per-task/sweep review — and `fable`
-  is reserved for the decisions with the longest reach: the plan/tasks
+- **Why three tiers, and who sits where**: `claude-opus-4-8`
+  orchestrates — the one seat whose prose the person reads, making no
+  design decisions (it assembles bundles, dispatches, verifies,
+  commits, and reports, the dominant cost center of the workflow);
+  `opus` does the work that needs real reasoning close to the code —
+  implementation, per-phase/per-task/sweep review — and `fable` is
+  reserved for the decisions with the longest reach: the plan/tasks
   the whole build inherits (`sdd-planner`), the sign-off and
   routine-but-real decision reviews, and the spec conversations
   themselves. The orchestrator deliberately runs *below* the
   implementers it dispatches. (This supersedes the earlier
   "orchestrator at the step-down tier, third tier off" arrangement,
-  amended 2026-09-07 once the orchestrator's cost profile was clear;
-  the `sdd-implementer` was never sonnet.)
+  amended 2026-09-07; the session tier then moved from `sonnet` to
+  `claude-opus-4-8` on 2026-09-09, and the `sdd-implementer` has
+  always run at `opus`.)
 - **Log token usage per implementer run and per reviewer invocation**,
   plus tier misses, in `tasks.md`'s tier log for the first spec under
   this policy, and compare against a previous spec before treating the
