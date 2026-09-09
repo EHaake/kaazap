@@ -77,7 +77,7 @@ the app wiring both depend on. T001 gets a per-task skeptical-reviewer pass. -->
   fixture in `play_log.rs` test 9 with one that actually mutates an opponent card so the
   flip-induced opponent total is exercised rather than tautological.*
 
-- [ ] **T003** — Render the log to lines in `src/play_log.rs`. Add the pure
+- [x] **T003** — Render the log to lines in `src/play_log.rs`. Add the pure
   `PlayLog::render_lines(&self, inner_height_budget: usize) -> Vec<String>`: title (line 0), a
   "Round outcomes" section (one line per `RoundSummary`: winner/tie, both totals, resolution), a
   blank, a "This round" section (one line per `Move`: side label, value/`PlayedCard::display_text()`,
@@ -199,7 +199,7 @@ spec total against a previous spec of similar size before treating the policy as
 | T001 impl (sdd-implementer) | opus | ~70.9K | done; build clean, 303 tests pass (13 new) |
 | T001 review (skeptical-reviewer, per-task) | opus | ~55.1K | signed off; 3 non-blocking test-quality notes → folded into T002 |
 | T002 impl (sdd-implementer) | opus | ~43.2K | done; build clean, 312 tests pass; T001-review carryovers folded in |
-| T003 impl (sdd-implementer) | | | |
+| T003 impl (sdd-implementer) | opus | ~42.5K | done; build clean, 319 tests pass (7 new); stale #[allow(dead_code)] on opponent_name to clean |
 | Phase 1 review (skeptical-reviewer) | | | |
 | T004 impl (sdd-implementer) | | | |
 | T005 impl (sdd-implementer) | | | |

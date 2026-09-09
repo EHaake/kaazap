@@ -255,6 +255,93 @@ impl PlayLog {
         }
         self.prev = Some(curr);
     }
+
+    /// The side label used in rendered lines: the player is always "You", the
+    /// opponent is named (the label stored at `reset`).
+    fn side_label(&self, side: Player) -> &str {
+        match side {
+            Player::Player => "You",
+            Player::Opponent => &self.opponent_name,
+        }
+    }
+
+    /// One rendered line for a resolved round: the winner (or a tie), both
+    /// final totals, and how the round resolved. Punctuation is cosmetic; the
+    /// substrings (winner/name, both totals, resolution) are what matters.
+    fn outcome_line(&self, s: &RoundSummary) -> String {
+        let winner = match s.outcome {
+            RoundOutcome::PlayerWon => "You win".to_string(),
+            RoundOutcome::OpponentWon => format!("{} wins", self.opponent_name),
+            RoundOutcome::Tied => "Tie".to_string(),
+        };
+        let resolution = match &s.resolution {
+            Resolution::Bust(Player::Player) => "You bust".to_string(),
+            Resolution::Bust(Player::Opponent) => format!("{} busts", self.opponent_name),
+            Resolution::BothBust => "both bust".to_string(),
+            Resolution::FilledTable => "filled table".to_string(),
+            Resolution::Stand => "stand".to_string(),
+        };
+        format!(
+            "{winner} — You {} / {} {} ({resolution})",
+            s.player_total, self.opponent_name, s.opponent_total,
+        )
+    }
+
+    /// One rendered line for a visible move: the acting side, the value or card
+    /// text (a play uses `PlayedCard::display_text()`), and the resulting total.
+    fn move_line(&self, m: &Move) -> String {
+        match m {
+            Move::Draw { side, value, total } => {
+                format!("{} drew {value} → {total}", self.side_label(*side))
+            }
+            Move::Play { side, card, total } => {
+                format!(
+                    "{} played {} → {total}",
+                    self.side_label(*side),
+                    card.display_text(),
+                )
+            }
+            Move::Stand { side, total } => {
+                format!("{} stood at {total}", self.side_label(*side))
+            }
+            Move::Bust { side, total } => {
+                format!("{} bust at {total}", self.side_label(*side))
+            }
+        }
+    }
+
+    /// Build the play-log overlay's content as a line list (same shape as
+    /// `overlay.rs`'s `read_text_from_file`: line 0 = title, centered
+    /// downstream; the rest left-aligned content). A "Round outcomes" section
+    /// (one line per resolved round) then a blank separator then a "This round"
+    /// section (one line per move, oldest → newest).
+    ///
+    /// Overflow (plan §8): if the whole thing would exceed
+    /// `inner_height_budget`, the title, the entire round-outcomes section, the
+    /// two section headers and the blank are always kept; only the move lines
+    /// are trimmed, keeping the **most recent** that fit and dropping the
+    /// oldest. A round is bounded (~26 move lines), so this stays a small pure
+    /// trim — no pagination.
+    pub fn render_lines(&self, inner_height_budget: usize) -> Vec<String> {
+        let outcome_lines: Vec<String> =
+            self.outcomes.iter().map(|s| self.outcome_line(s)).collect();
+        let move_lines: Vec<String> = self.moves.iter().map(|m| self.move_line(m)).collect();
+
+        // The fixed part that is never trimmed: title, outcomes header, every
+        // outcome line, the blank separator, and the moves header.
+        let fixed_count = 4 + outcome_lines.len();
+        let move_budget = inner_height_budget.saturating_sub(fixed_count);
+        let dropped = move_lines.len().saturating_sub(move_budget);
+
+        let mut lines = Vec::with_capacity(fixed_count + move_lines.len());
+        lines.push("Play Log".to_string());
+        lines.push("Round outcomes".to_string());
+        lines.extend(outcome_lines);
+        lines.push(String::new());
+        lines.push("This round".to_string());
+        lines.extend(move_lines.into_iter().skip(dropped));
+        lines
+    }
 }
 
 #[cfg(test)]
@@ -758,5 +845,168 @@ mod tests {
         // outcome list would have survived.
         assert!(log.moves.is_empty());
         assert!(log.outcomes.is_empty());
+    }
+
+    // --- render_lines (T003) ---
+
+    /// A populated log: one resolved round plus one move of each kind, with a
+    /// named opponent.
+    fn populated_log() -> PlayLog {
+        let mut log = PlayLog::default();
+        log.opponent_name = "Jarael".to_string();
+        log.outcomes.push(RoundSummary {
+            outcome: RoundOutcome::PlayerWon,
+            player_total: 20,
+            opponent_total: 18,
+            resolution: Resolution::Stand,
+        });
+        log.moves.push(Move::Draw { side: Player::Player, value: 7, total: 7 });
+        log.moves.push(Move::Play {
+            side: Player::Opponent,
+            card: PlayedCard { card: Card::PlusMinus(3), value: -3 },
+            total: 15,
+        });
+        log.moves.push(Move::Stand { side: Player::Player, total: 20 });
+        log.moves.push(Move::Bust { side: Player::Opponent, total: 24 });
+        log
+    }
+
+    #[test]
+    fn render_lines_puts_title_first_then_both_headers_in_order() {
+        let log = populated_log();
+        let lines = log.render_lines(100);
+
+        assert_eq!(lines[0], "Play Log");
+        let outcomes_at = lines.iter().position(|l| l == "Round outcomes").unwrap();
+        let moves_at = lines.iter().position(|l| l == "This round").unwrap();
+        assert_eq!(outcomes_at, 1); // header immediately after the title
+        assert!(outcomes_at < moves_at); // "Round outcomes" precedes "This round"
+    }
+
+    #[test]
+    fn render_lines_labels_the_player_you_and_names_the_opponent() {
+        let log = populated_log();
+        let lines = log.render_lines(100);
+        let joined = lines.join("\n");
+
+        assert!(joined.contains("You"));
+        assert!(joined.contains("Jarael"));
+    }
+
+    #[test]
+    fn render_lines_outcome_line_carries_winner_both_totals_and_resolution() {
+        let log = populated_log();
+        let lines = log.render_lines(100);
+        // The outcome line sits just after the "Round outcomes" header.
+        let idx = lines.iter().position(|l| l == "Round outcomes").unwrap() + 1;
+        let line = &lines[idx];
+
+        assert!(line.contains("You win")); // winner
+        assert!(line.contains("20")); // player total
+        assert!(line.contains("18")); // opponent total
+        assert!(line.contains("stand")); // resolution
+    }
+
+    #[test]
+    fn render_lines_tie_and_bust_resolution_render_the_expected_substrings() {
+        let mut log = PlayLog::default();
+        log.opponent_name = "Jarael".to_string();
+        log.outcomes.push(RoundSummary {
+            outcome: RoundOutcome::Tied,
+            player_total: 25,
+            opponent_total: 22,
+            resolution: Resolution::Bust(Player::Opponent),
+        });
+        let lines = log.render_lines(100);
+        let idx = lines.iter().position(|l| l == "Round outcomes").unwrap() + 1;
+        let line = &lines[idx];
+
+        assert!(line.contains("Tie")); // tie, not a winner
+        assert!(line.contains("25"));
+        assert!(line.contains("22"));
+        assert!(line.contains("Jarael busts")); // which side busted
+    }
+
+    #[test]
+    fn render_lines_move_lines_carry_side_value_or_card_and_total() {
+        let log = populated_log();
+        let lines = log.render_lines(100);
+        let start = lines.iter().position(|l| l == "This round").unwrap() + 1;
+        let move_lines = &lines[start..];
+        assert_eq!(move_lines.len(), 4);
+
+        // Draw: side + drawn value + total.
+        assert!(move_lines[0].contains("You"));
+        assert!(move_lines[0].contains("7"));
+
+        // Play: side + display_text (a committed -3) + total.
+        assert!(move_lines[1].contains("Jarael"));
+        assert!(move_lines[1].contains("-3")); // display_text sign resolution
+        assert!(move_lines[1].contains("15"));
+
+        // Stand: side + total.
+        assert!(move_lines[2].contains("You"));
+        assert!(move_lines[2].contains("20"));
+
+        // Bust: side + total.
+        assert!(move_lines[3].contains("Jarael"));
+        assert!(move_lines[3].contains("24"));
+    }
+
+    #[test]
+    fn render_lines_play_flip_move_shows_the_flip_identity() {
+        let mut log = PlayLog::default();
+        log.opponent_name = "Jarael".to_string();
+        log.moves.push(Move::Play {
+            side: Player::Player,
+            card: PlayedCard { card: Card::Flip(FlipKind::TwoFour), value: 0 },
+            total: -4,
+        });
+        let lines = log.render_lines(100);
+        let start = lines.iter().position(|l| l == "This round").unwrap() + 1;
+
+        // display_text() renders a flip as its identity label, not a signed value.
+        let expected = PlayedCard { card: Card::Flip(FlipKind::TwoFour), value: 0 }.display_text();
+        assert!(lines[start].contains(&expected));
+        assert!(lines[start].contains("-4")); // resulting total
+    }
+
+    #[test]
+    fn render_lines_over_budget_keeps_headers_outcomes_and_most_recent_moves() {
+        let mut log = PlayLog::default();
+        log.opponent_name = "Jarael".to_string();
+        log.outcomes.push(RoundSummary {
+            outcome: RoundOutcome::PlayerWon,
+            player_total: 20,
+            opponent_total: 18,
+            resolution: Resolution::Stand,
+        });
+        // Five distinct draws: oldest value 1 → newest value 5.
+        for v in 1..=5 {
+            log.moves.push(Move::Draw { side: Player::Player, value: v, total: v as i32 });
+        }
+
+        // Fixed part is 4 lines (title + outcomes header + 1 outcome + blank +
+        // moves header = 5, actually): title, "Round outcomes", 1 outcome line,
+        // blank, "This round" = 5. Budget 7 leaves room for 2 move lines.
+        let lines = log.render_lines(7);
+
+        // Title, both headers and the outcome line all survive.
+        assert_eq!(lines[0], "Play Log");
+        assert!(lines.iter().any(|l| l == "Round outcomes"));
+        assert!(lines.iter().any(|l| l == "This round"));
+        assert!(lines.iter().any(|l| l.contains("You win")));
+
+        let start = lines.iter().position(|l| l == "This round").unwrap() + 1;
+        let move_lines = &lines[start..];
+        // Only the two most recent moves fit.
+        assert_eq!(move_lines.len(), 2);
+        // The oldest moves (drew 1, 2, 3) are dropped.
+        assert!(!move_lines.iter().any(|l| l.contains("drew 1")));
+        assert!(!move_lines.iter().any(|l| l.contains("drew 2")));
+        assert!(!move_lines.iter().any(|l| l.contains("drew 3")));
+        // The most recent two (drew 4, drew 5) are kept, oldest-first.
+        assert!(move_lines[0].contains("drew 4"));
+        assert!(move_lines[1].contains("drew 5"));
     }
 }
