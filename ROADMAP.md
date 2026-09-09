@@ -223,6 +223,17 @@ of, not guessed at here in advance.
   monochrome by construction. Applies to both Quick Play and Campaign. Filtering,
   search, cross-round move detail, and an always-on side panel stayed **out of scope**
   (the reserved left margin is still earmarked for the future player-status panel).
+- **Play log: full match history + scrollable window** (spec 019) — a
+  product-owner amendment to spec 018 after using it: the log now keeps **every
+  round's full moves** for the whole match (reversing 018's collapse-to-outcome —
+  completed rounds no longer shrink to a one-line result), grouped by round with
+  each round's result on its header. Because a full transcript overflows the
+  window, it's **scrollable** (`↑/↓` line, `PgUp/PgDn` page), opening pinned to
+  the latest and following live moves until you scroll up. `PlayLog` moved to
+  `rounds: Vec<RoundLog>`; a dedicated `overlay::draw_scrollable_overlay` draws a
+  larger, roomier (~38%×58%, centered) box beside the static overlays'
+  `draw_text_overlay`. Still ephemeral/never-saved; no engine/AI/save change;
+  monochrome.
 
 ## Backlog
 

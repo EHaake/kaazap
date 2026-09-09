@@ -552,3 +552,47 @@ of this match's round outcomes. The calls:
   below what `Config::from_terminal` admits for an in-match layout, so
   unreachable in practice) the fixed lines clip off the bottom rather than
   trim. Logged as a known non-issue; no code change. (Phase-2 review.)
+  *(Superseded by spec 019 — the trim/fixed-section split is gone; the window
+  scrolls instead.)*
+
+## Play log: full match history + scrollable window (spec 019)
+
+A product-owner amendment to spec 018, ruled after using the shipped log:
+
+- **Reverses spec 018's collapse-to-outcome.** 018 deliberately kept only the
+  *current* round's moves and collapsed completed rounds to a one-line outcome
+  (its non-goal "not a full match transcript at move-level detail across
+  rounds"). The owner found that too lossy — you couldn't review earlier moves.
+  The log now keeps **every round's full moves** for the whole match, grouped by
+  round with each round's result on its header. `PlayLog` changed from a split
+  `outcomes` + per-round `moves` to `rounds: Vec<RoundLog>` (each round its own
+  moves + `Option<RoundSummary>`); `round_reset` now *starts a new round* rather
+  than clearing. The rest of the observation machinery (the delta-diff, the
+  one-card invariant, the precedence classification, the ephemeral/never-saved
+  lifecycle, clear-on-match-start/rematch) is unchanged.
+- **Scrollable window** was the chosen overflow answer (over
+  auto-most-recent-that-fits or grow-only), since a full transcript routinely
+  exceeds the window: `↑/↓` by line, `PgUp/PgDn` by page. It opens pinned to the
+  latest and follows live moves until you scroll up, re-pinning at the bottom; a
+  `▲/▼` hint shows only when it overflows. This **replaces** spec 018's
+  fixed-section-plus-most-recent-trim rule (and with it the short-terminal clip
+  non-issue above) — `render_body` now emits the untrimmed transcript and the
+  draw layer scrolls a viewport over it.
+- **A dedicated `draw_scrollable_overlay`** beside the static overlays'
+  `draw_text_overlay` — a fixed, larger box (not content-sized) with a pinned
+  title, a rule, a breathing row, and a scrolled body. It sizes the box
+  **directly** rather than via `OverlayLayout` (whose fixed padding, tuned for
+  the small static overlays, ballooned a percentage-sized box toward
+  full-screen). Final size ~**38% wide × ~58% tall**, centered — width halved
+  from a first ~72% cut at the owner's request. Monochrome preserved.
+- **Follow/scroll contract lives in the draw fn, not the key handler**: the draw
+  fn is the single source of truth for the clamped offset and the bottom re-pin
+  (`app.rs` key handlers only nudge the offset and unset follow). Worth keeping
+  in mind so a later change doesn't re-add follow logic to the handler and
+  double-manage it.
+- **Known tradeoff (accepted):** the result header repeats the opponent name
+  (`Round N: <name> wins — You x / <name> y (stand)`), so at the narrower width
+  a long opponent name clips gracefully at the edge. Accepted for now; the
+  header wording can be shortened later if it grates. [product owner]
+
+No engine/AI/save-format change; `PlayLog` still never serialized.

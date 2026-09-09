@@ -24,7 +24,7 @@ use crate::{
     menu::{MenuItem, MenuOutcome, MenuState},
     opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
-    overlay::{Overlay, OverlayKind, draw_text_overlay},
+    overlay::{Overlay, OverlayKind, draw_scrollable_overlay},
     play_log::PlayLog,
     player::Player,
     profile::Profile,
@@ -354,6 +354,13 @@ pub struct App {
     // states. Empty outside a game; reset at match entry, mirroring the banter
     // seeding above.
     play_log: PlayLog,
+    // The play-log overlay's scroll offset (top visible body line) and whether
+    // it is pinned to follow the latest moves. `follow` opens true so the log
+    // shows the newest moves; scrolling up unpins it, scrolling back to the
+    // bottom re-pins it (spec 019). `scroll` is persisted (clamped) each draw so
+    // a key press always starts from a real offset.
+    play_log_scroll: usize,
+    play_log_follow: bool,
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
@@ -385,6 +392,8 @@ impl App {
             banter_last: None,
             prev_banter: None,
             play_log: PlayLog::default(),
+            play_log_scroll: 0,
+            play_log_follow: true,
             too_small: None,
             last_reward: None,
         }
@@ -660,13 +669,36 @@ impl App {
                 self.audio.play(Sfx::MenuBack);
             }
         } else if matches!(self.modal, Some(Modal::PlayLog)) {
-            // The play-log overlay (spec 018) is dismissed with L (the same key
-            // that opens it) or Esc. The game keeps ticking underneath and all
+            // The play-log overlay is dismissed with L (the same key that opens
+            // it) or Esc. It scrolls the transcript with the arrows (Ctrl+P/N
+            // already mirror to Up/Down in resolve_key) and PgUp/PgDn; any
+            // scroll unpins "follow", and the draw fn re-pins it when scrolled
+            // back to the bottom. The game keeps ticking underneath and all
             // other keys are captured, exactly as the help overlay ignores
-            // non-dismiss keys. Closing sounds the back cue.
-            if matches!(key, KeyCode::Char('L') | KeyCode::Esc) {
-                self.modal = None;
-                self.audio.play(Sfx::MenuBack);
+            // non-dismiss keys. Closing sounds the back cue. Spec 018/019.
+            const PLAY_LOG_PAGE: usize = 10;
+            match key {
+                KeyCode::Char('L') | KeyCode::Esc => {
+                    self.modal = None;
+                    self.audio.play(Sfx::MenuBack);
+                }
+                KeyCode::Up => {
+                    self.play_log_follow = false;
+                    self.play_log_scroll = self.play_log_scroll.saturating_sub(1);
+                }
+                KeyCode::Down => {
+                    self.play_log_follow = false;
+                    self.play_log_scroll = self.play_log_scroll.saturating_add(1);
+                }
+                KeyCode::PageUp => {
+                    self.play_log_follow = false;
+                    self.play_log_scroll = self.play_log_scroll.saturating_sub(PLAY_LOG_PAGE);
+                }
+                KeyCode::PageDown => {
+                    self.play_log_follow = false;
+                    self.play_log_scroll = self.play_log_scroll.saturating_add(PLAY_LOG_PAGE);
+                }
+                _ => {}
             }
         } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
             self.handle_campaign_entry_input(key);
@@ -700,6 +732,10 @@ impl App {
             // the game-action path below. Return so it doesn't fall through.
             if key == KeyCode::Char('L') && matches!(&self.screen, Screen::InGame { .. }) {
                 self.modal = Some(Modal::PlayLog);
+                // Open pinned to the latest moves (spec 019); the draw fn
+                // recomputes the real bottom offset while following.
+                self.play_log_follow = true;
+                self.play_log_scroll = 0;
                 return;
             }
 
@@ -1223,26 +1259,32 @@ impl App {
             Some(Modal::ConfirmNewCampaign { on_yes }) => {
                 self.draw_confirm_new_campaign(*on_yes, pulse, frame)
             }
-            Some(Modal::PlayLog) => {
-                // Only meaningful in-match; the L toggle can only open it there,
-                // but guard anyway. No resize arm is needed (unlike Modal::Help,
-                // which caches an Overlay): the content is rebuilt every draw from
-                // self.play_log and self.config, and resize() already keeps
-                // self.config current.
-                if matches!(self.screen, Screen::InGame { .. }) {
-                    // Budget = the inner height draw_text_overlay will actually
-                    // have. Build the max-clamped layout it would build for a
-                    // full-frame box and read its inner height, so render_lines'
-                    // most-recent-trim drops exactly the lines the box clamp
-                    // would.
-                    let budget = OverlayLayout::new(self.config, self.config.num_cols, self.config.num_rows)
-                        .inner
-                        .height();
-                    let lines = self.play_log.render_lines(budget);
-                    draw_text_overlay(self.config, &lines, frame);
-                }
-            }
+            // The play log draws after this match (it writes back scroll state,
+            // which would conflict with the shared borrow the match holds).
+            Some(Modal::PlayLog) => {}
             None => {}
+        }
+
+        // The play-log overlay (spec 019): a larger, padded, scrollable window
+        // showing the full match transcript. Only meaningful in-match; the L
+        // toggle can only open it there, but guard anyway. No resize arm is
+        // needed (unlike Modal::Help, which caches an Overlay): the content is
+        // rebuilt every draw from self.play_log and self.config, and resize()
+        // already keeps self.config current. We pass usize::MAX while following
+        // so the draw fn pins to the bottom, then persist the clamped scroll and
+        // re-pin follow from whether it landed at the bottom.
+        if matches!(self.modal, Some(Modal::PlayLog))
+            && matches!(self.screen, Screen::InGame { .. })
+        {
+            let body = self.play_log.render_body();
+            let scroll = if self.play_log_follow {
+                usize::MAX
+            } else {
+                self.play_log_scroll
+            };
+            let result = draw_scrollable_overlay(self.config, "Play Log", &body, scroll, frame);
+            self.play_log_scroll = result.scroll;
+            self.play_log_follow = result.at_bottom;
         }
     }
 

@@ -1,7 +1,7 @@
-//! Play log: an ordered record of every discrete move in the current round and
-//! a running list of resolved round outcomes for the match — the data behind
-//! the in-game "play log" overlay. Pure logic + formatting, no dependency on
-//! rendering internals.
+//! Play log: an ordered record of every discrete move of the match, grouped by
+//! round, with each resolved round's outcome on its header — the data behind
+//! the in-game "play log" overlay (a full match transcript since spec 019).
+//! Pure logic + formatting, no dependency on rendering internals.
 //!
 //! Like `banter.rs` and `audio.rs`, the log **observes from the outside** by
 //! diffing successive [`GameState`]s rather than hooking the engine — the
@@ -43,9 +43,8 @@ pub enum Resolution {
 }
 
 /// A resolved round: who won (or a tie), both final totals, and how it ended.
-/// Accumulated across the match in [`PlayLog::outcomes`]. Its producer
-/// (`summarize_round`) is T002; the fields are `pub` because the overlay
-/// renderer (T003) reads them.
+/// Stored on each resolved round's `RoundLog`. The fields are `pub` because the
+/// overlay renderer reads them.
 #[derive(Debug, Clone)]
 pub struct RoundSummary {
     pub outcome: RoundOutcome,
@@ -202,14 +201,25 @@ fn summarize_round(gs: &GameState) -> RoundSummary {
     }
 }
 
-/// The play log for a match: the running round outcomes, the current round's
-/// moves, the opponent's name (a rendering label), and the diff seed.
+/// One round's log: its moves in order, and — once the round resolves — its
+/// summary. Every round the match plays keeps its own moves for the whole
+/// match, so the overlay can show the full transcript (spec 019, reversing
+/// spec 018's collapse-to-outcome).
+#[derive(Default)]
+struct RoundLog {
+    /// This round's moves, oldest first.
+    moves: Vec<Move>,
+    /// `Some` once the round resolved (the `round_outcome` None→Some tick).
+    summary: Option<RoundSummary>,
+}
+
+/// The play log for a match: every round's moves (oldest first, the last the
+/// in-progress round), the opponent's name (a rendering label), and the diff
+/// seed.
 #[derive(Default)]
 pub struct PlayLog {
-    /// Resolved round outcomes, accumulated across the match.
-    outcomes: Vec<RoundSummary>,
-    /// The current round's moves; cleared at each new round.
-    moves: Vec<Move>,
+    /// All rounds this match, oldest first; the last is the in-progress round.
+    rounds: Vec<RoundLog>,
     /// The opponent's name, used as a side label by the overlay renderer.
     opponent_name: String,
     /// The diff seed; `None` makes the next `observe` seed silently.
@@ -218,12 +228,11 @@ pub struct PlayLog {
 
 impl PlayLog {
     /// Reset for a fresh match entry (mirrors `App`'s `prev_banter = None`
-    /// seeding): clear both lists, drop the diff seed so the first `observe`
+    /// seeding): clear every round, drop the diff seed so the first `observe`
     /// seeds silently, and store the opponent's name. Called at `start_match`
     /// and at `Continue`/resume.
     pub fn reset(&mut self, opponent_name: &str) {
-        self.outcomes.clear();
-        self.moves.clear();
+        self.rounds.clear();
         self.opponent_name = opponent_name.to_string();
         self.prev = None;
     }
@@ -231,24 +240,36 @@ impl PlayLog {
     /// Observe one game tick, updating the log by diffing against the stored
     /// seed. On the first call after a `reset` (seed is `None`) it only seeds,
     /// emitting nothing — a resumed match is never back-logged. Otherwise: a
-    /// rematch clears both lists; a new round clears the move list; else the
-    /// diff's moves are appended. Always re-stores the seed.
+    /// rematch clears every round; a new round starts a fresh round (the
+    /// finished round's log stays); else the diff's moves are appended to the
+    /// current round, and the round's summary is captured when it resolves.
+    /// Always re-stores the seed.
     pub fn observe(&mut self, gs: &GameState) {
         let curr = PlayLogSnapshot::of(gs);
         if let Some(prev) = &self.prev {
             if match_restarted(prev, &curr) {
-                self.moves.clear();
-                self.outcomes.clear();
+                self.rounds.clear();
             } else if round_reset(prev, gs) {
-                self.moves.clear();
+                // A new round has begun; the finished round's log stays.
+                self.rounds.push(RoundLog::default());
             } else {
-                self.moves.append(&mut moves_since(prev, gs));
+                let ms = moves_since(prev, gs);
                 // When the round outcome first resolves (outcome_present
                 // false→true), capture the round summary. Rows are still
                 // intact at this transition; they clear on the next NextRound.
                 let newly_resolved = !prev.outcome_present && curr.outcome_present;
-                if newly_resolved {
-                    self.outcomes.push(summarize_round(gs));
+                if !ms.is_empty() || newly_resolved {
+                    // Ensure a current (unresolved) round exists to append to.
+                    // Defensive: a resolved-or-empty tail means a new round
+                    // should start (a `round_reset` normally does this first).
+                    if self.rounds.last().is_none_or(|r| r.summary.is_some()) {
+                        self.rounds.push(RoundLog::default());
+                    }
+                    let current = self.rounds.last_mut().expect("just ensured");
+                    current.moves.extend(ms);
+                    if newly_resolved {
+                        current.summary = Some(summarize_round(gs));
+                    }
                 }
             }
         }
@@ -309,49 +330,32 @@ impl PlayLog {
         }
     }
 
-    /// Build the play-log overlay's content as a line list (same shape as
-    /// `overlay.rs`'s `read_text_from_file`: line 0 = title, centered
-    /// downstream; the rest left-aligned content). A "Round outcomes" section
-    /// (one line per resolved round) then a blank separator then a "This round"
-    /// section (one line per move, oldest → newest).
-    ///
-    /// Overflow (plan §8): if the whole thing would exceed
-    /// `inner_height_budget`, the title, the entire round-outcomes section, the
-    /// two section headers and the blank are always kept; only the move lines
-    /// are trimmed, keeping the **most recent** that fit and dropping the
-    /// oldest. A round is bounded (~26 move lines), so this stays a small pure
-    /// trim — no pagination.
-    pub fn render_lines(&self, inner_height_budget: usize) -> Vec<String> {
-        // Each section shows an indented placeholder when it is otherwise empty
-        // — at match start (and right after a new round / rematch) the log has
-        // no outcomes and/or no moves, and a bare header reads unfinished. The
-        // placeholders are part of the fixed (never-trimmed) section, since they
-        // only appear when the section has nothing else to show.
-        let outcome_lines: Vec<String> = if self.outcomes.is_empty() {
-            vec!["  (none yet)".to_string()]
-        } else {
-            self.outcomes.iter().map(|s| self.outcome_line(s)).collect()
-        };
-        let move_lines: Vec<String> = self.moves.iter().map(|m| self.move_line(m)).collect();
-        let move_placeholder = move_lines.is_empty();
+    /// Build the play-log overlay's body — the full match transcript, oldest
+    /// round first, **no title and no trimming** (the draw layer pins the title
+    /// and scrolls this body). Each round is a block: a header naming the round
+    /// and, once resolved, its result (or `(in progress)` while live), then its
+    /// moves indented two spaces beneath it, then a blank line before the next
+    /// round. When no round has started yet, a single placeholder line.
+    pub fn render_body(&self) -> Vec<String> {
+        if self.rounds.is_empty() {
+            return vec!["(no moves yet)".to_string()];
+        }
 
-        // The fixed part that is never trimmed: title, outcomes header, every
-        // outcome line (or the empty placeholder), the blank separator, the
-        // moves header, and — when there are no moves — the moves placeholder.
-        let fixed_count = 4 + outcome_lines.len() + usize::from(move_placeholder);
-        let move_budget = inner_height_budget.saturating_sub(fixed_count);
-        let dropped = move_lines.len().saturating_sub(move_budget);
-
-        let mut lines = Vec::with_capacity(fixed_count + move_lines.len());
-        lines.push("Play Log".to_string());
-        lines.push("Round outcomes".to_string());
-        lines.extend(outcome_lines);
-        lines.push(String::new());
-        lines.push("This round".to_string());
-        if move_placeholder {
-            lines.push("  (no moves yet)".to_string());
-        } else {
-            lines.extend(move_lines.into_iter().skip(dropped));
+        let mut lines = Vec::new();
+        let last = self.rounds.len() - 1;
+        for (i, round) in self.rounds.iter().enumerate() {
+            let n = i + 1;
+            let header = match &round.summary {
+                Some(s) => format!("Round {n}: {}", self.outcome_line(s)),
+                None => format!("Round {n} (in progress)"),
+            };
+            lines.push(header);
+            for m in &round.moves {
+                lines.push(format!("  {}", self.move_line(m)));
+            }
+            if i != last {
+                lines.push(String::new());
+            }
         }
         lines
     }
@@ -613,35 +617,39 @@ mod tests {
         gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(7), value: 7 });
         gs.player.stood = true;
         log.observe(&gs);
-        assert!(log.moves.is_empty());
-        assert!(log.outcomes.is_empty());
+        assert!(log.rounds.is_empty());
         assert!(log.prev.is_some());
     }
 
     #[test]
-    fn completed_round_then_empty_rows_clears_moves() {
+    fn completed_round_then_new_round_keeps_the_prior_rounds_moves() {
+        // The headline spec-019 change: a new round does NOT clear prior rounds.
         let mut log = PlayLog::default();
 
         // Seed on an empty pristine state.
         log.observe(&empty_gs());
 
-        // A move lands and is recorded.
-        let mut mid = empty_gs();
-        mid.player.dealer_row.push(PlayedCard { card: Card::Dealer(8), value: 8 });
-        mid.round_outcome = Some(RoundOutcome::PlayerWon);
-        log.observe(&mid);
-        assert_eq!(log.moves.len(), 1);
+        // A move lands and the round resolves.
+        let mut done = empty_gs();
+        done.player.dealer_row.push(PlayedCard { card: Card::Dealer(8), value: 8 });
+        done.round_outcome = Some(RoundOutcome::PlayerWon);
+        log.observe(&done);
+        assert_eq!(log.rounds.len(), 1);
+        assert_eq!(log.rounds[0].moves.len(), 1);
+        assert!(log.rounds[0].summary.is_some());
 
-        // The next round empties all four rows -> the move list clears, but the
-        // round-outcomes list persists across the new round.
+        // The next round empties all four rows -> a fresh empty round is pushed,
+        // but the finished round's moves and summary remain intact.
         let next = empty_gs();
         log.observe(&next);
-        assert!(log.moves.is_empty());
-        assert!(!log.outcomes.is_empty());
+        assert_eq!(log.rounds.len(), 2);
+        assert_eq!(log.rounds[0].moves.len(), 1); // prior round's moves survive
+        assert!(log.rounds[0].summary.is_some());
+        assert!(log.rounds[1].moves.is_empty()); // the new current round
     }
 
     #[test]
-    fn game_over_true_to_false_clears_both_lists() {
+    fn game_over_true_to_false_clears_all_rounds() {
         let mut log = PlayLog::default();
 
         // Seed on a game-over state.
@@ -649,20 +657,21 @@ mod tests {
         over.game_phase = GamePhase::GameOver { winner: Player::Player };
         log.observe(&over);
 
-        // Stuff both lists with prior-match content.
-        log.moves.push(Move::Stand { side: Player::Player, total: 12 });
-        log.outcomes.push(RoundSummary {
-            outcome: RoundOutcome::PlayerWon,
-            player_total: 20,
-            opponent_total: 18,
-            resolution: Resolution::Stand,
+        // Stuff a prior-match round.
+        log.rounds.push(RoundLog {
+            moves: vec![Move::Stand { side: Player::Player, total: 12 }],
+            summary: Some(RoundSummary {
+                outcome: RoundOutcome::PlayerWon,
+                player_total: 20,
+                opponent_total: 18,
+                resolution: Resolution::Stand,
+            }),
         });
 
-        // The rematch begins in place (game_over true -> false): both clear.
+        // The rematch begins in place (game_over true -> false): every round clears.
         let live = empty_gs();
         log.observe(&live);
-        assert!(log.moves.is_empty());
-        assert!(log.outcomes.is_empty());
+        assert!(log.rounds.is_empty());
     }
 
     // --- summarize_round classification (plan §6 precedence) ---
@@ -785,15 +794,17 @@ mod tests {
         done.round_outcome = Some(RoundOutcome::PlayerWon);
         log.observe(&done);
 
-        assert_eq!(log.outcomes.len(), 1);
-        assert!(matches!(log.outcomes[0].resolution, Resolution::Stand));
-        assert_eq!(log.outcomes[0].player_total, 20);
-        assert_eq!(log.outcomes[0].opponent_total, 18);
+        assert_eq!(log.rounds.len(), 1);
+        let s = log.rounds[0].summary.as_ref().expect("round resolved");
+        assert!(matches!(s.resolution, Resolution::Stand));
+        assert_eq!(s.player_total, 20);
+        assert_eq!(s.opponent_total, 18);
 
         // Observing again with the outcome still present is no transition —
-        // nothing further is appended.
+        // nothing further is appended and the summary is set exactly once.
         log.observe(&done);
-        assert_eq!(log.outcomes.len(), 1);
+        assert_eq!(log.rounds.len(), 1);
+        assert!(log.rounds[0].summary.is_some());
     }
 
     #[test]
@@ -806,8 +817,9 @@ mod tests {
         live.player.dealer_row.push(PlayedCard { card: Card::Dealer(9), value: 9 });
         log.observe(&live);
 
-        assert_eq!(log.moves.len(), 1);
-        assert!(log.outcomes.is_empty());
+        assert_eq!(log.rounds.len(), 1);
+        assert_eq!(log.rounds[0].moves.len(), 1);
+        assert!(log.rounds[0].summary.is_none());
     }
 
     // --- reset lifecycle (carryover from the T001 review) ---
@@ -815,19 +827,20 @@ mod tests {
     #[test]
     fn reset_clears_a_populated_log_and_stores_the_opponent_name() {
         let mut log = PlayLog::default();
-        log.moves.push(Move::Stand { side: Player::Player, total: 15 });
-        log.outcomes.push(RoundSummary {
-            outcome: RoundOutcome::PlayerWon,
-            player_total: 20,
-            opponent_total: 17,
-            resolution: Resolution::Stand,
+        log.rounds.push(RoundLog {
+            moves: vec![Move::Stand { side: Player::Player, total: 15 }],
+            summary: Some(RoundSummary {
+                outcome: RoundOutcome::PlayerWon,
+                player_total: 20,
+                opponent_total: 17,
+                resolution: Resolution::Stand,
+            }),
         });
         log.prev = Some(empty_snap());
 
         log.reset("Jarael");
 
-        assert!(log.moves.is_empty());
-        assert!(log.outcomes.is_empty());
+        assert!(log.rounds.is_empty());
         assert!(log.prev.is_none()); // next observe seeds silently
         assert_eq!(log.opponent_name, "Jarael");
     }
@@ -842,13 +855,15 @@ mod tests {
         over.player.dealer_row.push(PlayedCard { card: Card::Dealer(8), value: 8 });
         log.observe(&over);
 
-        // Stuff both lists with prior-match content.
-        log.moves.push(Move::Stand { side: Player::Player, total: 12 });
-        log.outcomes.push(RoundSummary {
-            outcome: RoundOutcome::PlayerWon,
-            player_total: 20,
-            opponent_total: 18,
-            resolution: Resolution::Stand,
+        // Stuff a round with prior-match content.
+        log.rounds.push(RoundLog {
+            moves: vec![Move::Stand { side: Player::Player, total: 12 }],
+            summary: Some(RoundSummary {
+                outcome: RoundOutcome::PlayerWon,
+                player_total: 20,
+                opponent_total: 18,
+                resolution: Resolution::Stand,
+            }),
         });
 
         // curr: game_over true->false (match_restarted) AND all rows empty while
@@ -856,200 +871,147 @@ mod tests {
         let live = empty_gs();
         log.observe(&live);
 
-        // match_restarted wins: BOTH lists clear. Had round_reset won, the
-        // outcome list would have survived.
-        assert!(log.moves.is_empty());
-        assert!(log.outcomes.is_empty());
+        // match_restarted wins: every round clears. Had round_reset won, it
+        // would instead have pushed a fresh round, keeping the prior one.
+        assert!(log.rounds.is_empty());
     }
 
-    // --- render_lines (T003) ---
+    // --- render_body (spec 019: full multi-round transcript) ---
 
-    /// A populated log: one resolved round plus one move of each kind, with a
-    /// named opponent.
+    /// A populated log: a resolved round (one move of each kind) followed by an
+    /// in-progress round, with a named opponent.
     fn populated_log() -> PlayLog {
         let mut log = PlayLog::default();
         log.opponent_name = "Jarael".to_string();
-        log.outcomes.push(RoundSummary {
-            outcome: RoundOutcome::PlayerWon,
-            player_total: 20,
-            opponent_total: 18,
-            resolution: Resolution::Stand,
+        log.rounds.push(RoundLog {
+            moves: vec![
+                Move::Draw { side: Player::Player, value: 7, total: 7 },
+                Move::Play {
+                    side: Player::Opponent,
+                    card: PlayedCard { card: Card::PlusMinus(3), value: -3 },
+                    total: 15,
+                },
+                Move::Stand { side: Player::Player, total: 20 },
+                Move::Bust { side: Player::Opponent, total: 24 },
+            ],
+            summary: Some(RoundSummary {
+                outcome: RoundOutcome::PlayerWon,
+                player_total: 20,
+                opponent_total: 18,
+                resolution: Resolution::Stand,
+            }),
         });
-        log.moves.push(Move::Draw { side: Player::Player, value: 7, total: 7 });
-        log.moves.push(Move::Play {
-            side: Player::Opponent,
-            card: PlayedCard { card: Card::PlusMinus(3), value: -3 },
-            total: 15,
+        log.rounds.push(RoundLog {
+            moves: vec![Move::Draw { side: Player::Player, value: 9, total: 9 }],
+            summary: None,
         });
-        log.moves.push(Move::Stand { side: Player::Player, total: 20 });
-        log.moves.push(Move::Bust { side: Player::Opponent, total: 24 });
         log
     }
 
     #[test]
-    fn render_lines_puts_title_first_then_both_headers_in_order() {
-        let log = populated_log();
-        let lines = log.render_lines(100);
+    fn render_body_renders_each_rounds_header_then_its_own_moves() {
+        let body = populated_log().render_body();
 
-        assert_eq!(lines[0], "Play Log");
-        let outcomes_at = lines.iter().position(|l| l == "Round outcomes").unwrap();
-        let moves_at = lines.iter().position(|l| l == "This round").unwrap();
-        assert_eq!(outcomes_at, 1); // header immediately after the title
-        assert!(outcomes_at < moves_at); // "Round outcomes" precedes "This round"
+        // Round 1 header carries its result once resolved (winner, both totals,
+        // resolution); round 2 is marked in progress.
+        let r1 = body.iter().position(|l| l.starts_with("Round 1")).unwrap();
+        let r2 = body.iter().position(|l| l.starts_with("Round 2")).unwrap();
+        assert!(r1 < r2); // oldest → newest
+        assert!(body[r1].contains("You win"));
+        assert!(body[r1].contains("20")); // player total
+        assert!(body[r1].contains("18")); // opponent total
+        assert!(body[r1].contains("stand")); // resolution
+        assert!(body[r2].contains("in progress"));
+
+        // Round 1's own moves sit (indented) between its header and round 2's.
+        let joined = body[r1..r2].join("\n");
+        assert!(joined.contains("drew 7"));
+        assert!(joined.contains("-3")); // committed sign via display_text
+        assert!(joined.contains("stood at 20"));
+        assert!(joined.contains("bust at 24"));
+        // Moves are indented beneath their header.
+        assert!(body[r1 + 1].starts_with("  "));
+
+        // Round 2's move belongs to round 2's block.
+        assert!(body[r2..].iter().any(|l| l.contains("drew 9")));
     }
 
     #[test]
-    fn render_lines_labels_the_player_you_and_names_the_opponent() {
-        let log = populated_log();
-        let lines = log.render_lines(100);
-        let joined = lines.join("\n");
-
+    fn render_body_labels_the_player_you_and_names_the_opponent() {
+        let joined = populated_log().render_body().join("\n");
         assert!(joined.contains("You"));
         assert!(joined.contains("Jarael"));
     }
 
     #[test]
-    fn render_lines_outcome_line_carries_winner_both_totals_and_resolution() {
-        let log = populated_log();
-        let lines = log.render_lines(100);
-        // The outcome line sits just after the "Round outcomes" header.
-        let idx = lines.iter().position(|l| l == "Round outcomes").unwrap() + 1;
-        let line = &lines[idx];
-
-        assert!(line.contains("You win")); // winner
-        assert!(line.contains("20")); // player total
-        assert!(line.contains("18")); // opponent total
-        assert!(line.contains("stand")); // resolution
+    fn render_body_empty_log_shows_a_placeholder() {
+        let body = PlayLog::default().render_body();
+        assert_eq!(body.len(), 1);
+        assert!(body[0].contains("no moves"));
     }
 
     #[test]
-    fn render_lines_tie_and_bust_resolution_render_the_expected_substrings() {
+    fn render_body_does_not_trim_a_multi_round_transcript() {
+        // Three resolved rounds, two moves each — render_body returns every
+        // round's header and every move (the draw layer, not this fn, scrolls).
         let mut log = PlayLog::default();
         log.opponent_name = "Jarael".to_string();
-        log.outcomes.push(RoundSummary {
-            outcome: RoundOutcome::Tied,
-            player_total: 25,
-            opponent_total: 22,
-            resolution: Resolution::Bust(Player::Opponent),
-        });
-        let lines = log.render_lines(100);
-        let idx = lines.iter().position(|l| l == "Round outcomes").unwrap() + 1;
-        let line = &lines[idx];
-
-        assert!(line.contains("Tie")); // tie, not a winner
-        assert!(line.contains("25"));
-        assert!(line.contains("22"));
-        assert!(line.contains("Jarael busts")); // which side busted
-    }
-
-    #[test]
-    fn render_lines_move_lines_carry_side_value_or_card_and_total() {
-        let log = populated_log();
-        let lines = log.render_lines(100);
-        let start = lines.iter().position(|l| l == "This round").unwrap() + 1;
-        let move_lines = &lines[start..];
-        assert_eq!(move_lines.len(), 4);
-
-        // Draw: side + drawn value + total.
-        assert!(move_lines[0].contains("You"));
-        assert!(move_lines[0].contains("7"));
-
-        // Play: side + display_text (a committed -3) + total.
-        assert!(move_lines[1].contains("Jarael"));
-        assert!(move_lines[1].contains("-3")); // display_text sign resolution
-        assert!(move_lines[1].contains("15"));
-
-        // Stand: side + total.
-        assert!(move_lines[2].contains("You"));
-        assert!(move_lines[2].contains("20"));
-
-        // Bust: side + total.
-        assert!(move_lines[3].contains("Jarael"));
-        assert!(move_lines[3].contains("24"));
-    }
-
-    #[test]
-    fn render_lines_play_flip_move_shows_the_flip_identity() {
-        let mut log = PlayLog::default();
-        log.opponent_name = "Jarael".to_string();
-        log.moves.push(Move::Play {
-            side: Player::Player,
-            card: PlayedCard { card: Card::Flip(FlipKind::TwoFour), value: 0 },
-            total: -4,
-        });
-        let lines = log.render_lines(100);
-        let start = lines.iter().position(|l| l == "This round").unwrap() + 1;
-
-        // display_text() renders a flip as its identity label, not a signed value.
-        let expected = PlayedCard { card: Card::Flip(FlipKind::TwoFour), value: 0 }.display_text();
-        assert!(lines[start].contains(&expected));
-        assert!(lines[start].contains("-4")); // resulting total
-    }
-
-    #[test]
-    fn render_lines_over_budget_keeps_headers_outcomes_and_most_recent_moves() {
-        let mut log = PlayLog::default();
-        log.opponent_name = "Jarael".to_string();
-        log.outcomes.push(RoundSummary {
-            outcome: RoundOutcome::PlayerWon,
-            player_total: 20,
-            opponent_total: 18,
-            resolution: Resolution::Stand,
-        });
-        // Five distinct draws: oldest value 1 → newest value 5.
-        for v in 1..=5 {
-            log.moves.push(Move::Draw { side: Player::Player, value: v, total: v as i32 });
+        for _ in 0..3 {
+            log.rounds.push(RoundLog {
+                moves: vec![
+                    Move::Draw { side: Player::Player, value: 5, total: 5 },
+                    Move::Draw { side: Player::Player, value: 5, total: 10 },
+                ],
+                summary: Some(RoundSummary {
+                    outcome: RoundOutcome::PlayerWon,
+                    player_total: 10,
+                    opponent_total: 8,
+                    resolution: Resolution::Stand,
+                }),
+            });
         }
-
-        // Fixed part is 4 lines (title + outcomes header + 1 outcome + blank +
-        // moves header = 5, actually): title, "Round outcomes", 1 outcome line,
-        // blank, "This round" = 5. Budget 7 leaves room for 2 move lines.
-        let lines = log.render_lines(7);
-
-        // Title, both headers and the outcome line all survive.
-        assert_eq!(lines[0], "Play Log");
-        assert!(lines.iter().any(|l| l == "Round outcomes"));
-        assert!(lines.iter().any(|l| l == "This round"));
-        assert!(lines.iter().any(|l| l.contains("You win")));
-
-        let start = lines.iter().position(|l| l == "This round").unwrap() + 1;
-        let move_lines = &lines[start..];
-        // Only the two most recent moves fit.
-        assert_eq!(move_lines.len(), 2);
-        // The oldest moves (drew 1, 2, 3) are dropped.
-        assert!(!move_lines.iter().any(|l| l.contains("drew 1")));
-        assert!(!move_lines.iter().any(|l| l.contains("drew 2")));
-        assert!(!move_lines.iter().any(|l| l.contains("drew 3")));
-        // The most recent two (drew 4, drew 5) are kept, oldest-first.
-        assert!(move_lines[0].contains("drew 4"));
-        assert!(move_lines[1].contains("drew 5"));
+        let body = log.render_body();
+        let headers = body.iter().filter(|l| l.starts_with("Round ")).count();
+        assert_eq!(headers, 3);
+        let moves = body.iter().filter(|l| l.contains("drew 5")).count();
+        assert_eq!(moves, 6); // nothing dropped
     }
 
     #[test]
-    fn render_lines_empty_log_shows_a_placeholder_under_each_header() {
-        // At match start both lists are empty — each header is followed by its
-        // indented placeholder rather than nothing.
-        let log = PlayLog::default();
-        let lines = log.render_lines(100);
-
-        assert_eq!(lines[0], "Play Log");
-        let outcomes_at = lines.iter().position(|l| l == "Round outcomes").unwrap();
-        let moves_at = lines.iter().position(|l| l == "This round").unwrap();
-        assert_eq!(lines[outcomes_at + 1], "  (none yet)");
-        assert_eq!(lines[moves_at + 1], "  (no moves yet)");
+    fn render_body_play_flip_move_shows_the_flip_identity() {
+        let mut log = PlayLog::default();
+        log.opponent_name = "Jarael".to_string();
+        log.rounds.push(RoundLog {
+            moves: vec![Move::Play {
+                side: Player::Player,
+                card: PlayedCard { card: Card::Flip(FlipKind::TwoFour), value: 0 },
+                total: -4,
+            }],
+            summary: None,
+        });
+        let body = log.render_body();
+        let expected = PlayedCard { card: Card::Flip(FlipKind::TwoFour), value: 0 }.display_text();
+        assert!(body.iter().any(|l| l.contains(&expected)));
+        assert!(body.iter().any(|l| l.contains("-4"))); // resulting total
     }
 
     #[test]
-    fn render_lines_does_not_panic_at_tiny_budgets() {
-        // Both placeholders are part of the fixed section, so a budget below the
-        // fixed count must saturate rather than panic.
-        let log = PlayLog::default();
-        let _ = log.render_lines(0);
-        // At a budget below the fixed count the placeholders still survive —
-        // they live in the never-trimmed fixed part, so a regression that moved
-        // them into the trimmable move region would otherwise pass silently.
-        let lines = log.render_lines(4);
-        assert!(lines.iter().any(|l| l == "  (none yet)"));
-        assert!(lines.iter().any(|l| l == "  (no moves yet)"));
+    fn render_body_tie_and_bust_header_shows_the_expected_substrings() {
+        let mut log = PlayLog::default();
+        log.opponent_name = "Jarael".to_string();
+        log.rounds.push(RoundLog {
+            moves: Vec::new(),
+            summary: Some(RoundSummary {
+                outcome: RoundOutcome::Tied,
+                player_total: 25,
+                opponent_total: 22,
+                resolution: Resolution::Bust(Player::Opponent),
+            }),
+        });
+        let header = &log.render_body()[0];
+        assert!(header.contains("Tie"));
+        assert!(header.contains("25"));
+        assert!(header.contains("22"));
+        assert!(header.contains("Jarael busts"));
     }
 }
