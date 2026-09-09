@@ -58,7 +58,7 @@ the app wiring both depend on. T001 gets a per-task skeptical-reviewer pass. -->
   one-card invariant); `observe` from `prev = None` emits nothing; a completed round then an
   empty-rows state clears `moves`; a `game_over` true→false clears both lists.*
 
-- [ ] **T002** — Round-outcome summarization in `src/play_log.rs`. The `Resolution { Bust(Player),
+- [x] **T002** — Round-outcome summarization in `src/play_log.rs`. The `Resolution { Bust(Player),
   BothBust, FilledTable, Stand }` and `RoundSummary { outcome, player_total, opponent_total,
   resolution }` types were already declared in T001; add the pure `summarize_round(gs) ->
   RoundSummary` with the plan §6 precedence (both-bust → `BothBust`; one bust → `Bust(side)`; else
@@ -198,7 +198,7 @@ spec total against a previous spec of similar size before treating the policy as
 | plan + tasks sign-off (skeptical-reviewer) | opus (documented fallback — top-tier budget short) | ~62.5K | signed off; 3 non-blocking notes folded into T001/T005/T007 text |
 | T001 impl (sdd-implementer) | opus | ~70.9K | done; build clean, 303 tests pass (13 new) |
 | T001 review (skeptical-reviewer, per-task) | opus | ~55.1K | signed off; 3 non-blocking test-quality notes → folded into T002 |
-| T002 impl (sdd-implementer) | | | |
+| T002 impl (sdd-implementer) | opus | ~43.2K | done; build clean, 312 tests pass; T001-review carryovers folded in |
 | T003 impl (sdd-implementer) | | | |
 | Phase 1 review (skeptical-reviewer) | | | |
 | T004 impl (sdd-implementer) | | | |

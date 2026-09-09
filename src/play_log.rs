@@ -168,6 +168,40 @@ fn round_reset(prev: &PlayLogSnapshot, gs: &GameState) -> bool {
     all_empty && prev_had_cards
 }
 
+/// Classify a resolved round from the live [`GameState`] at the
+/// `round_outcome` `None`→`Some` transition (rows still intact). Precedence
+/// (plan §6): both busted → [`Resolution::BothBust`]; exactly one busted →
+/// [`Resolution::Bust`] of that side; else a side filled the table
+/// (`table_full`, i.e. `table_card_count() >= MAX_TABLE_CARDS`) →
+/// [`Resolution::FilledTable`]; else both stood → [`Resolution::Stand`]. Both
+/// totals are the raw `score()`s (a busted side's over-20 value is kept —
+/// informative). This precedence is a design decision, not spec-settled, so it
+/// is pinned by tests. Must be called on a resolved round (`round_outcome`
+/// `Some`). Pure.
+fn summarize_round(gs: &GameState) -> RoundSummary {
+    let player_bust = gs.player.bust;
+    let opponent_bust = gs.opponent.bust;
+    let resolution = if player_bust && opponent_bust {
+        Resolution::BothBust
+    } else if player_bust {
+        Resolution::Bust(Player::Player)
+    } else if opponent_bust {
+        Resolution::Bust(Player::Opponent)
+    } else if gs.player.table_full() || gs.opponent.table_full() {
+        Resolution::FilledTable
+    } else {
+        Resolution::Stand
+    };
+    RoundSummary {
+        outcome: gs
+            .round_outcome
+            .expect("summarize_round called on a resolved round"),
+        player_total: gs.player.score(),
+        opponent_total: gs.opponent.score(),
+        resolution,
+    }
+}
+
 /// The play log for a match: the running round outcomes, the current round's
 /// moves, the opponent's name (a rendering label), and the diff seed.
 #[derive(Default)]
@@ -210,11 +244,13 @@ impl PlayLog {
                 self.moves.clear();
             } else {
                 self.moves.append(&mut moves_since(prev, gs));
-                // T002 stub: when the round outcome first resolves, capture it
-                // with `self.outcomes.push(summarize_round(gs))`. Until then the
-                // outcome list stays empty; the transition is computed here so
-                // T002 is a one-line fill-in.
-                let _newly_resolved = !prev.outcome_present && curr.outcome_present;
+                // When the round outcome first resolves (outcome_present
+                // false→true), capture the round summary. Rows are still
+                // intact at this transition; they clear on the next NextRound.
+                let newly_resolved = !prev.outcome_present && curr.outcome_present;
+                if newly_resolved {
+                    self.outcomes.push(summarize_round(gs));
+                }
             }
         }
         self.prev = Some(curr);
@@ -423,16 +459,18 @@ mod tests {
 
     #[test]
     fn player_flip_busting_a_standing_opponent_yields_player_play_then_opponent_bust() {
-        // prev: opponent has stood (24 on the board), not yet bust; player has
-        // played nothing.
+        // prev: opponent stood at 16 — a 4-card sits flipped to -4 on the
+        // board (20 + 10 + (-4) → 16), not yet bust; player has played nothing.
         let mut prev_gs = empty_gs();
         prev_gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
         prev_gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
-        prev_gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(4), value: 4 });
+        prev_gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(4), value: -4 });
         prev_gs.opponent.stood = true;
         let prev = PlayLogSnapshot::of(&prev_gs);
 
-        // curr: the player plays a flip; the standing opponent is now bust.
+        // curr: the player plays a TwoFour flip, flipping the opponent's -4 back
+        // to +4 (16 → 24) — the standing opponent's own card is mutated, so the
+        // recorded bust total is genuinely the post-flip 24, not a tautology.
         let mut gs = empty_gs();
         gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
         gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
@@ -454,6 +492,7 @@ mod tests {
             Move::Bust { side, total } => {
                 assert_eq!(*side, Player::Opponent);
                 assert_eq!(*total, gs.opponent.score());
+                assert_eq!(*total, 24); // the flip-induced post-flip total
             }
             other => panic!("expected an opponent Bust second, got {other:?}"),
         }
@@ -520,6 +559,203 @@ mod tests {
         // The rematch begins in place (game_over true -> false): both clear.
         let live = empty_gs();
         log.observe(&live);
+        assert!(log.moves.is_empty());
+        assert!(log.outcomes.is_empty());
+    }
+
+    // --- summarize_round classification (plan §6 precedence) ---
+
+    #[test]
+    fn summarize_round_classifies_a_lone_player_bust() {
+        let mut gs = empty_gs();
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(5), value: 5 }); // 25
+        gs.player.bust = true;
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(8), value: 8 }); // 18
+        gs.opponent.stood = true;
+        gs.round_outcome = Some(RoundOutcome::OpponentWon);
+
+        let s = summarize_round(&gs);
+        assert!(matches!(s.resolution, Resolution::Bust(Player::Player)));
+        assert!(matches!(s.outcome, RoundOutcome::OpponentWon));
+        assert_eq!(s.player_total, 25); // raw over-20 total kept
+        assert_eq!(s.opponent_total, 18);
+    }
+
+    #[test]
+    fn summarize_round_classifies_a_lone_opponent_bust() {
+        let mut gs = empty_gs();
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(9), value: 9 }); // 19
+        gs.player.stood = true;
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(3), value: 3 }); // 23
+        gs.opponent.bust = true;
+        gs.round_outcome = Some(RoundOutcome::PlayerWon);
+
+        let s = summarize_round(&gs);
+        assert!(matches!(s.resolution, Resolution::Bust(Player::Opponent)));
+        assert!(matches!(s.outcome, RoundOutcome::PlayerWon));
+        assert_eq!(s.player_total, 19);
+        assert_eq!(s.opponent_total, 23);
+    }
+
+    #[test]
+    fn summarize_round_classifies_a_both_bust_tie() {
+        let mut gs = empty_gs();
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(5), value: 5 }); // 25
+        gs.player.bust = true;
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(2), value: 2 }); // 22
+        gs.opponent.bust = true;
+        gs.round_outcome = Some(RoundOutcome::Tied);
+
+        let s = summarize_round(&gs);
+        // BothBust takes precedence over either lone Bust.
+        assert!(matches!(s.resolution, Resolution::BothBust));
+        assert!(matches!(s.outcome, RoundOutcome::Tied));
+        assert_eq!(s.player_total, 25);
+        assert_eq!(s.opponent_total, 22);
+    }
+
+    #[test]
+    fn summarize_round_classifies_a_full_table_auto_stand_with_no_bust() {
+        let mut gs = empty_gs();
+        // Twelve dealer 1s fill the table (MAX_TABLE_CARDS) at 12 — auto-stand,
+        // no bust.
+        for _ in 0..crate::MAX_TABLE_CARDS {
+            gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(1), value: 1 });
+        }
+        gs.player.stood = true;
+        assert!(gs.player.table_full());
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 }); // 10
+        gs.opponent.stood = true;
+        gs.round_outcome = Some(RoundOutcome::PlayerWon);
+
+        let s = summarize_round(&gs);
+        // No bust on either side, but a side filled the table.
+        assert!(matches!(s.resolution, Resolution::FilledTable));
+        assert!(matches!(s.outcome, RoundOutcome::PlayerWon));
+        assert_eq!(s.player_total, 12);
+        assert_eq!(s.opponent_total, 10);
+    }
+
+    #[test]
+    fn summarize_round_classifies_a_plain_double_stand() {
+        let mut gs = empty_gs();
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.player.dealer_row.push(PlayedCard { card: Card::Dealer(8), value: 8 }); // 18
+        gs.player.stood = true;
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        gs.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 }); // 20
+        gs.opponent.stood = true;
+        gs.round_outcome = Some(RoundOutcome::OpponentWon);
+
+        let s = summarize_round(&gs);
+        // No bust, no full table -> a plain stand.
+        assert!(matches!(s.resolution, Resolution::Stand));
+        assert!(matches!(s.outcome, RoundOutcome::OpponentWon));
+        assert_eq!(s.player_total, 18);
+        assert_eq!(s.opponent_total, 20);
+    }
+
+    // --- observe: outcome accumulation end-to-end ---
+
+    #[test]
+    fn observe_over_a_finished_round_appends_exactly_one_summary() {
+        let mut log = PlayLog::default();
+        log.observe(&empty_gs()); // seed silently
+
+        // A round resolves: player stands at 20, opponent stands at 18.
+        let mut done = empty_gs();
+        done.player.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        done.player.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        done.player.stood = true;
+        done.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(10), value: 10 });
+        done.opponent.dealer_row.push(PlayedCard { card: Card::Dealer(8), value: 8 });
+        done.opponent.stood = true;
+        done.round_outcome = Some(RoundOutcome::PlayerWon);
+        log.observe(&done);
+
+        assert_eq!(log.outcomes.len(), 1);
+        assert!(matches!(log.outcomes[0].resolution, Resolution::Stand));
+        assert_eq!(log.outcomes[0].player_total, 20);
+        assert_eq!(log.outcomes[0].opponent_total, 18);
+
+        // Observing again with the outcome still present is no transition —
+        // nothing further is appended.
+        log.observe(&done);
+        assert_eq!(log.outcomes.len(), 1);
+    }
+
+    #[test]
+    fn observe_appends_no_summary_while_the_round_is_live() {
+        let mut log = PlayLog::default();
+        log.observe(&empty_gs()); // seed silently
+
+        // A move lands but the round has not resolved (round_outcome None).
+        let mut live = empty_gs();
+        live.player.dealer_row.push(PlayedCard { card: Card::Dealer(9), value: 9 });
+        log.observe(&live);
+
+        assert_eq!(log.moves.len(), 1);
+        assert!(log.outcomes.is_empty());
+    }
+
+    // --- reset lifecycle (carryover from the T001 review) ---
+
+    #[test]
+    fn reset_clears_a_populated_log_and_stores_the_opponent_name() {
+        let mut log = PlayLog::default();
+        log.moves.push(Move::Stand { side: Player::Player, total: 15 });
+        log.outcomes.push(RoundSummary {
+            outcome: RoundOutcome::PlayerWon,
+            player_total: 20,
+            opponent_total: 17,
+            resolution: Resolution::Stand,
+        });
+        log.prev = Some(empty_snap());
+
+        log.reset("Jarael");
+
+        assert!(log.moves.is_empty());
+        assert!(log.outcomes.is_empty());
+        assert!(log.prev.is_none()); // next observe seeds silently
+        assert_eq!(log.opponent_name, "Jarael");
+    }
+
+    #[test]
+    fn match_restart_wins_when_both_restart_and_reset_conditions_hold() {
+        let mut log = PlayLog::default();
+
+        // Seed on a game-over state that had cards on the board.
+        let mut over = empty_gs();
+        over.game_phase = GamePhase::GameOver { winner: Player::Player };
+        over.player.dealer_row.push(PlayedCard { card: Card::Dealer(8), value: 8 });
+        log.observe(&over);
+
+        // Stuff both lists with prior-match content.
+        log.moves.push(Move::Stand { side: Player::Player, total: 12 });
+        log.outcomes.push(RoundSummary {
+            outcome: RoundOutcome::PlayerWon,
+            player_total: 20,
+            opponent_total: 18,
+            resolution: Resolution::Stand,
+        });
+
+        // curr: game_over true->false (match_restarted) AND all rows empty while
+        // prev had cards (round_reset) — both conditions hold at once.
+        let live = empty_gs();
+        log.observe(&live);
+
+        // match_restarted wins: BOTH lists clear. Had round_reset won, the
+        // outcome list would have survived.
         assert!(log.moves.is_empty());
         assert!(log.outcomes.is_empty());
     }
