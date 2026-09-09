@@ -274,4 +274,4 @@ treating the policy as settled. -->
 | T006 close-out (orchestrator) | sonnet (orchestrator) | n/a | done; DECISIONS/ROADMAP updated, 8/8 criteria ticked with evidence; 290 tests green |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus (default) | ~57.5K | CLEAN WITH NOTES; all 8 criteria code+test-backed, no engine/save/AI change, docs match; ROUND_PIPS resolved as layout geometry (DECISIONS note added); no blocking |
 | T005f impl (personality/spice pass) | opus (pinned) | ~56.5K | done; 290 tests pass (verbatim), only banter.rs; all 10 roster voices elevated, GENERIC left flat, 3 T005e notes fixed |
-| T005f content review (skeptical-reviewer) | opus (default) | _TBD_ | _pending_ |
+| T005f content review (skeptical-reviewer) | opus (default) | ~27.7K | APPROVE WITH NOTES; POV correct all 10, no trademark/GENERIC-bleed, mild profanity only, 3 fixes landed; Kesh "One breath left." flagged as the one borderline-dark line for the person |
