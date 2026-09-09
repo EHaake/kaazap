@@ -80,6 +80,79 @@ pub fn draw_text_overlay(config: Config, content: &[String], frame: &mut Frame) 
     }
 }
 
+/// The result of drawing a scrollable overlay: the clamped scroll offset the
+/// caller should store back (so the next key press starts from a real value),
+/// plus whether the body is pinned at the top or bottom. The caller uses
+/// `at_bottom` to keep its "follow the latest" flag pinned.
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct ScrollResult {
+    pub scroll: usize,
+    pub at_top: bool,
+    pub at_bottom: bool,
+}
+
+/// Minimum content width for the scrollable overlay — at least as wide as a
+/// full round header reads comfortably.
+const SCROLL_MIN_W: usize = 40;
+/// Minimum content height for the scrollable overlay.
+const SCROLL_MIN_H: usize = 10;
+
+/// Draw a fixed, larger, padded overlay with a pinned title and a vertically
+/// scrolled body — the play-log window (spec 019). `scroll` is the top body
+/// line shown; `usize::MAX` means "pin to the bottom". Returns the clamped
+/// scroll offset and the at-top/at-bottom flags. Monochrome (`Emphasis::Normal`
+/// throughout), reusing the same box machinery as [`draw_text_overlay`].
+pub fn draw_scrollable_overlay(
+    config: Config,
+    title: &str,
+    body: &[String],
+    scroll: usize,
+    frame: &mut Frame,
+) -> ScrollResult {
+    // Target ~70% of the screen; OverlayLayout centers, clamps to the frame,
+    // and adds the interior padding — the same path the static overlays use.
+    let w = (config.num_cols * 7 / 10).max(SCROLL_MIN_W);
+    let h = (config.num_rows * 7 / 10).max(SCROLL_MIN_H);
+    let layout = OverlayLayout::new(config, w, h);
+
+    clear_rect(frame, layout.outer);
+    draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
+
+    let inner = layout.inner;
+    let inner_w = inner.width();
+    let inner_h = inner.height();
+
+    // Body viewport height: all inner rows but the title, rule, and hint.
+    let vh = inner_h.saturating_sub(3);
+    let max_off = body.len().saturating_sub(vh);
+    let scroll = scroll.min(max_off);
+    let at_top = scroll == 0;
+    let at_bottom = scroll == max_off;
+
+    // Row 0: title, centered.
+    draw_text_in(frame, inner, 0, Align::Center, title.trim(), Emphasis::Normal);
+    // Row 1: a horizontal rule the full inner width.
+    if inner_h > 1 {
+        let rule: String = "─".repeat(inner_w);
+        draw_text_in(frame, inner, 1, Align::Left, &rule, Emphasis::Normal);
+    }
+    // Rows 2..: the body viewport (draw_text_in clips lines wider than the rect).
+    let end = (scroll + vh).min(body.len());
+    for (i, line) in body[scroll..end].iter().enumerate() {
+        draw_text_in(frame, inner, 2 + i, Align::Left, line, Emphasis::Normal);
+    }
+    // Last inner row: the scroll hint, with arrows marking more above/below —
+    // only when the body actually overflows the viewport.
+    if inner_h >= 3 && max_off > 0 {
+        let up = if at_top { ' ' } else { '▲' };
+        let down = if at_bottom { ' ' } else { '▼' };
+        let hint = format!("{up} ↑/↓ · PgUp/PgDn {down}");
+        draw_text_in(frame, inner, inner_h - 1, Align::Center, &hint, Emphasis::Normal);
+    }
+
+    ScrollResult { scroll, at_top, at_bottom }
+}
+
 /// Content dimensions of an overlay's text: widest line (in chars) and
 /// number of lines.
 fn measure(content: &[String]) -> (usize, usize) {
@@ -111,5 +184,30 @@ mod tests {
     #[test]
     fn overlay_measure_of_empty_content_is_zero() {
         assert_eq!(measure(&[]), (0, 0));
+    }
+
+    #[test]
+    fn scrollable_overlay_pins_to_bottom_and_clamps_overscroll() {
+        use crate::frame::new_frame;
+
+        let config = Config { num_cols: 139, num_rows: 31 };
+        let mut frame = new_frame(&config);
+        // A body far taller than any viewport, so it genuinely overflows.
+        let body: Vec<String> = (0..200).map(|i| format!("line {i}")).collect();
+
+        // usize::MAX pins to the bottom.
+        let pinned = draw_scrollable_overlay(config, "Play Log", &body, usize::MAX, &mut frame);
+        assert!(pinned.at_bottom);
+        assert!(!pinned.at_top);
+
+        // An over-large explicit scroll clamps to the same max offset.
+        let clamped = draw_scrollable_overlay(config, "Play Log", &body, 9_999, &mut frame);
+        assert_eq!(clamped.scroll, pinned.scroll);
+        assert!(clamped.at_bottom);
+
+        // Zero scroll sits at the top.
+        let top = draw_scrollable_overlay(config, "Play Log", &body, 0, &mut frame);
+        assert!(top.at_top);
+        assert_eq!(top.scroll, 0);
     }
 }
