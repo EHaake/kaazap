@@ -148,6 +148,10 @@ Phase ends with the person's play-and-read attestation (T007). -->
   resume on; the opponent hand card only appears once played; nothing renders in color; the overlay
   claims no left margin. Snapshot at 139×31 and wider. **PAUSE for the person** (phase attestation):
   confirm the log reads clearly, updates live, and is monochrome.*
+  *Phase-1-review carryover for the draw author to decide (empty-log rendering): at match start the
+  log has no outcomes and no moves, so `render_lines` currently emits both section headers with
+  nothing beneath. Decide whether the overlay should suppress an empty section or show a placeholder
+  line ("No moves yet") — a small cosmetic call; confirm it reads acceptably in the driver check.*
 
 ## Final phase — Spec close-out
 
@@ -157,6 +161,11 @@ Phase ends with the person's play-and-read attestation (T007). -->
   the `draw_text_overlay` extraction; `Modal::PlayLog` capturing input while the game keeps ticking
   (no pause). `ROADMAP.md`: mark the play log shipped; drop from future. Check off `spec.md`
   acceptance criteria with evidence. Request the pre-merge whole-spec sweep.
+  *Phase-1-review carryover cleanups to fold in here (src/play_log.rs, all non-blocking): (a) delete
+  the now-stale `#[allow(dead_code)]` on `PlayLog.opponent_name` (`render_lines` reads it, so it no
+  longer warns); (b) add `assert!(!log.outcomes.is_empty())` to the round-reset test so "outcomes
+  persist across a new round" is pinned, not just inspected; (c) add a `render_lines(0)` (budget
+  below `fixed_count`) no-panic assertion to close the zero-budget gap.*
   *Verify: `cargo build --all-targets` / `cargo test -q` green, reported verbatim; legible snapshots
   at 139×31 and wider showing the open log over the board; the sweep confirms no
   `game.rs`/`player.rs`/`card.rs`/`save.rs` change and that the log never enters the save format;
@@ -200,7 +209,7 @@ spec total against a previous spec of similar size before treating the policy as
 | T001 review (skeptical-reviewer, per-task) | opus | ~55.1K | signed off; 3 non-blocking test-quality notes → folded into T002 |
 | T002 impl (sdd-implementer) | opus | ~43.2K | done; build clean, 312 tests pass; T001-review carryovers folded in |
 | T003 impl (sdd-implementer) | opus | ~42.5K | done; build clean, 319 tests pass (7 new); stale #[allow(dead_code)] on opponent_name to clean |
-| Phase 1 review (skeptical-reviewer) | | | |
+| Phase 1 review (skeptical-reviewer) | opus | ~57.3K | passed; no blocking; 3 non-blocking cleanups → folded into T008 |
 | T004 impl (sdd-implementer) | | | |
 | T005 impl (sdd-implementer) | | | |
 | T005 review (skeptical-reviewer, per-task) | | | |
