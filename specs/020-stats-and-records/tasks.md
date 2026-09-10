@@ -276,7 +276,7 @@ before treating the policy as settled. -->
 | T001 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~24K (measured return) | done; 325 tests green, 6 new |
 | T002 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~52K (measured return) | done; 327 tests green; +Debug on stats types (required mechanical fix) |
 | T002 review (skeptical-reviewer, per-task) | opus (fable budget short — documented fallback) | ~36K (measured return) | signed off, no blocking; note: once-only completion leans on app launch guard → verify in T003 seam review |
-| Phase 1 review (skeptical-reviewer) | | | |
+| Phase 1 review (skeptical-reviewer) | opus (fable budget short — documented fallback) | ~41K (measured return) | signed off, no blocking; note: ensure T004/T005 unit-test the "N of 15" collection-completion derivation (already in T004 verify list) |
 | T003 impl (sdd-implementer) | | | |
 | T003 review (skeptical-reviewer, per-task) | | | |
 | T004 impl (sdd-implementer) | | | |
