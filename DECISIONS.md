@@ -596,3 +596,74 @@ A product-owner amendment to spec 018, ruled after using the shipped log:
   header wording can be shortened later if it grates. [product owner]
 
 No engine/AI/save-format change; `PlayLog` still never serialized.
+
+## Stats & records (spec 020)
+
+A persistent "mastery" layer: per-opponent match/round W–L, a win streak,
+campaign completions, and a current-run tally, shown on a new read-only
+**Records** `Screen` off the start menu. No mechanic changes.
+
+- **Additive serde fields on `profile.json`, no `PROFILE_VERSION` bump.**
+  `LifetimeStats` is a `#[serde(default)]` field on `Profile` and `RunStats` a
+  `#[serde(default)]` field on `CampaignRun`, exactly as `campaign`/`credits`
+  were added — an older profile (no `stats`/`run_stats` keys) loads all-zero,
+  pinned by a test mirroring the credits one. (Note: the new binary always
+  *writes* the `stats` block on any save, defaulted-empty, since the field has no
+  `skip_serializing_if` — harmless and expected.)
+- **Recording happens only at the match-end seam, deriving round W/L from
+  `rounds_won`** — a deliberate deviation from the spec's sketch of a separate
+  round-resolution recording point. At the GameOver tick the final
+  `player.rounds_won` / `opponent.rounds_won` already *are* the per-opponent round
+  tally (ties were replayed, never counted), so one once-per-match block records
+  match W/L, round W/L, streak, run tally, and completion in one shot. Observable
+  results are identical, and this makes "an abandoned match records nothing"
+  exactly true (a quit-before-GameOver never reaches the seam), with resume and
+  rematch needing no special handling. Guarded by `phase_changed && GameOver`,
+  which fires on exactly the entering tick (GameOver is only ever entered inside
+  `tick`'s `update()`); driver-confirmed end-to-end (play → quit → relaunch → the
+  Records screen shows the persisted record).
+- **Derived vs. persisted split — one source of truth.** Only per-opponent
+  records, the two streaks, and campaign completions persist. Overall/mode totals,
+  win rate, the combined (Quick Play + Campaign) per-opponent record, and
+  collection completion ("N of 15") are computed on demand for the screen, so
+  nothing can drift.
+- **`reset_to_starter` preserves the lifetime `stats` field** (take-reset-restore)
+  — the one deliberate behavior change to existing code. Career records are the
+  point of a mastery layer, so New Campaign must not wipe them (analogous to
+  Settings surviving a reset by living in their own file). The current-run tally
+  rides on `CampaignRun`, which reset already clears, so the run scope wipes for
+  free. The existing "identical to a fresh profile" reset test was amended to a
+  field-wise contract (stats preserved; everything else starter).
+- **No per-mode streaks** [Erik-ruled, 2026-09-09]. Only two streaks exist — the
+  lifetime **overall** streak and the current-**run** streak, the two that read as
+  meaningful. So the Quick Play and Campaign views show *no* streak line; a streak
+  appears only on Overall and This Run. Additive to add later if ever wanted.
+- **Campaign-completion detection via `run_complete()`, ordered after
+  `mark_beaten`.** `Profile::record_match` increments completions on
+  `campaign && player_won && run_complete()`; the recording block is placed *after*
+  the existing campaign-win block in `tick`, so `mark_beaten` has run and
+  `run_complete()` is accurate. It can't double-count: a completed run exposes no
+  launchable match.
+- **Menu-wide selection preservation** [Erik-ruled, 2026-09-09]. The spec
+  criterion "Esc returns to the menu with its selection preserved" surfaced that
+  *every* screen's Back rebuilt the menu at the top (Continue). Rather than a
+  Records-only fix or a spec-wording change, the ruling was to preserve selection
+  menu-wide: `App` remembers the last-activated `MenuItem`, and `start_menu()` —
+  the single choke point every Back funnels through — restores the cursor to it
+  (falling back to the top when that item is absent, e.g. Continue with no save).
+  A small cross-cutting UX win that spec 020 paid for once.
+
+- **Records is an overlay, not a full `Screen`** [product-owner call,
+  2026-09-09, after implementation]. It shipped as a full-screen `Screen` (spec
+  decision C), but a full-screen page read as inconsistent beside How to Play /
+  Settings, so it was converted to a centered popup `Modal::Records(RecordsState)`
+  with block-centered text (~55%×75% of the terminal, content scrolls). This
+  fits `CLAUDE.md`'s existing line — a read-only panel opened over the menu and
+  dismissed back to it is an *overlay*, not a mode you navigate *to* — so the
+  spec decision was revised, not the constitution. A side benefit: the menu is
+  never left, so its selection is preserved without the T007 machinery (which
+  still serves the real Screens). `Screen::Records` was removed; the state,
+  input, builders, and spec-019 scroll clamp are unchanged.
+
+No `game.rs`/`player.rs`/`card.rs`/`save.rs` change; the mid-match save format is
+untouched (stats live in `profile.json`). Monochrome by construction.

@@ -15,6 +15,7 @@ pub enum MenuItem {
     StartCampaign,
     QuickPlay,
     SideDeck,
+    Records,
     HowToPlay,
     Settings,
 }
@@ -53,6 +54,7 @@ impl MenuState {
             MenuItem::StartCampaign,
             MenuItem::QuickPlay,
             MenuItem::SideDeck,
+            MenuItem::Records,
             MenuItem::HowToPlay,
             MenuItem::Settings,
         ]);
@@ -81,6 +83,16 @@ impl MenuState {
                 Some(MenuOutcome::Activated(self.items[self.selected]))
             }
             _ => None,
+        }
+    }
+
+    /// Move the cursor to `item` if it's in the current list, else leave it
+    /// unchanged. Lets the app restore the menu selection when returning from a
+    /// screen (Continue may be absent when no save exists — then the cursor stays
+    /// put, i.e. at the default top).
+    pub fn select_item(&mut self, item: MenuItem) {
+        if let Some(i) = self.items.iter().position(|&it| it == item) {
+            self.selected = i;
         }
     }
 
@@ -148,14 +160,31 @@ mod tests {
     }
 
     #[test]
-    fn menu_without_a_save_omits_continue_and_wraps_over_five() {
+    fn select_item_moves_the_cursor_or_falls_back_to_the_top() {
+        // No save: Continue is absent, so selecting it leaves the cursor at the top.
         let mut m = MenuState::new(false);
-        assert_eq!(m.items.len(), 5);
+        m.select_item(MenuItem::Continue);
+        assert_eq!(selected(&m), MenuItem::StartCampaign); // unchanged (top)
+        // A present item is selected.
+        m.select_item(MenuItem::Records);
+        assert_eq!(selected(&m), MenuItem::Records);
+        // With a save, Continue is present and selectable.
+        let mut m2 = MenuState::new(true);
+        m2.select_item(MenuItem::SideDeck);
+        assert_eq!(selected(&m2), MenuItem::SideDeck);
+    }
+
+    #[test]
+    fn menu_without_a_save_omits_continue_and_wraps_over_six() {
+        let mut m = MenuState::new(false);
+        assert_eq!(m.items.len(), 6);
         assert_eq!(selected(&m), MenuItem::StartCampaign); // default at the top
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::QuickPlay);
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::SideDeck);
+        m.move_selection(1);
+        assert_eq!(selected(&m), MenuItem::Records);
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::HowToPlay);
         m.move_selection(1);
@@ -167,9 +196,9 @@ mod tests {
     }
 
     #[test]
-    fn menu_with_a_save_leads_with_continue_and_wraps_over_six() {
+    fn menu_with_a_save_leads_with_continue_and_wraps_over_seven() {
         let mut m = MenuState::new(true);
-        assert_eq!(m.items.len(), 6);
+        assert_eq!(m.items.len(), 7);
         assert_eq!(selected(&m), MenuItem::Continue); // default for a returning player
         m.move_selection(-1); // wraps backward to the bottom
         assert_eq!(selected(&m), MenuItem::Settings);
@@ -189,6 +218,7 @@ impl fmt::Display for MenuItem {
             MenuItem::StartCampaign => write!(f, "Start Campaign"),
             MenuItem::QuickPlay => write!(f, "Quick Play"),
             MenuItem::SideDeck => write!(f, "Side Deck"),
+            MenuItem::Records => write!(f, "Records"),
             MenuItem::HowToPlay => write!(f, "How To Play"),
             MenuItem::Settings => write!(f, "Settings"),
         }

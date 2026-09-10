@@ -28,9 +28,11 @@ use crate::{
     play_log::PlayLog,
     player::Player,
     profile::Profile,
+    records::{RecordsOutcome, RecordsState},
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
+    stats::Mode,
 };
 
 /// How much one ←/→ press moves a volume slider on the settings screen.
@@ -270,6 +272,10 @@ enum Modal {
     /// The in-match move-history overlay (spec 018). Unit-like — it carries no
     /// data; its content is rebuilt from live state on each draw.
     PlayLog,
+    /// The read-only stats/records overlay (spec 020), opened from the start
+    /// menu like How to Play / Settings and dismissed back to it. Holds its own
+    /// view + scroll cursor; content is rebuilt from the profile each draw.
+    Records(RecordsState),
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
@@ -330,6 +336,10 @@ pub struct App {
     // Continue item. Kept in sync as the game saves/clears, so the menu never
     // does file I/O per frame.
     has_save: bool,
+    // The start-menu item to restore the cursor to when a screen backs out to
+    // the menu (Erik ruling, spec 020): every Back funnels through start_menu(),
+    // which re-selects this. Set to whatever item last opened a screen.
+    menu_selection: MenuItem,
     pulse: SelectionPulse,
     settings: Settings,
     // The player's persistent profile — their card collection and built side
@@ -383,6 +393,7 @@ impl App {
             board_view: BoardView::new(config),
             modal: None,
             has_save,
+            menu_selection: MenuItem::StartCampaign,
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
@@ -401,9 +412,9 @@ impl App {
 
     /// A fresh start-menu screen reflecting whether a save currently exists.
     fn start_menu(&self) -> Screen {
-        Screen::StartMenu {
-            menu_state: MenuState::new(self.has_save),
-        }
+        let mut menu_state = MenuState::new(self.has_save);
+        menu_state.select_item(self.menu_selection);
+        Screen::StartMenu { menu_state }
     }
 
     /// Persist the in-progress match — or clear the save if it's over
@@ -431,6 +442,13 @@ impl App {
         self.screen = Screen::OpponentSelect {
             state: OpponentSelectState::new(),
         };
+    }
+
+    /// Open the read-only Records overlay (lifetime + run stats) over the menu,
+    /// like How to Play / Settings — dismissed back to the menu, whose selection
+    /// is preserved because the menu is never left. Needs no deck.
+    fn open_records(&mut self) {
+        self.modal = Some(Modal::Records(RecordsState::new()));
     }
 
     /// Open the deck-builder screen from `origin` (the menu's Side Deck item, the
@@ -699,6 +717,23 @@ impl App {
                     self.play_log_scroll = self.play_log_scroll.saturating_add(PLAY_LOG_PAGE);
                 }
                 _ => {}
+            }
+        } else if matches!(self.modal, Some(Modal::Records(_))) {
+            // The read-only Records overlay: ◂/▸ page views, ↑/↓ · PgUp/PgDn scroll,
+            // Esc/x dismiss back to the menu (whose selection is preserved because the
+            // menu was never left). Its own footer hint documents the keys.
+            let outcome = if let Some(Modal::Records(state)) = self.modal.as_mut() {
+                state.handle_input(key)
+            } else {
+                None
+            };
+            match outcome {
+                Some(RecordsOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                Some(RecordsOutcome::Back) => {
+                    self.modal = None;
+                    self.audio.play(Sfx::MenuBack);
+                }
+                None => {}
             }
         } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
             self.handle_campaign_entry_input(key);
@@ -1092,6 +1127,7 @@ impl App {
 
     /// Act on an activated start-menu item — open a screen or a modal.
     fn activate_menu_item(&mut self, menu_item: MenuItem) {
+        self.menu_selection = menu_item;
         match menu_item {
             MenuItem::Continue => {
                 // Resume the saved match. Continue only appears when a save
@@ -1151,6 +1187,7 @@ impl App {
                 // persists and the next match deals from it.
                 self.open_deck_builder(BuilderOrigin::Menu);
             }
+            MenuItem::Records => self.open_records(),
             MenuItem::HowToPlay => {
                 self.modal = Some(Modal::Help(Overlay::new(OverlayKind::HowToPlay, self.config)));
             }
@@ -1217,6 +1254,31 @@ impl App {
             self.profile.save();
         }
 
+        // Record the finished match exactly once, on the tick the phase enters
+        // GameOver. Placed after the campaign-win block so `mark_beaten` has
+        // already run this tick and `run_complete()` (checked inside
+        // `record_match`) sees the accurate campaign state. Quick Play (no
+        // `in_progress`) records to Quick Play; campaign records to Campaign plus
+        // the run tally and completion, all inside `record_match`. Abandoned
+        // matches never reach a GameOver tick, so they record nothing.
+        if phase_changed
+            && let Screen::InGame { game_state, .. } = &self.screen
+            && matches!(game_state.game_phase, GamePhase::GameOver { .. })
+        {
+            let player_won =
+                matches!(game_state.game_phase, GamePhase::GameOver { winner: Player::Player });
+            let opponent_id = game_state.opponent_profile.id;
+            let player_rounds = game_state.player.rounds_won as u32;
+            let opp_rounds = game_state.opponent.rounds_won as u32;
+            let mode = if self.profile.campaign().in_progress().is_some() {
+                Mode::Campaign
+            } else {
+                Mode::QuickPlay
+            };
+            self.profile.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
+            self.profile.save();
+        }
+
         // Sound the opponent's moves and round/game resolutions, which
         // happen here in the update rather than from a player keypress.
         self.emit_audio_cues();
@@ -1262,6 +1324,9 @@ impl App {
             // The play log draws after this match (it writes back scroll state,
             // which would conflict with the shared borrow the match holds).
             Some(Modal::PlayLog) => {}
+            // Records likewise draws after this match — its draw writes the
+            // clamped scroll back, needing a mutable borrow of self.modal.
+            Some(Modal::Records(_)) => {}
             None => {}
         }
 
@@ -1285,6 +1350,13 @@ impl App {
             let result = draw_scrollable_overlay(self.config, "Play Log", &body, scroll, frame);
             self.play_log_scroll = result.scroll;
             self.play_log_follow = result.at_bottom;
+        }
+
+        // The Records overlay draws here rather than in the immutable match above:
+        // its draw writes the clamped scroll back into the state, which needs a
+        // mutable borrow of self.modal (mirrors the play-log block).
+        if let Some(Modal::Records(state)) = &mut self.modal {
+            state.draw(frame, &self.config, &self.profile, pulse);
         }
     }
 
