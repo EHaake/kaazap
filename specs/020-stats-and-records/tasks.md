@@ -41,7 +41,7 @@ Phase 2 has a single task (T003); its per-task review serves as the phase review
 recording seam (Phase 2) and the Records screen (Phase 3) both depend on. T002
 (the Profile/CampaignRun persistence contract) gets a per-task review. -->
 
-- [ ] **T001 (foundational)** — Create `src/stats.rs` (add to `src/lib.rs`).
+- [x] **T001 (foundational)** — Create `src/stats.rs` (add to `src/lib.rs`).
   Define `Mode { QuickPlay, Campaign }`; `OpponentRecord { match_wins,
   match_losses, round_wins, round_losses }` (all `u32`, `Serialize`/`Deserialize`/
   `Default`); `Streak { current, longest }` with `record(&mut self, won: bool)`
@@ -273,7 +273,7 @@ before treating the policy as settled. -->
 |---|---|---|---|
 | Planning: draft (sdd-planner) | opus (documented fallback — top-tier budget short) | ~168K (measured return) | drafted |
 | plan + tasks sign-off (skeptical-reviewer) | opus (documented fallback) | ~56K (measured return) | signed off; 6 non-blocking notes (notes 1–3,6 folded into plan/tasks; 4,5 accepted no-change) |
-| T001 impl (sdd-implementer) | | | |
+| T001 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~24K (measured return) | done; 325 tests green, 6 new |
 | T002 impl (sdd-implementer) | | | |
 | T002 review (skeptical-reviewer, per-task) | | | |
 | Phase 1 review (skeptical-reviewer) | | | |
