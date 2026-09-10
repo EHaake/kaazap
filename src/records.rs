@@ -194,13 +194,14 @@ impl RecordsState {
             draw_text_in(frame, inner, 4 + pad_top + i, Align::Center, &padded, Emphasis::Normal);
         }
 
-        // Footer hint one row up from the bottom, leaving the last inner row blank
-        // as bottom padding; up/down markers show when the body overflows.
+        // Footer hint on the final inner row; the body stops at inner_h - 3 (vh =
+        // inner_h - 6), so inner_h - 2 is a one-row gap between the last record and
+        // the footer. Up/down markers show when the body overflows.
         if inner_h >= 6 {
             let up = if max_off > 0 && !at_top { '▲' } else { ' ' };
             let down = if max_off > 0 && !at_bottom { '▼' } else { ' ' };
             let hint = format!("{up} ◂/▸ view · ↑/↓ scroll · Esc back {down}");
-            draw_text_in(frame, inner, inner_h - 2, Align::Center, &hint, Emphasis::Normal);
+            draw_text_in(frame, inner, inner_h - 1, Align::Center, &hint, Emphasis::Normal);
         }
     }
 }
@@ -298,6 +299,7 @@ pub fn view_body(view: RecordsView, stats: &LifetimeStats, run: &RunStats) -> Ve
 
             lines.push(String::new());
             lines.push("By opponent:".to_string());
+            lines.push(String::new()); // breathing room between the header and the table
             lines.push(format!(
                 "{:<16} {:>9} {:>9}",
                 "Opponent", "Matches", "Rounds"
