@@ -1,6 +1,6 @@
 # Spec 020 — Stats & records
 
-**Status**: Shipped (all acceptance criteria met; pending pre-merge sweep + merge)
+**Status**: Shipped (merged to main in PR #23, 2026-09-10)
 **Depends on**: spec 008 (profile / collection), spec 009 (campaign run),
 spec 011 (roster), spec 012 (economy — for `reset_to_starter` from spec 014).
 
