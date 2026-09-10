@@ -286,24 +286,25 @@ pub fn view_body(view: RecordsView, stats: &LifetimeStats, run: &RunStats) -> Ve
 
             let mut lines = summary_lines(wins, losses);
 
-            if let RecordsView::Overall = view {
-                let s = stats.overall_streak();
-                lines.push(format!("Streak: {} (best {})", s.current, s.longest));
-            }
-            if let RecordsView::Campaign = view {
-                lines.push(format!(
-                    "Campaign completions: {}",
-                    stats.campaign_completions()
-                ));
+            // A fixed 5th summary row so the "By opponent:" table always starts at
+            // the same offset — it no longer jumps when paging between views whose
+            // summaries differ (Overall shows a streak, Campaign a completions
+            // count, Quick Play neither, which just reserves a blank slot).
+            match view {
+                RecordsView::Overall => {
+                    let s = stats.overall_streak();
+                    lines.push(format!("Streak: {} (best {})", s.current, s.longest));
+                }
+                RecordsView::Campaign => {
+                    lines.push(format!("Campaign completions: {}", stats.campaign_completions()));
+                }
+                _ => lines.push(String::new()), // Quick Play: reserve the slot to anchor the table
             }
 
             lines.push(String::new());
             lines.push("By opponent:".to_string());
             lines.push(String::new()); // breathing room between the header and the table
-            lines.push(format!(
-                "{:<16} {:>9} {:>9}",
-                "Opponent", "Matches", "Rounds"
-            ));
+            lines.push(format!("{:<16} {:>12} {:>12}", "Opponent", "Matches", "Rounds"));
 
             for o in OPPONENTS.iter() {
                 let rec = match view {
@@ -312,11 +313,23 @@ pub fn view_body(view: RecordsView, stats: &LifetimeStats, run: &RunStats) -> Ve
                     RecordsView::Campaign => stats.campaign().get(o.id),
                     RecordsView::ThisRun => unreachable!(),
                 };
+                // Each cell shows the W–L record with its win% (a never-faced
+                // opponent → "0–0 (—)"), match and round side by side.
                 lines.push(format!(
-                    "{:<16} {:>9} {:>9}",
+                    "{:<16} {:>12} {:>12}",
                     o.name,
-                    format!("{}–{}", rec.match_wins, rec.match_losses),
-                    format!("{}–{}", rec.round_wins, rec.round_losses),
+                    format!(
+                        "{}–{} ({})",
+                        rec.match_wins,
+                        rec.match_losses,
+                        win_rate_str(rec.match_wins, rec.match_losses)
+                    ),
+                    format!(
+                        "{}–{} ({})",
+                        rec.round_wins,
+                        rec.round_losses,
+                        win_rate_str(rec.round_wins, rec.round_losses)
+                    ),
                 ));
             }
 
@@ -529,6 +542,40 @@ mod tests {
         let line = collection_line(3, 15);
         assert!(line.contains("3 of 15"), "line: {line}");
         assert!(line.contains("20%"), "line: {line}");
+    }
+
+    #[test]
+    fn by_opponent_table_is_anchored_across_breakdown_views() {
+        let stats = LifetimeStats::default();
+        let run = RunStats::default();
+        let pos = |v| view_body(v, &stats, &run).iter().position(|l| l == "By opponent:").unwrap();
+        let o = pos(RecordsView::Overall);
+        assert_eq!(o, pos(RecordsView::QuickPlay));
+        assert_eq!(o, pos(RecordsView::Campaign));
+        // …and the three bodies are the same length (table rows line up too).
+        let len = |v| view_body(v, &stats, &run).len();
+        assert_eq!(len(RecordsView::Overall), len(RecordsView::QuickPlay));
+        assert_eq!(len(RecordsView::Overall), len(RecordsView::Campaign));
+    }
+
+    #[test]
+    fn per_opponent_rows_show_win_percentages() {
+        let mut stats = LifetimeStats::default();
+        // 3 match-wins, 1 loss and 3 round-wins, 1 round-loss vs the first opponent.
+        let id = crate::opponent::OPPONENTS[0].id;
+        stats.record_match(Mode::QuickPlay, id, true, 3, 1);
+        stats.record_match(Mode::QuickPlay, id, true, 3, 1);
+        stats.record_match(Mode::QuickPlay, id, true, 3, 1);
+        stats.record_match(Mode::QuickPlay, id, false, 1, 3);
+        let body = view_body(RecordsView::QuickPlay, &stats, &RunStats::default());
+        let row = body.iter().find(|l| l.contains(crate::opponent::OPPONENTS[0].name)).unwrap();
+        // match 3–1 → 75%, round 10–4 → 71%; assert the percentages render.
+        assert!(row.contains("75%"), "match win% missing: {row}");
+        assert!(row.contains('%'), "a win% should show for a faced opponent");
+        // A never-faced opponent (last in the roster) reads "(—)".
+        let last = crate::opponent::OPPONENTS[crate::opponent::OPPONENTS.len() - 1].name;
+        let unfaced = body.iter().find(|l| l.contains(last)).unwrap();
+        assert!(unfaced.contains("(—)"), "never-faced should read (—): {unfaced}");
     }
 
     #[test]
