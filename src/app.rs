@@ -28,6 +28,7 @@ use crate::{
     play_log::PlayLog,
     player::Player,
     profile::Profile,
+    records::{RecordsOutcome, RecordsState},
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
@@ -434,6 +435,14 @@ impl App {
         };
     }
 
+    /// Open the read-only Records screen (lifetime + run stats). Needs no deck,
+    /// so unlike open_opponent_select there is no deck-valid divert.
+    fn open_records(&mut self) {
+        self.screen = Screen::Records {
+            state: RecordsState::new(),
+        };
+    }
+
     /// Open the deck-builder screen from `origin` (the menu's Side Deck item, the
     /// campaign map, or an incomplete-deck divert), which `Back` returns to.
     fn open_deck_builder(&mut self, origin: BuilderOrigin) {
@@ -724,7 +733,8 @@ impl App {
                     Screen::OpponentSelect { .. }
                     | Screen::DeckBuilder { .. }
                     | Screen::CampaignMap { .. }
-                    | Screen::Shop { .. } => None,
+                    | Screen::Shop { .. }
+                    | Screen::Records { .. } => None,
                 };
             }
 
@@ -925,6 +935,18 @@ impl App {
                     Some(ShopOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
                         self.open_campaign_map();
+                    }
+                    None => {}
+                },
+
+                // The read-only Records screen: paging views and scrolling emit
+                // Moved; Esc/X backs out to the menu. Same owned-outcome NLL shape
+                // as the opponent-select arm.
+                Screen::Records { state } => match state.handle_input(key) {
+                    Some(RecordsOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                    Some(RecordsOutcome::Back) => {
+                        self.audio.play(Sfx::MenuBack);
+                        self.screen = self.start_menu();
                     }
                     None => {}
                 },
@@ -1152,6 +1174,7 @@ impl App {
                 // persists and the next match deals from it.
                 self.open_deck_builder(BuilderOrigin::Menu);
             }
+            MenuItem::Records => self.open_records(),
             MenuItem::HowToPlay => {
                 self.modal = Some(Modal::Help(Overlay::new(OverlayKind::HowToPlay, self.config)));
             }
@@ -1268,6 +1291,9 @@ impl App {
                 state.draw(frame, &self.config, &self.profile, self.last_reward.as_ref(), pulse)
             }
             Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
+            // Records draws below via a dedicated mutable borrow (it writes back
+            // the clamped scroll, so it can't run inside this immutable match).
+            Screen::Records { .. } => {}
         }
 
         // The one open modal draws over the screen.
@@ -1311,6 +1337,13 @@ impl App {
             let result = draw_scrollable_overlay(self.config, "Play Log", &body, scroll, frame);
             self.play_log_scroll = result.scroll;
             self.play_log_follow = result.at_bottom;
+        }
+
+        // The Records screen draws here rather than in the immutable match above:
+        // its draw writes the clamped scroll back into the state, which needs a
+        // mutable borrow of self.screen (mirrors the play-log block).
+        if let Screen::Records { state } = &mut self.screen {
+            state.draw(frame, &self.config, &self.profile, pulse);
         }
     }
 

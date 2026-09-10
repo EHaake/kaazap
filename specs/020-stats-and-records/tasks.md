@@ -177,7 +177,7 @@ Phase ends with the person's read-the-screen attestation (T005). -->
   otherwise, and a never-faced opponent reads `0–0`; `collection_line` renders
   "N of 15" and the percentage.*
 
-- [ ] **T005** — Draw the Records screen and wire it in + attest. In
+- [x] **T005** — Draw the Records screen and wire it in + attest. In
   `src/records.rs` add `draw(&mut self, frame, config: &Config, profile:
   &Profile, pulse)`: a full-screen bordered `Rect` (`clear_rect` + `draw_box`),
   the title/pager row (selected view name may breathe with `pulse`), the
@@ -280,7 +280,7 @@ before treating the policy as settled. -->
 | T003 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~20K (measured return) | done; app.rs only, 327 tests green; block placed after campaign-win block |
 | T003 review (skeptical-reviewer, per-task) | opus (fable budget short — documented fallback) | ~47K (measured return) | signed off, no blocking; double-count concern CLOSED (GameOver only entered via tick update; completed run has no launchable match). Two non-blocking notes → sweep: (1) add a comment stating the "GameOver only via update()" invariant the narrower phase_changed guard relies on (± plan §2 note); (2) optional cross-module guard test "run complete ⇒ no launchable match" |
 | T004 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~33K (measured return) | done; records.rs state/input/builders, 340 tests green (13 new); reviewed at phase end |
-| T005 impl (sdd-implementer) | | | |
-| Phase 3 review (skeptical-reviewer) | | | |
+| T005 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~50K (measured return) | done; draw + full wiring, 340 tests green, menu tests updated (6/7, Records after Side Deck) |
+| Phase 3 review (skeptical-reviewer) | opus (fable budget short — documented fallback) | (pending) | (pending) |
 | T006 close-out (orchestrator) | claude-opus-4-8 | — | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | | | |

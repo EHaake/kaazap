@@ -9,6 +9,13 @@ use crossterm::event::KeyCode;
 
 use crate::opponent::OPPONENTS;
 use crate::stats::{LifetimeStats, RunStats, win_rate};
+use crate::{
+    card::ALL_SIDE_CARDS,
+    config::Config,
+    frame::{Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text_in},
+    layout::Rect,
+    profile::Profile,
+};
 
 /// How many lines a PageUp/PageDown moves the scroll.
 const PAGE: usize = 10;
@@ -102,6 +109,69 @@ impl RecordsState {
             KeyCode::Esc => Some(RecordsOutcome::Back),
             KeyCode::Char('x') => Some(RecordsOutcome::Back),
             _ => None,
+        }
+    }
+
+    /// Draw the full-screen, bordered Records view: a pager/title row (breathing
+    /// with `pulse`), the persistent collection line, a rule, the scrollable body
+    /// for the current view, and a footer hint. Mirrors the spec-019 overlay clamp
+    /// math (four fixed rows here — pager, collection, rule, footer — so the body
+    /// starts at row 3 and `vh = inner_h - 4`), writing the clamped scroll back so
+    /// input can't run the offset past the end.
+    pub fn draw(&mut self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
+        let outer = Rect::new(
+            0,
+            config.num_cols.saturating_sub(1),
+            0,
+            config.num_rows.saturating_sub(1),
+        );
+        clear_rect(frame, outer);
+        draw_box(frame, outer, BorderWeight::Single, Emphasis::Normal);
+
+        let inner = Rect::new(
+            outer.x0 + 2,
+            outer.x1.saturating_sub(2),
+            outer.y0 + 1,
+            outer.y1.saturating_sub(1),
+        );
+        let inner_w = inner.width();
+        let inner_h = inner.height();
+
+        // Fixed rows: pager/title (breathes with pulse), collection line, rule.
+        draw_text_in(frame, inner, 0, Align::Center, &pager_label(self.view), pulse);
+        draw_text_in(
+            frame,
+            inner,
+            1,
+            Align::Center,
+            &collection_line(profile.distinct_side_cards_owned(), ALL_SIDE_CARDS.len()),
+            Emphasis::Normal,
+        );
+        draw_text_in(frame, inner, 2, Align::Left, &"─".repeat(inner_w), Emphasis::Normal);
+
+        // Body viewport with the spec-019 clamp.
+        let body = view_body(
+            VIEWS[self.view],
+            profile.stats(),
+            profile.campaign().run_stats(),
+        );
+        let vh = inner_h.saturating_sub(4); // rows 0 pager, 1 collection, 2 rule, last footer
+        let max_off = body.len().saturating_sub(vh);
+        let scroll = self.scroll.min(max_off);
+        self.scroll = scroll; // store the clamped value back
+        let at_top = scroll == 0;
+        let at_bottom = scroll == max_off;
+        let end = (scroll + vh).min(body.len());
+        for (i, line) in body[scroll..end].iter().enumerate() {
+            draw_text_in(frame, inner, 3 + i, Align::Left, line, Emphasis::Normal);
+        }
+
+        // Footer hint on the last inner row, with up/down markers when overflowing.
+        if inner_h >= 5 {
+            let up = if max_off > 0 && !at_top { '▲' } else { ' ' };
+            let down = if max_off > 0 && !at_bottom { '▼' } else { ' ' };
+            let hint = format!("{up} ◂/▸ view · ↑/↓ scroll · Esc back {down}");
+            draw_text_in(frame, inner, inner_h - 1, Align::Center, &hint, Emphasis::Normal);
         }
     }
 }

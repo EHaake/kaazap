@@ -15,6 +15,7 @@ pub enum MenuItem {
     StartCampaign,
     QuickPlay,
     SideDeck,
+    Records,
     HowToPlay,
     Settings,
 }
@@ -53,6 +54,7 @@ impl MenuState {
             MenuItem::StartCampaign,
             MenuItem::QuickPlay,
             MenuItem::SideDeck,
+            MenuItem::Records,
             MenuItem::HowToPlay,
             MenuItem::Settings,
         ]);
@@ -148,14 +150,16 @@ mod tests {
     }
 
     #[test]
-    fn menu_without_a_save_omits_continue_and_wraps_over_five() {
+    fn menu_without_a_save_omits_continue_and_wraps_over_six() {
         let mut m = MenuState::new(false);
-        assert_eq!(m.items.len(), 5);
+        assert_eq!(m.items.len(), 6);
         assert_eq!(selected(&m), MenuItem::StartCampaign); // default at the top
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::QuickPlay);
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::SideDeck);
+        m.move_selection(1);
+        assert_eq!(selected(&m), MenuItem::Records);
         m.move_selection(1);
         assert_eq!(selected(&m), MenuItem::HowToPlay);
         m.move_selection(1);
@@ -167,9 +171,9 @@ mod tests {
     }
 
     #[test]
-    fn menu_with_a_save_leads_with_continue_and_wraps_over_six() {
+    fn menu_with_a_save_leads_with_continue_and_wraps_over_seven() {
         let mut m = MenuState::new(true);
-        assert_eq!(m.items.len(), 6);
+        assert_eq!(m.items.len(), 7);
         assert_eq!(selected(&m), MenuItem::Continue); // default for a returning player
         m.move_selection(-1); // wraps backward to the bottom
         assert_eq!(selected(&m), MenuItem::Settings);
@@ -189,6 +193,7 @@ impl fmt::Display for MenuItem {
             MenuItem::StartCampaign => write!(f, "Start Campaign"),
             MenuItem::QuickPlay => write!(f, "Quick Play"),
             MenuItem::SideDeck => write!(f, "Side Deck"),
+            MenuItem::Records => write!(f, "Records"),
             MenuItem::HowToPlay => write!(f, "How To Play"),
             MenuItem::Settings => write!(f, "Settings"),
         }
