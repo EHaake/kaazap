@@ -1,7 +1,6 @@
 use crate::{
     app::HandCursor, campaign_map::CampaignMapState, deck_builder::DeckBuilderState,
-    game::GameState, menu::MenuState, opponent_select::OpponentSelectState,
-    records::RecordsState, shop::ShopState,
+    game::GameState, menu::MenuState, opponent_select::OpponentSelectState, shop::ShopState,
 };
 
 #[derive(Debug)]
@@ -12,5 +11,4 @@ pub enum Screen {
     DeckBuilder { state: DeckBuilderState },
     CampaignMap { state: CampaignMapState },
     Shop { state: ShopState },
-    Records { state: RecordsState },
 }

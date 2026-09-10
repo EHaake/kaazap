@@ -31,14 +31,18 @@ that additive fields extend without a version bump (as `campaign` and
 
 ### Getting there
 
-- A new **Records** item on the start menu opens a full-screen **Records
-  `Screen`** (a mode you navigate *to*, in the vocabulary of `CLAUDE.md` —
-  built by copying `opponent_select.rs`, not bolted onto an existing screen).
-- The screen is **read-only** — it displays; it never edits the profile.
-- `Esc` (and the usual back key) returns to the start menu, with the menu's
-  selection preserved.
+- A new **Records** item on the start menu opens a **Records overlay** — a
+  centered popup shown over the start menu, like How to Play and Settings.
+  *(Amended after implementation, product-owner call: originally specced as a
+  full-screen `Screen` per decision C below; a full-screen page felt out of
+  place next to the other menu panels, so Records became an overlay instead —
+  consistent with `CLAUDE.md`'s rule that a panel opened over the menu and
+  dismissed back to it is an overlay.)*
+- The overlay is **read-only** — it displays; it never edits the profile.
+- `Esc` (and the usual back key) closes the overlay back to the start menu, with
+  the menu's selection preserved (the menu is never left underneath).
 - Monochrome, bordered, in the spec 002 visual vocabulary, and legible at the
-  minimum terminal size (139×31).
+  minimum terminal size (139×31); content that overflows the popup scrolls.
 
 ### What it tracks
 
@@ -201,10 +205,11 @@ the run. The next campaign match begins a fresh "This Run" tally.
 
 ## Acceptance criteria
 
-- [x] A **Records** item on the start menu opens a full-screen Records screen;
-      `Esc` returns to the menu with its selection preserved. *(T004/T005; the
-      "selection preserved" clause satisfied menu-wide by T007 — Erik ruling —
-      and driver-confirmed: Esc from Records lands the cursor on Records.)*
+- [x] A **Records** item on the start menu opens the Records view (a centered
+      overlay, per the amendment above); `Esc` returns to the menu with its
+      selection preserved. *(T004/T005; as an overlay the menu is never left, so
+      its selection is preserved for free — driver-confirmed; T007's menu-wide
+      selection preservation additionally covers the real Screens.)*
 - [x] Finishing a match against an opponent updates that opponent's match W/L,
       for both Quick Play and Campaign matches; the change persists across a
       restart (written to `profile.json`). *(T003 seam; driver end-to-end: a lost
@@ -263,9 +268,15 @@ the run. The next campaign match begins a fresh "This Run" tally.
   addition to match W/L — a better skill signal than match record alone. It's
   the one quantity needing a round-resolution recording point rather than only
   the match-end one; ruled worth it.
-- **A new `Records` Screen, not a campaign-map panel (C).** A full mode you
-  navigate to is a `Screen` per `CLAUDE.md`; the map panel would be cramped and
-  mix concerns. Reached from a new start-menu item.
+- **A new Records view off the start menu, not a campaign-map panel (C).**
+  Reached from a new start-menu item, not crammed onto the map (which would be
+  cramped and mix concerns). *Originally built as a full-screen `Screen`;
+  amended after implementation (product-owner call) to a centered **overlay**
+  over the menu — like How to Play / Settings — since a full-screen page felt
+  inconsistent with the other menu panels. `CLAUDE.md`'s line — a full mode you
+  navigate to is a `Screen`, a panel opened over the menu and dismissed back to
+  it is an overlay — puts read-only Records on the overlay side, so no
+  constitution change was needed.*
 - **Lifetime records survive New Campaign; a current-run record is separate
   (D).** Career records are the point of a mastery layer, so `reset_to_starter`
   is amended to preserve the lifetime stats field. The current-run scope rides

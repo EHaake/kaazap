@@ -1,4 +1,4 @@
-//! The Records screen: a full-screen, scrollable read-only view of lifetime and
+//! The Records overlay: a centered, scrollable read-only popup of lifetime and
 //! per-run statistics. Four views — Overall, Quick Play, Campaign, This Run —
 //! paged left/right, with a scrollable body. State + input + pure content
 //! builders live here; the draw and app wiring are T005.
@@ -112,19 +112,22 @@ impl RecordsState {
         }
     }
 
-    /// Draw the full-screen, bordered Records view: a pager/title row (breathing
+    /// Draw the centered, bordered Records popup: a pager/title row (breathing
     /// with `pulse`), the persistent collection line, a rule, the scrollable body
     /// for the current view, and a footer hint. Mirrors the spec-019 overlay clamp
     /// math (four fixed rows here — pager, collection, rule, footer — so the body
     /// starts at row 3 and `vh = inner_h - 4`), writing the clamped scroll back so
     /// input can't run the offset past the end.
     pub fn draw(&mut self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
-        let outer = Rect::new(
-            0,
-            config.num_cols.saturating_sub(1),
-            0,
-            config.num_rows.saturating_sub(1),
-        );
+        let cols = config.num_cols;
+        let rows = config.num_rows;
+        // A centered popup with clear margins — the same overlay family as the play
+        // log / Settings, not full-screen (product-owner change). Content scrolls.
+        let box_w = (cols * 55 / 100).clamp(56.min(cols).max(1), cols.saturating_sub(6).max(1));
+        let box_h = (rows * 75 / 100).clamp(16.min(rows).max(1), rows.saturating_sub(2).max(1));
+        let x0 = cols.saturating_sub(box_w) / 2;
+        let y0 = rows.saturating_sub(box_h) / 2;
+        let outer = Rect::new(x0, x0 + box_w.saturating_sub(1), y0, y0 + box_h.saturating_sub(1));
         clear_rect(frame, outer);
         draw_box(frame, outer, BorderWeight::Single, Emphasis::Normal);
 
@@ -161,9 +164,11 @@ impl RecordsState {
         self.scroll = scroll; // store the clamped value back
         let at_top = scroll == 0;
         let at_bottom = scroll == max_off;
+        let block_w = body.iter().map(|l| l.chars().count()).max().unwrap_or(0);
         let end = (scroll + vh).min(body.len());
         for (i, line) in body[scroll..end].iter().enumerate() {
-            draw_text_in(frame, inner, 3 + i, Align::Left, line, Emphasis::Normal);
+            let padded = format!("{line:<block_w$}");
+            draw_text_in(frame, inner, 3 + i, Align::Center, &padded, Emphasis::Normal);
         }
 
         // Footer hint on the last inner row, with up/down markers when overflowing.

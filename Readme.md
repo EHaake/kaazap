@@ -25,7 +25,11 @@ side-deck cards for tougher matchups ahead.
 > (wins earn credits and drop cards; a shop on the map sells from a pool that
 > unlocks by how far core-ward you've reached), and **opponent portraits** (a
 > low-resolution monochrome face for every opponent, shown beside the board
-> in-match and in the select/map previews) are in place; the balance pass
+> in-match and in the select/map previews), and **a Records overlay** (a
+> read-only "mastery" popup off the start menu — like How to Play / Settings —
+> showing per-opponent match/round win-loss, win streak, campaign completions,
+> and collection progress, split Quick Play / Campaign / overall / this-run) are
+> in place; the balance pass
 > and stretch features are what's ahead — see `ROADMAP.md` for the full picture.
 
 ## Building & running
@@ -71,7 +75,10 @@ Campaign first asks whether to **Continue** your run or begin a **New Campaign**
 a fresh start that resets your progress, credits, and collection (your settings
 are kept). **Quick Play** instead lets you pick
 any opponent from the roster directly (each has its own difficulty, side
-deck, and play style; see `docs/opponents.md` for how difficulty is tuned). In-game, press `?`
+deck, and play style; see `docs/opponents.md` for how difficulty is tuned). The **Records** menu item
+opens a read-only popup of your play history — matches and rounds won/lost per
+opponent, your win streak, campaign completions, and collection progress —
+paged left/right across Overall, Quick Play, Campaign, and This Run views. In-game, press `?`
 for a rules and controls overlay. If you know real Pazaak, Kaazap plays close
 to the source material with a few intentional tweaks — see `DECISIONS.md` for
 what's changed and why.

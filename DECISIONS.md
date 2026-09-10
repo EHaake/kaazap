@@ -653,5 +653,17 @@ campaign completions, and a current-run tally, shown on a new read-only
   (falling back to the top when that item is absent, e.g. Continue with no save).
   A small cross-cutting UX win that spec 020 paid for once.
 
+- **Records is an overlay, not a full `Screen`** [product-owner call,
+  2026-09-09, after implementation]. It shipped as a full-screen `Screen` (spec
+  decision C), but a full-screen page read as inconsistent beside How to Play /
+  Settings, so it was converted to a centered popup `Modal::Records(RecordsState)`
+  with block-centered text (~55%×75% of the terminal, content scrolls). This
+  fits `CLAUDE.md`'s existing line — a read-only panel opened over the menu and
+  dismissed back to it is an *overlay*, not a mode you navigate *to* — so the
+  spec decision was revised, not the constitution. A side benefit: the menu is
+  never left, so its selection is preserved without the T007 machinery (which
+  still serves the real Screens). `Screen::Records` was removed; the state,
+  input, builders, and spec-019 scroll clamp are unchanged.
+
 No `game.rs`/`player.rs`/`card.rs`/`save.rs` change; the mid-match save format is
 untouched (stats live in `profile.json`). Monochrome by construction.

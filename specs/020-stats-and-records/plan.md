@@ -196,6 +196,19 @@ rule, a scrolled body viewport, a footer hint). The scroll offset lives on
 &mut self.screen` block after the immutable screen-draw match, mirroring the
 play-log draw block (`app.rs:1276`).
 
+> **Amended after implementation (product-owner call, 2026-09-09).** Records
+> shipped as a full-screen `Screen`, but a full-screen page felt inconsistent
+> beside the other menu panels, so it was converted to a **centered popup
+> `Modal::Records(RecordsState)`** — opened from `MenuItem::Records`, dismissed
+> with Esc/`x` back to the menu (whose selection is preserved for free, since the
+> menu is never left), drawn from a dedicated `if let Some(Modal::Records(state))
+> = &mut self.modal` block mirroring the play-log modal. The same `RecordsState`,
+> `handle_input`, builders, and spec-019 clamp are reused unchanged; only the box
+> geometry became a centered popup (~55%×75%, content scrolls) and the body text
+> is block-centered. `Screen::Records` was removed. This is consistent with
+> `CLAUDE.md`'s overlay-vs-Screen line (a read-only panel over the menu is an
+> overlay), so decision C is revised rather than the constitution.
+
 ## Design
 
 ### 1. `src/stats.rs` — the persisted stats types + pure recording/derivation (new module, foundational)

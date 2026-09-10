@@ -272,6 +272,10 @@ enum Modal {
     /// The in-match move-history overlay (spec 018). Unit-like — it carries no
     /// data; its content is rebuilt from live state on each draw.
     PlayLog,
+    /// The read-only stats/records overlay (spec 020), opened from the start
+    /// menu like How to Play / Settings and dismissed back to it. Holds its own
+    /// view + scroll cursor; content is rebuilt from the profile each draw.
+    Records(RecordsState),
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
@@ -440,12 +444,11 @@ impl App {
         };
     }
 
-    /// Open the read-only Records screen (lifetime + run stats). Needs no deck,
-    /// so unlike open_opponent_select there is no deck-valid divert.
+    /// Open the read-only Records overlay (lifetime + run stats) over the menu,
+    /// like How to Play / Settings — dismissed back to the menu, whose selection
+    /// is preserved because the menu is never left. Needs no deck.
     fn open_records(&mut self) {
-        self.screen = Screen::Records {
-            state: RecordsState::new(),
-        };
+        self.modal = Some(Modal::Records(RecordsState::new()));
     }
 
     /// Open the deck-builder screen from `origin` (the menu's Side Deck item, the
@@ -715,6 +718,23 @@ impl App {
                 }
                 _ => {}
             }
+        } else if matches!(self.modal, Some(Modal::Records(_))) {
+            // The read-only Records overlay: ◂/▸ page views, ↑/↓ · PgUp/PgDn scroll,
+            // Esc/x dismiss back to the menu (whose selection is preserved because the
+            // menu was never left). Its own footer hint documents the keys.
+            let outcome = if let Some(Modal::Records(state)) = self.modal.as_mut() {
+                state.handle_input(key)
+            } else {
+                None
+            };
+            match outcome {
+                Some(RecordsOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                Some(RecordsOutcome::Back) => {
+                    self.modal = None;
+                    self.audio.play(Sfx::MenuBack);
+                }
+                None => {}
+            }
         } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
             self.handle_campaign_entry_input(key);
         } else if matches!(self.modal, Some(Modal::ConfirmNewCampaign { .. })) {
@@ -738,8 +758,7 @@ impl App {
                     Screen::OpponentSelect { .. }
                     | Screen::DeckBuilder { .. }
                     | Screen::CampaignMap { .. }
-                    | Screen::Shop { .. }
-                    | Screen::Records { .. } => None,
+                    | Screen::Shop { .. } => None,
                 };
             }
 
@@ -940,18 +959,6 @@ impl App {
                     Some(ShopOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
                         self.open_campaign_map();
-                    }
-                    None => {}
-                },
-
-                // The read-only Records screen: paging views and scrolling emit
-                // Moved; Esc/X backs out to the menu. Same owned-outcome NLL shape
-                // as the opponent-select arm.
-                Screen::Records { state } => match state.handle_input(key) {
-                    Some(RecordsOutcome::Moved) => self.audio.play(Sfx::MenuMove),
-                    Some(RecordsOutcome::Back) => {
-                        self.audio.play(Sfx::MenuBack);
-                        self.screen = self.start_menu();
                     }
                     None => {}
                 },
@@ -1297,9 +1304,6 @@ impl App {
                 state.draw(frame, &self.config, &self.profile, self.last_reward.as_ref(), pulse)
             }
             Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
-            // Records draws below via a dedicated mutable borrow (it writes back
-            // the clamped scroll, so it can't run inside this immutable match).
-            Screen::Records { .. } => {}
         }
 
         // The one open modal draws over the screen.
@@ -1320,6 +1324,9 @@ impl App {
             // The play log draws after this match (it writes back scroll state,
             // which would conflict with the shared borrow the match holds).
             Some(Modal::PlayLog) => {}
+            // Records likewise draws after this match — its draw writes the
+            // clamped scroll back, needing a mutable borrow of self.modal.
+            Some(Modal::Records(_)) => {}
             None => {}
         }
 
@@ -1345,10 +1352,10 @@ impl App {
             self.play_log_follow = result.at_bottom;
         }
 
-        // The Records screen draws here rather than in the immutable match above:
+        // The Records overlay draws here rather than in the immutable match above:
         // its draw writes the clamped scroll back into the state, which needs a
-        // mutable borrow of self.screen (mirrors the play-log block).
-        if let Screen::Records { state } = &mut self.screen {
+        // mutable borrow of self.modal (mirrors the play-log block).
+        if let Some(Modal::Records(state)) = &mut self.modal {
             state.draw(frame, &self.config, &self.profile, pulse);
         }
     }
