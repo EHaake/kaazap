@@ -12,6 +12,8 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::stats::RunStats;
+
 /// A node on the campaign map: a planet holding an ordered list of opponents,
 /// unlocked once every planet in `requires` is cleared. All fields are `Copy`
 /// (`&'static` + `f32`), so `PLANETS` stays a plain `const` roster with no
@@ -157,6 +159,11 @@ pub struct CampaignRun {
     beaten: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     in_progress: Option<NodeRef>,
+    /// Flat per-run statistics (spec 020). Additive and serde-defaulted, so an
+    /// older run loads with an empty tally; cleared for free on reset since it's
+    /// a plain field on the run.
+    #[serde(default)]
+    run_stats: RunStats,
 }
 
 impl CampaignRun {
@@ -225,6 +232,16 @@ impl CampaignRun {
 
     pub fn set_in_progress(&mut self, node: Option<NodeRef>) {
         self.in_progress = node;
+    }
+
+    /// The flat per-run statistics for this campaign run.
+    pub fn run_stats(&self) -> &RunStats {
+        &self.run_stats
+    }
+
+    /// Mutable per-run statistics, for recording a completed campaign match.
+    pub fn run_stats_mut(&mut self) -> &mut RunStats {
+        &mut self.run_stats
     }
 }
 

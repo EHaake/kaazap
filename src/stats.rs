@@ -11,14 +11,14 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 /// Which mode a completed match counts toward.
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum Mode {
     QuickPlay,
     Campaign,
 }
 
 /// Per-opponent match and round tallies, within a single mode.
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct OpponentRecord {
     pub match_wins: u32,
     pub match_losses: u32,
@@ -27,7 +27,7 @@ pub struct OpponentRecord {
 }
 
 /// A win/loss streak: how many in a row right now, and the best ever.
-#[derive(Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct Streak {
     pub current: u32,
     pub longest: u32,
@@ -48,7 +48,7 @@ impl Streak {
 }
 
 /// All per-opponent records for a single mode.
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ModeRecord {
     #[serde(default)]
     opponents: BTreeMap<String, OpponentRecord>,
@@ -77,7 +77,7 @@ impl ModeRecord {
 
 /// Lifetime statistics across all play: per-mode records, the overall streak,
 /// and the number of campaign completions.
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct LifetimeStats {
     #[serde(default)]
     quick_play: ModeRecord,
@@ -157,7 +157,7 @@ impl LifetimeStats {
 
 /// Flat statistics for a single run (session): overall match/round tallies and
 /// the run's streak, not broken down by opponent.
-#[derive(Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct RunStats {
     #[serde(default)]
     pub match_wins: u32,

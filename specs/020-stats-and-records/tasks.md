@@ -71,7 +71,7 @@ recording seam (Phase 2) and the Records screen (Phase 3) both depend on. T002
   `None` at zero matches and genuinely rounds otherwise (3 of 4 → 75; 2 of 3 → 67,
   which truncation would wrongly give as 66 — sign-off note 3).*
 
-- [ ] **T002 (foundational, review: per-task)** — Wire the persisted model into
+- [x] **T002 (foundational, review: per-task)** — Wire the persisted model into
   `src/profile.rs` and `src/campaign.rs`. In `profile.rs`: add
   `#[serde(default)] stats: LifetimeStats` to `Profile` (and to the two test
   constructors `profile_with` / the `tests` `Profile { .. }`), init in `Default`,
@@ -274,8 +274,8 @@ before treating the policy as settled. -->
 | Planning: draft (sdd-planner) | opus (documented fallback — top-tier budget short) | ~168K (measured return) | drafted |
 | plan + tasks sign-off (skeptical-reviewer) | opus (documented fallback) | ~56K (measured return) | signed off; 6 non-blocking notes (notes 1–3,6 folded into plan/tasks; 4,5 accepted no-change) |
 | T001 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~24K (measured return) | done; 325 tests green, 6 new |
-| T002 impl (sdd-implementer) | | | |
-| T002 review (skeptical-reviewer, per-task) | | | |
+| T002 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~52K (measured return) | done; 327 tests green; +Debug on stats types (required mechanical fix) |
+| T002 review (skeptical-reviewer, per-task) | opus (fable budget short — documented fallback) | ~36K (measured return) | signed off, no blocking; note: once-only completion leans on app launch guard → verify in T003 seam review |
 | Phase 1 review (skeptical-reviewer) | | | |
 | T003 impl (sdd-implementer) | | | |
 | T003 review (skeptical-reviewer, per-task) | | | |

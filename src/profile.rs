@@ -20,6 +20,7 @@ use crate::{
     campaign::CampaignRun,
     card::{ALL_SIDE_CARDS, Card, DEFAULT_SIDE_DECK},
     economy::{self, WinReward},
+    stats::{LifetimeStats, Mode},
 };
 
 /// Bump when the on-disk shape changes incompatibly; a file whose version
@@ -54,6 +55,10 @@ pub struct Profile {
     /// serde-defaulted, so a pre-economy profile loads with 0 — no version bump.
     #[serde(default)]
     credits: u32,
+    /// Lifetime statistics (spec 020). Additive and serde-defaulted, so a
+    /// pre-stats profile loads all-zero — no version bump.
+    #[serde(default)]
+    stats: LifetimeStats,
 }
 
 fn default_version() -> u32 {
@@ -84,6 +89,7 @@ impl Default for Profile {
             deck: starter_deck(),
             campaign: CampaignRun::default(),
             credits: 0,
+            stats: LifetimeStats::default(),
         }
     }
 }
@@ -113,10 +119,14 @@ impl Profile {
 
     /// Reset to a brand-new starter profile: starter collection + deck, no
     /// campaign progress, zero credits — a full fresh start (spec 014's New
-    /// Campaign). Settings live in a separate file, so they are untouched. The
-    /// caller persists (`save`) and clears any in-progress match save.
+    /// Campaign). Lifetime stats survive the reset (spec 020) — like Settings,
+    /// which live in a separate file and are also untouched — so a New Campaign
+    /// doesn't erase the player's cross-run record. The caller persists (`save`)
+    /// and clears any in-progress match save.
     pub fn reset_to_starter(&mut self) {
+        let stats = std::mem::take(&mut self.stats);
         *self = Profile::default();
+        self.stats = stats;
     }
 
     /// Parse profile JSON, discarding a document whose version doesn't match
@@ -157,6 +167,43 @@ impl Profile {
     /// wrap. Callers pair this with [`Profile::save`].
     pub fn earn_credits(&mut self, amount: u32) {
         self.credits = self.credits.saturating_add(amount);
+    }
+
+    /// The player's lifetime statistics (spec 020).
+    pub fn stats(&self) -> &LifetimeStats {
+        &self.stats
+    }
+
+    /// Record a completed match (spec 020). Always bumps lifetime stats for the
+    /// given mode; for a Campaign match it also updates the run tally and, when a
+    /// win clears the final node (`run_complete`), counts a campaign completion.
+    /// In the real seam the opponent's `mark_beaten` runs before this, so
+    /// `run_complete()` already reflects the just-won final match. Callers pair
+    /// this with [`Profile::save`].
+    pub fn record_match(
+        &mut self,
+        mode: Mode,
+        opponent_id: &str,
+        player_won: bool,
+        player_rounds: u32,
+        opp_rounds: u32,
+    ) {
+        self.stats
+            .record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
+        if let Mode::Campaign = mode {
+            self.campaign
+                .run_stats_mut()
+                .record_match(player_won, player_rounds, opp_rounds);
+            if player_won && self.campaign.run_complete() {
+                self.stats.record_campaign_completion();
+            }
+        }
+    }
+
+    /// How many distinct side-card types the player owns (spec 020) — one per
+    /// grid row, since `collection_by_type` lists each owned type once.
+    pub fn distinct_side_cards_owned(&self) -> usize {
+        self.collection_by_type().len()
     }
 
     /// Grant one copy of `card` to the collection (a win drop or a shop buy).
@@ -270,6 +317,7 @@ mod tests {
             deck,
             campaign: CampaignRun::default(),
             credits: 0,
+            stats: LifetimeStats::default(),
         }
     }
 
@@ -290,11 +338,11 @@ mod tests {
     }
 
     #[test]
-    fn reset_to_starter_wipes_everything_back_to_a_new_profile() {
+    fn reset_to_starter_wipes_the_run_but_preserves_lifetime_stats() {
         use crate::campaign::NodeRef;
         let mut p = Profile::default();
         // Dirty every persisted field: campaign progress, an in-flight match,
-        // credits, and the collection.
+        // credits, the collection — and lifetime stats plus the run tally.
         p.campaign_mut().mark_beaten("cinder", "greeb");
         p.campaign_mut().set_in_progress(Some(NodeRef {
             planet: "scree".to_string(),
@@ -302,20 +350,25 @@ mod tests {
         }));
         p.earn_credits(250);
         p.grant_card(Card::PlusMinus(6));
+        p.record_match(Mode::Campaign, "greeb", true, 3, 1);
         assert!(p.campaign().has_progress() && p.credits() > 0, "sanity: profile is dirtied");
+        assert_eq!(p.stats().campaign().get("greeb").match_wins, 1, "sanity: stats recorded");
+        assert_eq!(p.campaign().run_stats().match_wins, 1, "sanity: run tally recorded");
 
         p.reset_to_starter();
 
+        // The run resets to starter state...
         assert_eq!(p.credits(), 0, "credits reset");
         assert!(!p.campaign().has_progress(), "campaign progress cleared");
         assert!(p.campaign().in_progress().is_none(), "in-progress match cleared");
+        assert_eq!(p.campaign().run_stats().match_wins, 0, "run tally cleared");
         assert_eq!(p.deck(), starter_deck().as_slice(), "deck back to starter");
-        // Full equality with a brand-new profile, via the serialized form
-        // (`Profile` isn't `PartialEq`): every field is starter state.
+        assert_eq!(p.collection, Profile::default().collection, "collection back to starter");
+        // ...but lifetime stats survive the reset (like Settings, in a separate file).
         assert_eq!(
-            serde_json::to_string(&p).unwrap(),
-            serde_json::to_string(&Profile::default()).unwrap(),
-            "a reset profile is identical to a fresh one",
+            p.stats().campaign().get("greeb").match_wins,
+            1,
+            "lifetime stats are preserved across a reset",
         );
     }
 
@@ -333,6 +386,70 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         let p2 = Profile::from_json(&json).expect("a valid profile loads");
         assert_eq!(p2.credits(), 75);
+    }
+
+    #[test]
+    fn stats_persist_and_default_to_empty_for_older_profiles() {
+        // A pre-020 profile (no `stats`, no `run_stats` keys) loads with empty
+        // stats and no version bump — the same additive-field discipline as
+        // `credits` / `campaign`.
+        let older = r#"{"version":1,"collection":[],"deck":[]}"#;
+        let p = Profile::from_json(older).expect("an older profile still loads");
+        assert_eq!(p.stats().campaign_completions(), 0);
+        assert_eq!(p.stats().overall_streak().current, 0);
+        assert_eq!(p.campaign().run_stats().match_wins, 0);
+        assert_eq!(PROFILE_VERSION, 1, "no version bump for the additive stats field");
+
+        // Dirtied lifetime + run stats round-trip through a full Profile.
+        let mut p = Profile::default();
+        p.record_match(Mode::QuickPlay, "yuka", true, 3, 1);
+        p.record_match(Mode::Campaign, "greeb", false, 1, 3);
+        let json = serde_json::to_string(&p).unwrap();
+        let p2 = Profile::from_json(&json).expect("a valid profile loads");
+        assert_eq!(p2.stats().quick_play().get("yuka").match_wins, 1);
+        assert_eq!(p2.stats().campaign().get("greeb").match_losses, 1);
+        assert_eq!(p2.stats().overall_streak().longest, 1);
+        // The Campaign match also fed the run tally, which round-trips too.
+        assert_eq!(p2.campaign().run_stats().match_losses, 1);
+        assert_eq!(p2.campaign().run_stats().round_losses, 3);
+    }
+
+    #[test]
+    fn campaign_completion_counts_only_a_final_clearing_win_and_recounts_after_reset() {
+        use crate::campaign::PLANETS;
+        // Beat every campaign opponent except the final boss, recording each as a
+        // Campaign match; none of these is a run-completing win.
+        let clear_all_but_last = |p: &mut Profile| {
+            for planet in PLANETS {
+                for opp in planet.opponents {
+                    let is_final = planet.id == "zenith" && *opp == "sovereign";
+                    if is_final {
+                        continue;
+                    }
+                    p.campaign_mut().mark_beaten(planet.id, opp);
+                    p.record_match(Mode::Campaign, opp, true, 3, 0);
+                }
+            }
+        };
+
+        let mut p = Profile::default();
+        clear_all_but_last(&mut p);
+        // A non-final win did not increment completions.
+        assert_eq!(p.stats().campaign_completions(), 0, "no completion until the final node clears");
+
+        // Clearing the final node with a win increments once (mark_beaten first,
+        // mirroring the real seam).
+        p.campaign_mut().mark_beaten("zenith", "sovereign");
+        p.record_match(Mode::Campaign, "sovereign", true, 3, 2);
+        assert_eq!(p.stats().campaign_completions(), 1, "the final clearing win completes the run");
+
+        // A fresh run (post-reset) can complete again and increment a second time.
+        p.reset_to_starter();
+        assert_eq!(p.stats().campaign_completions(), 1, "completions survive the reset");
+        clear_all_but_last(&mut p);
+        p.campaign_mut().mark_beaten("zenith", "sovereign");
+        p.record_match(Mode::Campaign, "sovereign", true, 3, 0);
+        assert_eq!(p.stats().campaign_completions(), 2, "a second full run increments again");
     }
 
     #[test]
