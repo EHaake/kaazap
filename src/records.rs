@@ -121,10 +121,31 @@ impl RecordsState {
     pub fn draw(&mut self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
         let cols = config.num_cols;
         let rows = config.num_rows;
-        // A centered popup with clear margins — the same overlay family as the play
-        // log / Settings, not full-screen (product-owner change). Content scrolls.
-        let box_w = (cols * 55 / 100).clamp(56.min(cols).max(1), cols.saturating_sub(6).max(1));
-        let box_h = (rows * 75 / 100).clamp(16.min(rows).max(1), rows.saturating_sub(2).max(1));
+
+        // Size the popup to its content — measured across ALL four views so the box
+        // stays a constant size as you page L/R — plus breathing room, then capped
+        // to leave a clear terminal margin on every side. Content taller/wider than
+        // the cap scrolls / clips as before. Not a fixed screen-percentage: on a big
+        // terminal the box stays snug rather than ballooning into empty space.
+        let bodies = VIEWS.map(|v| view_body(v, profile.stats(), profile.campaign().run_stats()));
+        let coll = collection_line(profile.distinct_side_cards_owned(), ALL_SIDE_CARDS.len());
+        const FOOTER_MEASURE: &str = "▲ ◂/▸ view · ↑/↓ scroll · Esc back ▼";
+        let content_w = bodies
+            .iter()
+            .flatten()
+            .map(|l| l.chars().count())
+            .chain((0..VIEWS.len()).map(|i| pager_label(i).chars().count()))
+            .chain([coll.chars().count(), FOOTER_MEASURE.chars().count()])
+            .max()
+            .unwrap_or(0);
+        let content_h = bodies.iter().map(|b| b.len()).max().unwrap_or(0);
+
+        // want_w: content + border(2) + inset(2) + ~3 cols breathing each side.
+        // want_h: content + 4 fixed rows (pager, collection, rule, margin) + footer + border(2).
+        let want_w = content_w + 10;
+        let want_h = content_h + 7;
+        let box_w = want_w.clamp(40.min(cols).max(1), cols.saturating_sub(8).max(1));
+        let box_h = want_h.clamp(12.min(rows).max(1), rows.saturating_sub(4).max(1));
         let x0 = cols.saturating_sub(box_w) / 2;
         let y0 = rows.saturating_sub(box_h) / 2;
         let outer = Rect::new(x0, x0 + box_w.saturating_sub(1), y0, y0 + box_h.saturating_sub(1));
@@ -155,11 +176,7 @@ impl RecordsState {
         // Body viewport with the spec-019 clamp. Row 3 is left blank as a margin
         // between the header rule and the first record line; the body occupies
         // rows 4..last, and the footer sits on the last inner row.
-        let body = view_body(
-            VIEWS[self.view],
-            profile.stats(),
-            profile.campaign().run_stats(),
-        );
+        let body = &bodies[self.view];
         let vh = inner_h.saturating_sub(5); // 0 pager, 1 collection, 2 rule, 3 blank margin, last footer
         let max_off = body.len().saturating_sub(vh);
         let scroll = self.scroll.min(max_off);
