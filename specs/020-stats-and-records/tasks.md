@@ -68,7 +68,8 @@ recording seam (Phase 2) and the Records screen (Phase 3) both depend on. T002
   + round W/L from the round counts) and a campaign loss to Campaign only;
   `combined_opponent` sums the two modes; `overall_streak` advances/resets across
   an interleaved win/loss sequence; `ModeRecord::totals` sums; `win_rate` is
-  `None`/`0` at zero matches and rounds (3 of 4 → 75).*
+  `None` at zero matches and genuinely rounds otherwise (3 of 4 → 75; 2 of 3 → 67,
+  which truncation would wrongly give as 66 — sign-off note 3).*
 
 - [ ] **T002 (foundational, review: per-task)** — Wire the persisted model into
   `src/profile.rs` and `src/campaign.rs`. In `profile.rs`: add
@@ -117,7 +118,10 @@ the person's persist-across-restart attestation (T003). -->
   Mode::QuickPlay }`; then `self.profile.record_match(mode, opponent_id,
   player_won, player_rounds, opp_rounds); self.profile.save();`. Mirror the
   existing campaign-win block's field-disjoint borrow structure (`&self.screen`
-  reads into locals, then `&mut self.profile`). No new `App` field, no reset hook.
+  reads into locals, then `&mut self.profile`). Note `opponent_profile.id` is
+  `&'static str` (`opponent.rs:41`), so `opponent_id` is a plain `Copy` — no
+  borrow of `&self.screen` is held across the `&mut self.profile` call
+  (sign-off note 6). No new `App` field, no reset hook.
   Plan §Design 4. (Copies the existing campaign-win `tick` block's guard/borrow
   shape.)
   *Verify: `cargo build --all-targets` / `cargo test -q` green (the recording
@@ -152,7 +156,9 @@ Phase ends with the person's read-the-screen attestation (T005). -->
   `collection_line(owned_types, total_types) -> String` (`"Cards: N of 15 — P%"`);
   `view_title(view) -> &'static str` + a pager label; and `view_body(view,
   stats: &LifetimeStats, run: &RunStats) -> Vec<String>` (summary block —
-  matches/won/lost/win-rate/streak; Campaign view adds a completions line; then a
+  matches/won/lost/win-rate; the Overall view adds the overall-streak line, the
+  Campaign view adds a completions line (Quick Play adds neither — no streak, no
+  completions; sign-off note 2), This Run adds its run-streak line; then a
   `By opponent:` header and one row per `opponent::OPPONENTS` by name with match
   `W–L` + round `W–L`, combined for Overall and the single `ModeRecord` for the
   mode views, a never-faced opponent as `0–0`; ThisRun shows a "No matches this
@@ -165,9 +171,11 @@ Phase ends with the person's read-the-screen attestation (T005). -->
   unknown keys; `view_body` includes every `OPPONENTS` name in each breakdown
   view, the Overall breakdown equals Quick Play + Campaign per opponent, the
   summary carries matches/won/lost/win-rate substrings, the Campaign view shows a
-  completions line and the Overall/QuickPlay views do not, ThisRun shows the
-  no-matches line at zero and the run summary otherwise, and a never-faced
-  opponent reads `0–0`; `collection_line` renders "N of 15" and the percentage.*
+  completions line and the Overall/QuickPlay views do not, the streak line appears
+  on the Overall and This Run views but not on the Quick Play or Campaign views
+  (sign-off note 2), ThisRun shows the no-matches line at zero and the run summary
+  otherwise, and a never-faced opponent reads `0–0`; `collection_line` renders
+  "N of 15" and the percentage.*
 
 - [ ] **T005** — Draw the Records screen and wire it in + attest. In
   `src/records.rs` add `draw(&mut self, frame, config: &Config, profile:
@@ -212,9 +220,10 @@ Phase ends with the person's read-the-screen attestation (T005). -->
   record nothing, resume/rematch need no special handling); derived-vs-persisted
   split (only per-opponent + streaks + completions persist; totals/win-rate/
   combined/collection derived); `reset_to_starter` preserves the lifetime `stats`
-  field (the one behavior change); no per-mode streaks (reconciling the spec's
-  Entities section against its Non-goals); campaign-completion detection via
-  `run_complete()` ordered after `mark_beaten`. `ROADMAP.md`: mark stats &
+  field (the one behavior change); no per-mode streaks (Erik-ruled — streaks are
+  overall-lifetime + current-run only, and the two mode views omit the streak
+  line); campaign-completion detection via `run_complete()` ordered after
+  `mark_beaten`. `ROADMAP.md`: mark stats &
   records shipped; drop from future. Check off `spec.md` acceptance criteria with
   evidence. Request the pre-merge whole-spec sweep.
   *Verify: `cargo build --all-targets` / `cargo test -q` green, reported
@@ -263,7 +272,7 @@ before treating the policy as settled. -->
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
 | Planning: draft (sdd-planner) | opus (documented fallback — top-tier budget short) | ~168K (measured return) | drafted |
-| plan + tasks sign-off (skeptical-reviewer) | | | |
+| plan + tasks sign-off (skeptical-reviewer) | opus (documented fallback) | ~56K (measured return) | signed off; 6 non-blocking notes (notes 1–3,6 folded into plan/tasks; 4,5 accepted no-change) |
 | T001 impl (sdd-implementer) | | | |
 | T002 impl (sdd-implementer) | | | |
 | T002 review (skeptical-reviewer, per-task) | | | |

@@ -166,20 +166,18 @@ full serialized equality with a fresh profile — that assertion is **amended**
 tally). This is the one deliberate behavior change to existing code (Resolved
 decision D).
 
-### 5. Per-opponent records persist; a mode has no streak of its own — *reconciling a spec internal inconsistency*
+### 5. Per-opponent records persist; a mode has no streak of its own
 
-The spec's Entities section says a "Mode record" carries "that mode's streak
-state (current, longest)", but the Non-goals defer per-mode streaks
-("adds state for little payoff") and the acceptance criteria display only the
-lifetime **overall** streak (Overall view) and the current **run** streak (This
-Run view). Following the more specific Non-goal + acceptance criteria + the
-simplicity mandate, **`ModeRecord` stores per-opponent records only, no
-streak.** The overall streak is a `Streak` field on `LifetimeStats` (tracked
-independently, since an interleaved Quick-Play/Campaign sequence can't be
-recombined from mode streaks — Resolved decision A); the run streak is a
-`Streak` on `RunStats`. If per-mode streaks are later wanted, they are additive
-fields — no version bump. Flagged in the planner report for the person, being a
-reconciliation of the spec against itself.
+Per spec.md (Entities, Non-goals, and the acceptance criteria all agree):
+**`ModeRecord` stores per-opponent records only, no streak.** The overall
+streak is a `Streak` field on `LifetimeStats` (tracked independently, since an
+interleaved Quick-Play/Campaign sequence can't be recombined from mode-level
+tallies — Resolved decision A); the run streak is a `Streak` on `RunStats`.
+Because only these two streaks exist, the **Quick Play and Campaign views show
+no streak line** — a streak appears only on the **Overall** view (the
+overall-lifetime streak) and the **This Run** view (the run streak), so no view
+displays a streak that isn't scoped to what it labels (sign-off note 2). If
+per-mode streaks are later wanted, they are additive fields — no version bump.
 
 ### 6. The Records screen is a full `Screen` with its own bordered, scrollable draw
 
@@ -338,9 +336,11 @@ pub struct RecordsState { view: usize, scroll: usize } // view 0..4
   - `view_body(view, stats: &LifetimeStats, run: &RunStats) -> Vec<String>` — the
     scrollable body:
     - Overall/QuickPlay/Campaign: a summary block — matches played, won, lost,
-      win rate (`win_rate` → `"P%"` or `"—"`), and the overall streak
-      (`current` / `longest`); the **Campaign** view additionally shows
-      `campaign_completions`; then a blank line, a `By opponent:` header and a
+      win rate (`win_rate` → `"P%"` or `"—"`); the **Overall** view additionally
+      shows the overall streak (`current` / `longest`) and the **Campaign** view
+      additionally shows `campaign_completions` (the Quick Play view shows
+      neither — no streak line, no completions); then a blank line, a
+      `By opponent:` header and a
       column header, then **one row per `opponent::OPPONENTS` entry** (the whole
       roster, faced or not, by `name`) with match `W–L` and round `W–L`, using
       the combined record for Overall and the single `ModeRecord` for the mode
@@ -491,13 +491,13 @@ opponents).
 
 ## Open questions
 
-None blocking. Two items surfaced for the person's awareness (not forks that
-stop drafting), recorded in the planner report:
-1. The spec's Entities section implies a per-mode streak; the Non-goals + the
-   acceptance criteria say not to display or (by implication) store one. Plan
-   follows the Non-goals — no per-mode streak stored (tension §5). Additive to
-   add later if wanted.
+None. Two design decisions surfaced during planning are now settled:
+1. Per-mode streak: **not stored** — Erik-ruled (2026-09-09). spec.md was
+   updated so Entities, Non-goals, and the acceptance criteria all agree, and
+   the two mode views omit the streak line (tension §5). Streaks are
+   overall-lifetime + current-run only; additive to add later if ever wanted.
 2. Recording happens only at the match-end seam (tension §2), deriving round W/L
    from `rounds_won`, rather than at a separate round-resolution seam as the
    spec sketched. Observable behavior is identical and strictly more consistent
-   with "abandoned records nothing."
+   with "abandoned records nothing"; sign-off confirmed it satisfies the
+   round-W/L and abandoned criteria.
