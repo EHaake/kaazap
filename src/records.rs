@@ -143,7 +143,7 @@ impl RecordsState {
         // want_w: content + border(2) + inset(2) + ~3 cols breathing each side.
         // want_h: content + 4 fixed rows (pager, collection, rule, margin) + footer + border(2).
         let want_w = content_w + 10;
-        let want_h = content_h + 7;
+        let want_h = content_h + 8; // +1 for a blank bottom-margin row below the footer
         let box_w = want_w.clamp(40.min(cols).max(1), cols.saturating_sub(8).max(1));
         let box_h = want_h.clamp(12.min(rows).max(1), rows.saturating_sub(4).max(1));
         let x0 = cols.saturating_sub(box_w) / 2;
@@ -177,7 +177,7 @@ impl RecordsState {
         // between the header rule and the first record line; the body occupies
         // rows 4..last, and the footer sits on the last inner row.
         let body = &bodies[self.view];
-        let vh = inner_h.saturating_sub(5); // 0 pager, 1 collection, 2 rule, 3 blank margin, last footer
+        let vh = inner_h.saturating_sub(6); // 0 pager, 1 collection, 2 rule, 3 top margin, footer + bottom margin
         let max_off = body.len().saturating_sub(vh);
         let scroll = self.scroll.min(max_off);
         self.scroll = scroll; // store the clamped value back
@@ -194,12 +194,13 @@ impl RecordsState {
             draw_text_in(frame, inner, 4 + pad_top + i, Align::Center, &padded, Emphasis::Normal);
         }
 
-        // Footer hint on the last inner row, with up/down markers when overflowing.
-        if inner_h >= 5 {
+        // Footer hint one row up from the bottom, leaving the last inner row blank
+        // as bottom padding; up/down markers show when the body overflows.
+        if inner_h >= 6 {
             let up = if max_off > 0 && !at_top { '▲' } else { ' ' };
             let down = if max_off > 0 && !at_bottom { '▼' } else { ' ' };
             let hint = format!("{up} ◂/▸ view · ↑/↓ scroll · Esc back {down}");
-            draw_text_in(frame, inner, inner_h - 1, Align::Center, &hint, Emphasis::Normal);
+            draw_text_in(frame, inner, inner_h - 2, Align::Center, &hint, Emphasis::Normal);
         }
     }
 }
