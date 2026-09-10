@@ -28,3 +28,12 @@ Icon?
 .idea/
 .vscode/
 *.rs.bk
+
+# Local game save data. The app writes these to the OS data dir (directories
+# crate `ProjectDirs`), never the repo — so normal playtesting can't commit
+# them. Ignored here (root-anchored) only as a safety net for a save copied into
+# the repo while debugging. `/settings.json` is anchored so it never matches the
+# tracked `.claude/settings.json`.
+/profile.json
+/settings.json
+/saves/
