@@ -105,7 +105,7 @@ recording seam (Phase 2) and the Records screen (Phase 3) both depend on. T002
 transition. Single task; its per-task review is the phase review. Phase ends with
 the person's persist-across-restart attestation (T003). -->
 
-- [ ] **T003 (review: per-task)** — Add the once-per-match recording block to
+- [x] **T003 (review: per-task)** — Add the once-per-match recording block to
   `App::tick` in `src/app.rs`, **placed after the existing campaign-win block**
   (`app.rs:1218`, so `mark_beaten` has run and `run_complete()` is accurate) and
   before `emit_audio_cues`. Guard on `phase_changed && matches!(game_phase,
@@ -277,8 +277,8 @@ before treating the policy as settled. -->
 | T002 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~52K (measured return) | done; 327 tests green; +Debug on stats types (required mechanical fix) |
 | T002 review (skeptical-reviewer, per-task) | opus (fable budget short — documented fallback) | ~36K (measured return) | signed off, no blocking; note: once-only completion leans on app launch guard → verify in T003 seam review |
 | Phase 1 review (skeptical-reviewer) | opus (fable budget short — documented fallback) | ~41K (measured return) | signed off, no blocking; note: ensure T004/T005 unit-test the "N of 15" collection-completion derivation (already in T004 verify list) |
-| T003 impl (sdd-implementer) | | | |
-| T003 review (skeptical-reviewer, per-task) | | | |
+| T003 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~20K (measured return) | done; app.rs only, 327 tests green; block placed after campaign-win block |
+| T003 review (skeptical-reviewer, per-task) | opus (fable budget short — documented fallback) | ~47K (measured return) | signed off, no blocking; double-count concern CLOSED (GameOver only entered via tick update; completed run has no launchable match). Two non-blocking notes → sweep: (1) add a comment stating the "GameOver only via update()" invariant the narrower phase_changed guard relies on (± plan §2 note); (2) optional cross-module guard test "run complete ⇒ no launchable match" |
 | T004 impl (sdd-implementer) | | | |
 | T005 impl (sdd-implementer) | | | |
 | Phase 3 review (skeptical-reviewer) | | | |

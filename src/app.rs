@@ -31,6 +31,7 @@ use crate::{
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
+    stats::Mode,
 };
 
 /// How much one ←/→ press moves a volume slider on the settings screen.
@@ -1214,6 +1215,31 @@ impl App {
             let reward = self.profile.apply_win_reward(threshold, rand::random_range(0..usize::MAX));
             self.last_reward = Some(reward);
 
+            self.profile.save();
+        }
+
+        // Record the finished match exactly once, on the tick the phase enters
+        // GameOver. Placed after the campaign-win block so `mark_beaten` has
+        // already run this tick and `run_complete()` (checked inside
+        // `record_match`) sees the accurate campaign state. Quick Play (no
+        // `in_progress`) records to Quick Play; campaign records to Campaign plus
+        // the run tally and completion, all inside `record_match`. Abandoned
+        // matches never reach a GameOver tick, so they record nothing.
+        if phase_changed
+            && let Screen::InGame { game_state, .. } = &self.screen
+            && matches!(game_state.game_phase, GamePhase::GameOver { .. })
+        {
+            let player_won =
+                matches!(game_state.game_phase, GamePhase::GameOver { winner: Player::Player });
+            let opponent_id = game_state.opponent_profile.id;
+            let player_rounds = game_state.player.rounds_won as u32;
+            let opp_rounds = game_state.opponent.rounds_won as u32;
+            let mode = if self.profile.campaign().in_progress().is_some() {
+                Mode::Campaign
+            } else {
+                Mode::QuickPlay
+            };
+            self.profile.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
             self.profile.save();
         }
 
