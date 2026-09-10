@@ -152,13 +152,15 @@ impl RecordsState {
         );
         draw_text_in(frame, inner, 2, Align::Left, &"─".repeat(inner_w), Emphasis::Normal);
 
-        // Body viewport with the spec-019 clamp.
+        // Body viewport with the spec-019 clamp. Row 3 is left blank as a margin
+        // between the header rule and the first record line; the body occupies
+        // rows 4..last, and the footer sits on the last inner row.
         let body = view_body(
             VIEWS[self.view],
             profile.stats(),
             profile.campaign().run_stats(),
         );
-        let vh = inner_h.saturating_sub(4); // rows 0 pager, 1 collection, 2 rule, last footer
+        let vh = inner_h.saturating_sub(5); // 0 pager, 1 collection, 2 rule, 3 blank margin, last footer
         let max_off = body.len().saturating_sub(vh);
         let scroll = self.scroll.min(max_off);
         self.scroll = scroll; // store the clamped value back
@@ -166,9 +168,13 @@ impl RecordsState {
         let at_bottom = scroll == max_off;
         let block_w = body.iter().map(|l| l.chars().count()).max().unwrap_or(0);
         let end = (scroll + vh).min(body.len());
+        // Vertically center the body when it fits the viewport; when it overflows,
+        // `vh <= body.len()` so `pad_top` is 0 and it scrolls from the margin. Body
+        // top row is 4 (after the blank margin at row 3).
+        let pad_top = vh.saturating_sub(body.len()) / 2;
         for (i, line) in body[scroll..end].iter().enumerate() {
             let padded = format!("{line:<block_w$}");
-            draw_text_in(frame, inner, 3 + i, Align::Center, &padded, Emphasis::Normal);
+            draw_text_in(frame, inner, 4 + pad_top + i, Align::Center, &padded, Emphasis::Normal);
         }
 
         // Footer hint on the last inner row, with up/down markers when overflowing.
