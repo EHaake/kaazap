@@ -111,13 +111,14 @@ Conceptual — the concrete types live in `plan.md`.
 
 - **Opponent record** — for one opponent: match wins, match losses, round
   wins, round losses.
-- **Mode record** — a set of opponent records (one mode's per-opponent tallies)
-  plus that mode's streak state (current, longest). Two of these persist in the
-  profile: Quick Play and Campaign.
+- **Mode record** — a set of opponent records: one mode's per-opponent
+  tallies. Two of these persist in the profile: Quick Play and Campaign. A
+  mode record carries **no streak of its own** — streaks are tracked only at
+  the overall-lifetime and current-run scopes (see Non-goals).
 - **Overall streak** — current and longest match-win streak across *all*
   matches regardless of mode; tracked in its own right because an interleaved
-  Quick-Play/Campaign match sequence can't be reconstructed by combining the
-  two mode streaks.
+  Quick-Play/Campaign match sequence can't be reconstructed by combining
+  mode-level tallies.
 - **Campaign completions** — a lifetime counter.
 - **Current-run record** — the active campaign run's own tally (matches
   won/lost, rounds won/lost, current/longest run streak), living with the
