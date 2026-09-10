@@ -1,6 +1,6 @@
 # Spec 020 — Stats & records
 
-**Status**: Draft — pending review
+**Status**: Shipped (all acceptance criteria met; pending pre-merge sweep + merge)
 **Depends on**: spec 008 (profile / collection), spec 009 (campaign run),
 spec 011 (roster), spec 012 (economy — for `reset_to_starter` from spec 014).
 
@@ -201,35 +201,51 @@ the run. The next campaign match begins a fresh "This Run" tally.
 
 ## Acceptance criteria
 
-- [ ] A **Records** item on the start menu opens a full-screen Records screen;
-      `Esc` returns to the menu with its selection preserved.
-- [ ] Finishing a match against an opponent updates that opponent's match W/L,
+- [x] A **Records** item on the start menu opens a full-screen Records screen;
+      `Esc` returns to the menu with its selection preserved. *(T004/T005; the
+      "selection preserved" clause satisfied menu-wide by T007 — Erik ruling —
+      and driver-confirmed: Esc from Records lands the cursor on Records.)*
+- [x] Finishing a match against an opponent updates that opponent's match W/L,
       for both Quick Play and Campaign matches; the change persists across a
-      restart (written to `profile.json`).
-- [ ] Round outcomes within a match are recorded per opponent as round W/L
+      restart (written to `profile.json`). *(T003 seam; driver end-to-end: a lost
+      Quick Play match vs Greeb wrote greeb 0–1 to profile.json and showed on the
+      Records screen after a full relaunch.)*
+- [x] Round outcomes within a match are recorded per opponent as round W/L
       (e.g. a 3–1 match win shows 3 round-wins, 1 round-loss against that
-      opponent); a tied round credits neither side.
-- [ ] The win streak counts consecutive match wins and resets to zero on a
+      opponent); a tied round credits neither side. *(T001/T002 unit tests derive
+      round W/L from `rounds_won`; driver: a 0–3 loss recorded 0 round-wins, 3
+      round-losses. Ties replay and never increment `rounds_won`.)*
+- [x] The win streak counts consecutive match wins and resets to zero on a
       match loss; both the current streak and the all-time longest are shown.
-- [ ] The Records screen shows four views — Overall, Quick Play, Campaign,
+      *(T001 `Streak::record` tests; Overall view shows "Streak: current (best N)".)*
+- [x] The Records screen shows four views — Overall, Quick Play, Campaign,
       This Run — navigable left/right (and the emacs mirrors); Overall is the
-      combined Quick Play + Campaign totals.
-- [ ] Each view shows matches played, wins, losses, and win rate %; the
+      combined Quick Play + Campaign totals. *(T004/T005; driver-confirmed the
+      combined per-opponent math, e.g. Greeb 4–1/13–6 = QP 3–1/10–5 + Campaign
+      1–0/3–1.)*
+- [x] Each view shows matches played, wins, losses, and win rate %; the
       Campaign view additionally shows campaign completions; the This Run view
-      reflects only the active campaign run.
-- [ ] A persistent line shows collection completion as "N of 15" and a
-      percentage, matching the profile's actual collection.
-- [ ] Finishing the campaign (final node cleared) increments campaign
+      reflects only the active campaign run. *(T004 `view_body` tests + driver
+      snapshots at 139×31.)*
+- [x] A persistent line shows collection completion as "N of 15" and a
+      percentage, matching the profile's actual collection. *(T004
+      `collection_line` test; driver showed "Cards: 13 of 15 — 86%" matching the
+      real collection.)*
+- [x] Finishing the campaign (final node cleared) increments campaign
       completions; the count persists across restarts and is **not** reset by
-      New Campaign.
-- [ ] New Campaign leaves lifetime records and campaign completions unchanged
-      while clearing the This Run tally.
-- [ ] A brand-new profile's Records screen renders cleanly (zeroes, dashes, a
+      New Campaign. *(T002 test: a final-clearing win increments, a non-final win
+      does not, a post-reset re-clear increments again.)*
+- [x] New Campaign leaves lifetime records and campaign completions unchanged
+      while clearing the This Run tally. *(T002 amended `reset_to_starter` test —
+      field-wise: stats preserved, run tally + everything else starter.)*
+- [x] A brand-new profile's Records screen renders cleanly (zeroes, dashes, a
       no-matches This Run state) and is correct at the 139×31 minimum terminal;
-      long views scroll.
-- [ ] All new logic (recording, streak transitions, derived totals/win-rate,
+      long views scroll. *(Driver empty-state snapshots of all four views at
+      139×31 — This Run shows "No matches this run yet."; body viewport scrolls.)*
+- [x] All new logic (recording, streak transitions, derived totals/win-rate,
       collection completion, reset preservation) is unit-tested; `cargo test`
-      passes.
+      passes. *(341 tests green; new tests across stats.rs / profile.rs /
+      campaign.rs / records.rs / menu.rs.)*
 
 ## Resolved decisions
 

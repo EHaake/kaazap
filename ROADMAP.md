@@ -234,6 +234,19 @@ of, not guessed at here in advance.
   larger, roomier (~38%×58%, centered) box beside the static overlays'
   `draw_text_overlay`. Still ephemeral/never-saved; no engine/AI/save change;
   monochrome.
+- **Stats & records** (spec 020) — a persistent "mastery" layer: per-opponent
+  match/round W–L, a lifetime win streak (current + longest), campaign
+  completions, collection completion ("N of 15"), and a separate current-run
+  tally, shown on a new read-only **Records** `Screen` off the start menu (four
+  paged views — Overall, Quick Play, Campaign, This Run — reusing the spec-019
+  scroll interaction). Persisted as additive `#[serde(default)]` fields on
+  `profile.json` (`stats`) and `CampaignRun` (`run_stats`) — **no
+  `PROFILE_VERSION` bump**. Recording happens once at the match-end (GameOver)
+  seam, deriving round W–L from `rounds_won`, so abandoned matches record nothing;
+  totals/win-rate/combined/collection are derived, not stored. `reset_to_starter`
+  now preserves the lifetime `stats` field (the one behavior change). Per-mode
+  streaks were ruled out; menu-wide start-menu selection preservation was ruled in
+  (every screen's Back now restores the menu cursor). No engine/save-format change.
 
 ## Backlog
 
@@ -379,13 +392,12 @@ the endgame and the mode-identity question are deferred, below.
 
 ### Other (not campaign-dependent)
 
-- **Stats & records** — lightweight persistence of play history: win/loss
-  record per opponent, longest win streak, matches played, cards collected /
-  collection completion %. A "mastery" layer that makes the game feel finished
-  and gives a reason to keep playing after the campaign — cheap to build on the
-  existing profile save (`profile.json`). Presentation open (a menu screen or a
-  panel on the campaign map; monochrome, per spec 002's vocabulary). Suggested
-  during the post-spec-009 review.
+- **Stats & records** — ✅ **Shipped (spec 020** — see Shipped above). Per-opponent
+  match/round W–L, lifetime win streak, campaign completions, and collection
+  completion on a read-only Records `Screen` off the start menu, with a separate
+  current-run view. Built on the existing `profile.json` save (additive fields, no
+  version bump); presentation resolved as a full `Screen` (not a campaign-map
+  panel), monochrome. Suggested during the post-spec-009 review.
 - **Difficulty setting** (easy / normal / hard) — a global option (in the
   Settings overlay) that nudges how sharply opponents play and/or the player's
   starting resources. Widens the audience for a public / itch.io release at low
