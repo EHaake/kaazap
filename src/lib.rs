@@ -25,6 +25,7 @@ pub mod settings;
 pub mod save;
 pub mod audio;
 pub mod stats;
+pub mod records;
 
 // Card size
 pub const CARD_WIDTH: usize = 9;

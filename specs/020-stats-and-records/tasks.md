@@ -144,7 +144,7 @@ the person's persist-across-restart attestation (T003). -->
 (Phase 1); recording (Phase 2) must be in for the attestation to show live data.
 Phase ends with the person's read-the-screen attestation (T005). -->
 
-- [ ] **T004** — Create `src/records.rs` (add to `src/lib.rs`) — state, input,
+- [x] **T004** — Create `src/records.rs` (add to `src/lib.rs`) — state, input,
   and the pure content builders (no draw yet). Define `RecordsView { Overall,
   QuickPlay, Campaign, ThisRun }` (a `VIEWS` array in display order),
   `RecordsOutcome { Moved, Back }`, `RecordsState { view: usize, scroll: usize }`
@@ -279,7 +279,7 @@ before treating the policy as settled. -->
 | Phase 1 review (skeptical-reviewer) | opus (fable budget short — documented fallback) | ~41K (measured return) | signed off, no blocking; note: ensure T004/T005 unit-test the "N of 15" collection-completion derivation (already in T004 verify list) |
 | T003 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~20K (measured return) | done; app.rs only, 327 tests green; block placed after campaign-win block |
 | T003 review (skeptical-reviewer, per-task) | opus (fable budget short — documented fallback) | ~47K (measured return) | signed off, no blocking; double-count concern CLOSED (GameOver only entered via tick update; completed run has no launchable match). Two non-blocking notes → sweep: (1) add a comment stating the "GameOver only via update()" invariant the narrower phase_changed guard relies on (± plan §2 note); (2) optional cross-module guard test "run complete ⇒ no launchable match" |
-| T004 impl (sdd-implementer) | | | |
+| T004 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~33K (measured return) | done; records.rs state/input/builders, 340 tests green (13 new); reviewed at phase end |
 | T005 impl (sdd-implementer) | | | |
 | Phase 3 review (skeptical-reviewer) | | | |
 | T006 close-out (orchestrator) | claude-opus-4-8 | — | |
