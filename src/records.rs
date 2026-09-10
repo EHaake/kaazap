@@ -189,9 +189,11 @@ impl RecordsState {
         // `vh <= body.len()` so `pad_top` is 0 and it scrolls from the margin. Body
         // top row is 4 (after the blank margin at row 3).
         let pad_top = vh.saturating_sub(body.len()) / 2;
+        let header = opponent_header();
         for (i, line) in body[scroll..end].iter().enumerate() {
             let padded = format!("{line:<block_w$}");
-            draw_text_in(frame, inner, 4 + pad_top + i, Align::Center, &padded, Emphasis::Normal);
+            let emph = if *line == header { Emphasis::Strong } else { Emphasis::Normal };
+            draw_text_in(frame, inner, 4 + pad_top + i, Align::Center, &padded, emph);
         }
 
         // Footer hint on the final inner row; the body stops at inner_h - 3 (vh =
@@ -247,6 +249,11 @@ fn win_rate_str(wins: u32, losses: u32) -> String {
     }
 }
 
+/// The breakdown table's column-header row (drawn bold by `draw`).
+fn opponent_header() -> String {
+    format!("{:<16} {:>12} {:>12}", "Opponent", "Matches", "Rounds")
+}
+
 /// A summary block over a wins/losses pair: matches played, won, lost, win rate.
 fn summary_lines(wins: u32, losses: u32) -> Vec<String> {
     let played = wins + losses;
@@ -286,7 +293,7 @@ pub fn view_body(view: RecordsView, stats: &LifetimeStats, run: &RunStats) -> Ve
 
             let mut lines = summary_lines(wins, losses);
 
-            // A fixed 5th summary row so the "By opponent:" table always starts at
+            // A fixed 5th summary row so the breakdown table always starts at
             // the same offset — it no longer jumps when paging between views whose
             // summaries differ (Overall shows a streak, Campaign a completions
             // count, Quick Play neither, which just reserves a blank slot).
@@ -302,9 +309,7 @@ pub fn view_body(view: RecordsView, stats: &LifetimeStats, run: &RunStats) -> Ve
             }
 
             lines.push(String::new());
-            lines.push("By opponent:".to_string());
-            lines.push(String::new()); // breathing room between the header and the table
-            lines.push(format!("{:<16} {:>12} {:>12}", "Opponent", "Matches", "Rounds"));
+            lines.push(opponent_header());
 
             for o in OPPONENTS.iter() {
                 let rec = match view {
@@ -548,7 +553,7 @@ mod tests {
     fn by_opponent_table_is_anchored_across_breakdown_views() {
         let stats = LifetimeStats::default();
         let run = RunStats::default();
-        let pos = |v| view_body(v, &stats, &run).iter().position(|l| l == "By opponent:").unwrap();
+        let pos = |v| view_body(v, &stats, &run).iter().position(|l| *l == opponent_header()).unwrap();
         let o = pos(RecordsView::Overall);
         assert_eq!(o, pos(RecordsView::QuickPlay));
         assert_eq!(o, pos(RecordsView::Campaign));
