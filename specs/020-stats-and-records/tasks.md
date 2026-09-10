@@ -211,6 +211,43 @@ Phase ends with the person's read-the-screen attestation (T005). -->
   attestation): confirm the screen reads cleanly, the numbers are correct after a
   match, and it is monochrome.*
 
+## Phase 3b — Menu-wide selection preservation (Erik ruling, 2026-09-09)
+
+<!-- Added post-Phase-3. The T005 attestation surfaced that Esc returns to the
+menu at the top (Continue), not on the item that opened the screen — every screen
+behaves this way (start_menu() rebuilds MenuState at index 0). The spec criterion
+says "with its selection preserved." Erik ruled: preserve selection MENU-WIDE (not
+Records-only, not a spec-wording fix), so every screen's Back restores the menu
+cursor to the item that opened it. This is what makes the 020 criterion literally
+pass. Per-task review: it changes every screen's back path against an explicit
+acceptance criterion. -->
+
+- [x] **T007 (review: per-task)** — Preserve the start-menu selection across a
+  round-trip to any screen. Add an `App` field `menu_selection: MenuItem`
+  (init `MenuItem::StartCampaign`; the initial `Screen::StartMenu` in `App::new`
+  is unchanged — it's only read by `start_menu()`, and you can't reach a Back
+  path before activating an item). In `activate_menu_item` (`app.rs:1095`), set
+  `self.menu_selection = menu_item;` at the top (before the match), so the item
+  that opened a screen is remembered. In `start_menu()` (`app.rs:405`), build
+  `MenuState::new(self.has_save)`, call a new `menu_state.select_item(self.menu_selection)`,
+  and return it — every existing `start_menu()` Back site then restores the cursor.
+  In `menu.rs`, add `pub fn select_item(&mut self, item: MenuItem)` that sets
+  `self.selected` to the index of `item` in `self.items` (via `iter().position`),
+  leaving it at its current value (0) when the item is absent (e.g. `Continue`
+  with no save). No change to game logic, no new screen, no save-format change.
+  (Copies nothing new — reuses the `start_menu()` choke point every screen's Back
+  already funnels through.)
+  *Verify: `cargo build --all-targets` / `cargo test -q` green — new `menu.rs`
+  test: `select_item` moves the cursor to the named item and falls back to the top
+  when the item isn't in the list (build a no-save menu, `select_item(Continue)`
+  leaves selection at 0; `select_item(Records)` lands on Records). The existing
+  menu tests still pass. Report no `game.rs`/`player.rs`/`card.rs`/`save.rs`
+  change. Driver (back up + checksum-restore first): open Records, Esc → cursor is
+  on Records; open Side Deck, Esc → cursor on Side Deck; Quick Play → Esc from
+  opponent-select → cursor on Quick Play. Folded into the T006 close-out's driver
+  snapshot pass rather than its own pause (it's a small, well-specified mechanism
+  Erik already ruled on).*
+
 ## Final phase — Spec close-out
 
 - [ ] **T006** — Docs, driver, sweep. `DECISIONS.md`: stats are additive
@@ -282,5 +319,7 @@ before treating the policy as settled. -->
 | T004 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~33K (measured return) | done; records.rs state/input/builders, 340 tests green (13 new); reviewed at phase end |
 | T005 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~50K (measured return) | done; draw + full wiring, 340 tests green, menu tests updated (6/7, Records after Side Deck) |
 | Phase 3 review (skeptical-reviewer) | opus (fable budget short — documented fallback) | ~41K (measured return) | signed off, no blocking. Notes: (a) "selection preserved" criterion — start_menu() resets cursor to top (Continue), matches all screens but contradicts spec wording → Erik ruling pending; (b) set_scroll stale doc/test-only, (c) ThisRun unreachable!() arms, (d) clamp math duplicated per tension §6 → sweep |
+| T007 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~25K (measured return) | done; app.rs+menu.rs, 341 tests green (1 new); driver-confirmed Esc→Records lands on Records |
+| T007 review (skeptical-reviewer, per-task) | opus (fable budget short — documented fallback) | ~23K (measured return) | signed off, no blocking. Confirmed by orchestrator: only App::new + start_menu() construct StartMenu, so all Back paths restore. Notes → sweep: Continue-after-gameover falls to top (safe/intended); divert restores activating item; select_item doc parenthetical cosmetic |
 | T006 close-out (orchestrator) | claude-opus-4-8 | — | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | | | |

@@ -86,6 +86,16 @@ impl MenuState {
         }
     }
 
+    /// Move the cursor to `item` if it's in the current list, else leave it
+    /// unchanged. Lets the app restore the menu selection when returning from a
+    /// screen (Continue may be absent when no save exists — then the cursor stays
+    /// put, i.e. at the default top).
+    pub fn select_item(&mut self, item: MenuItem) {
+        if let Some(i) = self.items.iter().position(|&it| it == item) {
+            self.selected = i;
+        }
+    }
+
     /// Move the selection by `delta` over the current items, wrapping at the
     /// ends. Works for any number of items.
     fn move_selection(&mut self, delta: isize) {
@@ -147,6 +157,21 @@ mod tests {
 
     fn selected(m: &MenuState) -> MenuItem {
         m.items[m.selected]
+    }
+
+    #[test]
+    fn select_item_moves_the_cursor_or_falls_back_to_the_top() {
+        // No save: Continue is absent, so selecting it leaves the cursor at the top.
+        let mut m = MenuState::new(false);
+        m.select_item(MenuItem::Continue);
+        assert_eq!(selected(&m), MenuItem::StartCampaign); // unchanged (top)
+        // A present item is selected.
+        m.select_item(MenuItem::Records);
+        assert_eq!(selected(&m), MenuItem::Records);
+        // With a save, Continue is present and selectable.
+        let mut m2 = MenuState::new(true);
+        m2.select_item(MenuItem::SideDeck);
+        assert_eq!(selected(&m2), MenuItem::SideDeck);
     }
 
     #[test]

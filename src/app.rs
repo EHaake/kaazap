@@ -332,6 +332,10 @@ pub struct App {
     // Continue item. Kept in sync as the game saves/clears, so the menu never
     // does file I/O per frame.
     has_save: bool,
+    // The start-menu item to restore the cursor to when a screen backs out to
+    // the menu (Erik ruling, spec 020): every Back funnels through start_menu(),
+    // which re-selects this. Set to whatever item last opened a screen.
+    menu_selection: MenuItem,
     pulse: SelectionPulse,
     settings: Settings,
     // The player's persistent profile — their card collection and built side
@@ -385,6 +389,7 @@ impl App {
             board_view: BoardView::new(config),
             modal: None,
             has_save,
+            menu_selection: MenuItem::StartCampaign,
             pulse: SelectionPulse::default(),
             audio: Audio::new(settings),
             settings,
@@ -403,9 +408,9 @@ impl App {
 
     /// A fresh start-menu screen reflecting whether a save currently exists.
     fn start_menu(&self) -> Screen {
-        Screen::StartMenu {
-            menu_state: MenuState::new(self.has_save),
-        }
+        let mut menu_state = MenuState::new(self.has_save);
+        menu_state.select_item(self.menu_selection);
+        Screen::StartMenu { menu_state }
     }
 
     /// Persist the in-progress match — or clear the save if it's over
@@ -1115,6 +1120,7 @@ impl App {
 
     /// Act on an activated start-menu item — open a screen or a modal.
     fn activate_menu_item(&mut self, menu_item: MenuItem) {
+        self.menu_selection = menu_item;
         match menu_item {
             MenuItem::Continue => {
                 // Resume the saved match. Continue only appears when a save
