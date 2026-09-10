@@ -250,7 +250,7 @@ acceptance criterion. -->
 
 ## Final phase — Spec close-out
 
-- [ ] **T006** — Docs, driver, sweep. `DECISIONS.md`: stats are additive
+- [x] **T006** — Docs, driver, sweep. `DECISIONS.md`: stats are additive
   serde-defaulted fields on `profile.json` (no `PROFILE_VERSION` bump);
   match-end-only recording deriving round W/L from `rounds_won` (the deviation
   from the spec's assumed round-resolution seam, and why — abandoned matches
@@ -322,4 +322,4 @@ before treating the policy as settled. -->
 | T007 impl (sdd-implementer) | opus (fable budget short — documented fallback) | ~25K (measured return) | done; app.rs+menu.rs, 341 tests green (1 new); driver-confirmed Esc→Records lands on Records |
 | T007 review (skeptical-reviewer, per-task) | opus (fable budget short — documented fallback) | ~23K (measured return) | signed off, no blocking. Confirmed by orchestrator: only App::new + start_menu() construct StartMenu, so all Back paths restore. Notes → sweep: Continue-after-gameover falls to top (safe/intended); divert restores activating item; select_item doc parenthetical cosmetic |
 | T006 close-out (orchestrator) | claude-opus-4-8 | — | |
-| Pre-merge whole-spec sweep (skeptical-reviewer) | | | |
+| Pre-merge whole-spec sweep (skeptical-reviewer) | opus (fable budget short — documented fallback) | ~79K (measured return) | SIGNED OFF, no blocking. Structural invariants confirmed (no engine/save change; PROFILE_VERSION==1; monochrome); double-count re-verified via campaign_map launch path. 5 carried notes all accept-and-log. 3 new accept-and-log notes: (a) collection_line truncates vs win_rate rounds; (b) "15" not unit-pinned (a `assert_eq!(ALL_SIDE_CARDS.len(),15)` would close it); (c) README drift → fixed in T006 (Records now in README status + how-to-play). Tidy items (a/b + set_scroll stale doc + ThisRun unreachable!() arms) → follow-up chip, non-blocking |
