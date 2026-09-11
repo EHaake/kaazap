@@ -1,6 +1,6 @@
 # Spec: Wager & loss condition — spec 021
 
-**Status**: Draft — pending review
+**Status**: Implemented — pending merge (PR #24)
 **Depends on**: spec 012 (economy), spec 014 (New Campaign / `reset_to_starter`),
 spec 020 (stats & records)
 
@@ -182,42 +182,65 @@ is on screen throughout. Quick Play shows no stake line.
 
 ## Acceptance criteria
 
-- [ ] Enter on a launchable campaign node opens a wager prompt showing the
+- [x] Enter on a launchable campaign node opens a wager prompt showing the
       opponent, its floor, the balance, and the payout; ←/→ adjust the stake in
       steps between the floor and the full balance; Enter starts the match with
       the balance reduced by the stake; Esc returns to the map with nothing
       changed.
-- [ ] A node whose floor exceeds the balance refuses to launch with a message
+      Evidence: `wager.rs` grid tests (opens at floor, ±5 steps, clamp, Enter/Esc); Phase 2 driver (Enter at 15 → `◈ 35`, Esc → `◈ 50` unchanged); close-out snapshot at 139×31.
+
+- [x] A node whose floor exceeds the balance refuses to launch with a message
       and opens no prompt.
-- [ ] Ante floors follow the difficulty scalar (10 / 20 / 30 / 40 / 50 by
+      Evidence: Phase 2 driver and close-out snapshot (`◈ 15`, Ashfall floor 20 → `Can't cover the 20-credit ante`, no prompt).
+
+- [x] Ante floors follow the difficulty scalar (10 / 20 / 30 / 40 / 50 by
       threshold 15–19) and are a single tunable formula.
-- [ ] A win pays twice the stake into the balance and shows "Won N credits";
+      Evidence: `economy.rs` tests (`ante_floor` 15..=19 → 10/20/30/40/50; unknown id → 30); one formula, `ANTE_BASE_THRESHOLD`/`ANTE_PER_THRESHOLD_STEP`.
+
+- [x] A win pays twice the stake into the balance and shows "Won N credits";
       a loss pays nothing and shows "Lost N credits"; no card is dropped on
       either. A first clear still marks the opponent beaten and unlocks as
       before.
-- [ ] Enter on a cleared planet stakes a rematch against its final opponent;
+      Evidence: `profile.rs` settle tests (30/stake 20: win → 70 `Won(20)`, loss → 30 `Lost(20)`, beaten marked on a first clear); card drop deleted with `win_reward`; close-out snapshots `★  Won 10 credits` (`◈ 60`, 1/8 cleared) and `Lost 10 credits` (`◈ 40`).
+
+- [x] Enter on a cleared planet stakes a rematch against its final opponent;
       a rematch win or loss changes no campaign progress and never increments
       campaign completions; per-opponent match/round records still record it.
-- [ ] A loss that leaves the balance below the cheapest launchable floor shows
+      Evidence: `campaign.rs` `launchable_opponent` tests; `profile.rs` rematch tests (complete run, win/loss changes neither `beaten` nor completions, pays); Phase 2 driver (rematch vs Greeb, completions stay 0, Records row updates).
+
+- [x] A loss that leaves the balance below the cheapest launchable floor shows
       the run-over notice; acknowledging it resets the profile to the starter
       (starter deck and collection, no progress, seed purse) and opens a fresh
       map; settings and lifetime records are preserved; an in-progress save is
       cleared.
-- [ ] The same run-over flow fires on Continue for a profile that can't cover
+      Evidence: Phase 3 driver (`◈ 10` all-in loss → notice; Esc ignored; Enter → fresh map `◈ 50`, starter deck/collection, run stats zeroed, lifetime Greeb row intact, save cleared); `run_over_acknowledged` test; `reset_to_starter` preserves-stats test.
+
+- [x] The same run-over flow fires on Continue for a profile that can't cover
       any floor with no match in flight.
-- [ ] The shop refuses a purchase that would leave the balance below the
+      Evidence: Phase 3 driver (0-credit profile, no save → notice on Continue → `◈ 50`).
+
+- [x] The shop refuses a purchase that would leave the balance below the
       cheapest launchable floor, and reads it as unaffordable.
-- [ ] A staked match saved mid-match resumes with its stake and resolves
+      Evidence: `profile.rs` affordability test (60/price 50 buys, 59 refuses, reserve never deducted); Phase 3 driver (`◈ 25` → spendable 15, Enter refused; `◈ 30` buys → `◈ 10`).
+
+- [x] A staked match saved mid-match resumes with its stake and resolves
       normally; discarding a saved staked match forfeits the stake, and the
       discard confirmation says so.
-- [ ] A fresh profile starts with the seed purse (50); an existing profile keeps
+      Evidence: Phase 2 driver (Esc mid-match → Continue resumes with stake escrowed, settles normally); Phase 3 driver (`…and forfeit your 20-credit stake.` on the Quick Play and Start Campaign confirms, 15-credit note on New Campaign; confirming forfeits, pointer cleared).
+
+- [x] A fresh profile starts with the seed purse (50); an existing profile keeps
       its balance; pre-021 profiles and saves load with no version bump.
-- [ ] Quick Play shows no prompt, stakes nothing, pays nothing, and shows no
+      Evidence: `profile.rs` tests (`default().credits() == SEED_PURSE`; older JSON without `credits` → 0, with 75 → 75; `NodeRef` without `stake` → 0); `PROFILE_VERSION == 1`, `SAVE_VERSION == 1`, `save.rs` untouched.
+
+- [x] Quick Play shows no prompt, stakes nothing, pays nothing, and shows no
       stake line; a staked match shows its stake beside the board.
-- [ ] `docs/economy.md` documents the new loop and every constant; `cargo test`
+      Evidence: Phase 2/3 driver (Quick Play: no prompt, no `Stake` text, credits unchanged); `portrait.rs` tests (`Some(40)` → `◈ 40` on row 18, `None` blank); close-out snapshot of a staked board at 139×31.
+
+- [x] `docs/economy.md` documents the new loop and every constant; `cargo test`
       green (staking core, broke test, shop reserve, completion-once, and
       modal-flow decision tests); `cargo build` no new warnings; legible at the
       minimums; no panics in play.
+      Evidence: `docs/economy.md` rewritten (T007); verification 365 passed / 0 failed, build clean; close-out snapshots at 139×31 of the prompt, both banners, can't-cover, the run-over notice, a staked board, and the shop readout; no panics across ~25 driver matches.
 
 ## Resolved decisions
 

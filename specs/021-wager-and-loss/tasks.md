@@ -246,7 +246,7 @@ ends with the person's broke-and-reset attestation (T005/T006). -->
 
 ## Final phase — Spec close-out
 
-- [ ] **T007** — Docs, driver, sweep. Rewrite `docs/economy.md` around the
+- [x] **T007** — Docs, driver, sweep. Rewrite `docs/economy.md` around the
   two-directional loop: the constants table (seed purse 50, ante floor formula +
   the 15–19 → 10–50 table, stake step 5, payout 1:1, no cap) and where they
   live; escrow at launch and settlement at the seam; rematches (final
@@ -384,5 +384,6 @@ before treating the policy as settled. -->
 | T005 impl (sdd-implementer) | opus | ~52K (measured return) | done; no open questions; forfeit-clear in the no-save Continue branch guarded by `in_progress().is_some()` so a plain Continue does not rewrite the profile; noted baseline rustfmt/clippy debt (pre-existing, not in the verification command) |
 | T006 impl (sdd-implementer) | opus | ~47K (measured return) | done; board.rs needed no edit (T004 already forwarded `stake`), layout.rs untouched (`y1 <= 30` holds at 20 rows); `PANEL_H_INMATCH` doc still says "reserved" — for the sweep |
 | Phase 3 review (skeptical-reviewer) | opus | ~50K (measured return) | signed off, no blocking; orchestrator miss: the review bundle paraphrased the verification tail (re-run by the orchestrator after the review: 365 passed, 0 failed, build clean); open for sweep: stake row disappears between settlement and the ack (stake_at_risk is 0 once settled — for the pause report); escrow-forfeit paths (stale pointer, discard-and-forfeit) covered by driver only, no pure helper; shop width test duplicates the format string and only trips above ~90 cols; `portrait.rs:15` doc still says the rows are "reserved"; tension §5 stake-0 pointer note goes in the pause report |
-| T007 close-out (orchestrator) | claude-opus-4-8 | — | |
+| T007 docs half (sdd-implementer) | opus | ~65K (measured return) | done: economy.md rewrite, Readme.md wording, `closeout-main-docs.md` (ROADMAP/DECISIONS text to apply on main after the merge); flagged that spec 020's DECISIONS completion bullet is superseded (pointer left to the person) |
+| T007 close-out (orchestrator) | fable (session, medium) | — | snapshots at 139×31 (prompt, staked board, Won/Lost/Can't-cover banners, run-over notice, shop readout) captured by driver, profile/saves checksum-restored; AC checkoff with evidence; mechanical guards pass (no engine/save change, both versions 1, no `WinReward` refs, all five constants) |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | | | |
