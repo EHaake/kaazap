@@ -42,7 +42,7 @@ phase end.
 prompt (Phase 2), the loss flow (Phase 3), and the docs all rest on. T002 gets a
 per-task review. -->
 
-- [ ] **T001 (foundational)** — `src/economy.rs` + `src/campaign.rs`: the
+- [x] **T001 (foundational)** — `src/economy.rs` + `src/campaign.rs`: the
   constants and pure rules. In `economy.rs` add `SEED_PURSE = 50`,
   `ANTE_BASE_THRESHOLD = 14`, `ANTE_PER_THRESHOLD_STEP = 10`, `STAKE_STEP = 5`,
   `PAYOUT_RATIO = 1` (each with a one-line doc naming what it tunes);
@@ -319,7 +319,7 @@ before treating the policy as settled. -->
 | Planning: draft (sdd-planner) | fable | ~210K (measured return) | drafted; no product questions |
 | plan + tasks sign-off (skeptical-reviewer) | fable | ~69K (measured return) | 1 blocking (T001 NodeRef literals) + 11 notes; B1 and notes 1,2,3,4,6,11 fixed; 5,7,8,9,10 accepted no-change |
 | sign-off re-review (skeptical-reviewer) | fable | ~21K (measured return) | signed off; T007 wording tightened; open for sweep: T001 no longer strictly "additive only" (cosmetic) |
-| T001 impl (sdd-implementer) | | | |
+| T001 impl (sdd-implementer) | opus | ~46K (measured return) | done; module-doc rewrite deferred to T004 (win_reward still present); bundle wrongly said economy.rs already imported opponent_by_id |
 | T002 impl (sdd-implementer) | | | |
 | T002 review (skeptical-reviewer, per-task) | | | |
 | Phase 1 review (skeptical-reviewer) | | | |

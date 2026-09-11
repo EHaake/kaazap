@@ -520,6 +520,7 @@ impl App {
             let node = NodeRef {
                 planet: planet.to_string(),
                 opponent: opponent.to_string(),
+                stake: 0,
             };
             self.start_match(opp, Some(node));
         }

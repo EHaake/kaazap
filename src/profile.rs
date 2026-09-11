@@ -347,6 +347,7 @@ mod tests {
         p.campaign_mut().set_in_progress(Some(NodeRef {
             planet: "scree".to_string(),
             opponent: "dax".to_string(),
+            stake: 0,
         }));
         p.earn_credits(250);
         p.grant_card(Card::PlusMinus(6));

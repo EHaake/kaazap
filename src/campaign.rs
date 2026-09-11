@@ -147,6 +147,10 @@ pub fn planet_by_id(id: &str) -> Option<Planet> {
 pub struct NodeRef {
     pub planet: String,
     pub opponent: String,
+    /// Credits staked on this match (spec 021), held in escrow until it
+    /// settles. Serde-defaulted, so a pre-021 profile loads with no stake.
+    #[serde(default)]
+    pub stake: u32,
 }
 
 /// The player's campaign progress: which opponents are beaten on each planet,
@@ -208,6 +212,31 @@ impl CampaignRun {
             .iter()
             .copied()
             .find(|o| !self.is_opponent_beaten(planet.id, o))
+    }
+
+    /// The opponent a launch from this planet would face: the next un-beaten
+    /// one, or — once the planet is cleared — its final opponent, as a rematch.
+    /// Callers gate on [`Self::planet_unlocked`].
+    pub fn launchable_opponent(&self, planet: &Planet) -> Option<&'static str> {
+        self.next_opponent(planet)
+            .or_else(|| planet.opponents.last().copied())
+    }
+
+    /// The credits riding on the match in flight, if any are staked.
+    pub fn stake_at_risk(&self) -> Option<u32> {
+        self.in_progress
+            .as_ref()
+            .map(|n| n.stake)
+            .filter(|&stake| stake > 0)
+    }
+
+    /// Take the in-flight stake out of escrow: return it and zero it, so it
+    /// can't be settled twice. 0 when no match is in flight.
+    pub fn take_stake(&mut self) -> u32 {
+        match self.in_progress.as_mut() {
+            Some(node) => std::mem::take(&mut node.stake),
+            None => 0,
+        }
     }
 
     /// The whole run is complete once every planet is cleared.
@@ -324,6 +353,72 @@ mod tests {
         run.mark_beaten("the-spindle", "magistrate");
         assert!(run.planet_cleared(&spindle));
         assert_eq!(run.next_opponent(&spindle), None);
+    }
+
+    #[test]
+    fn launchable_opponent_falls_back_to_a_rematch_once_cleared() {
+        let cinder = planet_by_id("cinder").unwrap();
+        let anvil = planet_by_id("the-anvil").unwrap();
+        let mut run = CampaignRun::default();
+
+        // Uncleared: the next un-beaten opponent, in order.
+        assert_eq!(run.launchable_opponent(&cinder), Some("greeb"));
+        assert_eq!(run.launchable_opponent(&anvil), Some("brakka"));
+        run.mark_beaten("the-anvil", "brakka");
+        assert_eq!(run.launchable_opponent(&anvil), Some("kesh"));
+
+        // Cleared: the planet's final opponent, as a rematch.
+        run.mark_beaten("the-anvil", "kesh");
+        assert!(run.planet_cleared(&anvil));
+        assert_eq!(run.launchable_opponent(&anvil), Some("kesh"));
+
+        // Same rule on a single-opponent planet.
+        run.mark_beaten("cinder", "greeb");
+        assert!(run.planet_cleared(&cinder));
+        assert_eq!(run.launchable_opponent(&cinder), Some("greeb"));
+    }
+
+    #[test]
+    fn the_stake_rides_on_the_in_flight_node_and_defaults_to_zero() {
+        // A pre-021 node (no `stake` key) loads unstaked...
+        let node: NodeRef =
+            serde_json::from_str(r#"{"planet":"cinder","opponent":"greeb"}"#).unwrap();
+        assert_eq!(node.stake, 0);
+
+        // ...and a staked one round-trips.
+        let staked = NodeRef {
+            planet: "scree".to_string(),
+            opponent: "dax".to_string(),
+            stake: 20,
+        };
+        let json = serde_json::to_string(&staked).unwrap();
+        assert_eq!(serde_json::from_str::<NodeRef>(&json).unwrap(), staked);
+    }
+
+    #[test]
+    fn take_stake_empties_the_escrow_exactly_once() {
+        let mut run = CampaignRun::default();
+        // Nothing in flight: nothing at risk, nothing to take.
+        assert_eq!(run.stake_at_risk(), None);
+        assert_eq!(run.take_stake(), 0);
+
+        // An unstaked match in flight is still nothing at risk.
+        run.set_in_progress(Some(NodeRef {
+            planet: "cinder".to_string(),
+            opponent: "greeb".to_string(),
+            stake: 0,
+        }));
+        assert_eq!(run.stake_at_risk(), None);
+
+        run.set_in_progress(Some(NodeRef {
+            planet: "scree".to_string(),
+            opponent: "dax".to_string(),
+            stake: 20,
+        }));
+        assert_eq!(run.stake_at_risk(), Some(20));
+        assert_eq!(run.take_stake(), 20);
+        assert_eq!(run.take_stake(), 0, "the escrow settles only once");
+        assert_eq!(run.stake_at_risk(), None);
     }
 
     #[test]
