@@ -247,6 +247,24 @@ of, not guessed at here in advance.
   now preserves the lifetime `stats` field (the one behavior change). Per-mode
   streaks were ruled out; menu-wide start-menu selection preservation was ruled in
   (every screen's Back now restores the menu cursor). No engine/save-format change.
+- **Wager & loss condition** (spec 021) — the campaign economy turned
+  two-directional. Every campaign match is played for a **stake** chosen in a
+  wager prompt over the map (opens at a per-opponent **ante floor** of
+  `(threshold − 14) × 10`, walks in steps of 5 up to the full balance, no cap);
+  the stake is **escrowed at launch**, a win pays it back **double**, a loss
+  keeps it. Spec 012's free card drop is gone — cards come only from the shop —
+  and a fresh or reset profile now starts with a **seed purse of 50**. Cleared
+  planets stay launchable as **rematches** against their final opponent (the
+  grinding lever the balance pass tunes against), which change no progress and
+  can't re-count a campaign completion. Dropping below the cheapest launchable
+  ante ends the run: a modal notice on the map, acknowledged into spec 014's
+  `reset_to_starter` (starter deck, no progress, seed purse; settings and
+  lifetime records survive). The shop holds that cheapest ante back as a
+  **reserve**, so shopping can never end a run. Persisted as an additive
+  `#[serde(default)] stake` on `NodeRef` beside the in-flight pointer — **no
+  `PROFILE_VERSION` bump, no `SAVE_VERSION` bump**, and no engine change
+  (`game.rs` / `player.rs` / `card.rs` / `save.rs` untouched). Every number is a
+  tunable constant in `economy.rs`; see `docs/economy.md`.
 
 ## Backlog
 
@@ -361,20 +379,19 @@ Give failure teeth and make a better deck actually matter. Reworks spec 012's
 one-directional economy; near-term scope deliberately trimmed (human-ruled) —
 the endgame and the mode-identity question are deferred, below.
 
-- **Wager & loss condition** — make the economy two-directional: **stake credits
-  on a campaign match** (a win pays the stake, a loss costs it), and **going
-  broke ends the run** — you lose the campaign and start over. "Start over" is a
-  **full reset** (reuse spec 014's `reset_to_starter` — back to the basic starting
-  deck *and* seed credits, settings surviving), which is what makes wagers
-  genuinely risky: a bad run costs the deck you built, not just some credits. (A
-  softer *keep-your-cards* restart is a noted future difficulty-lever if full
-  reset playtests too punishing.) Reworks spec 012, where a win currently grants
-  **both** credits and a free card and a loss costs nothing (re-fight the wall for
-  free) — the free card drop likely goes away or gets rare, so cards come from the
-  shop, bought with wagered credits. **Deferred to a later spec/discussion
-  (human-ruled):** what "beating the game" awards (the endgame/victory) and the
+- **Wager & loss condition** — ✅ **Shipped (spec 021** — see Shipped above and
+  `docs/economy.md`). The economy is two-directional: a player-chosen stake per
+  campaign match (ante floor by opponent threshold, even money, no cap),
+  escrowed at launch; going broke ends the run through spec 014's full reset
+  (starter deck *and* seed purse, settings surviving). The free card drop was
+  removed outright rather than made rare, so cards come only from the shop,
+  bought with wagered credits; rematches on cleared planets were added in the
+  same spec so safe grinding actually exists. The softer *keep-your-cards*
+  restart remains a noted future difficulty-lever if full reset playtests too
+  punishing. Still **deferred to a later spec/discussion (human-ruled):** what
+  "beating the game" awards (the endgame/victory) and the
   casual-campaign-vs-roguelike-mode identity question (see **E · Roguelike
-  mode**); for now stakes go *into* the existing campaign.
+  mode**).
 - **Difficulty & economy balance pass** — the concrete home for the cross-cutting
   balance pass noted above: tune the curve across the **three coupled levers —
   opponents** (the per-opponent stand threshold, side-deck quality, `AiStrategy`,
@@ -386,8 +403,10 @@ the endgame and the mode-identity question are deferred, below.
   bets. Caveat (human-flagged): "cards required" is *probabilistic* in a
   high-variance game — you tilt per-match odds, you don't guarantee a basic-deck
   loss — and the knife-edge (too hard = unfair/grindy, too soft = cards optional)
-  only settles by playtest, so build with tunable constants. Needs the wager loop
-  live first. Distinct from the global **Difficulty setting** (easy / normal /
+  only settles by playtest, so build with tunable constants. **Now unblocked** — the wager loop shipped (spec
+  021), and every lever it owns (seed purse, ante floors, stake step, payout
+  ratio, shop prices) is a tunable constant in `economy.rs`, with the rematch
+  grind live for the invariant above to be tuned against. Distinct from the global **Difficulty setting** (easy / normal /
   hard) in *Other* — that's a player-facing selector layered on this baseline curve.
 
 ### Other (not campaign-dependent)

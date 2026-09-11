@@ -1,6 +1,6 @@
 # Spec: Wager & loss condition — spec 021
 
-**Status**: Implemented — pending merge (PR #24)
+**Status**: Shipped (merged in #24, 2026-09-11)
 **Depends on**: spec 012 (economy), spec 014 (New Campaign / `reset_to_starter`),
 spec 020 (stats & records)
 
