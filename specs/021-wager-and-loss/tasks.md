@@ -322,7 +322,7 @@ before treating the policy as settled. -->
 | T001 impl (sdd-implementer) | opus | ~46K (measured return) | done; module-doc rewrite deferred to T004 (win_reward still present); bundle wrongly said economy.rs already imported opponent_by_id |
 | T002 impl (sdd-implementer) | opus | ~65K (measured return) | done; two amended tests renamed to match new contracts; NodeRef literal in reset test → node() helper |
 | T002 review (skeptical-reviewer, per-task) | opus | ~46K (measured return) | signed off, no blocking; open for sweep: rematch record_match coverage (AC5 second half) unpinned in T002; pre-021 in_progress-without-stake not pinned end-to-end via Profile::from_json; stake_match doc claims the prompt gates on balance (verify at T003/T004); abandoned escrow on discard is the plan §5/T005 explicit forfeit |
-| Phase 1 review (skeptical-reviewer) | | | |
+| Phase 1 review (skeptical-reviewer) | opus | ~57K (measured return) | signed off, no blocking; handoffs: T004 must wire settle_campaign_match + launchable_opponent (completions uncounted at Phase 1 HEAD by design); banner "Won N" should show win_payout(stake) − stake, not the raw Won payload, so it stays right if PAYOUT_RATIO changes; cheapest_floor is 10 in every run state (Cinder rematch) so the unlocked-planet filter is inert — docs must not claim it was exercised |
 | T003 impl (sdd-implementer) | | | |
 | T004 impl (sdd-implementer) | | | |
 | T004 review (skeptical-reviewer, per-task) | | | |
