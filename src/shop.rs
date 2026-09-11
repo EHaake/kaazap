@@ -88,7 +88,8 @@ impl ShopState {
         self.cursor = (self.cursor as isize + delta).rem_euclid(n as isize) as usize;
     }
 
-    /// Draw the title, the credit balance, one row per available card
+    /// Draw the title, the credit balance (and the spendable amount left after
+    /// the ante reserve), one row per available card
     /// (`label · price · owned`, the cursored row pulsing, cards you can't
     /// afford dimmed), and the controls hint.
     pub fn draw(&self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
@@ -102,13 +103,19 @@ impl ShopState {
         let (title_y, items_top, hint_y) = anchors(config.num_rows, pool.len());
         draw_text_centered(frame, center_x, title_y, TITLE, Emphasis::Normal);
 
-        let balance = format!("Credits: ◈ {credits}");
+        // The balance row also shows the *spendable* amount — credits minus the
+        // ante reserve `Profile::can_afford` holds back — so a card dimmed while
+        // `credits ≥ price` is explicable rather than mysterious (spec 021).
+        let spendable = credits.saturating_sub(economy::cheapest_floor(profile.campaign()));
+        let balance = format!("Credits: ◈ {credits}  ·  spendable ◈ {spendable}");
         draw_text_centered(frame, center_x, title_y + 1, &balance, Emphasis::Strong);
 
         for (i, &card) in pool.iter().enumerate() {
             let price = economy::card_price(card);
             let owned = profile.owned_count(card);
-            let affordable = credits >= price;
+            // Affordability is the profile's rule (price + the ante reserve), so
+            // the dimming and `try_purchase`'s refusal never disagree.
+            let affordable = profile.can_afford(price);
             let cursored = i == self.cursor;
 
             // Cursored row pulses; other affordable rows are Normal, ones you
@@ -199,6 +206,15 @@ mod tests {
         let (title_y, items_top, hint_y) = anchors(31, crate::card::ALL_SIDE_CARDS.len());
         assert!(items_top > title_y + 1, "items must clear the title and balance rows");
         assert!(hint_y < 31, "the hint (row {hint_y}) clips the 31-row minimum");
+
+        // The balance row grew a spendable readout (spec 021) — it must still fit
+        // the 89-column minimum even at an implausibly large balance.
+        let balance = format!("Credits: ◈ {}  ·  spendable ◈ {}", 99_999u32, 99_989u32);
+        let len = balance.chars().count();
+        assert!(
+            (89usize / 2).saturating_sub(len / 2) + len <= 89,
+            "balance row {balance:?} ({len} cols) overflows 89 columns"
+        );
 
         // Horizontally: every row (widest label, its price, a 2-digit owned
         // count) fits the 89-column minimum when centered on the middle column.
