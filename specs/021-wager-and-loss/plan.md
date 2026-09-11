@@ -1,6 +1,6 @@
 # Plan: Wager & loss condition — spec 021
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-10) — ready for implementation
 **Implements**: `spec.md` in this directory
 
 ## Context

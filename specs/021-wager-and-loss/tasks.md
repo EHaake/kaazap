@@ -1,6 +1,6 @@
 # Tasks: Wager & loss condition — spec 021
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-10) — ready for implementation
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -257,8 +257,9 @@ ends with the person's broke-and-reset attestation (T005/T006). -->
   24–25) and mention stakes, rematches, and going broke (line 74–75 area).
   `ROADMAP.md`: Wager & loss shipped; the balance pass unblocked.
   (`ROADMAP.md` and `DECISIONS.md` are repo-wide files per `CLAUDE.md`'s git
-  conventions: draft their edits here, but commit them straight to `main`
-  after the merge, as spec 020's close-out did — not on the spec branch.)
+  conventions: draft their text in this task, but apply and commit it on
+  `main` after the merge, as spec 020's close-out did — never edit those two
+  files on the spec branch.)
   `DECISIONS.md`: the spec's resolved decisions plus plan tensions §1–§5 (stake
   on `NodeRef`; settlement + completion edge in one profile op, superseding
   spec 020's `record_match` clause; `take_stake` exactly-once; one edge-based
@@ -296,11 +297,12 @@ before every driver session — this spec resets real profiles by design.
 
 Model & effort: the session runs at the orchestrator tier (`claude-opus-4-8`),
 medium effort; the planner and the `skeptical-reviewer` sign-off run at the top
-tier (`fable`) per the per-call override — this plan/tasks pair was drafted at
-the top tier, but per Erik's standing ruling a successful `fable` dispatch does
-not by itself mean the budget recovered: keep the `opus` fallback for reviews
-until Erik says otherwise, and log which tier actually ran. Per-phase and
-per-task reviews and the sweep run at `opus`; implementers run at `opus`.
+tier (`fable`) per the per-call override — Erik confirmed on 2026-09-10 that
+the fable budget is back, and this plan/tasks pair and its sign-off ran there.
+Decision reviews (a non-routine task) also go to `fable`; per Erik's standing
+ruling, never infer the budget from a successful dispatch — ask if unsure, and
+log which tier actually ran. Per-phase and per-task reviews and the sweep run
+at `opus`; implementers run at `opus`.
 Clear at every phase boundary and at spec end. Every session-ending pause ends
 with a continuation prompt (spec directory, files to read, where to resume,
 involvement level, pause cadence, any model switch) in its own fenced block.
@@ -314,8 +316,9 @@ before treating the policy as settled. -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
-| Planning: draft (sdd-planner) | fable | | drafted |
-| plan + tasks sign-off (skeptical-reviewer) | | | |
+| Planning: draft (sdd-planner) | fable | ~210K (measured return) | drafted; no product questions |
+| plan + tasks sign-off (skeptical-reviewer) | fable | ~69K (measured return) | 1 blocking (T001 NodeRef literals) + 11 notes; B1 and notes 1,2,3,4,6,11 fixed; 5,7,8,9,10 accepted no-change |
+| sign-off re-review (skeptical-reviewer) | fable | ~21K (measured return) | signed off; T007 wording tightened; open for sweep: T001 no longer strictly "additive only" (cosmetic) |
 | T001 impl (sdd-implementer) | | | |
 | T002 impl (sdd-implementer) | | | |
 | T002 review (skeptical-reviewer, per-task) | | | |
