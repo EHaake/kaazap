@@ -134,9 +134,13 @@ no-save branch and the confirmed discard-and-enter — through one
 `App::enter_campaign_map()` helper (open the map, then raise `Modal::RunOver`
 if broke). It is *not* run on every `open_campaign_map` (shop/deck-builder
 Back) — the shop reserve makes those paths unable to create a broke state, and
-keeping the check at the two spec'd seams keeps intent legible. A win can
-never leave the player broke (`credits ≥ win_payout(stake) ≥ 2·floor`), so
-the ack-time check needs no "only after a loss" guard.
+keeping the check at the two spec'd seams keeps intent legible. A *staked*
+win can never leave the player broke (`credits ≥ win_payout(stake) ≥ 2·floor`),
+so the ack-time check needs no "only after a loss" guard. The one exception is
+a stake-0 pointer — a resumed pre-021 campaign save on a 0-credit profile —
+where a win pays 0 and the ack meets the run-over notice after a *win*. That
+is the spec's accepted migration path arriving one match later, not a new
+rule; mention it at the Phase 3 pause.
 
 ### 6. The shop reserve is inside `try_purchase`, surfaced as "spendable"
 

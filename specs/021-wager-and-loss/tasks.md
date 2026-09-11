@@ -59,8 +59,12 @@ per-task review. -->
   -> Option<u32>` (in-flight stake when > 0), `take_stake(&mut self) -> u32`
   (return + zero). Plan §Design 1–2 / tensions §1, §7. (Copies the
   constants-as-data + pure-fn shape of `economy.rs`'s `card_price`/`card_tier`
-  and `CampaignRun::next_opponent`.) Additive only — nothing outside these two
-  files changes.
+  and `CampaignRun::next_opponent`.) `#[serde(default)]` covers JSON only —
+  a Rust struct literal without the field is a compile error — so this task
+  also adds `stake: 0` to **every existing `NodeRef` literal** (the `app.rs`
+  launch site if it is a literal, the `profile.rs` reset test, and any other
+  test literal `grep -n "NodeRef {"` finds), so the task builds and tests
+  green on its own. Nothing else outside `economy.rs`/`campaign.rs` changes.
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   (reported verbatim) — new tests: `ante_floor` 15..=19 → 10/20/30/40/50 and
   `ante_floor_for` of an unknown id → 30; `win_payout(20) == 40`,
@@ -82,8 +86,7 @@ per-task review. -->
   campaign pointer), `is_broke()`, `can_afford(price)` (`credits >= price +
   cheapest_floor`) with `try_purchase` using it. **Remove** the
   `player_won && run_complete()` completion clause from `record_match`
-  (tension §2). Update the `NodeRef` literal in the reset test (`stake: 0`)
-  and make `applying_a_win_reward_pays_credits_and_drops_one_pool_card`
+  (tension §2). Make `applying_a_win_reward_pays_credits_and_drops_one_pool_card`
   seed-relative (`SEED_PURSE + 10`) — `apply_win_reward` itself stays until
   T004 deletes it with its caller. Plan §Design 3 / tensions §2, §3, §5, §6. (Copies the additive-serde-field +
   tested-profile-op pattern of `try_purchase` / `record_match`.)
@@ -101,7 +104,8 @@ per-task review. -->
   `campaign_completion_counts_only_a_final_clearing_win_and_recounts_after_reset`
   drives clears through `stake_match` + `settle_campaign_match` (0 → 1 → reset
   → 2) and asserts `record_match` alone never increments; `is_broke` — fresh
-  run 9 → true, 10 → false, complete run 10 → false; the rewritten
+  run 9 → true, 10 → false, complete run 10 → false, and a match in flight
+  (staked pointer set) does not change the answer; the rewritten
   affordability test — 60 credits / price 50 buys leaving 10, 59 refuses and
   `can_afford` is false, the reserve is never deducted; a staked pointer
   round-trips through a full `Profile` JSON.*
@@ -166,7 +170,7 @@ attestation (T004). -->
   pass. Report that the every-tick win block is gone, that the GameOver block
   calls `settle_campaign_match` before `record_match`, and that no
   `game.rs`/`player.rs`/`card.rs`/`save.rs` file was touched. Driver (back up
-  + checksum-restore the real profile/saves first): Enter on Cinder opens the
+  + checksum-restore the real profile/saves first): with `◈ 15` and a floor-20 node unlocked, Enter on it refuses with the can't-cover message and opens no prompt (AC2); Enter on Cinder opens the
   prompt at `◈ 10` showing Greeb, ante, balance, and the payout; ←/→ step by 5
   and clamp at the balance; Esc returns with `◈` unchanged; Enter drops the
   header `◈` by the stake and starts the match; a win banners `Won N credits`
@@ -191,7 +195,14 @@ ends with the person's broke-and-reset attestation (T005/T006). -->
   `Modal::RunOver` if `is_broke()`), used by the game-over acknowledgement,
   `enter_campaign_continue`'s no-save branch, and the `PendingStart::Campaign`
   Yes arm — which also forfeits explicitly (`set_in_progress(None)` +
-  `profile.save()` beside `save::clear()`); `draw_run_over` (a bordered box:
+  `profile.save()` beside `save::clear()`). **Ordering:** in that Yes arm (and
+  any other modal-hosted caller) close the confirm (`modal = None`) *before*
+  calling `enter_campaign_map()`, so a raised `Modal::RunOver` is never
+  overwritten by the confirm's own close. **Stale pointer:** in
+  `enter_campaign_continue`'s no-save branch, a lingering `in_progress` with a
+  nonzero stake (a kill mid-match before any save) is cleared as a forfeit
+  (`set_in_progress(None)` + save) before the broke check, so the confirm notes
+  never name a stake with no match behind it. `draw_run_over` (a bordered box:
   title `You're broke — the run is over.` Strong, note `Deck, collection, and
   progress reset to the starter; your records stay.`, hint `Enter  continue`
   Muted); `draw_two_choice` gains `note: Option<&str>` on row 1 (Muted) and the
@@ -245,6 +256,9 @@ ends with the person's broke-and-reset attestation (T005/T006). -->
   `README.md`: drop "card packs" / "drop cards" from the blurb (lines 13–14,
   24–25) and mention stakes, rematches, and going broke (line 74–75 area).
   `ROADMAP.md`: Wager & loss shipped; the balance pass unblocked.
+  (`ROADMAP.md` and `DECISIONS.md` are repo-wide files per `CLAUDE.md`'s git
+  conventions: draft their edits here, but commit them straight to `main`
+  after the merge, as spec 020's close-out did — not on the spec branch.)
   `DECISIONS.md`: the spec's resolved decisions plus plan tensions §1–§5 (stake
   on `NodeRef`; settlement + completion edge in one profile op, superseding
   spec 020's `record_match` clause; `take_stake` exactly-once; one edge-based
