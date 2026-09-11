@@ -17,9 +17,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     SIDE_DECK_SIZE,
-    campaign::CampaignRun,
+    campaign::{CampaignRun, NodeRef},
     card::{ALL_SIDE_CARDS, Card, DEFAULT_SIDE_DECK},
-    economy::{self, WinReward},
+    economy::{self, StakeOutcome, WinReward},
     stats::{LifetimeStats, Mode},
 };
 
@@ -51,8 +51,11 @@ pub struct Profile {
     /// pre-campaign profile loads with a fresh (empty) run — no version bump.
     #[serde(default)]
     campaign: CampaignRun,
-    /// Credits earned from campaign wins (spec 012, economy). Additive and
-    /// serde-defaulted, so a pre-economy profile loads with 0 — no version bump.
+    /// The player's credit balance (spec 012, economy; spec 021's wagers spend
+    /// and grow it). Additive and serde-defaulted, so a pre-economy profile
+    /// loads with 0 — no version bump. A *fresh* profile starts with
+    /// [`economy::SEED_PURSE`] instead (see `Default`), which is why the field
+    /// default and the struct default differ on purpose.
     #[serde(default)]
     credits: u32,
     /// Lifetime statistics (spec 020). Additive and serde-defaulted, so a
@@ -88,7 +91,7 @@ impl Default for Profile {
             collection: starter_collection(),
             deck: starter_deck(),
             campaign: CampaignRun::default(),
-            credits: 0,
+            credits: economy::SEED_PURSE,
             stats: LifetimeStats::default(),
         }
     }
@@ -118,7 +121,7 @@ impl Profile {
     }
 
     /// Reset to a brand-new starter profile: starter collection + deck, no
-    /// campaign progress, zero credits — a full fresh start (spec 014's New
+    /// campaign progress, the seed purse — a full fresh start (spec 014's New
     /// Campaign). Lifetime stats survive the reset (spec 020) — like Settings,
     /// which live in a separate file and are also untouched — so a New Campaign
     /// doesn't erase the player's cross-run record. The caller persists (`save`)
@@ -169,17 +172,74 @@ impl Profile {
         self.credits = self.credits.saturating_add(amount);
     }
 
+    /// Stake a campaign match and mark it in flight (spec 021). The escrow: the
+    /// node's stake leaves the balance now and only comes back through
+    /// [`Profile::settle_campaign_match`]. Refuses — returning `false` and
+    /// changing nothing — if the balance can't cover the stake; the wager
+    /// prompt gates on the same balance, so that's a guard, not a path.
+    /// Callers pair this with [`Profile::save`].
+    pub fn stake_match(&mut self, node: NodeRef) -> bool {
+        if node.stake > self.credits {
+            return false;
+        }
+        self.credits -= node.stake;
+        self.campaign.set_in_progress(Some(node));
+        true
+    }
+
+    /// Settle the campaign match in flight (spec 021): take the stake out of
+    /// escrow, pay [`economy::win_payout`] on a win, mark the opponent beaten,
+    /// and count a campaign completion on the `!was_complete && run_complete()`
+    /// edge — so a rematch of an already-beaten node changes no progress and
+    /// never re-counts a completion. Returns `None` when there is no campaign
+    /// pointer (a Quick Play match), leaving the balance untouched.
+    ///
+    /// Paying exactly once is a data property, not an ordering rule:
+    /// [`CampaignRun::take_stake`] zeroes the escrow, so a second settlement
+    /// pays `win_payout(0) == 0` and `mark_beaten` is idempotent. Callers pair
+    /// this with [`Profile::save`].
+    pub fn settle_campaign_match(&mut self, player_won: bool) -> Option<StakeOutcome> {
+        let node = self.campaign.in_progress()?.clone();
+        let stake = self.campaign.take_stake();
+        if player_won {
+            self.credits = self.credits.saturating_add(economy::win_payout(stake));
+            let was_complete = self.campaign.run_complete();
+            self.campaign.mark_beaten(&node.planet, &node.opponent);
+            if !was_complete && self.campaign.run_complete() {
+                self.stats.record_campaign_completion();
+            }
+            Some(StakeOutcome::Won(stake))
+        } else {
+            Some(StakeOutcome::Lost(stake))
+        }
+    }
+
+    /// Whether the player can no longer afford any launchable match — spec
+    /// 021's run-over condition. A pure predicate over the balance and the
+    /// cheapest ante on the map, evaluated at the app's two spec'd seams.
+    pub fn is_broke(&self) -> bool {
+        self.credits < economy::cheapest_floor(&self.campaign)
+    }
+
+    /// Whether `price` is spendable: it must leave the cheapest launchable ante
+    /// behind, so a purchase can never strand the player (spec 021's shop
+    /// reserve). One rule in one place — [`Profile::try_purchase`] enforces it
+    /// and the shop's dimming reads it.
+    pub fn can_afford(&self, price: u32) -> bool {
+        self.credits >= price.saturating_add(economy::cheapest_floor(&self.campaign))
+    }
+
     /// The player's lifetime statistics (spec 020).
     pub fn stats(&self) -> &LifetimeStats {
         &self.stats
     }
 
     /// Record a completed match (spec 020). Always bumps lifetime stats for the
-    /// given mode; for a Campaign match it also updates the run tally and, when a
-    /// win clears the final node (`run_complete`), counts a campaign completion.
-    /// In the real seam the opponent's `mark_beaten` runs before this, so
-    /// `run_complete()` already reflects the just-won final match. Callers pair
-    /// this with [`Profile::save`].
+    /// given mode; for a Campaign match it also updates the run tally. It does
+    /// *not* count campaign completions — since spec 021 a beaten node can be
+    /// replayed, so completion is the `mark_beaten` edge owned by
+    /// [`Profile::settle_campaign_match`]. Callers pair this with
+    /// [`Profile::save`].
     pub fn record_match(
         &mut self,
         mode: Mode,
@@ -194,9 +254,6 @@ impl Profile {
             self.campaign
                 .run_stats_mut()
                 .record_match(player_won, player_rounds, opp_rounds);
-            if player_won && self.campaign.run_complete() {
-                self.stats.record_campaign_completion();
-            }
         }
     }
 
@@ -214,10 +271,12 @@ impl Profile {
     }
 
     /// Buy `card` for `price`: spend the credits and grant the card if the
-    /// player can afford it, otherwise do nothing. Returns whether it happened,
-    /// so the app persists only on `true` (the deck-edit pattern).
+    /// player can afford it — [`Profile::can_afford`], so the ante reserve is
+    /// held back — otherwise do nothing. Only `price` is deducted, never the
+    /// reserve. Returns whether it happened, so the app persists only on `true`
+    /// (the deck-edit pattern).
     pub fn try_purchase(&mut self, card: Card, price: u32) -> bool {
-        if self.credits >= price {
+        if self.can_afford(price) {
             self.credits -= price;
             self.grant_card(card);
             true
@@ -321,6 +380,24 @@ mod tests {
         }
     }
 
+    /// A starter profile with an explicit balance, so the staking tests read as
+    /// their own arithmetic rather than as offsets from the seed purse.
+    fn profile_with_credits(credits: u32) -> Profile {
+        Profile {
+            credits,
+            ..Profile::default()
+        }
+    }
+
+    /// A campaign match pointer with a stake.
+    fn node(planet: &str, opponent: &str, stake: u32) -> NodeRef {
+        NodeRef {
+            planet: planet.to_string(),
+            opponent: opponent.to_string(),
+            stake,
+        }
+    }
+
     #[test]
     fn campaign_state_round_trips_and_defaults_for_older_profiles() {
         use crate::campaign::planet_by_id;
@@ -339,16 +416,11 @@ mod tests {
 
     #[test]
     fn reset_to_starter_wipes_the_run_but_preserves_lifetime_stats() {
-        use crate::campaign::NodeRef;
         let mut p = Profile::default();
         // Dirty every persisted field: campaign progress, an in-flight match,
         // credits, the collection — and lifetime stats plus the run tally.
         p.campaign_mut().mark_beaten("cinder", "greeb");
-        p.campaign_mut().set_in_progress(Some(NodeRef {
-            planet: "scree".to_string(),
-            opponent: "dax".to_string(),
-            stake: 0,
-        }));
+        p.campaign_mut().set_in_progress(Some(node("scree", "dax", 0)));
         p.earn_credits(250);
         p.grant_card(Card::PlusMinus(6));
         p.record_match(Mode::Campaign, "greeb", true, 3, 1);
@@ -359,7 +431,7 @@ mod tests {
         p.reset_to_starter();
 
         // The run resets to starter state...
-        assert_eq!(p.credits(), 0, "credits reset");
+        assert_eq!(p.credits(), economy::SEED_PURSE, "credits reset to the seed purse");
         assert!(!p.campaign().has_progress(), "campaign progress cleared");
         assert!(p.campaign().in_progress().is_none(), "in-progress match cleared");
         assert_eq!(p.campaign().run_stats().match_wins, 0, "run tally cleared");
@@ -374,19 +446,157 @@ mod tests {
     }
 
     #[test]
-    fn credits_persist_and_default_to_zero_for_older_profiles() {
-        // A pre-economy profile (no `credits` field) loads with 0 credits and no
-        // version bump — the same additive-field discipline as `campaign`.
+    fn credits_seed_a_fresh_profile_but_default_to_zero_for_older_profiles() {
+        // A brand-new profile opens with the seed purse (spec 021)...
+        assert_eq!(Profile::default().credits(), economy::SEED_PURSE);
+
+        // ...while the *serde* field default stays 0, so a pre-economy profile
+        // (no `credits` key) still loads with an empty balance — the same
+        // additive-field discipline as `campaign`, and no version bump.
         let older = r#"{"version":1,"collection":[],"deck":[]}"#;
         let p = Profile::from_json(older).expect("an older profile still loads");
         assert_eq!(p.credits(), 0);
+        assert_eq!(PROFILE_VERSION, 1, "the seed purse is no on-disk shape change");
+
+        // An existing profile keeps whatever balance it had.
+        let existing = r#"{"version":1,"collection":[],"deck":[],"credits":75}"#;
+        let p = Profile::from_json(existing).expect("an existing profile still loads");
+        assert_eq!(p.credits(), 75);
 
         // Earned credits round-trip through JSON.
-        let mut p = Profile::default();
+        let mut p = profile_with_credits(0);
         p.earn_credits(75);
         let json = serde_json::to_string(&p).unwrap();
         let p2 = Profile::from_json(&json).expect("a valid profile loads");
         assert_eq!(p2.credits(), 75);
+    }
+
+    #[test]
+    fn staking_escrows_the_credits_and_records_the_match_in_flight() {
+        let mut p = profile_with_credits(50);
+        assert!(p.stake_match(node("cinder", "greeb", 20)));
+        assert_eq!(p.credits(), 30, "the stake leaves the balance immediately");
+        assert_eq!(p.campaign().in_progress(), Some(&node("cinder", "greeb", 20)));
+        assert_eq!(p.campaign().stake_at_risk(), Some(20));
+
+        // A stake the balance can't cover is refused, changing nothing.
+        let mut q = profile_with_credits(50);
+        assert!(!q.stake_match(node("cinder", "greeb", 60)));
+        assert_eq!(q.credits(), 50);
+        assert!(q.campaign().in_progress().is_none());
+    }
+
+    #[test]
+    fn settling_a_win_pays_double_the_stake_and_marks_the_node_beaten() {
+        let mut p = profile_with_credits(50);
+        assert!(p.stake_match(node("cinder", "greeb", 20)));
+        assert_eq!(p.credits(), 30);
+
+        assert_eq!(p.settle_campaign_match(true), Some(StakeOutcome::Won(20)));
+        assert_eq!(p.credits(), 70, "the stake back plus even-money winnings");
+        assert!(p.campaign().is_opponent_beaten("cinder", "greeb"));
+        assert_eq!(
+            p.campaign().in_progress().map(|n| n.stake),
+            Some(0),
+            "the escrow is emptied by the settlement",
+        );
+        assert_eq!(p.campaign().stake_at_risk(), None);
+
+        // Settling twice can't pay twice — the escrow is already empty.
+        assert_eq!(p.settle_campaign_match(true), Some(StakeOutcome::Won(0)));
+        assert_eq!(p.credits(), 70);
+    }
+
+    #[test]
+    fn settling_a_loss_keeps_the_stake_and_leaves_the_node_unbeaten() {
+        let mut p = profile_with_credits(50);
+        assert!(p.stake_match(node("cinder", "greeb", 20)));
+
+        assert_eq!(p.settle_campaign_match(false), Some(StakeOutcome::Lost(20)));
+        assert_eq!(p.credits(), 30, "a loss pays nothing back");
+        assert!(!p.campaign().is_opponent_beaten("cinder", "greeb"));
+        assert_eq!(p.campaign().stake_at_risk(), None);
+
+        assert_eq!(p.settle_campaign_match(false), Some(StakeOutcome::Lost(0)));
+        assert_eq!(p.credits(), 30);
+    }
+
+    #[test]
+    fn settling_without_a_pointer_is_a_no_op_and_a_zero_stake_pointer_still_settles() {
+        // Quick Play: no campaign pointer, so there is nothing to settle.
+        let mut p = profile_with_credits(50);
+        assert_eq!(p.settle_campaign_match(true), None);
+        assert_eq!(p.settle_campaign_match(false), None);
+        assert_eq!(p.credits(), 50);
+        assert!(!p.campaign().has_progress());
+
+        // A pre-021 save's pointer carries no stake: the win still marks the
+        // node beaten, and pays nothing.
+        let mut q = profile_with_credits(50);
+        assert!(q.stake_match(node("cinder", "greeb", 0)));
+        assert_eq!(q.credits(), 50);
+        assert_eq!(q.campaign().stake_at_risk(), None);
+        assert_eq!(q.settle_campaign_match(true), Some(StakeOutcome::Won(0)));
+        assert_eq!(q.credits(), 50);
+        assert!(q.campaign().is_opponent_beaten("cinder", "greeb"));
+    }
+
+    #[test]
+    fn a_rematch_settles_for_credits_but_changes_no_progress_or_completions() {
+        use crate::campaign::PLANETS;
+        let mut p = profile_with_credits(100);
+        for planet in PLANETS {
+            for opp in planet.opponents {
+                p.campaign_mut().mark_beaten(planet.id, opp);
+            }
+        }
+        assert!(p.campaign().run_complete(), "sanity: the run is complete");
+        assert_eq!(p.stats().campaign_completions(), 0, "sanity: nothing settled yet");
+
+        // A rematch win against an already-beaten final node pays...
+        assert!(p.stake_match(node("zenith", "sovereign", 50)));
+        assert_eq!(p.settle_campaign_match(true), Some(StakeOutcome::Won(50)));
+        assert_eq!(p.credits(), 150);
+        // ...but counts no completion and un-beats nothing.
+        assert_eq!(p.stats().campaign_completions(), 0, "a rematch never completes the run");
+        assert!(p.campaign().run_complete());
+
+        // A rematch loss costs the stake and likewise touches no progress.
+        assert!(p.stake_match(node("zenith", "sovereign", 50)));
+        assert_eq!(p.settle_campaign_match(false), Some(StakeOutcome::Lost(50)));
+        assert_eq!(p.credits(), 100);
+        assert_eq!(p.stats().campaign_completions(), 0);
+        assert!(p.campaign().run_complete(), "a loss un-beats nothing");
+    }
+
+    #[test]
+    fn is_broke_reads_the_balance_against_the_cheapest_launchable_ante() {
+        use crate::campaign::PLANETS;
+        let mut p = profile_with_credits(9);
+        assert_eq!(economy::cheapest_floor(p.campaign()), 10, "sanity: Cinder sets the floor");
+        assert!(p.is_broke(), "a credit short of the cheapest ante is broke");
+        p.earn_credits(1);
+        assert!(!p.is_broke(), "exactly the cheapest ante is still playable");
+
+        // A complete run keeps its rematch floor, so the same balance is fine.
+        for planet in PLANETS {
+            for opp in planet.opponents {
+                p.campaign_mut().mark_beaten(planet.id, opp);
+            }
+        }
+        assert!(p.campaign().run_complete());
+        assert_eq!(p.credits(), 10);
+        assert!(!p.is_broke(), "a cleared run can always be replayed at the floor");
+
+        // A match in flight doesn't change the answer — the predicate reads the
+        // balance that's left after the escrow, nothing else.
+        let mut in_flight = profile_with_credits(19);
+        assert!(in_flight.stake_match(node("cinder", "greeb", 10)));
+        assert_eq!(in_flight.credits(), 9);
+        assert!(in_flight.is_broke());
+        let mut in_flight = profile_with_credits(20);
+        assert!(in_flight.stake_match(node("cinder", "greeb", 10)));
+        assert!(!in_flight.is_broke());
     }
 
     #[test]
@@ -418,64 +628,79 @@ mod tests {
     #[test]
     fn campaign_completion_counts_only_a_final_clearing_win_and_recounts_after_reset() {
         use crate::campaign::PLANETS;
-        // Beat every campaign opponent except the final boss, recording each as a
-        // Campaign match; none of these is a run-completing win.
-        let clear_all_but_last = |p: &mut Profile| {
+        // Clear a node the way the real seam does: stake it, record the match,
+        // settle the win. Settlement — not `record_match` — owns `mark_beaten`
+        // and the completion edge.
+        fn win_node(p: &mut Profile, planet: &str, opponent: &str) {
+            assert!(p.stake_match(node(planet, opponent, 10)));
+            p.record_match(Mode::Campaign, opponent, true, 3, 0);
+            assert_eq!(p.settle_campaign_match(true), Some(StakeOutcome::Won(10)));
+        }
+
+        // Beat every campaign opponent except the final boss; none of these
+        // completes the run.
+        fn clear_all_but_last(p: &mut Profile) {
             for planet in PLANETS {
                 for opp in planet.opponents {
-                    let is_final = planet.id == "zenith" && *opp == "sovereign";
-                    if is_final {
+                    if planet.id == "zenith" && *opp == "sovereign" {
                         continue;
                     }
-                    p.campaign_mut().mark_beaten(planet.id, opp);
-                    p.record_match(Mode::Campaign, opp, true, 3, 0);
+                    win_node(p, planet.id, opp);
                 }
             }
-        };
+        }
 
         let mut p = Profile::default();
         clear_all_but_last(&mut p);
-        // A non-final win did not increment completions.
         assert_eq!(p.stats().campaign_completions(), 0, "no completion until the final node clears");
 
-        // Clearing the final node with a win increments once (mark_beaten first,
-        // mirroring the real seam).
-        p.campaign_mut().mark_beaten("zenith", "sovereign");
+        // Recording the final match on its own never increments — the clause
+        // lives in settlement now (spec 021's rematches made it unsound here).
         p.record_match(Mode::Campaign, "sovereign", true, 3, 2);
+        assert_eq!(p.stats().campaign_completions(), 0, "record_match alone counts nothing");
+
+        // Settling the final clearing win increments exactly once.
+        win_node(&mut p, "zenith", "sovereign");
+        assert!(p.campaign().run_complete());
         assert_eq!(p.stats().campaign_completions(), 1, "the final clearing win completes the run");
+        // ...and recording another match on the completed run doesn't re-count.
+        p.record_match(Mode::Campaign, "sovereign", true, 3, 0);
+        assert_eq!(p.stats().campaign_completions(), 1, "record_match never increments");
 
         // A fresh run (post-reset) can complete again and increment a second time.
         p.reset_to_starter();
         assert_eq!(p.stats().campaign_completions(), 1, "completions survive the reset");
         clear_all_but_last(&mut p);
-        p.campaign_mut().mark_beaten("zenith", "sovereign");
-        p.record_match(Mode::Campaign, "sovereign", true, 3, 0);
+        win_node(&mut p, "zenith", "sovereign");
         assert_eq!(p.stats().campaign_completions(), 2, "a second full run increments again");
     }
 
     #[test]
-    fn earning_grows_the_balance_and_purchase_is_affordability_gated() {
+    fn earning_grows_the_balance_and_purchase_holds_back_the_ante_reserve() {
         let owned = |p: &Profile, card: Card| {
             p.collection_by_type()
                 .iter()
                 .find(|e| e.card == card)
                 .map_or(0, |e| e.owned)
         };
-        let mut p = Profile::default();
+        let mut p = profile_with_credits(50);
         let before = owned(&p, Card::PlusMinus(6));
+        p.earn_credits(9);
+        assert_eq!(p.credits(), 59);
+        assert_eq!(economy::cheapest_floor(p.campaign()), 10, "sanity: a fresh run's floor");
 
-        p.earn_credits(30);
-        p.earn_credits(20);
-        assert_eq!(p.credits(), 50);
-
-        // Can't afford (needs 120): nothing changes.
-        assert!(!p.try_purchase(Card::PlusMinus(6), 120));
-        assert_eq!(p.credits(), 50);
+        // 59 covers the 50-credit price but would leave 9 — under the cheapest
+        // ante, so the shop refuses it and reads it as unaffordable.
+        assert!(!p.can_afford(50));
+        assert!(!p.try_purchase(Card::PlusMinus(6), 50));
+        assert_eq!(p.credits(), 59, "a refused purchase changes nothing");
         assert_eq!(owned(&p, Card::PlusMinus(6)), before);
 
-        // Affordable: credits deducted and a copy granted (the collection grows).
+        // One credit more and the purchase clears the reserve exactly.
+        p.earn_credits(1);
+        assert!(p.can_afford(50));
         assert!(p.try_purchase(Card::PlusMinus(6), 50));
-        assert_eq!(p.credits(), 0);
+        assert_eq!(p.credits(), 10, "only the price is deducted — the reserve is never spent");
         assert_eq!(owned(&p, Card::PlusMinus(6)), before + 1);
 
         // grant_card alone also grows the collection (a win drop).
@@ -485,15 +710,26 @@ mod tests {
     }
 
     #[test]
+    fn a_staked_match_in_flight_round_trips_through_the_profile_json() {
+        let mut p = profile_with_credits(50);
+        assert!(p.stake_match(node("scree", "dax", 20)));
+        let json = serde_json::to_string(&p).unwrap();
+        let p2 = Profile::from_json(&json).expect("a valid profile loads");
+        assert_eq!(p2.credits(), 30);
+        assert_eq!(p2.campaign().in_progress(), Some(&node("scree", "dax", 20)));
+        assert_eq!(p2.campaign().stake_at_risk(), Some(20));
+    }
+
+    #[test]
     fn applying_a_win_reward_pays_credits_and_drops_one_pool_card() {
-        let mut p = Profile::default(); // fresh: Outer depth, 0 credits
+        let mut p = Profile::default(); // fresh: Outer depth, the seed purse
         let before_total: usize = p.collection_by_type().iter().map(|e| e.owned).sum();
 
         // Threshold 15 → 10 credits; roll 0 picks the first card of the pool.
         let reward = p.apply_win_reward(15, 0);
 
         assert_eq!(reward.credits, 10);
-        assert_eq!(p.credits(), 10);
+        assert_eq!(p.credits(), economy::SEED_PURSE + 10);
         // The dropped card comes from the current (Outer) depth-gated pool...
         assert!(economy::available_pool(p.campaign()).contains(&reward.card));
         // ...and exactly one card was added to the collection.

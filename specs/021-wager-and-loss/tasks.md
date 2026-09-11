@@ -75,7 +75,7 @@ per-task review. -->
   → Kesh, cleared Cinder → Greeb; a `NodeRef` JSON without `stake` loads as 0
   and one with `stake: 20` round-trips.*
 
-- [ ] **T002 (foundational, review: per-task)** — `src/profile.rs`: the
+- [x] **T002 (foundational, review: per-task)** — `src/profile.rs`: the
   staking contract. `Default` credits → `economy::SEED_PURSE` (the serde field
   default stays 0 — an existing file keeps its balance; **no `PROFILE_VERSION`
   bump**). Add `stake_match(node: NodeRef) -> bool` (escrow: refuse if
@@ -320,8 +320,8 @@ before treating the policy as settled. -->
 | plan + tasks sign-off (skeptical-reviewer) | fable | ~69K (measured return) | 1 blocking (T001 NodeRef literals) + 11 notes; B1 and notes 1,2,3,4,6,11 fixed; 5,7,8,9,10 accepted no-change |
 | sign-off re-review (skeptical-reviewer) | fable | ~21K (measured return) | signed off; T007 wording tightened; open for sweep: T001 no longer strictly "additive only" (cosmetic) |
 | T001 impl (sdd-implementer) | opus | ~46K (measured return) | done; module-doc rewrite deferred to T004 (win_reward still present); bundle wrongly said economy.rs already imported opponent_by_id |
-| T002 impl (sdd-implementer) | | | |
-| T002 review (skeptical-reviewer, per-task) | | | |
+| T002 impl (sdd-implementer) | opus | ~65K (measured return) | done; two amended tests renamed to match new contracts; NodeRef literal in reset test → node() helper |
+| T002 review (skeptical-reviewer, per-task) | opus | ~46K (measured return) | signed off, no blocking; open for sweep: rematch record_match coverage (AC5 second half) unpinned in T002; pre-021 in_progress-without-stake not pinned end-to-end via Profile::from_json; stake_match doc claims the prompt gates on balance (verify at T003/T004); abandoned escrow on discard is the plan §5/T005 explicit forfeit |
 | Phase 1 review (skeptical-reviewer) | | | |
 | T003 impl (sdd-implementer) | | | |
 | T004 impl (sdd-implementer) | | | |
