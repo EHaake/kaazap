@@ -119,54 +119,84 @@ further, and whenever something unexpected bears on spec adherence.
 
 ## Model policy
 
-- **Tiers by name**: top tier `fable`; the implementation-and-review
-  tier `opus`; the orchestrator tier `claude-opus-4-8` (the full ID —
-  a previous-generation model has no short alias). These three names
-  are the only place a model is spelled out; everything below refers
-  to them.
-- **The orchestrating session runs at `claude-opus-4-8`, at medium
-  effort**, set in this repo's `.claude/settings.json` — written at
-  project setup from the skill's `assets/settings-template.json`
-  (`"model": "claude-opus-4-8"`, `"effortLevel": "medium"`, and the
-  same level under `"modelSettings"` for the orchestrator model's full
-  ID). If that file
-  is missing or lacks these keys, recreate it from the template and
-  commit it before dispatching anything; nobody creates it by hand.
-  Project settings outrank user settings, so a model picked in the
-  app's picker only affects the session it was picked in — new
-  sessions in this repo start here regardless. The
-  orchestrating session takes thousands of bookkeeping turns and
-  re-sends its whole context on each one; measured across the first
-  specs, that re-send volume was eight to nine times the implementers'
-  and was the dominant cost of the entire workflow. It doesn't need a
-  higher tier or deep reasoning to assemble a bundle and tick a box,
-  and it makes no design decisions. If it drops the protocol (a skipped
-  review, a stale `tasks.md` edit, a task done by hand), the first fix
-  is high effort, one line in the same file — not a model change.
+- **Tiers by name**: top tier `fable`; implementation tier `opus`;
+  session tier `fable` at medium effort (experiment 1 — the top and
+  session tiers are the same model at different effort; the fallback
+  session model is `claude-opus-4-8`, the full ID, since a
+  previous-generation model has no short alias). These names are the
+  only place a model is spelled out; everything below refers to the
+  roles.
+- **The session runs at the session tier, at medium effort**, set in
+  this repo's `.claude/settings.json` — written at project setup from
+  the skill's `assets/settings-template.json` (`"model":
+  "claude-fable-5-1"`, `"effortLevel": "medium"`, and a level under
+  `"modelSettings"` for each tier's full model ID). If that file is missing or lacks these
+  keys, recreate it from the template and commit it before dispatching
+  anything; nobody creates it by hand. Project settings outrank user
+  settings, so a model picked in the app's picker only affects the
+  session it was picked in — new sessions in this repo start here
+  regardless. The app's effort indicator may show the model's default
+  rather than the level in effect; `/effort status` inside the session
+  is the authoritative check. The orchestrating session takes many
+  bookkeeping turns and re-sends its whole context on each one — the
+  dominant cost of the workflow — and it makes no design decisions: it
+  assembles bundles, dispatches, verifies, commits, and reports. The
+  role never needs the top tier; it sits on the top tier's model
+  under experiment 1 because Fable 5.1's cache-read rate makes the
+  seat's re-sends cost about what they would on Opus, and this spec
+  measures the allowance draw and the readability of the reports.
+  If it drops the protocol (a skipped review, a stale `tasks.md`
+  edit, a task done by hand), the first fix is high effort, one line
+  in the same file.
+- **The session tier never resolves a design question.** When triage
+  finds a task that isn't routine, the session frames the question in
+  Plan Mode — so nothing is touched meanwhile — and dispatches the
+  `skeptical-reviewer` at the top tier on a decision bundle: the task
+  line, the plan section, the acceptance criteria, and the options as
+  the session sees them. It transcribes the recommendation into
+  `plan.md` and dispatches what remains. A product question `spec.md`
+  doesn't settle goes to the person instead.
+- **Everything the person reads is plain language.** Pause reports,
+  spec-conformance summaries, and questions use short sentences and
+  everyday words — no task IDs, agent names, tier names, or internal
+  shorthand unless the person asks — and assume the reader won't open
+  `plan.md`. Say what can now be tried, where execution deviated from
+  the spec and why, and what needs a decision. Technical detail
+  belongs in `plan.md` and the commit log, not in the report.
+- **What the person's walkthrough finds is a finding, not a task
+  line.** When the person reports at a phase pause that something is
+  wrong, the session restates it — which acceptance criterion, what
+  they saw, what the spec says — and dispatches a diagnosis bundle to
+  the `sdd-implementer` (the report, the restatement, the task line,
+  the plan section, the acceptance criterion, the files). The
+  implementer finds the cause and fixes it if the fix is routine and
+  inside the footprint; otherwise it returns the diagnosis and
+  options, which go to a decision review at the top tier. A fix is
+  logged as a sub-lettered task; a finding that is really the spec
+  being ambiguous goes back to the person as a product question. The
+  session never diagnoses in place.
 - **The top tier runs only inside the decisions**: the `sdd-planner`
   (one dispatch per spec) and the `skeptical-reviewer` on plan/tasks
-  sign-off and on routine-but-real decision reviews — each dispatched
-  with an explicit per-call override to the top tier's name. The three
-  agent definitions carry `effort: high`, which overrides the session's
+  sign-off and on decision reviews — each dispatched with an explicit
+  per-call override to the top tier's name. The three agent
+  definitions carry `effort: high`, which overrides the session's
   medium, so reasoning stays at full strength where it matters.
-- **Spec conversations happen in a Claude Code session of their own**,
-  at the top tier, and end with a new session (not `/clear`, which
-  keeps the model) when the spec is approved — never inside an
-  orchestrating session. The spec session's last message is the
-  continuation prompt that starts planning in the new session. A
-  session in this repo opens at the orchestrator tier
-  (`claude-opus-4-8`), so a spec session states its model first and,
-  since that's not the top tier, asks the person to switch
-  to the top tier for this session — the model selector in the app, or
-  `/model fable` — before continuing. `.claude/settings.json` pins
-  effort per model, so picking the top tier brings high effort with it
-  and the next session still opens at the orchestrator tier. (The
-  project's very first spec, with no codebase yet, happened in chat.)
-- **The `skeptical-reviewer` runs at `opus` by default** (its
-  definition says `opus`) for per-phase reviews, the per-task reviews
-  the planner marks, and the pre-merge sweep — a tier above the
-  orchestrator that dispatches it, and the same tier as the
-  implementers whose work it reviews. Each
+- **Spec conversations happen in a Claude Code spec session of their
+  own**, at the top tier, never inside an implementation session. The
+  spec session also runs planning once `spec.md` is approved — the
+  planner dispatch, the sign-off, the spec-conformance summary — and
+  ends when `plan.md` and `tasks.md` are final, with a new session
+  (not `/clear`, which keeps the model) whose opening prompt is the
+  spec session's last message. A session in this repo opens at the
+  session tier — the top tier's model at medium — so a spec session
+  states its model and effort first (`/effort status`) and asks the
+  person to raise effort to high for this session (`/effort high`)
+  before continuing. The next session opens at medium again from
+  `.claude/settings.json`. (The project's very first spec, with no
+  codebase yet, happened in chat.)
+- **The `skeptical-reviewer` runs at the implementation tier by
+  default** (its definition says `opus`) for per-phase reviews, the
+  per-task reviews the planner marks, and the pre-merge sweep. Each
   review gets a single bundle file assembled with shell — diff, task
   lines, plan sections, acceptance criteria; for the sweep, the
   documents and the spec's full diff — and reads nothing else.
@@ -176,8 +206,9 @@ further, and whenever something unexpected bears on spec adherence.
   means it would fail an acceptance criterion or a test, or contradicts
   `plan.md` or `CLAUDE.md`; nothing else blocks. Anything open after
   the re-review goes to the tier log and the sweep.
-- **Implementation runs at `opus`**, in the `sdd-implementer`
-  subagent, one task per dispatch, sequentially. The orchestrating
+- **Implementation runs at the implementation tier**, in the
+  `sdd-implementer` subagent (its definition says `opus`), one task
+  per dispatch, sequentially. The orchestrating
   session triages each task, dispatches routine ones on a task bundle
   assembled with shell (task line, plan section, acceptance criteria,
   files, the pattern file to copy), and on return verifies with the
@@ -187,18 +218,19 @@ further, and whenever something unexpected bears on spec adherence.
   orchestrator edits `tasks.md` or commits, and the orchestrator never
   implements second-look notes or does device or browser checks by
   hand.
-- **Clear at every phase boundary and at spec end** (`/clear`, resuming
-  from the first unchecked task). Cache re-sends are context size times
-  turn count; a phase boundary is where the carried context has the
-  least remaining value. Compact mid-phase only if the context grows
-  large; never clear mid-task.
+- **One implementation session per spec.** It opens when `plan.md` and
+  `tasks.md` are final and ends at the merge; a phase pause is a pause
+  in it, not a boundary — the person attests and says continue.
+  `/compact` if the context grows large; never clear or compact
+  mid-task. `/clear` is not part of the workflow: both session
+  boundaries are new sessions.
 - **Every session-ending pause ends with a continuation prompt.** When
-  the next step belongs in a fresh session — after a phase pause,
-  after a spec is approved, after a merge with the next spec waiting
-  on `ROADMAP.md` — the report's last item is the exact prompt to
-  paste there, in its own fenced block. It names the spec directory,
+  the next step belongs in a fresh session — plan and tasks final, a
+  merge with the next spec waiting on `ROADMAP.md`, or a phase pause
+  the person is stopping at — the report's last item is the exact
+  prompt to paste there, in its own fenced block. It names the spec directory,
   the files to read, where to resume, the involvement level, the
-  pause cadence, and any model switch the next session needs. Write
+  pause cadence, and any effort switch the next session needs. Write
   anything the next session needs to a file first; the prompt points
   at files. If nothing can proceed until the person decides
   something, say so instead.
@@ -206,33 +238,31 @@ further, and whenever something unexpected bears on spec adherence.
   shell command; bundle assembly and dispatch back to back. Every turn
   saved is one fewer re-send of the whole context.
 - **Fallback**: if the top tier's usage budget runs out, dispatch the
-  planner and sign-off at `opus` for the rest of the window (drop the
-  override) — and a spec conversation that can't reach the top tier
-  runs at `opus` too. Nothing else changes; the tier log records what
-  ran.
+  planner and sign-off at the implementation tier for the rest of the
+  window (drop the override; both definitions default to `opus`), and
+  switch the session itself to `claude-opus-4-8` mid-session
+  (`/model claude-opus-4-8` — one cache re-write, then continue).
+  Nothing else changes; the tier log records what ran and when the
+  switch happened, which is a result of experiment 1 in itself.
 - **Escape hatch**: two failed verifications on one task, or a "stopped
   on a judgment call" the orchestrator considers well-specified, and
   the orchestrator does that task itself, noting the
   miss in `tasks.md`.
-- **Why three tiers, and who sits where**: `claude-opus-4-8`
-  orchestrates — the one seat whose prose the person reads, making no
-  design decisions (it assembles bundles, dispatches, verifies,
-  commits, and reports, the dominant cost center of the workflow);
-  `opus` does the work that needs real reasoning close to the code —
-  implementation, per-phase/per-task/sweep review — and `fable` is
-  reserved for the decisions with the longest reach: the plan/tasks
-  the whole build inherits (`sdd-planner`), the sign-off and
-  routine-but-real decision reviews, and the spec conversations
-  themselves. The orchestrator deliberately runs *below* the
-  implementers it dispatches. (This supersedes the earlier
-  "orchestrator at the step-down tier, third tier off" arrangement,
-  amended 2026-09-07; the session tier then moved from `sonnet` to
-  `claude-opus-4-8` on 2026-09-09, and the `sdd-implementer` has
-  always run at `opus`.)
+- **Lighter implementer**: off. <!-- Turn on per project once the
+  first spec's tier log justifies it: "the session tier for tasks with
+  an automated Verify check, a named pattern file, and a small
+  footprint." -->
 - **Log token usage per implementer run and per reviewer invocation**,
   plus tier misses, in `tasks.md`'s tier log for the first spec under
   this policy, and compare against a previous spec before treating the
   policy as settled.
+- **History (this project)**: the session tier was `sonnet` until
+  2026-09-07 (orchestrator at the step-down tier, third tier off), moved
+  to `claude-opus-4-8` on 2026-09-09, and to `fable` at medium under
+  experiment 1 on 2026-09-11; the `sdd-implementer` has always run at
+  `opus`. Spec 021 is the first spec under experiment 1 — its tier log
+  in `specs/021-wager-and-loss/tasks.md` carries the allowance reading
+  and the per-invocation token counts to compare against specs 019–020.
 
 ## Spec-driven workflow
 
