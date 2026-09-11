@@ -299,6 +299,37 @@ checksum-restored). Every T004 driver item passed:
 - Expected-at-Phase-2: a loss that leaves `◈ 5` shows a plain map (the
   run-over modal is T005).
 
+## Phase 3 pause — driver results (orchestrator, 2026-09-11)
+
+Driven on a disposable profile (real profile/saves backed up and
+checksum-restored, `shasum -c` OK on all three files). Every T005/T006 driver
+item passed:
+- **Stake row (139×31)**: a 20-credit Cinder match shows `Stake ◈ 20` on panel
+  row 18, under the pips, inside the border; Quick Play at 139×31 shows no
+  `Stake` text and the rows stay blank.
+- **Broke after a loss**: `◈ 10` (hand-edited), all-in at the floor, lost →
+  banner `Lost 10 credits`, `◈ 0`, and the run-over notice over the map
+  (`You're broke — the run is over.` / `Deck, collection, and progress reset to
+  the starter; your records stay.` / `Enter  continue`). Esc leaves it up;
+  Enter opens a fresh map at `0/8 cleared   ◈ 50`, run stats zeroed, the
+  lifetime `stats.campaign.opponents.greeb` row (1 loss, 2/3 rounds) intact.
+- **Continue on a 0-credit profile with no save** meets the same notice; Enter
+  → `◈ 50`.
+- **Discard confirms**: with a staked mid-match save (stake 20) the Quick Play
+  and Start Campaign confirms both read `Discard your saved match?` /
+  `…and forfeit your 20-credit stake.`; with progress and a 15-credit staked
+  save, the New Campaign confirm reads `…and forfeit your 15-credit stake.`
+  Confirming the Start-Campaign discard forfeits (pointer `None`, save
+  cleared) and opens the map at `◈ 30` with no notice (above the floor).
+- **Shop reserve**: fresh run at `◈ 25` → `Credits: ◈ 25  ·  spendable ◈ 15`,
+  Enter on a 20-credit card leaves credits and `owned ×1` unchanged; at `◈ 30`
+  Enter buys (`owned ×2`, `Credits: ◈ 10  ·  spendable ◈ 0`), map `◈ 10`.
+- **Stale pointer** (kill mid-match before any save) could not be produced —
+  the driver's kill leaves a save behind, so Continue resumed the match with
+  the stake instead; the branch is covered by code review only.
+- Not re-driven: the Records overlay rows (the driver's needles did not
+  match its labels); the lifetime-vs-run split was verified in `profile.json`.
+
 ## Handoff note
 
 Read `CLAUDE.md` and `specs/021-wager-and-loss/{spec,plan,tasks}.md`, then
@@ -352,6 +383,6 @@ before treating the policy as settled. -->
 | Phase 2 review (skeptical-reviewer) | opus | ~58K (measured return) | signed off, no blocking; open for sweep: wager width test never walks to k_max (comment overstates); new() precondition prose-only (single caller upholds it); draw picks emphasis by row index; AC2 rests on the driver/attestation only |
 | T005 impl (sdd-implementer) | opus | ~52K (measured return) | done; no open questions; forfeit-clear in the no-save Continue branch guarded by `in_progress().is_some()` so a plain Continue does not rewrite the profile; noted baseline rustfmt/clippy debt (pre-existing, not in the verification command) |
 | T006 impl (sdd-implementer) | opus | ~47K (measured return) | done; board.rs needed no edit (T004 already forwarded `stake`), layout.rs untouched (`y1 <= 30` holds at 20 rows); `PANEL_H_INMATCH` doc still says "reserved" — for the sweep |
-| Phase 3 review (skeptical-reviewer) | | | |
+| Phase 3 review (skeptical-reviewer) | opus | ~50K (measured return) | signed off, no blocking; orchestrator miss: the review bundle paraphrased the verification tail (re-run by the orchestrator after the review: 365 passed, 0 failed, build clean); open for sweep: stake row disappears between settlement and the ack (stake_at_risk is 0 once settled — for the pause report); escrow-forfeit paths (stale pointer, discard-and-forfeit) covered by driver only, no pure helper; shop width test duplicates the format string and only trips above ~90 cols; `portrait.rs:15` doc still says the rows are "reserved"; tension §5 stake-0 pointer note goes in the pause report |
 | T007 close-out (orchestrator) | claude-opus-4-8 | — | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | | | |
