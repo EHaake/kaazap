@@ -1,10 +1,11 @@
-//! The campaign economy (spec 012, subsystem C): the depth-gated card pool,
-//! shop pricing, and the per-win reward. Pure logic over `campaign`/`card` data
-//! — no rendering and no state of its own; the profile holds credits and the
-//! grown collection. Everything here is a function of the campaign run (for
-//! depth) plus one injected `roll` (for the drop), so it is fully unit-testable
-//! and the randomness lives in a single caller-supplied index (the spec-010
-//! deterministic-core pattern). See `docs/economy.md`.
+//! The campaign economy (spec 012, subsystem C; wagering, spec 021): the
+//! depth-gated card pool, shop pricing, and the ante/payout rules. Pure logic
+//! over `campaign`/`card` data — no rendering and no state of its own; the
+//! profile holds credits and the grown collection. Everything here is a
+//! function of the campaign run (for depth) and the opponent's difficulty, so
+//! it is fully unit-testable; nothing here is random any more (spec 021
+//! replaced the win reward's card drop with a staked payout, so the injected
+//! `roll` seam is gone). See `docs/economy.md`.
 
 use crate::{
     campaign::{CampaignRun, PLANETS},
@@ -129,24 +130,6 @@ pub fn cheapest_floor(run: &CampaignRun) -> u32 {
 pub enum StakeOutcome {
     Won(u32),
     Lost(u32),
-}
-
-/// What a campaign win grants: credits plus one card dropped into the collection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WinReward {
-    pub credits: u32,
-    pub card: Card,
-}
-
-/// Compute a win's reward: credits scaled by the beaten opponent's stand
-/// threshold (15→10 … 19→50), and a card chosen from `pool` by `roll`. Pure and
-/// deterministic given `roll` — the caller injects the single random index, so
-/// the whole thing is unit-testable. `pool` must be non-empty (an
-/// `available_pool` always is).
-pub fn win_reward(threshold: usize, pool: &[Card], roll: usize) -> WinReward {
-    let credits = threshold.saturating_sub(14) as u32 * 10;
-    let card = pool[roll % pool.len()];
-    WinReward { credits, card }
 }
 
 #[cfg(test)]
@@ -313,18 +296,5 @@ mod tests {
             // Cinder's rematch keeps the cheapest match at the floor forever.
             assert_eq!(cheapest_floor(run), 10, "{label}");
         }
-    }
-
-    #[test]
-    fn win_reward_scales_credits_and_picks_the_card_by_roll() {
-        let pool = [Card::Plus(1), Card::Plus(2), Card::Plus(3)];
-        // Credits scale with the beaten opponent's threshold.
-        assert_eq!(win_reward(15, &pool, 0).credits, 10);
-        assert_eq!(win_reward(17, &pool, 0).credits, 30);
-        assert_eq!(win_reward(19, &pool, 0).credits, 50);
-        // The card is the roll-indexed pool entry, wrapping.
-        assert_eq!(win_reward(15, &pool, 0).card, Card::Plus(1));
-        assert_eq!(win_reward(15, &pool, 1).card, Card::Plus(2));
-        assert_eq!(win_reward(15, &pool, 5).card, Card::Plus(3)); // 5 % 3 == 2
     }
 }

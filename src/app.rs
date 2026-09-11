@@ -9,12 +9,12 @@ use crate::{
         BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
     },
     board::BoardView,
-    campaign::NodeRef,
-    campaign_map::{CampaignMapState, MapOutcome},
+    campaign::{NodeRef, planet_by_id},
+    campaign_map::{CampaignMapState, MapBanner, MapOutcome},
     card::Card,
     config::Config,
     deck_builder::{BuildOutcome, BuilderOrigin, DeckBuilderState},
-    economy::{self, WinReward},
+    economy,
     frame::{
         Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_centered,
         draw_text_in,
@@ -33,6 +33,7 @@ use crate::{
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
     stats::Mode,
+    wager::{WagerOutcome, WagerState},
 };
 
 /// How much one ←/→ press moves a volume slider on the settings screen.
@@ -276,6 +277,10 @@ enum Modal {
     /// menu like How to Play / Settings and dismissed back to it. Holds its own
     /// view + scroll cursor; content is rebuilt from the profile each draw.
     Records(RecordsState),
+    /// The wager prompt (spec 021), opened over the campaign map when a node is
+    /// launched: it holds the match being staked and the chosen stake until the
+    /// player commits (starting the match) or cancels back to the map.
+    Wager(WagerState),
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
@@ -374,10 +379,10 @@ pub struct App {
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
-    // The reward from the most recent campaign win, shown as a banner on the
-    // campaign map until the player navigates. Transient UI state — not saved
-    // (the credits and dropped card it reports are already persisted).
-    last_reward: Option<WinReward>,
+    // The transient campaign-map banner: how the last staked match settled, or
+    // why a launch was refused. Shown until the player navigates the map. UI
+    // state only — not saved (the credits it reports are already persisted).
+    banner: Option<MapBanner>,
 }
 
 impl App {
@@ -406,7 +411,7 @@ impl App {
             play_log_scroll: 0,
             play_log_follow: true,
             too_small: None,
-            last_reward: None,
+            banner: None,
         }
     }
 
@@ -496,33 +501,74 @@ impl App {
 
     /// Wipe to a fresh starter profile and open a new campaign map — the New
     /// Campaign action (spec 014). Discards any in-progress match save and the
-    /// stale reward banner. The reset core is `Profile::reset_to_starter`.
+    /// stale map banner. The reset core is `Profile::reset_to_starter`.
     fn start_new_campaign(&mut self) {
         self.profile.reset_to_starter();
         self.profile.save();
         crate::save::clear();
         self.has_save = false;
-        self.last_reward = None;
+        self.banner = None;
         self.audio.play(Sfx::MenuSelect);
         self.open_campaign_map();
     }
 
-    /// Launch a campaign match against `planet`/`opponent` (both ids), upholding
-    /// `start_match`'s deck-valid precondition (diverting to the deck-builder if
-    /// the deck is incomplete). Shared by the map's direct launch (no save) and
-    /// the confirmed discard-and-launch.
+    /// The pre-match gate for a campaign node (both ids): uphold `start_match`'s
+    /// deck-valid precondition (diverting to the deck-builder if the deck is
+    /// incomplete), refuse the launch outright when the balance can't cover the
+    /// node's ante floor (spec 021), and otherwise open the wager prompt — the
+    /// match itself starts when the player commits a stake there.
     fn launch_campaign_node(&mut self, planet: &str, opponent: &str) {
         if !self.profile.deck_is_valid() {
             // Origin is the map: fixing an incomplete deck mid-campaign returns
             // to the campaign map, not the menu (spec 015 return-path fix).
             self.open_deck_builder(BuilderOrigin::Map);
-        } else if let Some(opp) = opponent_by_id(opponent) {
-            let node = NodeRef {
-                planet: planet.to_string(),
-                opponent: opponent.to_string(),
-                stake: 0,
-            };
-            self.start_match(opp, Some(node));
+        } else if let Some(opp) = opponent_by_id(opponent)
+            && let Some(planet) = planet_by_id(planet)
+        {
+            let floor = economy::ante_floor(opp.stand_threshold);
+            if self.profile.credits() < floor {
+                // Unaffordable: no prompt opens and nothing is staked — the map
+                // says why (spec 021, AC2).
+                self.banner = Some(MapBanner::CantCover { floor });
+                self.audio.play(Sfx::MenuBack);
+            } else {
+                // The prompt gates on the full balance, so an all-in stake is
+                // always reachable and `stake_match` can never refuse.
+                self.modal = Some(Modal::Wager(WagerState::new(
+                    planet,
+                    opp,
+                    self.profile.credits(),
+                )));
+            }
+        }
+    }
+
+    /// Route a key to the open wager prompt: ←/→ walk the stake, Esc backs out
+    /// to the map with nothing staked, Enter commits — closing the prompt and
+    /// starting the match against the chosen node with the stake escrowed
+    /// (spec 021).
+    fn handle_wager_input(&mut self, key: KeyCode) {
+        let Some(Modal::Wager(state)) = self.modal.as_mut() else {
+            return;
+        };
+        match state.handle_input(key) {
+            Some(WagerOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+            Some(WagerOutcome::Cancel) => {
+                self.modal = None;
+                self.audio.play(Sfx::MenuBack);
+            }
+            Some(WagerOutcome::Commit) => {
+                let node = NodeRef {
+                    planet: state.planet_id().to_string(),
+                    opponent: state.opponent().id.to_string(),
+                    stake: state.stake(),
+                };
+                let opponent = state.opponent();
+                self.modal = None;
+                self.audio.play(Sfx::MenuSelect);
+                self.start_match(opponent, Some(node));
+            }
+            None => {}
         }
     }
 
@@ -541,7 +587,17 @@ impl App {
         // node — persisted, so a match resumed via Continue still routes back
         // to the map at game over. Quick Play passes None (clearing any stale
         // pointer).
-        self.profile.campaign_mut().set_in_progress(campaign);
+        match campaign {
+            // Escrow (spec 021): the stake leaves the balance now. The prompt
+            // clamps to the balance, so this cannot fail; if it ever did,
+            // launch nothing.
+            Some(node) => {
+                if !self.profile.stake_match(node) {
+                    return;
+                }
+            }
+            None => self.profile.campaign_mut().set_in_progress(None),
+        }
         self.profile.save();
 
         // Capture the id (and name) before `opponent` is moved into the game
@@ -736,6 +792,10 @@ impl App {
                 }
                 None => {}
             }
+        } else if matches!(self.modal, Some(Modal::Wager(_))) {
+            // The wager prompt takes all input while open (spec 021): ←/→ set
+            // the stake, Enter commits and launches, Esc returns to the map.
+            self.handle_wager_input(key);
         } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
             self.handle_campaign_entry_input(key);
         } else if matches!(self.modal, Some(Modal::ConfirmNewCampaign { .. })) {
@@ -918,7 +978,7 @@ impl App {
                     // The post-win reward banner shows on arrival and clears on
                     // the player's first navigation.
                     if outcome.is_some() {
-                        self.last_reward = None;
+                        self.banner = None;
                     }
                     match outcome {
                         Some(MapOutcome::Moved) => self.audio.play(Sfx::MenuMove),
@@ -1225,43 +1285,18 @@ impl App {
             self.save_game();
         }
 
-        // Record a campaign win the first time game over is seen with the player
-        // as winner. Checked every tick (not only the phase transition), so it
-        // can't be missed however game over is reached; the is_opponent_beaten
-        // guard fires it exactly once and mark_beaten is idempotent regardless.
-        // `in_progress` is cleared only on the player's acknowledgement (the
-        // InGame input arm); a loss records nothing and keeps the node open.
-        if let Screen::InGame { game_state, .. } = &self.screen
-            && matches!(game_state.game_phase, GamePhase::GameOver { winner: Player::Player })
-            && let Some(node) = self.profile.campaign().in_progress().cloned()
-            && !self.profile.campaign().is_opponent_beaten(&node.planet, &node.opponent)
-        {
-            self.profile.campaign_mut().mark_beaten(&node.planet, &node.opponent);
-
-            // Economy (spec 012): award credits scaled by the opponent's
-            // difficulty and drop one card from the current depth-gated pool.
-            // This block fires exactly once per node, so the reward is granted
-            // once; Quick Play has no `in_progress`, so it never reaches here —
-            // earning is campaign-only by construction. The whole application is
-            // `Profile::apply_win_reward` (unit-tested); this stays a thin call.
-            // Note the order: the drop pool is read *after* `mark_beaten`, so the
-            // win that first unlocks a region can already draw from its tier —
-            // deliberate, so the drop and the (post-win) shop always agree.
-            let threshold =
-                opponent_by_id(&node.opponent).map_or(crate::STAND_THRESHOLD, |o| o.stand_threshold);
-            let reward = self.profile.apply_win_reward(threshold, rand::random_range(0..usize::MAX));
-            self.last_reward = Some(reward);
-
-            self.profile.save();
-        }
-
-        // Record the finished match exactly once, on the tick the phase enters
-        // GameOver. Placed after the campaign-win block so `mark_beaten` has
-        // already run this tick and `run_complete()` (checked inside
-        // `record_match`) sees the accurate campaign state. Quick Play (no
-        // `in_progress`) records to Quick Play; campaign records to Campaign plus
-        // the run tally and completion, all inside `record_match`. Abandoned
-        // matches never reach a GameOver tick, so they record nothing.
+        // Settle and record the finished match exactly once, on the tick the
+        // phase enters GameOver — the one resolution seam (spec 021 folded the
+        // old every-tick campaign-win block into this edge, since a rematch
+        // makes `!is_opponent_beaten` useless as a once-guard; `GameOver` is
+        // only ever entered from `GameState::update()` here, and a saved match
+        // is never at `GameOver`). Order matters: `settle_campaign_match` pays
+        // the stake and marks the node beaten first, so `run_complete()`
+        // (checked inside `record_match`) sees the accurate campaign state.
+        // Quick Play has no `in_progress`, so it settles nothing and records to
+        // Quick Play; `in_progress` is cleared only on the player's
+        // acknowledgement (the InGame input arm). Abandoned matches never reach
+        // a GameOver tick, so they resolve nothing.
         if phase_changed
             && let Screen::InGame { game_state, .. } = &self.screen
             && matches!(game_state.game_phase, GamePhase::GameOver { .. })
@@ -1271,11 +1306,16 @@ impl App {
             let opponent_id = game_state.opponent_profile.id;
             let player_rounds = game_state.player.rounds_won as u32;
             let opp_rounds = game_state.opponent.rounds_won as u32;
+            // Read before settlement only for clarity — settling never clears
+            // the in-progress pointer (the acknowledgement does).
             let mode = if self.profile.campaign().in_progress().is_some() {
                 Mode::Campaign
             } else {
                 Mode::QuickPlay
             };
+            if let Some(outcome) = self.profile.settle_campaign_match(player_won) {
+                self.banner = Some(MapBanner::Settled(outcome));
+            }
             self.profile.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
             self.profile.save();
         }
@@ -1297,12 +1337,19 @@ impl App {
         match &self.screen {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
-                self.board_view.draw(game_state, cursor, self.banter, pulse, frame)
+                self.board_view.draw(
+                    game_state,
+                    cursor,
+                    self.banter,
+                    self.profile.campaign().stake_at_risk(),
+                    pulse,
+                    frame,
+                )
             }
             Screen::OpponentSelect { state } => state.draw(frame, &self.config, pulse),
             Screen::DeckBuilder { state } => state.draw(frame, &self.config, &self.profile, pulse),
             Screen::CampaignMap { state } => {
-                state.draw(frame, &self.config, &self.profile, self.last_reward.as_ref(), pulse)
+                state.draw(frame, &self.config, &self.profile, self.banner.as_ref(), pulse)
             }
             Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
         }
@@ -1316,6 +1363,7 @@ impl App {
             Some(Modal::ConfirmNewGame { on_yes, .. }) => {
                 self.draw_confirm_new_game(*on_yes, pulse, frame)
             }
+            Some(Modal::Wager(state)) => state.draw(frame, &self.config, pulse),
             Some(Modal::CampaignEntry { on_new }) => {
                 self.draw_campaign_entry(*on_new, pulse, frame)
             }

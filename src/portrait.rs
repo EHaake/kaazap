@@ -59,12 +59,15 @@ pub fn draw_presence_panel(frame: &mut Frame, panel: Rect, name: &str, art: &str
 /// followed by the remaining empty glyphs (Muted), the whole run centered. This
 /// is a separate drawer called only by the in-match board, so the two preview
 /// callers of `draw_presence_panel` keep showing name + portrait only.
-/// Clip-safe (delegates to clip-safe `draw_text`/`draw_text_in`).
+/// Clip-safe (delegates to clip-safe `draw_text`/`draw_text_in`). `_stake` is
+/// the staked campaign match's escrow (spec 021), threaded through now and
+/// drawn in a later task.
 pub fn draw_presence_extras(
     frame: &mut Frame,
     panel: Rect,
     banter: Option<&str>,
     opponent_rounds_won: usize,
+    _stake: Option<u32>,
 ) {
     let interior = Rect::new(panel.x0 + 1, panel.x1 - 1, panel.y0 + 1, panel.y1 - 1);
 
@@ -147,24 +150,24 @@ mod tests {
         // panel entirely past the right edge — nothing lands, no panic
         let mut f = blank(4, 4);
         let panel = Rect::new(99, 99 + PANEL_W - 1, 0, PANEL_H_INMATCH - 1);
-        draw_presence_extras(&mut f, panel, Some("hello"), 2);
+        draw_presence_extras(&mut f, panel, Some("hello"), 2, None);
 
         // panel past the bottom edge — no panic
         let mut f = blank(4, 4);
         let panel = Rect::new(0, PANEL_W - 1, 99, 99 + PANEL_H_INMATCH - 1);
-        draw_presence_extras(&mut f, panel, Some("hello"), 2);
+        draw_presence_extras(&mut f, panel, Some("hello"), 2, None);
 
         // empty frame — no panic
         let mut f: Frame = Vec::new();
         let panel = Rect::new(0, PANEL_W - 1, 0, PANEL_H_INMATCH - 1);
-        draw_presence_extras(&mut f, panel, Some("hello"), 3);
+        draw_presence_extras(&mut f, panel, Some("hello"), 3, None);
     }
 
     #[test]
     fn pip_row_carries_exactly_round_pips_markers() {
         for rounds_won in 0..=ROUND_PIPS {
             let (mut f, panel) = inmatch_panel();
-            draw_presence_extras(&mut f, panel, None, rounds_won);
+            draw_presence_extras(&mut f, panel, None, rounds_won, None);
 
             let pip_y = 16; // interior.y0 (1) + 15
             let mut filled = 0;
@@ -185,7 +188,7 @@ mod tests {
     #[test]
     fn rounds_won_over_round_pips_is_clamped() {
         let (mut f, panel) = inmatch_panel();
-        draw_presence_extras(&mut f, panel, None, 99);
+        draw_presence_extras(&mut f, panel, None, 99, None);
         let pip_y = 16;
         let filled = f.iter().filter(|col| col[pip_y].ch == '●').count();
         let empty = f.iter().filter(|col| col[pip_y].ch == '○').count();
@@ -196,7 +199,7 @@ mod tests {
     #[test]
     fn pip_glyphs_are_spaced_one_blank_cell_apart() {
         let (mut f, panel) = inmatch_panel();
-        draw_presence_extras(&mut f, panel, None, 1);
+        draw_presence_extras(&mut f, panel, None, 1, None);
 
         let pip_y = 16;
         // Collect the columns carrying a pip glyph, left to right.
@@ -229,7 +232,7 @@ mod tests {
         // A line exactly BANTER_MAX_WIDTH long lands fully inside the interior.
         let fit: String = std::iter::repeat('x').take(BANTER_MAX_WIDTH).collect();
         let (mut f, panel) = inmatch_panel();
-        draw_presence_extras(&mut f, panel, Some(&fit), 0);
+        draw_presence_extras(&mut f, panel, Some(&fit), 0, None);
         for x in 1..=(PANEL_W - 2) {
             assert_eq!(f[x][banter_y].ch, 'x', "interior col {x} should carry banter");
         }
@@ -239,7 +242,7 @@ mod tests {
         // A line longer than the interior is clipped: nothing on or past the border.
         let long: String = std::iter::repeat('y').take(BANTER_MAX_WIDTH + 10).collect();
         let (mut f, panel) = inmatch_panel();
-        draw_presence_extras(&mut f, panel, Some(&long), 0);
+        draw_presence_extras(&mut f, panel, Some(&long), 0, None);
         assert_ne!(f[left_border][banter_y].ch, 'y', "left border untouched");
         assert_ne!(f[right_border][banter_y].ch, 'y', "right border untouched");
     }

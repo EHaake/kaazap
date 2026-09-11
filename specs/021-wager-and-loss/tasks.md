@@ -138,7 +138,7 @@ attestation (T004). -->
   `None`; `lines()` contains the opponent name, `Ante ◈ 10`, `Balance ◈ 53`,
   `+15`/`−15` at stake 15, and every line is ≤ 70 columns.*
 
-- [ ] **T004 (review: per-task)** — Wire the loop in `src/app.rs` and
+- [x] **T004 (review: per-task)** — Wire the loop in `src/app.rs` and
   `src/campaign_map.rs`. `campaign_map.rs`: `MapBanner { Settled(StakeOutcome),
   CantCover { floor } }` replaces the reward banner; `draw(…, banner:
   Option<&MapBanner>, …)`; header text `★  Won {s} credits` (Strong) / `Lost {s}
@@ -324,8 +324,8 @@ before treating the policy as settled. -->
 | T002 review (skeptical-reviewer, per-task) | opus | ~46K (measured return) | signed off, no blocking; open for sweep: rematch record_match coverage (AC5 second half) unpinned in T002; pre-021 in_progress-without-stake not pinned end-to-end via Profile::from_json; stake_match doc claims the prompt gates on balance (verify at T003/T004); abandoned escrow on discard is the plan §5/T005 explicit forfeit |
 | Phase 1 review (skeptical-reviewer) | opus | ~57K (measured return) | signed off, no blocking; handoffs: T004 must wire settle_campaign_match + launchable_opponent (completions uncounted at Phase 1 HEAD by design); banner "Won N" should show win_payout(stake) − stake, not the raw Won payload, so it stays right if PAYOUT_RATIO changes; cheapest_floor is 10 in every run state (Cinder rematch) so the unlocked-planet filter is inert — docs must not claim it was exercised |
 | T003 impl (sdd-implementer) | opus | ~52K (measured return) | done; cosmetic arrow-dimming skipped (one stake string shared by lines()/draw); k_max private |
-| T004 impl (sdd-implementer) | | | |
-| T004 review (skeptical-reviewer, per-task) | | | |
+| T004 impl (sdd-implementer) | opus | ~89K (measured return) | done; banner_line extracted as a pure helper; refused can't-cover launch sounds MenuSelect then MenuBack (pre-existing divert shape) |
+| T004 review (skeptical-reviewer, per-task) | opus | ~70K (measured return) | signed off, no blocking; open for sweep: stale ordering comment at the GameOver block (attributes completion to record_match); banner_line has no test pinning the net-gain rule; net-gain expression duplicated in wager.rs and campaign_map.rs; start_match doc names the old campaign caller |
 | Phase 2 review (skeptical-reviewer) | | | |
 | T005 impl (sdd-implementer) | | | |
 | T006 impl (sdd-implementer) | | | |

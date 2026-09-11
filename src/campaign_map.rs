@@ -15,7 +15,7 @@ use crate::{
     STARFIELD_TWINKLE_MS,
     campaign::{PLANETS, Planet, planet_by_id},
     config::Config,
-    economy::WinReward,
+    economy::{StakeOutcome, win_payout},
     frame::{Emphasis, Frame, draw_char, draw_text, draw_text_centered},
     layout::CampaignMapLayout,
     opponent::{DEFAULT_OPPONENT, opponent_by_id},
@@ -42,6 +42,15 @@ pub enum MapOutcome {
     OpenShop,
     OpenDeckBuilder,
     Back,
+}
+
+/// The transient message shown on the map header's second row until the player
+/// navigates: how the last staked match settled, or why a launch was refused
+/// (spec 021). Replaces spec 012's reward banner.
+#[derive(Debug, Clone, Copy)]
+pub enum MapBanner {
+    Settled(StakeOutcome),
+    CantCover { floor: u32 },
 }
 
 /// One backdrop star: a normalized position, a twinkle phase offset, and the
@@ -108,7 +117,8 @@ impl CampaignMapState {
 
     /// Handle a key: arrows / `wasd` move the cursor between **unlocked**
     /// planets (rim→core order, wrapping); Enter/Space launches the highlighted
-    /// planet's next un-beaten opponent (no-op on a cleared planet); Esc/`x`
+    /// planet's launchable opponent — its next un-beaten one, or its final
+    /// opponent again once the planet is cleared (a rematch, spec 021); Esc/`x`
     /// backs out. `None` for keys the map ignores.
     pub fn handle_input(&mut self, key: KeyCode, profile: &Profile) -> Option<MapOutcome> {
         let run = profile.campaign();
@@ -135,8 +145,8 @@ impl CampaignMapState {
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
                 let planet = PLANETS[self.cursor];
-                // A cleared planet has no next opponent → nothing to launch.
-                run.next_opponent(&planet)
+                // A cleared planet launches its final opponent again (rematch).
+                run.launchable_opponent(&planet)
                     .map(|opponent| MapOutcome::Launch { planet: planet.id, opponent })
             }
             KeyCode::Char('b') => Some(MapOutcome::OpenShop),
@@ -163,7 +173,7 @@ impl CampaignMapState {
         frame: &mut Frame,
         config: &Config,
         profile: &Profile,
-        last_reward: Option<&WinReward>,
+        banner: Option<&MapBanner>,
         pulse: Emphasis,
     ) {
         let run = profile.campaign();
@@ -201,16 +211,14 @@ impl CampaignMapState {
             draw_text_centered(frame, x, y + 1, &label, emphasis);
         }
 
-        self.draw_header(frame, &layout, run, profile.credits(), last_reward);
+        self.draw_header(frame, &layout, run, profile.credits(), banner);
         self.draw_panel(frame, &layout, run);
 
-        // Focused planet's opponent preview in the right rail: the next
-        // opponent to play, else the planet's last opponent (a cleared planet
-        // still shows its resident face), else the generic fallback.
+        // Focused planet's opponent preview in the right rail: the opponent a
+        // launch would face — the next to play, or the resident final opponent
+        // once the planet is cleared — else the generic fallback.
         let planet = PLANETS[self.cursor];
-        let shown_id = run
-            .next_opponent(&planet)
-            .or_else(|| planet.opponents.last().copied());
+        let shown_id = run.launchable_opponent(&planet);
         let shown = shown_id.and_then(|id| opponent_by_id(id)).unwrap_or(DEFAULT_OPPONENT);
         draw_presence_panel(frame, layout.portrait_panel, shown.name, shown.portrait);
     }
@@ -240,7 +248,7 @@ impl CampaignMapState {
         layout: &CampaignMapLayout,
         run: &crate::campaign::CampaignRun,
         credits: u32,
-        last_reward: Option<&WinReward>,
+        banner: Option<&MapBanner>,
     ) {
         let cleared = PLANETS.iter().filter(|p| run.planet_cleared(p)).count();
         draw_text(frame, layout.header.x0 + 2, layout.header.y0, "CAMPAIGN", Emphasis::Strong);
@@ -250,13 +258,14 @@ impl CampaignMapState {
         let px = layout.header.x1.saturating_sub(status.chars().count() + 1);
         draw_text(frame, px, layout.header.y0, &status, Emphasis::Normal);
 
-        // Second row: the just-won reward as a transient banner (until the
-        // player navigates), otherwise the rim→core axis label.
+        // Second row: how the last staked match settled (or why a launch was
+        // refused) as a transient banner until the player navigates, otherwise
+        // the rim→core axis label.
         let cx = (layout.header.x0 + layout.header.x1) / 2;
-        match last_reward {
-            Some(r) => {
-                let banner = format!("★  Won {} credits  ·  new card {}", r.credits, r.card.label());
-                draw_text_centered(frame, cx, layout.header.y0 + 1, &banner, Emphasis::Strong);
+        match banner {
+            Some(b) => {
+                let (text, emphasis) = banner_line(b);
+                draw_text_centered(frame, cx, layout.header.y0 + 1, &text, emphasis);
             }
             None => {
                 const AXIS: &str = "Outer Rim  →  The Core";
@@ -276,15 +285,39 @@ impl CampaignMapState {
         draw_text(frame, x, panel.y0 + 1, &format!("{}  ·  {}", planet.name, planet.region), Emphasis::Strong);
         draw_text(frame, x, panel.y0 + 2, &opponents_line(&planet, run), Emphasis::Normal);
 
+        let cleared_line = run
+            .launchable_opponent(&planet)
+            .and_then(|id| opponent_by_id(id))
+            .map(|o| format!("Cleared — Enter to rematch {}.", o.name))
+            .unwrap_or_else(|| "Cleared.".to_string());
         let status = if run.run_complete() {
-            "Campaign complete — you've reached the Core."
+            "Campaign complete — rematches stay open."
         } else if run.planet_cleared(&planet) {
-            "Cleared."
+            cleared_line.as_str()
         } else {
             planet.blurb
         };
         draw_text(frame, x, panel.y0 + 3, status, Emphasis::Muted);
         draw_text(frame, x, panel.y0 + 4, HINT, Emphasis::Muted);
+    }
+}
+
+/// The banner's text and emphasis. A win reports the **net gain**
+/// (`win_payout(stake) − stake`), not the raw payload, so the line stays right
+/// if the payout ratio moves; a loss reports the forfeited stake. Pure, so the
+/// wording is testable without a terminal.
+fn banner_line(banner: &MapBanner) -> (String, Emphasis) {
+    match banner {
+        MapBanner::Settled(StakeOutcome::Won(stake)) => (
+            format!("★  Won {} credits", win_payout(*stake).saturating_sub(*stake)),
+            Emphasis::Strong,
+        ),
+        MapBanner::Settled(StakeOutcome::Lost(stake)) => {
+            (format!("Lost {stake} credits"), Emphasis::Normal)
+        }
+        MapBanner::CantCover { floor } => {
+            (format!("Can't cover the {floor}-credit ante"), Emphasis::Normal)
+        }
     }
 }
 
@@ -391,14 +424,21 @@ mod tests {
     }
 
     #[test]
-    fn enter_on_a_cleared_planet_is_a_no_op() {
+    fn enter_on_a_cleared_planet_launches_a_rematch() {
         let mut p = Profile::default();
         p.campaign_mut().mark_beaten("cinder", "greeb"); // Cinder cleared
         let mut s = CampaignMapState::new(&p);
         while PLANETS[s.cursor].id != "cinder" {
             s.handle_input(KeyCode::Down, &p);
         }
-        assert!(s.handle_input(KeyCode::Enter, &p).is_none());
+        // Spec 021: a cleared planet stays launchable against its final opponent.
+        match s.handle_input(KeyCode::Enter, &p) {
+            Some(MapOutcome::Launch { planet, opponent }) => {
+                assert_eq!(planet, "cinder");
+                assert_eq!(opponent, "greeb");
+            }
+            other => panic!("expected a rematch Launch, got {other:?}"),
+        }
     }
 
     #[test]

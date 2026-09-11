@@ -230,9 +230,19 @@ impl BoardView {
         }
     }
 
-    /// Draw the current game state
+    /// Draw the current game state. `stake` is the credits escrowed on this
+    /// match (spec 021) — `None` for Quick Play — forwarded to the presence
+    /// panel's extras.
     ///
-    pub fn draw(&self, state: &GameState, cursor: &HandCursor, banter: Option<&str>, pulse: Emphasis, frame: &mut Frame) {
+    pub fn draw(
+        &self,
+        state: &GameState,
+        cursor: &HandCursor,
+        banter: Option<&str>,
+        stake: Option<u32>,
+        pulse: Emphasis,
+        frame: &mut Frame,
+    ) {
         let (alert, base) = self.status_lines(state, cursor);
 
         // Vertical divider spans the block: from the header down through
@@ -270,7 +280,13 @@ impl BoardView {
             state.opponent_profile.name,
             state.opponent_profile.portrait,
         );
-        draw_presence_extras(frame, self.layout.opponent_panel, banter, state.opponent.rounds_won);
+        draw_presence_extras(
+            frame,
+            self.layout.opponent_panel,
+            banter,
+            state.opponent.rounds_won,
+            stake,
+        );
     }
 }
 
