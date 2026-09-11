@@ -326,7 +326,7 @@ before treating the policy as settled. -->
 | T003 impl (sdd-implementer) | opus | ~52K (measured return) | done; cosmetic arrow-dimming skipped (one stake string shared by lines()/draw); k_max private |
 | T004 impl (sdd-implementer) | opus | ~89K (measured return) | done; banner_line extracted as a pure helper; refused can't-cover launch sounds MenuSelect then MenuBack (pre-existing divert shape) |
 | T004 review (skeptical-reviewer, per-task) | opus | ~70K (measured return) | signed off, no blocking; open for sweep: stale ordering comment at the GameOver block (attributes completion to record_match); banner_line has no test pinning the net-gain rule; net-gain expression duplicated in wager.rs and campaign_map.rs; start_match doc names the old campaign caller |
-| Phase 2 review (skeptical-reviewer) | | | |
+| Phase 2 review (skeptical-reviewer) | opus | ~58K (measured return) | signed off, no blocking; open for sweep: wager width test never walks to k_max (comment overstates); new() precondition prose-only (single caller upholds it); draw picks emphasis by row index; AC2 rests on the driver/attestation only |
 | T005 impl (sdd-implementer) | | | |
 | T006 impl (sdd-implementer) | | | |
 | Phase 3 review (skeptical-reviewer) | | | |
