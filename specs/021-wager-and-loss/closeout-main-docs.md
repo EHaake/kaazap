@@ -8,6 +8,34 @@ branch.
 
 ---
 
+## 0. `CLAUDE.md` — one-sentence amendment
+
+`CLAUDE.md` is repo-wide too, so this rides to `main` with the rest of the
+close-out rather than on the spec branch. In the **What this project is**
+paragraph, the sentence describing the reward loop is false after spec 021 (the
+free win credit and the card drop are gone, matches are staked, a loss costs the
+stake, and going broke resets the run).
+
+Replace this sentence (currently `CLAUDE.md` line 17):
+
+```markdown
+Wins earn currency and/or card packs that unlock better side-deck cards
+for future matches.
+```
+
+with:
+
+```markdown
+Every campaign match is played for a stake the player chooses: a win pays
+it back double, a loss keeps it, and going broke ends the run and resets
+it. Credits buy better side-deck cards in the shop.
+```
+
+The rest of the paragraph (the first sentence and the closing
+"personal project… portfolio, itch.io" sentence) stays exactly as is.
+
+---
+
 ## 1. `ROADMAP.md` — three edits
 
 ### 1a. New entry at the end of the `## Shipped` list

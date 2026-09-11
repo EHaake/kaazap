@@ -1342,13 +1342,14 @@ impl App {
         // old every-tick campaign-win block into this edge, since a rematch
         // makes `!is_opponent_beaten` useless as a once-guard; `GameOver` is
         // only ever entered from `GameState::update()` here, and a saved match
-        // is never at `GameOver`). Order matters: `settle_campaign_match` pays
-        // the stake and marks the node beaten first, so `run_complete()`
-        // (checked inside `record_match`) sees the accurate campaign state.
-        // Quick Play has no `in_progress`, so it settles nothing and records to
-        // Quick Play; `in_progress` is cleared only on the player's
-        // acknowledgement (the InGame input arm). Abandoned matches never reach
-        // a GameOver tick, so they resolve nothing.
+        // is never at `GameOver`). `settle_campaign_match` handles escrow,
+        // `mark_beaten`, and the once-only completion edge internally, so no
+        // ordering rule spans the two calls; `record_match` records lifetime
+        // and run-tally stats only. Quick Play has no `in_progress`, so it
+        // settles nothing and records to Quick Play; `in_progress` is cleared
+        // only on the player's acknowledgement (the InGame input arm).
+        // Abandoned matches never reach a GameOver tick, so they resolve
+        // nothing.
         if phase_changed
             && let Screen::InGame { game_state, .. } = &self.screen
             && matches!(game_state.game_phase, GamePhase::GameOver { .. })
