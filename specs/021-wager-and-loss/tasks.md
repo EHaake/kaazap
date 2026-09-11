@@ -277,6 +277,28 @@ ends with the person's broke-and-reset attestation (T005/T006). -->
 
 ---
 
+## Phase 2 pause — driver results (orchestrator, 2026-09-10)
+
+Driven at 180×48 on a disposable profile (real profile/saves backed up and
+checksum-restored). Every T004 driver item passed:
+- Fresh profile opens the map at `◈ 50`; Enter on Cinder opens the prompt
+  `Wager — Greeb · Cinder / Ante ◈ 10  Balance ◈ 50 / ◂ Stake ◈ 10 ▸ / Win +10 · Lose −10`;
+  →×3 → 25, ← → 20; Esc returns with `◈ 50`; Enter at 15 drops the header
+  to `◈ 35` and `profile.json` holds `in_progress.stake: 15`.
+- Loss: banner `Lost 15 credits`, `◈` unchanged from the escrowed value,
+  pointer cleared, save cleared. Win: `★  Won 10 credits`, `◈ 25 → 35`
+  (2N over escrowed), `1/8 cleared`.
+- Rematch: cursor Up to cleared Cinder shows `Cleared — Enter to rematch
+  Greeb.`; the prompt stakes Greeb; a win pays and leaves `beaten`,
+  `1/8 cleared`, and `campaign_completions` (0) unchanged.
+- AC2: `◈ 15` with Ashfall (Vessa, floor 20) unlocked → `Can't cover the
+  20-credit ante`, no prompt; the banner clears on the next map key.
+- Esc mid-match → `Continue` resumes with `stake: 10` still escrowed
+  (`◈ 5`), settles normally (`Lost 10 credits`, pointer cleared).
+- Quick Play: no prompt, no `Stake` text, credits unchanged after a loss.
+- Expected-at-Phase-2: a loss that leaves `◈ 5` shows a plain map (the
+  run-over modal is T005).
+
 ## Handoff note
 
 Read `CLAUDE.md` and `specs/021-wager-and-loss/{spec,plan,tasks}.md`, then
