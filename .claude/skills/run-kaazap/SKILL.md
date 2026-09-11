@@ -45,6 +45,25 @@ Waiting on round resolution: outcome texts are `You won this round!`,
 `Opponent won the round!`, `You Tied!` — `wait:round:20` catches the
 first two; there is no common substring across all three.
 
+## Playing a whole match (play.py)
+
+`play.py` wraps the driver with two extra steps: `play[:STAND]` hits until
+the player's score reaches STAND (default 17) then stands, presses `n`
+through round ends, and stops at the game-over banner (prints
+`PLAY_RESULT: WIN|LOSS`); `rows:A|B` prints only screen rows containing
+any needle; `text:NEEDLE` prints present/ABSENT. Same `wait`/`key`/`pump`/
+`snap`/`resize` steps as driver.py. The in-match prompt line does not
+contain "Your Turn" — wait on `Rounds won` instead. Once a campaign has
+progress, Start Campaign opens a Continue/New Campaign panel first
+(`wait:New Campaign` then `key:\r`), and the map cursor opens on the next
+uncleared planet, so a cleared planet needs `key:\e[A` to reach it.
+
+```bash
+python3 .claude/skills/run-kaazap/play.py 'wait:Start Campaign' 'key:\r' \
+    'wait:CAMPAIGN' 'key:\r' 'wait:Wager' 'key:\r' 'wait:Rounds won' play:18 \
+    'key:\r' 'wait:CAMPAIGN' 'rows:CAMPAIGN|Won|Lost'
+```
+
 ## Key reference (in game)
 
 | Key | Action |

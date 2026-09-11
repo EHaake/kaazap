@@ -37,3 +37,4 @@ Icon?
 /profile.json
 /settings.json
 /saves/
+__pycache__/

@@ -9,12 +9,12 @@ use crate::{
         BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
     },
     board::BoardView,
-    campaign::NodeRef,
-    campaign_map::{CampaignMapState, MapOutcome},
+    campaign::{NodeRef, planet_by_id},
+    campaign_map::{CampaignMapState, MapBanner, MapOutcome},
     card::Card,
     config::Config,
     deck_builder::{BuildOutcome, BuilderOrigin, DeckBuilderState},
-    economy::{self, WinReward},
+    economy,
     frame::{
         Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_centered,
         draw_text_in,
@@ -33,6 +33,7 @@ use crate::{
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
     stats::Mode,
+    wager::{WagerOutcome, WagerState},
 };
 
 /// How much one ←/→ press moves a volume slider on the settings screen.
@@ -276,6 +277,15 @@ enum Modal {
     /// menu like How to Play / Settings and dismissed back to it. Holds its own
     /// view + scroll cursor; content is rebuilt from the profile each draw.
     Records(RecordsState),
+    /// The wager prompt (spec 021), opened over the campaign map when a node is
+    /// launched: it holds the match being staked and the chosen stake until the
+    /// player commits (starting the match) or cancels back to the map.
+    Wager(WagerState),
+    /// The run-over notice (spec 021): raised over a freshly opened campaign map
+    /// when the balance can no longer cover any ante. Unit-like — it carries no
+    /// data. Acknowledging it wipes the run back to the starter profile; nothing
+    /// dismisses it (Esc does not), because the run really is over.
+    RunOver,
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
@@ -306,6 +316,14 @@ fn confirm_choice(on_yes: bool, key: KeyCode) -> ConfirmChoice {
         KeyCode::Esc => ConfirmChoice::Cancel,
         _ => ConfirmChoice::Ignore,
     }
+}
+
+/// Whether a key acknowledges the run-over notice (spec 021) — a pure mapping in
+/// the `confirm_choice` spirit, so the one-way reset is unit-testable without an
+/// `App`. Only Enter/Space acknowledge: Esc deliberately does **not** dismiss the
+/// notice, since there is nothing to go back to.
+fn run_over_acknowledged(key: KeyCode) -> bool {
+    matches!(key, KeyCode::Enter | KeyCode::Char(' '))
 }
 
 /// Where the deck-builder's `Back` returns to — the menu or the campaign map.
@@ -374,10 +392,10 @@ pub struct App {
     // Some((cols, rows)) while the terminal is below the minimum size:
     // the game pauses and a recovery message shows until it grows back.
     too_small: Option<(usize, usize)>,
-    // The reward from the most recent campaign win, shown as a banner on the
-    // campaign map until the player navigates. Transient UI state — not saved
-    // (the credits and dropped card it reports are already persisted).
-    last_reward: Option<WinReward>,
+    // The transient campaign-map banner: how the last staked match settled, or
+    // why a launch was refused. Shown until the player navigates the map. UI
+    // state only — not saved (the credits it reports are already persisted).
+    banner: Option<MapBanner>,
 }
 
 impl App {
@@ -406,7 +424,7 @@ impl App {
             play_log_scroll: 0,
             play_log_follow: true,
             too_small: None,
-            last_reward: None,
+            banner: None,
         }
     }
 
@@ -490,38 +508,109 @@ impl App {
                 pending: PendingStart::Campaign,
             });
         } else {
-            self.open_campaign_map();
+            // A pointer with no save behind it (killed mid-match) is a forfeit:
+            // drop it — and its escrowed stake — before the broke check, so the
+            // confirm notes never name a stake with no match behind it.
+            if self.profile.campaign().in_progress().is_some() {
+                self.profile.campaign_mut().set_in_progress(None);
+                self.profile.save();
+            }
+            self.enter_campaign_map();
+        }
+    }
+
+    /// Open the campaign map, then raise the run-over notice if the balance can
+    /// no longer cover any ante (spec 021). The one seam the broke check runs
+    /// at: the game-over acknowledgement and both campaign-entry paths route
+    /// through here, while Back from the shop or deck builder (which cannot
+    /// create a broke state) keeps using `open_campaign_map`.
+    fn enter_campaign_map(&mut self) {
+        self.open_campaign_map();
+        if self.profile.is_broke() {
+            self.modal = Some(Modal::RunOver);
+        }
+    }
+
+    /// Route a key to the run-over notice: Enter/Space acknowledge, wiping to a
+    /// fresh starter run; everything else (Esc included) is ignored — the notice
+    /// is the only way out of a broke run (spec 021).
+    fn handle_run_over_input(&mut self, key: KeyCode) {
+        if run_over_acknowledged(key) {
+            self.modal = None;
+            self.start_new_campaign();
         }
     }
 
     /// Wipe to a fresh starter profile and open a new campaign map — the New
     /// Campaign action (spec 014). Discards any in-progress match save and the
-    /// stale reward banner. The reset core is `Profile::reset_to_starter`.
+    /// stale map banner. The reset core is `Profile::reset_to_starter`.
     fn start_new_campaign(&mut self) {
         self.profile.reset_to_starter();
         self.profile.save();
         crate::save::clear();
         self.has_save = false;
-        self.last_reward = None;
+        self.banner = None;
         self.audio.play(Sfx::MenuSelect);
         self.open_campaign_map();
     }
 
-    /// Launch a campaign match against `planet`/`opponent` (both ids), upholding
-    /// `start_match`'s deck-valid precondition (diverting to the deck-builder if
-    /// the deck is incomplete). Shared by the map's direct launch (no save) and
-    /// the confirmed discard-and-launch.
+    /// The pre-match gate for a campaign node (both ids): uphold `start_match`'s
+    /// deck-valid precondition (diverting to the deck-builder if the deck is
+    /// incomplete), refuse the launch outright when the balance can't cover the
+    /// node's ante floor (spec 021), and otherwise open the wager prompt — the
+    /// match itself starts when the player commits a stake there.
     fn launch_campaign_node(&mut self, planet: &str, opponent: &str) {
         if !self.profile.deck_is_valid() {
             // Origin is the map: fixing an incomplete deck mid-campaign returns
             // to the campaign map, not the menu (spec 015 return-path fix).
             self.open_deck_builder(BuilderOrigin::Map);
-        } else if let Some(opp) = opponent_by_id(opponent) {
-            let node = NodeRef {
-                planet: planet.to_string(),
-                opponent: opponent.to_string(),
-            };
-            self.start_match(opp, Some(node));
+        } else if let Some(opp) = opponent_by_id(opponent)
+            && let Some(planet) = planet_by_id(planet)
+        {
+            let floor = economy::ante_floor(opp.stand_threshold);
+            if self.profile.credits() < floor {
+                // Unaffordable: no prompt opens and nothing is staked — the map
+                // says why (spec 021, AC2).
+                self.banner = Some(MapBanner::CantCover { floor });
+                self.audio.play(Sfx::MenuBack);
+            } else {
+                // The prompt gates on the full balance, so an all-in stake is
+                // always reachable and `stake_match` can never refuse.
+                self.modal = Some(Modal::Wager(WagerState::new(
+                    planet,
+                    opp,
+                    self.profile.credits(),
+                )));
+            }
+        }
+    }
+
+    /// Route a key to the open wager prompt: ←/→ walk the stake, Esc backs out
+    /// to the map with nothing staked, Enter commits — closing the prompt and
+    /// starting the match against the chosen node with the stake escrowed
+    /// (spec 021).
+    fn handle_wager_input(&mut self, key: KeyCode) {
+        let Some(Modal::Wager(state)) = self.modal.as_mut() else {
+            return;
+        };
+        match state.handle_input(key) {
+            Some(WagerOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+            Some(WagerOutcome::Cancel) => {
+                self.modal = None;
+                self.audio.play(Sfx::MenuBack);
+            }
+            Some(WagerOutcome::Commit) => {
+                let node = NodeRef {
+                    planet: state.planet_id().to_string(),
+                    opponent: state.opponent().id.to_string(),
+                    stake: state.stake(),
+                };
+                let opponent = state.opponent();
+                self.modal = None;
+                self.audio.play(Sfx::MenuSelect);
+                self.start_match(opponent, Some(node));
+            }
+            None => {}
         }
     }
 
@@ -540,7 +629,17 @@ impl App {
         // node — persisted, so a match resumed via Continue still routes back
         // to the map at game over. Quick Play passes None (clearing any stale
         // pointer).
-        self.profile.campaign_mut().set_in_progress(campaign);
+        match campaign {
+            // Escrow (spec 021): the stake leaves the balance now. The prompt
+            // clamps to the balance, so this cannot fail; if it ever did,
+            // launch nothing.
+            Some(node) => {
+                if !self.profile.stake_match(node) {
+                    return;
+                }
+            }
+            None => self.profile.campaign_mut().set_in_progress(None),
+        }
         self.profile.save();
 
         // Capture the id (and name) before `opponent` is moved into the game
@@ -735,6 +834,14 @@ impl App {
                 }
                 None => {}
             }
+        } else if matches!(self.modal, Some(Modal::RunOver)) {
+            // The run-over notice takes all input while open (spec 021): only
+            // Enter/Space get past it, and they reset the run.
+            self.handle_run_over_input(key);
+        } else if matches!(self.modal, Some(Modal::Wager(_))) {
+            // The wager prompt takes all input while open (spec 021): ←/→ set
+            // the stake, Enter commits and launches, Esc returns to the map.
+            self.handle_wager_input(key);
         } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
             self.handle_campaign_entry_input(key);
         } else if matches!(self.modal, Some(Modal::ConfirmNewCampaign { .. })) {
@@ -791,7 +898,7 @@ impl App {
                 self.profile.campaign_mut().set_in_progress(None);
                 self.profile.save();
                 self.audio.play(Sfx::MenuSelect);
-                self.open_campaign_map();
+                self.enter_campaign_map();
                 return;
             }
 
@@ -917,7 +1024,7 @@ impl App {
                     // The post-win reward banner shows on arrival and clears on
                     // the player's first navigation.
                     if outcome.is_some() {
-                        self.last_reward = None;
+                        self.banner = None;
                     }
                     match outcome {
                         Some(MapOutcome::Moved) => self.audio.play(Sfx::MenuMove),
@@ -1052,11 +1159,17 @@ impl App {
                         self.open_opponent_select();
                     }
                     Some(PendingStart::Campaign) => {
-                        // Discard the saved match, then enter the map.
+                        // Discard the saved match, then enter the map. Discarding
+                        // a staked match forfeits the stake: the pointer goes with
+                        // the save, so the escrow is never returned (spec 021).
+                        // The confirm is already closed above, so a run-over
+                        // notice raised here isn't overwritten.
                         self.audio.play(Sfx::MenuSelect);
                         crate::save::clear();
+                        self.profile.campaign_mut().set_in_progress(None);
+                        self.profile.save();
                         self.has_save = false;
-                        self.open_campaign_map();
+                        self.enter_campaign_map();
                     }
                     None => self.audio.play(Sfx::MenuBack),
                 }
@@ -1224,43 +1337,19 @@ impl App {
             self.save_game();
         }
 
-        // Record a campaign win the first time game over is seen with the player
-        // as winner. Checked every tick (not only the phase transition), so it
-        // can't be missed however game over is reached; the is_opponent_beaten
-        // guard fires it exactly once and mark_beaten is idempotent regardless.
-        // `in_progress` is cleared only on the player's acknowledgement (the
-        // InGame input arm); a loss records nothing and keeps the node open.
-        if let Screen::InGame { game_state, .. } = &self.screen
-            && matches!(game_state.game_phase, GamePhase::GameOver { winner: Player::Player })
-            && let Some(node) = self.profile.campaign().in_progress().cloned()
-            && !self.profile.campaign().is_opponent_beaten(&node.planet, &node.opponent)
-        {
-            self.profile.campaign_mut().mark_beaten(&node.planet, &node.opponent);
-
-            // Economy (spec 012): award credits scaled by the opponent's
-            // difficulty and drop one card from the current depth-gated pool.
-            // This block fires exactly once per node, so the reward is granted
-            // once; Quick Play has no `in_progress`, so it never reaches here —
-            // earning is campaign-only by construction. The whole application is
-            // `Profile::apply_win_reward` (unit-tested); this stays a thin call.
-            // Note the order: the drop pool is read *after* `mark_beaten`, so the
-            // win that first unlocks a region can already draw from its tier —
-            // deliberate, so the drop and the (post-win) shop always agree.
-            let threshold =
-                opponent_by_id(&node.opponent).map_or(crate::STAND_THRESHOLD, |o| o.stand_threshold);
-            let reward = self.profile.apply_win_reward(threshold, rand::random_range(0..usize::MAX));
-            self.last_reward = Some(reward);
-
-            self.profile.save();
-        }
-
-        // Record the finished match exactly once, on the tick the phase enters
-        // GameOver. Placed after the campaign-win block so `mark_beaten` has
-        // already run this tick and `run_complete()` (checked inside
-        // `record_match`) sees the accurate campaign state. Quick Play (no
-        // `in_progress`) records to Quick Play; campaign records to Campaign plus
-        // the run tally and completion, all inside `record_match`. Abandoned
-        // matches never reach a GameOver tick, so they record nothing.
+        // Settle and record the finished match exactly once, on the tick the
+        // phase enters GameOver — the one resolution seam (spec 021 folded the
+        // old every-tick campaign-win block into this edge, since a rematch
+        // makes `!is_opponent_beaten` useless as a once-guard; `GameOver` is
+        // only ever entered from `GameState::update()` here, and a saved match
+        // is never at `GameOver`). `settle_campaign_match` handles escrow,
+        // `mark_beaten`, and the once-only completion edge internally, so no
+        // ordering rule spans the two calls; `record_match` records lifetime
+        // and run-tally stats only. Quick Play has no `in_progress`, so it
+        // settles nothing and records to Quick Play; `in_progress` is cleared
+        // only on the player's acknowledgement (the InGame input arm).
+        // Abandoned matches never reach a GameOver tick, so they resolve
+        // nothing.
         if phase_changed
             && let Screen::InGame { game_state, .. } = &self.screen
             && matches!(game_state.game_phase, GamePhase::GameOver { .. })
@@ -1270,11 +1359,16 @@ impl App {
             let opponent_id = game_state.opponent_profile.id;
             let player_rounds = game_state.player.rounds_won as u32;
             let opp_rounds = game_state.opponent.rounds_won as u32;
+            // Read before settlement only for clarity — settling never clears
+            // the in-progress pointer (the acknowledgement does).
             let mode = if self.profile.campaign().in_progress().is_some() {
                 Mode::Campaign
             } else {
                 Mode::QuickPlay
             };
+            if let Some(outcome) = self.profile.settle_campaign_match(player_won) {
+                self.banner = Some(MapBanner::Settled(outcome));
+            }
             self.profile.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
             self.profile.save();
         }
@@ -1296,12 +1390,19 @@ impl App {
         match &self.screen {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
-                self.board_view.draw(game_state, cursor, self.banter, pulse, frame)
+                self.board_view.draw(
+                    game_state,
+                    cursor,
+                    self.banter,
+                    self.profile.campaign().stake_at_risk(),
+                    pulse,
+                    frame,
+                )
             }
             Screen::OpponentSelect { state } => state.draw(frame, &self.config, pulse),
             Screen::DeckBuilder { state } => state.draw(frame, &self.config, &self.profile, pulse),
             Screen::CampaignMap { state } => {
-                state.draw(frame, &self.config, &self.profile, self.last_reward.as_ref(), pulse)
+                state.draw(frame, &self.config, &self.profile, self.banner.as_ref(), pulse)
             }
             Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
         }
@@ -1315,6 +1416,8 @@ impl App {
             Some(Modal::ConfirmNewGame { on_yes, .. }) => {
                 self.draw_confirm_new_game(*on_yes, pulse, frame)
             }
+            Some(Modal::Wager(state)) => state.draw(frame, &self.config, pulse),
+            Some(Modal::RunOver) => self.draw_run_over(frame),
             Some(Modal::CampaignEntry { on_new }) => {
                 self.draw_campaign_entry(*on_new, pulse, frame)
             }
@@ -1365,10 +1468,13 @@ impl App {
     /// highlighted one marked with ▸ and breathing with the pulse; the other
     /// keeps two leading spaces so the marker never shifts the text), and a hint.
     /// Shared by the discard-a-save, campaign-entry, and new-campaign modals.
+    /// `note` is an optional second line (drawn Muted under the title) — used to
+    /// warn that confirming also forfeits an escrowed stake (spec 021).
     fn draw_two_choice(
         &self,
         frame: &mut Frame,
         title: &str,
+        note: Option<&str>,
         left_label: &str,
         right_label: &str,
         left_selected: bool,
@@ -1379,13 +1485,21 @@ impl App {
         let right = format!("{} {}", if left_selected { " " } else { "▸" }, right_label);
         let block_w = left.chars().count() + 6 + right.chars().count();
 
-        // The box widens to fit the widest of title, hint, and the choice row.
-        let content_width = title.chars().count().max(hint.chars().count()).max(block_w);
+        // The box widens to fit the widest of title, note, hint, and choice row.
+        let content_width = title
+            .chars()
+            .count()
+            .max(note.map_or(0, |n| n.chars().count()))
+            .max(hint.chars().count())
+            .max(block_w);
         let layout = OverlayLayout::new(self.config, content_width, 5);
 
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
         draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Normal);
+        if let Some(note) = note {
+            draw_text_in(frame, layout.inner, 1, Align::Center, note, Emphasis::Muted);
+        }
 
         let inner = layout.inner;
         let row_y = inner.y0 + 2;
@@ -1400,11 +1514,14 @@ impl App {
         draw_text_in(frame, inner, 4, Align::Center, hint, Emphasis::Muted);
     }
 
-    /// The discard-a-save confirmation (Yes left / No right, default No).
+    /// The discard-a-save confirmation (Yes left / No right, default No). When
+    /// the saved match carries a stake, a note says confirming forfeits it.
     fn draw_confirm_new_game(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
+        let note = self.stake_forfeit_note();
         self.draw_two_choice(
             frame,
             "Discard your saved match?",
+            note.as_deref(),
             "Yes",
             "No",
             on_yes,
@@ -1418,6 +1535,7 @@ impl App {
         self.draw_two_choice(
             frame,
             "Campaign",
+            None,
             "Continue",
             "New Campaign",
             !on_new,
@@ -1426,17 +1544,52 @@ impl App {
         );
     }
 
-    /// The destructive New Campaign confirmation (Yes left / No right, default No).
+    /// The destructive New Campaign confirmation (Yes left / No right, default
+    /// No), noting an escrowed stake the wipe would forfeit.
     fn draw_confirm_new_campaign(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
+        let note = self.stake_forfeit_note();
         self.draw_two_choice(
             frame,
             "New campaign? Erases progress, credits & cards.",
+            note.as_deref(),
             "Yes",
             "No",
             on_yes,
             "←/→ choose  ·  Enter confirm  ·  Esc cancel",
             pulse,
         );
+    }
+
+    /// The second line the discard confirmations carry when a match is in flight
+    /// with a stake escrowed — confirming drops the pointer, and the stake with
+    /// it (spec 021). `None` when nothing is at risk.
+    fn stake_forfeit_note(&self) -> Option<String> {
+        self.profile
+            .campaign()
+            .stake_at_risk()
+            .map(|s| format!("…and forfeit your {s}-credit stake."))
+    }
+
+    /// The run-over notice (spec 021): the balance can't cover any ante, so the
+    /// run ends here. Borrows `draw_two_choice`'s bordered-box shape without its
+    /// choices — there is only one way on, and Enter takes it.
+    fn draw_run_over(&self, frame: &mut Frame) {
+        let title = "You're broke — the run is over.";
+        let note = "Deck, collection, and progress reset to the starter; your records stay.";
+        let hint = "Enter  continue";
+
+        let content_width = title
+            .chars()
+            .count()
+            .max(note.chars().count())
+            .max(hint.chars().count());
+        let layout = OverlayLayout::new(self.config, content_width, 5);
+
+        clear_rect(frame, layout.outer);
+        draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
+        draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Strong);
+        draw_text_in(frame, layout.inner, 2, Align::Center, note, Emphasis::Normal);
+        draw_text_in(frame, layout.inner, 4, Align::Center, hint, Emphasis::Muted);
     }
 }
 
@@ -1468,6 +1621,20 @@ mod tests {
             assert_eq!(confirm_choice(false, k), Toggle);
         }
         assert_eq!(confirm_choice(true, KeyCode::Char('z')), Ignore);
+    }
+
+    #[test]
+    fn run_over_acknowledged_only_on_enter_or_space() {
+        // The run-over notice is one-way (spec 021): Enter/Space accept the reset,
+        // and nothing else gets past it — Esc especially, since dismissing it
+        // would leave the player on a map with no affordable node.
+        assert!(run_over_acknowledged(KeyCode::Enter));
+        assert!(run_over_acknowledged(KeyCode::Char(' ')));
+        assert!(!run_over_acknowledged(KeyCode::Esc));
+        assert!(!run_over_acknowledged(KeyCode::Char('x')));
+        for k in [KeyCode::Left, KeyCode::Right, KeyCode::Up, KeyCode::Char('g')] {
+            assert!(!run_over_acknowledged(k));
+        }
     }
 
     #[test]

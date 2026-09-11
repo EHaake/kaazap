@@ -17,7 +17,7 @@ pub const PORTRAIT_HEIGHT: usize = 12;
 const PANEL_PAD_X: usize = 1;
 pub const PANEL_GAP: usize = 3;
 pub const PANEL_W: usize = PORTRAIT_WIDTH + 2 * PANEL_PAD_X + 2; // 22: portrait + interior pad + border
-pub const PANEL_H_INMATCH: usize = 2 + 1 + PORTRAIT_HEIGHT + 1 + 2; // 18: border, name, portrait, gap, reserved
+pub const PANEL_H_INMATCH: usize = 2 + 1 + PORTRAIT_HEIGHT + 1 + 2 + 2; // 20: border, name, portrait, gap, banter + pips, gap + stake
 
 /// The panel interior width a banter line must fit within, and the number of
 /// round pips (first-to-3, matching `ROUND_PIPS` uses in game.rs). Used by the
@@ -53,18 +53,22 @@ pub fn draw_presence_panel(frame: &mut Frame, panel: Rect, name: &str, art: &str
 }
 
 /// Draw the in-match-only presence extras over an already-drawn presence panel:
-/// the opponent `banter` line (if `Some`) centered on interior row 14, and the
-/// opponent's round-win pips on interior row 15. Computes the interior exactly
+/// the opponent `banter` line (if `Some`) centered on interior row 14, the
+/// opponent's round-win pips on interior row 15, and — for a staked campaign
+/// match — the escrowed `stake` on interior row 17 (row 16 left blank, mirroring
+/// the gap above the banter row). Computes the interior exactly
 /// as `draw_presence_panel` does. `opponent_rounds_won` filled glyphs (Strong)
 /// followed by the remaining empty glyphs (Muted), the whole run centered. This
 /// is a separate drawer called only by the in-match board, so the two preview
 /// callers of `draw_presence_panel` keep showing name + portrait only.
-/// Clip-safe (delegates to clip-safe `draw_text`/`draw_text_in`).
+/// Clip-safe (delegates to clip-safe `draw_text`/`draw_text_in`). `stake` is
+/// `None` for Quick Play, and those rows stay blank (spec 021).
 pub fn draw_presence_extras(
     frame: &mut Frame,
     panel: Rect,
     banter: Option<&str>,
     opponent_rounds_won: usize,
+    stake: Option<u32>,
 ) {
     let interior = Rect::new(panel.x0 + 1, panel.x1 - 1, panel.y0 + 1, panel.y1 - 1);
 
@@ -89,6 +93,14 @@ pub fn draw_presence_extras(
             ('○', Emphasis::Muted)
         };
         draw_text(frame, start_x + i * 2, pip_y, &glyph.to_string(), emphasis);
+    }
+
+    // The staked-match escrow on interior row 17, centered and Strong — row 16
+    // stays blank so the stake reads as its own line under the pips. Quick Play
+    // passes `None` and both rows stay empty.
+    if let Some(stake) = stake {
+        let line = format!("Stake ◈ {stake}");
+        draw_text_in(frame, interior, 17, Align::Center, &line, Emphasis::Strong);
     }
 }
 
@@ -135,7 +147,8 @@ mod tests {
 
     // A full-size in-match panel anchored at the frame origin, and the frame to
     // draw it into. Interior spans x 1..=PANEL_W-2, y 1..=PANEL_H_INMATCH-2;
-    // banter lands on interior row 14 (y = 15), pips on interior row 15 (y = 16).
+    // banter lands on interior row 14 (y = 15), pips on interior row 15 (y = 16),
+    // the stake on interior row 17 (y = 18).
     fn inmatch_panel() -> (Frame, Rect) {
         let f = blank(PANEL_W, PANEL_H_INMATCH);
         let panel = Rect::new(0, PANEL_W - 1, 0, PANEL_H_INMATCH - 1);
@@ -147,24 +160,24 @@ mod tests {
         // panel entirely past the right edge — nothing lands, no panic
         let mut f = blank(4, 4);
         let panel = Rect::new(99, 99 + PANEL_W - 1, 0, PANEL_H_INMATCH - 1);
-        draw_presence_extras(&mut f, panel, Some("hello"), 2);
+        draw_presence_extras(&mut f, panel, Some("hello"), 2, None);
 
         // panel past the bottom edge — no panic
         let mut f = blank(4, 4);
         let panel = Rect::new(0, PANEL_W - 1, 99, 99 + PANEL_H_INMATCH - 1);
-        draw_presence_extras(&mut f, panel, Some("hello"), 2);
+        draw_presence_extras(&mut f, panel, Some("hello"), 2, None);
 
         // empty frame — no panic
         let mut f: Frame = Vec::new();
         let panel = Rect::new(0, PANEL_W - 1, 0, PANEL_H_INMATCH - 1);
-        draw_presence_extras(&mut f, panel, Some("hello"), 3);
+        draw_presence_extras(&mut f, panel, Some("hello"), 3, None);
     }
 
     #[test]
     fn pip_row_carries_exactly_round_pips_markers() {
         for rounds_won in 0..=ROUND_PIPS {
             let (mut f, panel) = inmatch_panel();
-            draw_presence_extras(&mut f, panel, None, rounds_won);
+            draw_presence_extras(&mut f, panel, None, rounds_won, None);
 
             let pip_y = 16; // interior.y0 (1) + 15
             let mut filled = 0;
@@ -185,7 +198,7 @@ mod tests {
     #[test]
     fn rounds_won_over_round_pips_is_clamped() {
         let (mut f, panel) = inmatch_panel();
-        draw_presence_extras(&mut f, panel, None, 99);
+        draw_presence_extras(&mut f, panel, None, 99, None);
         let pip_y = 16;
         let filled = f.iter().filter(|col| col[pip_y].ch == '●').count();
         let empty = f.iter().filter(|col| col[pip_y].ch == '○').count();
@@ -196,7 +209,7 @@ mod tests {
     #[test]
     fn pip_glyphs_are_spaced_one_blank_cell_apart() {
         let (mut f, panel) = inmatch_panel();
-        draw_presence_extras(&mut f, panel, None, 1);
+        draw_presence_extras(&mut f, panel, None, 1, None);
 
         let pip_y = 16;
         // Collect the columns carrying a pip glyph, left to right.
@@ -221,6 +234,35 @@ mod tests {
     }
 
     #[test]
+    fn a_staked_match_draws_the_stake_under_the_pips() {
+        let (mut f, panel) = inmatch_panel();
+        draw_presence_extras(&mut f, panel, None, 0, Some(40));
+
+        let stake_y = 18; // interior.y0 (1) + 17
+        let row: String = f.iter().map(|col| col[stake_y].ch).collect();
+        assert!(row.contains("◈ 40"), "stake row {row:?} should carry the escrow");
+        // The gap row above it stays blank.
+        let gap_y = 17;
+        assert!(
+            f.iter().all(|col| col[gap_y].ch == ' ' || col[gap_y].ch == '\0'),
+            "row {gap_y} above the stake must stay blank"
+        );
+    }
+
+    #[test]
+    fn quick_play_leaves_the_stake_rows_blank() {
+        let (mut f, panel) = inmatch_panel();
+        draw_presence_extras(&mut f, panel, Some("hello"), 1, None);
+
+        for y in [17usize, 18] {
+            assert!(
+                f.iter().all(|col| col[y].ch == ' ' || col[y].ch == '\0'),
+                "row {y} must stay blank without a stake"
+            );
+        }
+    }
+
+    #[test]
     fn banter_fits_inside_interior_and_clips_at_the_border() {
         let banter_y = 15; // interior.y0 (1) + 14
         let left_border = 0; // panel.x0
@@ -229,7 +271,7 @@ mod tests {
         // A line exactly BANTER_MAX_WIDTH long lands fully inside the interior.
         let fit: String = std::iter::repeat('x').take(BANTER_MAX_WIDTH).collect();
         let (mut f, panel) = inmatch_panel();
-        draw_presence_extras(&mut f, panel, Some(&fit), 0);
+        draw_presence_extras(&mut f, panel, Some(&fit), 0, None);
         for x in 1..=(PANEL_W - 2) {
             assert_eq!(f[x][banter_y].ch, 'x', "interior col {x} should carry banter");
         }
@@ -239,7 +281,7 @@ mod tests {
         // A line longer than the interior is clipped: nothing on or past the border.
         let long: String = std::iter::repeat('y').take(BANTER_MAX_WIDTH + 10).collect();
         let (mut f, panel) = inmatch_panel();
-        draw_presence_extras(&mut f, panel, Some(&long), 0);
+        draw_presence_extras(&mut f, panel, Some(&long), 0, None);
         assert_ne!(f[left_border][banter_y].ch, 'y', "left border untouched");
         assert_ne!(f[right_border][banter_y].ch, 'y', "right border untouched");
     }

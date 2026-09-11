@@ -10,8 +10,10 @@ the RPG economy those rules originally leaned on.
 Face a series of opponents with distinct personalities across a campaign
 of increasing difficulty. Play matches to three round-wins — draw cards
 toward 20 without busting, using your side-deck hand to push your total
-up or down. Wins earn currency and card packs that unlock better
-side-deck cards for tougher matchups ahead.
+up or down. Every campaign match is played for a **stake** you choose: a
+win pays it back double, a loss costs it, and winnings buy better
+side-deck cards for tougher matchups ahead. Run out of credits and the
+run is over.
 
 > **Status:** actively being built. The core Pazaak engine, a terminal
 > UI overhaul, audio with a settings menu (music/SFX volume, a global
@@ -22,8 +24,9 @@ side-deck cards for tougher matchups ahead.
 > assembling your own side deck from a card collection, **an eight-world
 > campaign map** — travel a node-based star map, Outer Rim → Core, clearing
 > each world's opponents to unlock the next — and **a campaign economy**
-> (wins earn credits and drop cards; a shop on the map sells from a pool that
-> unlocks by how far core-ward you've reached), and **opponent portraits** (a
+> (stake credits on every campaign match — a win pays double, a loss costs the
+> stake, and going broke ends the run in a full reset; a shop on the map sells
+> from a pool that unlocks by how far core-ward you've reached), and **opponent portraits** (a
 > low-resolution monochrome face for every opponent, shown beside the board
 > in-match and in the select/map previews), and **a Records overlay** (a
 > read-only "mastery" popup off the start menu — like How to Play / Settings —
@@ -70,7 +73,13 @@ must be a full 10 to start a match.
 
 From the start menu, **Start Campaign** opens a full-screen star map: travel
 between planets (arrows / `w`·`a`·`s`·`d`), and at each you play its opponents
-to clear it and unlock the way core-ward. Once you've cleared any world, Start
+to clear it and unlock the way core-ward. Launching a match opens a **wager
+prompt** — pick your stake (arrows) above the opponent's minimum ante and
+**Enter** to commit; win and it comes back doubled, lose and it's gone. A world
+you've already cleared stays open for **rematches** against its final opponent,
+so you can grind small, safe bets to fund a card. If your credits ever drop
+below the cheapest ante on the map, the **run is over**: a full reset to the
+starter deck and a fresh purse. Once you've cleared any world, Start
 Campaign first asks whether to **Continue** your run or begin a **New Campaign** —
 a fresh start that resets your progress, credits, and collection (your settings
 are kept). **Quick Play** instead lets you pick

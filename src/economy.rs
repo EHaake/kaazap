@@ -1,15 +1,29 @@
-//! The campaign economy (spec 012, subsystem C): the depth-gated card pool,
-//! shop pricing, and the per-win reward. Pure logic over `campaign`/`card` data
-//! — no rendering and no state of its own; the profile holds credits and the
-//! grown collection. Everything here is a function of the campaign run (for
-//! depth) plus one injected `roll` (for the drop), so it is fully unit-testable
-//! and the randomness lives in a single caller-supplied index (the spec-010
-//! deterministic-core pattern). See `docs/economy.md`.
+//! The campaign economy (spec 012, subsystem C; wagering, spec 021): the
+//! depth-gated card pool, shop pricing, and the ante/payout rules. Pure logic
+//! over `campaign`/`card` data — no rendering and no state of its own; the
+//! profile holds credits and the grown collection. Everything here is a
+//! function of the campaign run (for depth) and the opponent's difficulty, so
+//! it is fully unit-testable; nothing here is random any more (spec 021
+//! replaced the win reward's card drop with a staked payout, so the injected
+//! `roll` seam is gone). See `docs/economy.md`.
 
 use crate::{
     campaign::{CampaignRun, PLANETS},
     card::{ALL_SIDE_CARDS, Card},
+    opponent::opponent_by_id,
 };
+
+/// Credits a fresh or reset profile starts with (spec 021).
+pub const SEED_PURSE: u32 = 50;
+/// The threshold an ante floor is measured from: a 14-threshold opponent would
+/// cost nothing, so the easiest real opponent (15) sits one step up.
+pub const ANTE_BASE_THRESHOLD: usize = 14;
+/// Credits the ante floor rises per point of stand threshold above the base.
+pub const ANTE_PER_THRESHOLD_STEP: u32 = 10;
+/// The wager prompt's increment.
+pub const STAKE_STEP: u32 = 5;
+/// Winnings per credit staked (1 = even money): a win returns stake × (1 + PAYOUT_RATIO).
+pub const PAYOUT_RATIO: u32 = 1;
 
 /// The three campaign regions as an ordered depth tier. Deeper regions unlock
 /// strictly more of the card universe, so `Outer < Mid < Core`.
@@ -80,22 +94,42 @@ pub fn card_price(card: Card) -> u32 {
     }
 }
 
-/// What a campaign win grants: credits plus one card dropped into the collection.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct WinReward {
-    pub credits: u32,
-    pub card: Card,
+/// The minimum stake for an opponent of this stand threshold — the difficulty
+/// scalar, in one tunable formula: 15 → 10, 16 → 20, … 19 → 50.
+pub fn ante_floor(threshold: usize) -> u32 {
+    threshold.saturating_sub(ANTE_BASE_THRESHOLD) as u32 * ANTE_PER_THRESHOLD_STEP
 }
 
-/// Compute a win's reward: credits scaled by the beaten opponent's stand
-/// threshold (15→10 … 19→50), and a card chosen from `pool` by `roll`. Pure and
-/// deterministic given `roll` — the caller injects the single random index, so
-/// the whole thing is unit-testable. `pool` must be non-empty (an
-/// `available_pool` always is).
-pub fn win_reward(threshold: usize, pool: &[Card], roll: usize) -> WinReward {
-    let credits = threshold.saturating_sub(14) as u32 * 10;
-    let card = pool[roll % pool.len()];
-    WinReward { credits, card }
+/// The ante floor for an opponent id. An unknown id (older / hand-edited save)
+/// falls back to the baseline stand threshold, never to a free match.
+pub fn ante_floor_for(opponent_id: &str) -> u32 {
+    ante_floor(opponent_by_id(opponent_id).map_or(crate::STAND_THRESHOLD, |o| o.stand_threshold))
+}
+
+/// What returns to the balance on a win: the stake back plus its winnings.
+pub fn win_payout(stake: u32) -> u32 {
+    stake.saturating_mul(1 + PAYOUT_RATIO)
+}
+
+/// The lowest ante over every node the player could launch right now (unlocked
+/// planets × their launchable opponent); 0 if there are none — unreachable,
+/// since the start planet is always unlocked and always has a rematch.
+pub fn cheapest_floor(run: &CampaignRun) -> u32 {
+    PLANETS
+        .iter()
+        .filter(|p| run.planet_unlocked(p))
+        .filter_map(|p| run.launchable_opponent(p))
+        .map(ante_floor_for)
+        .min()
+        .unwrap_or(0)
+}
+
+/// How a staked campaign match settled (for the map banner) — the stake that
+/// changed hands, not the payout.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StakeOutcome {
+    Won(u32),
+    Lost(u32),
 }
 
 #[cfg(test)]
@@ -209,15 +243,58 @@ mod tests {
     }
 
     #[test]
-    fn win_reward_scales_credits_and_picks_the_card_by_roll() {
-        let pool = [Card::Plus(1), Card::Plus(2), Card::Plus(3)];
-        // Credits scale with the beaten opponent's threshold.
-        assert_eq!(win_reward(15, &pool, 0).credits, 10);
-        assert_eq!(win_reward(17, &pool, 0).credits, 30);
-        assert_eq!(win_reward(19, &pool, 0).credits, 50);
-        // The card is the roll-indexed pool entry, wrapping.
-        assert_eq!(win_reward(15, &pool, 0).card, Card::Plus(1));
-        assert_eq!(win_reward(15, &pool, 1).card, Card::Plus(2));
-        assert_eq!(win_reward(15, &pool, 5).card, Card::Plus(3)); // 5 % 3 == 2
+    fn ante_floor_is_the_difficulty_scalar() {
+        assert_eq!(ante_floor(15), 10);
+        assert_eq!(ante_floor(16), 20);
+        assert_eq!(ante_floor(17), 30);
+        assert_eq!(ante_floor(18), 40);
+        assert_eq!(ante_floor(19), 50);
+        // The easiest real opponent sits at the bottom of the scale...
+        assert_eq!(ante_floor_for("greeb"), 10);
+        // ...and an id no roster entry claims falls back to the baseline (17).
+        assert_eq!(ante_floor_for("nobody-by-that-name"), 30);
+    }
+
+    #[test]
+    fn payout_is_even_money() {
+        assert_eq!(win_payout(20), 40);
+        assert_eq!(win_payout(0), 0);
+    }
+
+    #[test]
+    fn cheapest_floor_is_the_min_over_launchable_nodes() {
+        // Independently computed: the min ante over every unlocked planet's
+        // launchable opponent, spelled out rather than reusing the function.
+        let expected = |run: &CampaignRun| -> u32 {
+            let mut best = u32::MAX;
+            for p in PLANETS {
+                if !run.planet_unlocked(&p) {
+                    continue;
+                }
+                let opponent = match run.next_opponent(&p) {
+                    Some(o) => o,
+                    None => *p.opponents.last().unwrap(),
+                };
+                let threshold = opponent_by_id(opponent).unwrap().stand_threshold;
+                best = best.min(ante_floor(threshold));
+            }
+            if best == u32::MAX { 0 } else { best }
+        };
+
+        let fresh = CampaignRun::default();
+        let half = cleared(&[("cinder", "greeb"), ("scree", "dax"), ("ashfall", "vessa")]);
+        let mut complete = CampaignRun::default();
+        for p in PLANETS {
+            for o in p.opponents {
+                complete.mark_beaten(p.id, o);
+            }
+        }
+        assert!(complete.run_complete(), "sanity: the sweep completes the run");
+
+        for (label, run) in [("fresh", &fresh), ("half-cleared", &half), ("complete", &complete)] {
+            assert_eq!(cheapest_floor(run), expected(run), "{label}");
+            // Cinder's rematch keeps the cheapest match at the floor forever.
+            assert_eq!(cheapest_floor(run), 10, "{label}");
+        }
     }
 }
