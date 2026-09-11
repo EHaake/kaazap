@@ -8,7 +8,7 @@ branch.
 
 ---
 
-## 0. `CLAUDE.md` — one-sentence amendment
+## 0. `CLAUDE.md` — one-sentence amendment — **APPLIED on main** (commit 7081514, 2026-09-11; wording tidied in a follow-up commit)
 
 `CLAUDE.md` is repo-wide too, so this rides to `main` with the rest of the
 close-out rather than on the spec branch. In the **What this project is**
