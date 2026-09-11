@@ -14,10 +14,11 @@ context those rules originally leaned on. The core loop: the player faces
 a series of opponents with distinct personalities and increasing
 difficulty, playing first-to-3-round-wins Pazaak matches (draw dealer cards
 toward 20 without busting, using side-deck cards to adjust your total).
-Every campaign match is played for a stake the player chooses: a win pays
-it back double, a loss keeps it, and going broke ends the run and resets
-it. Credits buy better side-deck cards in the shop. It's a personal project, built with the intent of
-eventually being presentable enough to share (portfolio, itch.io).
+Every campaign match is played for a stake the player chooses: a win
+pays it back double, a loss forfeits it, and going broke ends the run
+and resets it. Credits buy better side-deck cards in the shop. It's a
+personal project, built with the intent of eventually being presentable
+enough to share (portfolio, itch.io).
 
 ## Simplicity
 
