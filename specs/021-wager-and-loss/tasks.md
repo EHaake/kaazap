@@ -188,7 +188,7 @@ attestation (T004). -->
 the stake at risk, the reserve-aware shop, and the in-match stake row. Phase
 ends with the person's broke-and-reset attestation (T005/T006). -->
 
-- [ ] **T005** — `src/app.rs`: the loss condition. `Modal::RunOver`; pure `fn
+- [x] **T005** — `src/app.rs`: the loss condition. `Modal::RunOver`; pure `fn
   run_over_acknowledged(key) -> bool` (Enter/Space only — Esc does not
   dismiss); `handle_run_over_input` (acknowledge → `modal = None` +
   `start_new_campaign()`); `fn enter_campaign_map()` (`open_campaign_map` then
@@ -350,7 +350,7 @@ before treating the policy as settled. -->
 | T004 impl (sdd-implementer) | opus | ~89K (measured return) | done; banner_line extracted as a pure helper; refused can't-cover launch sounds MenuSelect then MenuBack (pre-existing divert shape) |
 | T004 review (skeptical-reviewer, per-task) | opus | ~70K (measured return) | signed off, no blocking; open for sweep: stale ordering comment at the GameOver block (attributes completion to record_match); banner_line has no test pinning the net-gain rule; net-gain expression duplicated in wager.rs and campaign_map.rs; start_match doc names the old campaign caller |
 | Phase 2 review (skeptical-reviewer) | opus | ~58K (measured return) | signed off, no blocking; open for sweep: wager width test never walks to k_max (comment overstates); new() precondition prose-only (single caller upholds it); draw picks emphasis by row index; AC2 rests on the driver/attestation only |
-| T005 impl (sdd-implementer) | | | |
+| T005 impl (sdd-implementer) | opus | ~52K (measured return) | done; no open questions; forfeit-clear in the no-save Continue branch guarded by `in_progress().is_some()` so a plain Continue does not rewrite the profile; noted baseline rustfmt/clippy debt (pre-existing, not in the verification command) |
 | T006 impl (sdd-implementer) | | | |
 | Phase 3 review (skeptical-reviewer) | | | |
 | T007 close-out (orchestrator) | claude-opus-4-8 | — | |

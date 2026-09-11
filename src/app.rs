@@ -281,6 +281,11 @@ enum Modal {
     /// launched: it holds the match being staked and the chosen stake until the
     /// player commits (starting the match) or cancels back to the map.
     Wager(WagerState),
+    /// The run-over notice (spec 021): raised over a freshly opened campaign map
+    /// when the balance can no longer cover any ante. Unit-like — it carries no
+    /// data. Acknowledging it wipes the run back to the starter profile; nothing
+    /// dismisses it (Esc does not), because the run really is over.
+    RunOver,
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
@@ -311,6 +316,14 @@ fn confirm_choice(on_yes: bool, key: KeyCode) -> ConfirmChoice {
         KeyCode::Esc => ConfirmChoice::Cancel,
         _ => ConfirmChoice::Ignore,
     }
+}
+
+/// Whether a key acknowledges the run-over notice (spec 021) — a pure mapping in
+/// the `confirm_choice` spirit, so the one-way reset is unit-testable without an
+/// `App`. Only Enter/Space acknowledge: Esc deliberately does **not** dismiss the
+/// notice, since there is nothing to go back to.
+fn run_over_acknowledged(key: KeyCode) -> bool {
+    matches!(key, KeyCode::Enter | KeyCode::Char(' '))
 }
 
 /// Where the deck-builder's `Back` returns to — the menu or the campaign map.
@@ -495,7 +508,36 @@ impl App {
                 pending: PendingStart::Campaign,
             });
         } else {
-            self.open_campaign_map();
+            // A pointer with no save behind it (killed mid-match) is a forfeit:
+            // drop it — and its escrowed stake — before the broke check, so the
+            // confirm notes never name a stake with no match behind it.
+            if self.profile.campaign().in_progress().is_some() {
+                self.profile.campaign_mut().set_in_progress(None);
+                self.profile.save();
+            }
+            self.enter_campaign_map();
+        }
+    }
+
+    /// Open the campaign map, then raise the run-over notice if the balance can
+    /// no longer cover any ante (spec 021). The one seam the broke check runs
+    /// at: the game-over acknowledgement and both campaign-entry paths route
+    /// through here, while Back from the shop or deck builder (which cannot
+    /// create a broke state) keeps using `open_campaign_map`.
+    fn enter_campaign_map(&mut self) {
+        self.open_campaign_map();
+        if self.profile.is_broke() {
+            self.modal = Some(Modal::RunOver);
+        }
+    }
+
+    /// Route a key to the run-over notice: Enter/Space acknowledge, wiping to a
+    /// fresh starter run; everything else (Esc included) is ignored — the notice
+    /// is the only way out of a broke run (spec 021).
+    fn handle_run_over_input(&mut self, key: KeyCode) {
+        if run_over_acknowledged(key) {
+            self.modal = None;
+            self.start_new_campaign();
         }
     }
 
@@ -792,6 +834,10 @@ impl App {
                 }
                 None => {}
             }
+        } else if matches!(self.modal, Some(Modal::RunOver)) {
+            // The run-over notice takes all input while open (spec 021): only
+            // Enter/Space get past it, and they reset the run.
+            self.handle_run_over_input(key);
         } else if matches!(self.modal, Some(Modal::Wager(_))) {
             // The wager prompt takes all input while open (spec 021): ←/→ set
             // the stake, Enter commits and launches, Esc returns to the map.
@@ -852,7 +898,7 @@ impl App {
                 self.profile.campaign_mut().set_in_progress(None);
                 self.profile.save();
                 self.audio.play(Sfx::MenuSelect);
-                self.open_campaign_map();
+                self.enter_campaign_map();
                 return;
             }
 
@@ -1113,11 +1159,17 @@ impl App {
                         self.open_opponent_select();
                     }
                     Some(PendingStart::Campaign) => {
-                        // Discard the saved match, then enter the map.
+                        // Discard the saved match, then enter the map. Discarding
+                        // a staked match forfeits the stake: the pointer goes with
+                        // the save, so the escrow is never returned (spec 021).
+                        // The confirm is already closed above, so a run-over
+                        // notice raised here isn't overwritten.
                         self.audio.play(Sfx::MenuSelect);
                         crate::save::clear();
+                        self.profile.campaign_mut().set_in_progress(None);
+                        self.profile.save();
                         self.has_save = false;
-                        self.open_campaign_map();
+                        self.enter_campaign_map();
                     }
                     None => self.audio.play(Sfx::MenuBack),
                 }
@@ -1364,6 +1416,7 @@ impl App {
                 self.draw_confirm_new_game(*on_yes, pulse, frame)
             }
             Some(Modal::Wager(state)) => state.draw(frame, &self.config, pulse),
+            Some(Modal::RunOver) => self.draw_run_over(frame),
             Some(Modal::CampaignEntry { on_new }) => {
                 self.draw_campaign_entry(*on_new, pulse, frame)
             }
@@ -1414,10 +1467,13 @@ impl App {
     /// highlighted one marked with ▸ and breathing with the pulse; the other
     /// keeps two leading spaces so the marker never shifts the text), and a hint.
     /// Shared by the discard-a-save, campaign-entry, and new-campaign modals.
+    /// `note` is an optional second line (drawn Muted under the title) — used to
+    /// warn that confirming also forfeits an escrowed stake (spec 021).
     fn draw_two_choice(
         &self,
         frame: &mut Frame,
         title: &str,
+        note: Option<&str>,
         left_label: &str,
         right_label: &str,
         left_selected: bool,
@@ -1428,13 +1484,21 @@ impl App {
         let right = format!("{} {}", if left_selected { " " } else { "▸" }, right_label);
         let block_w = left.chars().count() + 6 + right.chars().count();
 
-        // The box widens to fit the widest of title, hint, and the choice row.
-        let content_width = title.chars().count().max(hint.chars().count()).max(block_w);
+        // The box widens to fit the widest of title, note, hint, and choice row.
+        let content_width = title
+            .chars()
+            .count()
+            .max(note.map_or(0, |n| n.chars().count()))
+            .max(hint.chars().count())
+            .max(block_w);
         let layout = OverlayLayout::new(self.config, content_width, 5);
 
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
         draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Normal);
+        if let Some(note) = note {
+            draw_text_in(frame, layout.inner, 1, Align::Center, note, Emphasis::Muted);
+        }
 
         let inner = layout.inner;
         let row_y = inner.y0 + 2;
@@ -1449,11 +1513,14 @@ impl App {
         draw_text_in(frame, inner, 4, Align::Center, hint, Emphasis::Muted);
     }
 
-    /// The discard-a-save confirmation (Yes left / No right, default No).
+    /// The discard-a-save confirmation (Yes left / No right, default No). When
+    /// the saved match carries a stake, a note says confirming forfeits it.
     fn draw_confirm_new_game(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
+        let note = self.stake_forfeit_note();
         self.draw_two_choice(
             frame,
             "Discard your saved match?",
+            note.as_deref(),
             "Yes",
             "No",
             on_yes,
@@ -1467,6 +1534,7 @@ impl App {
         self.draw_two_choice(
             frame,
             "Campaign",
+            None,
             "Continue",
             "New Campaign",
             !on_new,
@@ -1475,17 +1543,52 @@ impl App {
         );
     }
 
-    /// The destructive New Campaign confirmation (Yes left / No right, default No).
+    /// The destructive New Campaign confirmation (Yes left / No right, default
+    /// No), noting an escrowed stake the wipe would forfeit.
     fn draw_confirm_new_campaign(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
+        let note = self.stake_forfeit_note();
         self.draw_two_choice(
             frame,
             "New campaign? Erases progress, credits & cards.",
+            note.as_deref(),
             "Yes",
             "No",
             on_yes,
             "←/→ choose  ·  Enter confirm  ·  Esc cancel",
             pulse,
         );
+    }
+
+    /// The second line the discard confirmations carry when a match is in flight
+    /// with a stake escrowed — confirming drops the pointer, and the stake with
+    /// it (spec 021). `None` when nothing is at risk.
+    fn stake_forfeit_note(&self) -> Option<String> {
+        self.profile
+            .campaign()
+            .stake_at_risk()
+            .map(|s| format!("…and forfeit your {s}-credit stake."))
+    }
+
+    /// The run-over notice (spec 021): the balance can't cover any ante, so the
+    /// run ends here. Borrows `draw_two_choice`'s bordered-box shape without its
+    /// choices — there is only one way on, and Enter takes it.
+    fn draw_run_over(&self, frame: &mut Frame) {
+        let title = "You're broke — the run is over.";
+        let note = "Deck, collection, and progress reset to the starter; your records stay.";
+        let hint = "Enter  continue";
+
+        let content_width = title
+            .chars()
+            .count()
+            .max(note.chars().count())
+            .max(hint.chars().count());
+        let layout = OverlayLayout::new(self.config, content_width, 5);
+
+        clear_rect(frame, layout.outer);
+        draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
+        draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Strong);
+        draw_text_in(frame, layout.inner, 2, Align::Center, note, Emphasis::Normal);
+        draw_text_in(frame, layout.inner, 4, Align::Center, hint, Emphasis::Muted);
     }
 }
 
@@ -1517,6 +1620,20 @@ mod tests {
             assert_eq!(confirm_choice(false, k), Toggle);
         }
         assert_eq!(confirm_choice(true, KeyCode::Char('z')), Ignore);
+    }
+
+    #[test]
+    fn run_over_acknowledged_only_on_enter_or_space() {
+        // The run-over notice is one-way (spec 021): Enter/Space accept the reset,
+        // and nothing else gets past it — Esc especially, since dismissing it
+        // would leave the player on a map with no affordable node.
+        assert!(run_over_acknowledged(KeyCode::Enter));
+        assert!(run_over_acknowledged(KeyCode::Char(' ')));
+        assert!(!run_over_acknowledged(KeyCode::Esc));
+        assert!(!run_over_acknowledged(KeyCode::Char('x')));
+        for k in [KeyCode::Left, KeyCode::Right, KeyCode::Up, KeyCode::Char('g')] {
+            assert!(!run_over_acknowledged(k));
+        }
     }
 
     #[test]
