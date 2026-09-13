@@ -878,8 +878,8 @@ the human after playing the spec 022 build (PR #26; branch kept).
   supersedes spec 021's "On acknowledgement … a fresh map opens" — a lost run
   should read as an ending, not an instant restart. New Campaign from the
   map's own panel still resets and opens the map.
-- **The wager prompt breathes** *(superseded the same day — see the next
-  entry: only the stake row gets air).* An empty row under the title and above and
+- **The wager prompt breathes** *(superseded the same day — see the chore
+  entry dated 2026-09-13 below: only the stake row gets air).* An empty row under the title and above and
   below the stake row and the win/lose line; text unchanged; emphasis chosen by
   each row's role rather than a hardcoded index. This is the first application
   of the design brief's *Density and breathing room* rule, added the same day

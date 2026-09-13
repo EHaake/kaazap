@@ -47,8 +47,10 @@ standing instruction to Claude Code as much as a note to the human.
   compact. This is the design brief's *Density and breathing room* rule
   (added 2026-09-13 after the wager prompt shipped dense; corrected the
   same day when the first application over-padded every row — the person
-  ruled that only the acted-on line gets air). A new or changed screen is
-  checked against it at review, not after the person plays it.
+  ruled that only the acted-on line gets air). The modal box itself pads
+  its content evenly — one empty row above and below, never a slab of
+  empty rows under the text (`OverlayLayout`). A new or changed screen is
+  checked against both at review, not after the person plays it.
 
 ## Architecture
 
