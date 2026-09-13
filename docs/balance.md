@@ -254,11 +254,12 @@ quote:
    19 and gave up the tiebreaker for that reason, which forced Kesh to 19 too
    (the roster order puts Rix first).
 3. **The Outer Rim's weakness lives in its decks, not in `misplay`.** All-1s
-   decks (`+1`/`−1` only, no `±` card) give the AI almost no exact-20 coverage,
-   so it plays its best line nearly every turn and still loses — which reads as
-   *weak* rather than *random*. That let the slip rates drop by more than half
-   (Greeb 0.44 → 0.18, where 0.44 was the mid-tuning peak and 0.25 the value
-   shipped before this pass) for no measurable win-rate change.
+   decks (mostly `+1`/`−1`, and no `±` card) give the AI almost no exact-20
+   coverage, so it plays its best line nearly every turn and still loses —
+   which reads as *weak* rather than *random*. That let the slip rates drop
+   by more than half (Greeb 0.44 → 0.18, where 0.44 was the mid-tuning peak
+   and 0.25 the value shipped before this pass) for no measurable win-rate
+   change.
 4. **The Mid/Core prices are the economy's real lever.** B2 fails by arithmetic
    at `P_mid = 50` (a clean Outer clear leaves 90 against 60); `P_mid = 100` and
    `P_core = 200` fixed B2 and widened B3 without touching a single ante floor,

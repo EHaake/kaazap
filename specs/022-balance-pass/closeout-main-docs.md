@@ -33,14 +33,15 @@ ends "…Every number is a tunable constant in `economy.rs`; see
   constant, with lateral spares), the **standard deck** keeps its role as the
   opponent baseline and is what **Quick Play** deals, the roster was retuned
   (the Outer Rim's weakness moved out of `misplay` and into weak all-1s decks
-  (`+1`/`−1` only, no `±` card) —
+  (mostly `+1`/`−1`, and no `±` card) —
   Greeb's slip rate fell 0.25 → 0.18 as shipped; Nima 16/Cautious →
   17/Basic; Rix 18 → 19; Kesh 18/Aggressive → 19/Basic), and the **Mid and Core
   card prices rose 50 → 100 and 120 → 200**. Final curve at N = 10 000: all
-  eight targets and all five economy bounds pass — the starter wins 69 % against
-  Greeb, stays under 41 % across the Mid Rim and under 30 % across the Core,
-  while a full-pool deck takes the finale 51 % of the time. Three ordinary
-  sampled tests guard points on that curve at a small sample, plus one exact
+  eight targets and all five economy bounds pass — the starter wins about
+  70 % against Greeb, stays under 41 % across the Mid Rim and under 30 %
+  across the Core, while a full-pool deck takes the finale 51 % of the time.
+  Three ordinary sampled tests guard points on that curve at a small sample,
+  plus one exact
   test that a fresh profile's starter is Outer-tier, so a future data edit that
   breaks it fails `cargo test`. **No engine, save-format or UI change**, and
   existing profiles keep their cards and credits. Method, measurements and
@@ -122,8 +123,8 @@ follow-up (below).") is **not** part of the replacement and must be left intact.
 
 ### 1e. The same spec 008 entry's "matches deal from the built deck" is now campaign-only
 
-Two lines above 1d in the same **Side-deck customization (spec 008)** entry
-(currently `ROADMAP.md` line 84), replace:
+Six lines above the block quoted in 1d, in the same **Side-deck customization
+(spec 008)** entry (currently `ROADMAP.md` line 84), replace:
 
 ```markdown
   Matches deal the player's hand from the built deck — the player
@@ -187,11 +188,13 @@ recommendations as proposed except **C**.
 Ruled at the **Phase 2 pause on 2026-09-13**, after the human played the tuned
 build:
 
-- **The Outer Rim is retuned to weak decks, not high slip rates.** Greeb, Dax
-  and Vessa had been carrying their weakness in `misplay` (0.44 / 0.36 / 0.34),
-  which read as *random* rather than *weak* in play. Moving it into the decks —
-  all-1s hands (`+1`/`−1` only, no `±` card) with almost no exact-20 coverage —
-  held the same win-rate curve
+- **The Outer Rim is retuned to weak decks, not high slip rates.** At this
+  pause the human was playing the mid-pass tuning, in which Greeb, Dax and
+  Vessa carried their weakness in `misplay` at 0.44 / 0.36 / 0.34 — peaks
+  reached inside this pass, well above the 0.25 / 0.22 / 0.15 that shipped
+  before it — which read as *random* rather than *weak* in play. Moving it
+  into the decks — all-1s hands (mostly `+1`/`−1`, and no `±` card) with
+  almost no exact-20 coverage — held the same win-rate curve
   while the slip rates fell to 0.18 / 0.16 / 0.15, so the early opponents now
   play their best line most turns and still lose. The re-measured table is the
   one the docs record.

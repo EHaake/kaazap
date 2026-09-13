@@ -1,6 +1,6 @@
 # Tasks: Difficulty & economy balance pass — spec 022
 
-> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-13) — ready for implementation
+> **Status**: Complete (2026-09-13) — all tasks done, sweep clean, merged via PR #25
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -383,9 +383,17 @@ readable and the guards are green. -->
   *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff`
   shows comment/doc lines only under `src/`; the two runs' max |Δ| reported.*
 
+- [x] **T008b** (sweep re-review notes, 2026-09-13) — `closeout-main-docs.md`
+  (and one sentence in `docs/balance.md`): the DECISIONS bullet's "had been
+  carrying … (0.44 / 0.36 / 0.34)" are mid-pass peaks, not the prior
+  release's values — say so; "(`+1`/`−1` only, no `±` card)" → "mostly
+  `+1`/`−1`, and no `±` card" (Dax/Vessa hold +2s); edit 1e's "two lines
+  above 1d" → six; "69 %" vs Greeb → "about 70 %".
+  *Verify: `cargo test -q` green; diff is doc text only.*
+
 ## Final phase — Spec close-out
 
-- [ ] **T008** — Flake check, sweep, AC checkoff. Run `cargo test -q` **ten
+- [x] **T008** — Flake check, sweep, AC checkoff. Run `cargo test -q` **ten
   consecutive times** and paste the ten tails. Mechanical checks: `git diff
   main --stat` shows no `game.rs`, `player.rs`, `save.rs`, `campaign.rs`,
   `wager.rs`, `Cargo.toml`, `Cargo.lock`; `git diff main -- src/card.rs`
@@ -472,4 +480,5 @@ iteration count in the outcome column. -->
 | T008 close-out (orchestrator) | fable (session, medium) | — | ten consecutive `cargo test -q` green; no forbidden file in `git diff main`; card.rs comment-only; PROFILE_VERSION 1 / SAVE_VERSION 1 / PAYOUT_RATIO 1; warnings 0 on branch and on main (worktree build); spec.md ACs checked off with evidence |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus | ~146K (measured return) | fix-and-re-review: 2 blocking text errors (card.rs test comment still calls DEFAULT_SIDE_DECK the starter; "all-±1 decks" in balance.md and the closeout text — the Outer Rim decks hold no ± card) + 9 notes → T008a |
 | T008a sweep fixes (sdd-implementer) | opus | ~48K (measured return) | B1, B2, S1–S5, S9 fixed; S6: two shipped-data runs both 8/8 · 1/1 · 5/5, max |Δ| 1.5 (starter vs nima), 0/50 over 2.5 |
-| Sweep re-review (skeptical-reviewer) | opus | | |
+| Sweep re-review (skeptical-reviewer) | opus | ~48K (measured return) | clean — ready to merge; 5 notes, 4 of them wording in the unapplied closeout draft → T008b before applying on main |
+| T008b closeout wording (sdd-implementer) | opus | ~38K (measured return) | done; closeout draft and balance.md agree on the misplay history and the all-1s wording |
