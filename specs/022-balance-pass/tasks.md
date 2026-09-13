@@ -349,7 +349,7 @@ readable and the guards are green. -->
   correctly-framed non-guard mention, or nothing; the numbers equal the
   `tests/balance.rs` comment.*
 
-- [ ] **T007b** (Phase 3 review notes, 2026-09-13) — text only, three
+- [x] **T007b** (Phase 3 review notes, 2026-09-13) — text only, three
   files: (1) `tests/balance.rs` margin comment and `docs/balance.md`'s
   matching sentence: the smallest starter-vs-Mid-Rim margin at GUARD_N is
   Toran at 4.9 SE (w = .402 → .098/.02002), below the 5 SE bar — which is why
@@ -448,6 +448,6 @@ iteration count in the outcome column. -->
 | T006a comments (sdd-implementer) | opus | ~34K (measured return) | done; found the same misattribution in docs/balance.md → T007a |
 | T007a balance.md fix (sdd-implementer) | opus | ~23K (measured return) | done; guards table and sizing paragraph now match the test comment |
 | Phase 3 review (skeptical-reviewer) | opus | ~94K (measured return) | signed off, 0 blocking, 3 notes + minor: "Kesh 6.5 SE is the smallest Mid Rim margin" is wrong (Toran 4.9 SE is, and is why no Mid Rim guard exists); balance.md re-run step omits its own guards table; closeout ROADMAP text says Greeb 0.44 → 0.18 but the pre-022 shipped value was 0.25 — all three → T007b |
-| T007b review-note text fixes (sdd-implementer) | opus | | |
+| T007b review-note text fixes (sdd-implementer) | opus | ~29K (measured return) | done; left balance.md rule-of-thumb #3's "0.44 → 0.18" (intra-spec narrative) for the sweep to judge |
 | T008 close-out (orchestrator) | fable (session, medium) | — | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus | | |

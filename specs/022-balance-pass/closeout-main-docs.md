@@ -33,7 +33,7 @@ ends "…Every number is a tunable constant in `economy.rs`; see
   constant, with lateral spares), the **standard deck** keeps its role as the
   opponent baseline and is what **Quick Play** deals, the roster was retuned
   (the Outer Rim's weakness moved out of `misplay` and into weak all-±1 decks —
-  Greeb's slip rate fell 0.44 → 0.18 in the process; Nima 16/Cautious →
+  Greeb's slip rate fell 0.25 → 0.18 as shipped; Nima 16/Cautious →
   17/Basic; Rix 18 → 19; Kesh 18/Aggressive → 19/Basic), and the **Mid and Core
   card prices rose 50 → 100 and 120 → 200**. Final curve at N = 10 000: all
   eight targets and all five economy bounds pass — the starter wins 69 % against

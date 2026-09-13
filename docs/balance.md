@@ -30,9 +30,9 @@ KAAZAP_SIM_N=10000 cargo test --release --test balance balance_table -- --ignore
 
 For a proportion near ½ one run's standard error is `√(0.25/N)`, so the
 difference between two independent runs has SE `√(0.5/N)` — 0.71 points at
-N = 10 000, which is what makes *all 50 pairs at once* agree within about two
-points (a per-pair figure has to survive being raised to the 50th power; at
-N = 4000 the all-pairs check would usually fail).
+N = 10 000 — small enough that *all 50 pairs at once* came in within about two
+points on the one run that was measured (a per-pair figure has to survive being
+raised to the 50th power; at N = 4000 the all-pairs check would usually fail).
 
 **Measured agreement (T003, two independent runs, all 50 pairs): max |Δ| =
 1.1 points** (`best_outer` vs the Magistrate, tied with two other pairs), with
@@ -111,6 +111,7 @@ Each candidate was measured against **its own region's** opponents at
 | Full | A | `±6 ±6 ±3 ±3 ±2 ±1 ±1 +4 −4 ±1T` | 58.53 |
 | Full | B | `±6 ±6 ±3 ±3 ±2 ±2 ±1 ±1 ±1 ±1T` | 58.67 |
 | Full | C | `±6 ±6 ±6 ±3 ±3 ±2 ±2 ±1 ±1 ±1T` | 58.20 |
+| Full | **none of A/B/C — chosen** | `±6 ±6 ±3 ±3 ±3 ±2 ±2 ±1 ±1 ±1T` | see below |
 
 - `BEST_OUTER` = **C**, 3.3 points clear of the next candidate. The scripted
   player stands at 17, so a deck of 3s covers the common "reach exactly 20 from
@@ -222,9 +223,11 @@ Margins are sized from the **standard error at `GUARD_N`** — single rate
 `(w − bound) / √(w(1−w)/N)`, difference `gap / √((w₁(1−w₁) + w₂(1−w₂))/N)` —
 not from the run-to-run spread of the N = 10 000 table. The smallest quoted
 margin is 8.8 SE — the full-vs-starter guard against Greeb — which puts a false
-failure well under 1e-6 per guard, so `GUARD_N` stays at 600. (The smallest
-starter-vs-**Mid Rim** gap, Kesh at 6.5 SE, is not a guard: no guard covers the
-Mid Rim, and the Core guard iterates only rix, magistrate and sovereign.)
+failure well under 1e-6 per guard, so `GUARD_N` stays at 600. No guard covers
+the **Mid Rim**, because the thinnest margin there is too thin to be safe:
+against a 50 % bar, Toran (`w = .402`) is only **4.9 SE**, under the 5 SE bar
+(Nima 6.0, Brakka 6.4, Kesh 6.5). The Core guard iterates only rix, magistrate
+and sovereign.
 
 ## What the tuning turned on
 
@@ -266,7 +269,8 @@ quote:
    condition is `targets 8/8, coupling 1/1, bounds 5/5`.
 3. Then update, in this order:
    - **this file** — the measured-curve table, the targets and bounds tables,
-     the date and `N`, and any rule of thumb the run overturns;
+     the guards table and the margin paragraph under it, the date and `N`, and
+     any rule of thumb the run overturns;
    - **`specs/022-balance-pass/tuning-log.md`** — append the iteration (levers
      old → new, the verdict block) so the next pass starts from data;
    - **[`docs/opponents.md`](opponents.md)** — the roster table and the prose

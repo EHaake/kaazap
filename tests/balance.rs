@@ -755,8 +755,10 @@ fn a_scripted_match_terminates_against_every_roster_opponent() {
 //
 // Smallest margin 8.8 SE (full vs starter against Greeb), so GUARD_N stays at
 // 600: a false failure is well under 1e-6 per guard, and the three guards
-// together run ~15 000 matches, seconds in debug. (The smallest starter-vs-Mid
-// Rim margin, Kesh at 6.5 SE, is not a guard — no guard covers the Mid Rim.)
+// together run ~15 000 matches, seconds in debug. (No guard covers the Mid Rim
+// because the smallest margin there is too thin: against a 50% bar, toran
+// w = .402 gives .098/√(.402·.598/600) = .098/.02002 = 4.9 SE, under the 5 SE
+// bar — nima 6.0, brakka 6.4, kesh 6.5.)
 
 #[test]
 fn starter_deck_beats_greeb_above_the_floor() {
