@@ -36,6 +36,17 @@ pub struct WagerState {
     k: usize,
 }
 
+/// A content row's role in the prompt — what it says and how it's emphasized.
+/// `Spacer` is an empty row: the breathing room the design brief asks for
+/// around the stake and under the title.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Role {
+    Plain,
+    Stake,
+    Hint,
+    Spacer,
+}
+
 impl WagerState {
     /// Open the prompt at the ante floor.
     ///
@@ -101,38 +112,62 @@ impl WagerState {
         }
     }
 
-    /// The prompt's content rows, in draw order — pure, so the tests read the
-    /// same strings the box renders.
-    pub fn lines(&self) -> Vec<String> {
+    /// What a content row is for — the one place emphasis is decided, so the
+    /// spacer rows below can't drift a hardcoded index out from under it.
+    fn rows(&self) -> Vec<(Role, String)> {
         let stake = self.stake();
         // Winnings, not the payout: the line stays correct if PAYOUT_RATIO moves.
         let winnings = win_payout(stake).saturating_sub(stake);
         vec![
-            format!("Wager — {} · {}", self.opponent.name, self.planet.name),
-            format!("Ante ◈ {}   Balance ◈ {}", self.floor, self.max),
-            format!("◂  Stake ◈ {stake}  ▸"),
-            format!("Win +{winnings}   ·   Lose −{stake}"),
-            "←/→ stake  ·  Enter play  ·  Esc back".to_string(),
+            (
+                Role::Plain,
+                format!("Wager — {} · {}", self.opponent.name, self.planet.name),
+            ),
+            (Role::Spacer, String::new()),
+            (
+                Role::Plain,
+                format!("Ante ◈ {}   Balance ◈ {}", self.floor, self.max),
+            ),
+            (Role::Spacer, String::new()),
+            (Role::Stake, format!("◂  Stake ◈ {stake}  ▸")),
+            (Role::Spacer, String::new()),
+            (Role::Plain, format!("Win +{winnings}   ·   Lose −{stake}")),
+            (Role::Spacer, String::new()),
+            (
+                Role::Hint,
+                "←/→ stake  ·  Enter play  ·  Esc back".to_string(),
+            ),
         ]
     }
 
-    /// Draw the centered, bordered prompt: the content rows from [`lines`], the
-    /// stake row breathing with `pulse` and the hint muted — monochrome by
-    /// construction.
+    /// The prompt's content rows as plain text, in draw order — pure, so the
+    /// tests read the same strings the box renders. Blank entries are the
+    /// spacer rows the design brief's breathing-room rule calls for (one above
+    /// and below the stake the player acts on, one under the title); the box
+    /// grows with them, since [`draw`] sizes the overlay from [`rows`].
     ///
-    /// [`lines`]: WagerState::lines
+    /// [`draw`]: WagerState::draw
+    /// [`rows`]: WagerState::rows
+    #[cfg(test)]
+    fn lines(&self) -> Vec<String> {
+        self.rows().into_iter().map(|(_, text)| text).collect()
+    }
+
+    /// Draw the centered, bordered prompt: the content rows from `rows`, each
+    /// row's emphasis taken from its [`Role`] (the stake breathing with
+    /// `pulse`, the hint muted) — monochrome by construction.
     pub fn draw(&self, frame: &mut Frame, config: &Config, pulse: Emphasis) {
-        let lines = self.lines();
-        let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
-        let layout = OverlayLayout::new(*config, width, lines.len());
+        let rows = self.rows();
+        let width = rows.iter().map(|(_, l)| l.chars().count()).max().unwrap_or(0);
+        let layout = OverlayLayout::new(*config, width, rows.len());
 
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
-        for (i, line) in lines.iter().enumerate() {
-            let emphasis = match i {
-                2 => pulse,                        // the stake row
-                4 => Emphasis::Muted,              // the key hint
-                _ => Emphasis::Normal,
+        for (i, (role, line)) in rows.iter().enumerate() {
+            let emphasis = match role {
+                Role::Stake => pulse,
+                Role::Hint => Emphasis::Muted,
+                Role::Plain | Role::Spacer => Emphasis::Normal,
             };
             draw_text_in(frame, layout.inner, i, Align::Center, line, emphasis);
         }
@@ -244,6 +279,60 @@ mod tests {
         assert!(text.contains("Stake ◈ 15"), "stake missing: {text}");
         assert!(text.contains("+15"), "winnings missing: {text}");
         assert!(text.contains("−15"), "loss missing: {text}");
+    }
+
+    #[test]
+    fn rows_breathe_around_the_stake_and_under_the_title() {
+        // The design brief's density rule: a blank row above and below the row
+        // the player acts on, and one between the title and the body. Roles (not
+        // indices) carry the emphasis, so the spacers can't shift it.
+        let s = state(53);
+        let rows = s.rows();
+        let roles: Vec<Role> = rows.iter().map(|(role, _)| *role).collect();
+        assert_eq!(
+            roles,
+            vec![
+                Role::Plain,  // title
+                Role::Spacer,
+                Role::Plain,  // ante · balance
+                Role::Spacer,
+                Role::Stake,  // the row the player acts on
+                Role::Spacer,
+                Role::Plain,  // win · lose
+                Role::Spacer,
+                Role::Hint,
+            ]
+        );
+        for (role, text) in &rows {
+            assert_eq!(
+                *role == Role::Spacer,
+                text.is_empty(),
+                "spacers are the only blank rows: {role:?} {text:?}"
+            );
+        }
+        // lines() carries the same rows, blanks included.
+        let stake_row = roles.iter().position(|r| *r == Role::Stake).expect("a stake row");
+        assert_eq!(s.lines().len(), rows.len());
+        assert_eq!(s.lines()[stake_row], "◂  Stake ◈ 10  ▸");
+    }
+
+    #[test]
+    fn the_prompt_fits_the_minimum_terminal_unclamped() {
+        // The taller, sparser box must still fit 139×31 with margin — if it ever
+        // outgrows the frame, OverlayLayout clamps and the rows get eaten.
+        let (cols, rows) = Config::min_size();
+        let config = Config { num_cols: cols, num_rows: rows };
+        let s = state(999_999);
+        let lines = s.lines();
+        let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+        let layout = OverlayLayout::new(config, width, lines.len());
+        assert_eq!(
+            layout.outer.height(),
+            lines.len() + 2 * crate::V_PAD,
+            "box height clamped — the prompt outgrew the minimum terminal"
+        );
+        assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");
+        assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame");
     }
 
     #[test]

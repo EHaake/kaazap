@@ -283,8 +283,9 @@ enum Modal {
     Wager(WagerState),
     /// The run-over notice (spec 021): raised over a freshly opened campaign map
     /// when the balance can no longer cover any ante. Unit-like — it carries no
-    /// data. Acknowledging it wipes the run back to the starter profile; nothing
-    /// dismisses it (Esc does not), because the run really is over.
+    /// data. Acknowledging it wipes to a fresh starter run and returns to the
+    /// start menu (chore 2026-09-13, supersedes spec 021's "a fresh map opens");
+    /// nothing dismisses it (Esc does not), because the run really is over.
     RunOver,
 }
 
@@ -544,24 +545,40 @@ impl App {
     }
 
     /// Route a key to the run-over notice: Enter/Space acknowledge, wiping to a
-    /// fresh starter run; everything else (Esc included) is ignored — the notice
-    /// is the only way out of a broke run (spec 021).
+    /// fresh starter run and returning to the start menu (chore 2026-09-13,
+    /// supersedes spec 021's "a fresh map opens" — a lost run should hand the
+    /// player back to the menu, not drop them straight into another campaign);
+    /// everything else (Esc included) is ignored — the notice is the only way
+    /// out of a broke run (spec 021). Leaving for the menu plays `MenuBack`,
+    /// matching `MapOutcome::Back`.
     fn handle_run_over_input(&mut self, key: KeyCode) {
         if run_over_acknowledged(key) {
             self.modal = None;
-            self.start_new_campaign();
+            self.reset_run();
+            self.audio.play(Sfx::MenuBack);
+            self.screen = self.start_menu();
         }
     }
 
-    /// Wipe to a fresh starter profile and open a new campaign map — the New
-    /// Campaign action (spec 014). Discards any in-progress match save and the
-    /// stale map banner. The reset core is `Profile::reset_to_starter`.
-    fn start_new_campaign(&mut self) {
+    /// Wipe to a fresh starter profile — the one reset path, shared by New
+    /// Campaign (spec 014) and the run-over acknowledgement (spec 021), which
+    /// differ only in where they land afterwards. Discards any in-progress match
+    /// save and the stale map banner; the reset core is
+    /// `Profile::reset_to_starter`. Callers play their own sfx and set the
+    /// screen.
+    fn reset_run(&mut self) {
         self.profile.reset_to_starter();
         self.profile.save();
         crate::save::clear();
         self.has_save = false;
         self.banner = None;
+    }
+
+    /// Wipe to a fresh starter profile and open a new campaign map — the New
+    /// Campaign action (spec 014), still the map's own New Campaign panel's
+    /// behaviour.
+    fn start_new_campaign(&mut self) {
+        self.reset_run();
         self.audio.play(Sfx::MenuSelect);
         self.open_campaign_map();
     }
@@ -1645,9 +1662,10 @@ mod tests {
 
     #[test]
     fn run_over_acknowledged_only_on_enter_or_space() {
-        // The run-over notice is one-way (spec 021): Enter/Space accept the reset,
-        // and nothing else gets past it — Esc especially, since dismissing it
-        // would leave the player on a map with no affordable node.
+        // The run-over notice is one-way (spec 021): Enter/Space accept the reset
+        // and the return to the start menu (chore 2026-09-13), and nothing else
+        // gets past it — Esc especially, since dismissing it would leave the
+        // player on a map with no affordable node.
         assert!(run_over_acknowledged(KeyCode::Enter));
         assert!(run_over_acknowledged(KeyCode::Char(' ')));
         assert!(!run_over_acknowledged(KeyCode::Esc));
