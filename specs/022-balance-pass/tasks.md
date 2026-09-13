@@ -330,7 +330,7 @@ readable and the guards are green. -->
   the spec-dir files, and at most comment lines in `src/`. **PAUSE for the
   person**: the docs read correctly; nothing to try in play.*
 
-- [ ] **T006a** (T007 finding, 2026-09-13) — `tests/balance.rs` comments
+- [x] **T006a** (T007 finding, 2026-09-13) — `tests/balance.rs` comments
   only: the guard-margin comment names Kesh (Mid Rim) as the binding Core
   opponent — the Core guard iterates rix/magistrate/sovereign, so the binding
   margin is Rix at 10.8 SE (Kesh's 6.5 SE figure is not a guard); and the
@@ -339,6 +339,15 @@ readable and the guards are green. -->
   the corrected figures. No code change.
   *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff`
   shows comment lines only in `tests/balance.rs`.*
+
+- [ ] **T007a** (T006a finding, 2026-09-13) — `docs/balance.md` only: the
+  guards section repeats the Kesh misattribution in two places (the Core
+  guard's margin is Rix at 10.8 SE; the smallest guard margin is 8.8 SE, full
+  vs starter against Greeb; Kesh's 6.5 SE is a Mid Rim figure no guard
+  covers). Match the corrected comment in `tests/balance.rs`.
+  *Verify: `grep -n "6.5 SE\|binding Kesh" docs/balance.md` shows only a
+  correctly-framed non-guard mention, or nothing; the numbers equal the
+  `tests/balance.rs` comment.*
 
 ## Final phase — Spec close-out
 
@@ -422,7 +431,8 @@ iteration count in the outcome column. -->
 | Phase 2 review (skeptical-reviewer) | opus | ~91K (measured return) | signed off, 0 blocking, 8 notes — log factual slip (Sovereign never had flips) + T8 tolerance-carried on Dax + observed-not-measured design notes → T007; guard bars sized from GUARD_N SE → T006; Nima/Kesh strategy vs blurb, four opponents at floor 50, Outer Rim misplay ≥ 0.34, lateral spares → person at the Phase 2 pause |
 | T006 impl (sdd-implementer) | opus | ~49K (measured return) | done first try; GUARD_N stays 600 — smallest margin 6.5 SE (starter vs Kesh ≤ 50%), Greeb guard 10.1 SE, full-vs-starter binding at Greeb 8.8 SE; balance test binary 1.1 s debug; notes (d) and (e) applied |
 | T007 impl (sdd-implementer) | opus | ~163K (measured return) | done first try; balance.md 289 lines, every table value machine-checked against source and the T004a table; two stale comments found in tests/balance.rs → T006a |
-| T006a comments (sdd-implementer) | opus | | |
+| T006a comments (sdd-implementer) | opus | ~34K (measured return) | done; found the same misattribution in docs/balance.md → T007a |
+| T007a balance.md fix (sdd-implementer) | opus | | |
 | Phase 3 review (skeptical-reviewer) | opus | | |
 | T008 close-out (orchestrator) | fable (session, medium) | — | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus | | |

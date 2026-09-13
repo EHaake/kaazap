@@ -1,5 +1,5 @@
 //! Headless balance simulator (spec 022). Run the table with
-//!   KAAZAP_SIM_N=4000 cargo test --release --test balance balance_table -- --ignored --nocapture
+//!   KAAZAP_SIM_N=10000 cargo test --release --test balance balance_table -- --ignored --nocapture
 //! Everything else in this file is an ordinary test (scripted-player rules,
 //! termination, the balance guards). See docs/balance.md.
 
@@ -746,16 +746,17 @@ fn a_scripted_match_terminates_against_every_roster_opponent() {
 //
 //   starter vs Greeb >= 50%   w = .690  (.690−.500)/√(.690·.310/600)
 //                             = .190/.01888 = 10.1 SE
-//   starter vs Core <= 50%    binding kesh, w = .371
-//                             (.500−.371)/√(.371·.629/600) = .129/.01972 = 6.5 SE
-//                             (rix 10.8, magistrate 12.4, sovereign 15.1)
+//   starter vs Core <= 50%    binding rix, w = .299
+//                             (.500−.299)/√(.299·.701/600) = .201/.01869 = 10.8 SE
+//                             (magistrate 12.4, sovereign 15.1)
 //   full > starter            binding greeb, gap .890−.690 = .200
 //                             .200/√((.890·.110 + .690·.310)/600) = .200/.02280 = 8.8 SE
 //                             (every other opponent is 9.0 SE or more)
 //
-// Smallest margin 6.5 SE (starter vs Kesh), so GUARD_N stays at 600: a false
-// failure is well under 1e-6 per guard, and the three guards together run
-// ~15 000 matches, seconds in debug.
+// Smallest margin 8.8 SE (full vs starter against Greeb), so GUARD_N stays at
+// 600: a false failure is well under 1e-6 per guard, and the three guards
+// together run ~15 000 matches, seconds in debug. (The smallest starter-vs-Mid
+// Rim margin, Kesh at 6.5 SE, is not a guard — no guard covers the Mid Rim.)
 
 #[test]
 fn starter_deck_beats_greeb_above_the_floor() {
