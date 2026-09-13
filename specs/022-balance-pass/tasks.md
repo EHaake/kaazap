@@ -1,0 +1,317 @@
+# Tasks: Difficulty & economy balance pass — spec 022
+
+> **Status**: Draft — pending sign-off
+**Implements**: plan.md in this directory
+
+Ordered, small, independently verifiable. Each task should be completable (and
+testable) on its own. If a session ends mid-list, resume by finding the first
+unchecked task — don't re-verify everything above it unless something looks off.
+
+<!-- WARNING: once implementation starts, this file gets written by more than one
+party — whoever's steering adds scope and reshuffles tasks; the implementing
+session (the orchestrator — never the sdd-implementer subagent) checks boxes and
+adds findings. Never edit this file from a stale copy. Prefer small, targeted
+edits over regenerating it wholesale — a full replacement silently discards
+whatever the other party added since your copy was taken. -->
+
+Per the constitution: every implementation task ends with an actual build and,
+where tests exist for what changed, an actual test run — reported, not summarized.
+Under the model policy, the orchestrator re-runs build + tests itself after an
+implementer returns, and only the orchestrator commits. **Per the person's ruling
+of 2026-09-13, every task below — including every simulator run and every tuning
+iteration — runs in the `sdd-implementer` at the implementation tier; no task
+sends simulator output to the top tier.**
+
+**Foundational phase:** Phase 1 (T001–T002 — the starter constants, the Quick
+Play deal, and the simulator that every later number comes from) is
+foundational. Under the constitution's review cadence the default is a
+**per-phase** `skeptical-reviewer` pass. One task carries `review: per-task`:
+**T002**, the simulator — a wrong win attribution, a scripted-player rule that
+misreads the board, or a bound formula off by the reserve would silently
+invalidate every measurement, every tuning decision, and the doc's whole
+table. Every other task — T001, T003–T008 — is reviewed at phase end.
+
+---
+
+## Phase 1 — Foundations: the starter, the Quick Play deal, the simulator (foundational)
+
+<!-- Foundational: the two constants the tuning edits and the instrument that
+measures them. T002 gets a per-task review. Phase ends with a short pause: the
+person can see the new starter in the builder/shop and play Quick Play with the
+premium deck (the starter composition may still move in Phase 2). -->
+
+- [ ] **T001 (foundational)** — `src/profile.rs`, `src/app.rs`, `src/card.rs`
+  (comments only), `src/deck_builder.rs` (tests only): the Outer-tier starter
+  and the Quick Play deal. In `profile.rs` add `pub const STARTER_SIDE_DECK:
+  [Card; SIDE_DECK_SIZE]` = `+1 +1 +2 +2 +3 −1 −1 −2 −2 −3` and `pub const
+  STARTER_SPARES: [Card; 3]` = `+3 −3 ±1` (plan §Design 1 — first guesses,
+  T004 may move them), make `starter_deck()` / `starter_collection()` read
+  them, drop the non-test `DEFAULT_SIDE_DECK` import, and update the module /
+  fn docs. In `app.rs` add the pure `fn player_deck_for(is_campaign: bool,
+  built: &[Card]) -> Vec<Card>` and make `start_match` deal
+  `player_deck_for(campaign.is_some(), self.profile.deck())` — read
+  `is_campaign` before the existing `match campaign` moves it; update the
+  `start_match` doc (plan §Design 2; the deck-validity divert in
+  `open_opponent_select` stays — plan tension §7). In `card.rs` edit only the
+  two doc comments (`DEFAULT_SIDE_DECK` is the *standard* deck — opponent
+  baseline and Quick Play — not the starter; `deal_hand`'s "the player uses
+  DEFAULT_SIDE_DECK"). Tests: rewrite `default_profile_has_a_valid_deck_within_the_collection`
+  as `default_profile_plays_a_valid_outer_tier_starter` (deck ==
+  `STARTER_SIDE_DECK`, != `DEFAULT_SIDE_DECK`, valid, collection = deck +
+  spares, every deck and spare card `economy::card_tier(..) == Outer`); add
+  `an_existing_profile_keeps_its_premium_deck_collection_and_credits` (JSON
+  with `deck = DEFAULT_SIDE_DECK`, `collection = DEFAULT_SIDE_DECK + [+1, −1,
+  ±2]`, `credits: 75` loads with exactly those; `PROFILE_VERSION == 1`); add
+  `quick_play_deals_the_standard_deck_and_campaign_deals_the_built_one` in
+  `app.rs` with a built deck sharing no card with the standard one; in
+  `deck_builder.rs` restage every test that reads the default profile's exact
+  slots (`enter_moves_a_present_card…`, `a_partly_decked_card…`,
+  `a_type_present_in_one_panel…`, `an_unowned_type_is_a_placeholder…`,
+  `arrows_skip_placeholders…`) through the existing `profile_from(collection,
+  deck)` helper with explicit layouts, so no test depends on the starter's
+  composition, and fix the `default_profile` doc comment (or remove the helper
+  if nothing uses it). `game.rs`, `player.rs`, `save.rs` untouched. (Copies the
+  `DEFAULT_SIDE_DECK` const shape in `card.rs` and the `profile_from` staging
+  pattern already in `deck_builder.rs` tests.)
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  (reported verbatim) — the three new/rewritten tests above pass; the existing
+  `reset_to_starter_wipes_the_run_but_preserves_lifetime_stats`,
+  `missing_or_garbage_json_is_rejected_but_an_empty_object_is_the_starter`, and
+  every `save.rs` / `game.rs` test pass unchanged; `grep -n DEFAULT_SIDE_DECK
+  src/profile.rs` shows test-only uses; `git diff --stat` lists only the four
+  files named.*
+
+- [ ] **T002 (foundational, review: per-task)** — Create `tests/balance.rs`
+  exactly as plan §Design 3: constants (`SCRIPTED_STAND_AT = 17`, `STEP_CAP =
+  5_000`, `DEFAULT_N = 4_000` overridable by `KAAZAP_SIM_N`, `GUARD_N = 600`,
+  `TOL = 0.02`), the three pool-best candidate consts, `Move`,
+  `scripted_move` (plan tension §2, rules 1–4 in that order, flips never
+  played), `play_match` (the plan's loop verbatim: stale-frame `update()`,
+  `PlayHand` then `ChooseSign { positive: value > 0 }` in the same step,
+  `OpponentThinking` → `OpponentTurn`, panic past `STEP_CAP`), `win_rate`,
+  `decks()` (starter = `kaazap::profile::STARTER_SIDE_DECK`, standard =
+  `DEFAULT_SIDE_DECK`, the three candidates), `opponents_in(tier)` from
+  `PLANETS` × `region_tier` × `opponent_by_id`, `tier_price` (min `card_price`
+  over the tier's cards), `floor_of`, `ev_per_match`, `measure(n)` over the
+  5×10 grid, `targets` (T1–T8) and `bounds` (B1–B5) with the plan's exact
+  formulas and PASS/FAIL strings, and the `#[ignore]` `balance_table` that
+  prints the table, both blocks, and the `summary: targets a/8, bounds b/5`
+  line — never asserting. Ordinary tests:
+  `scripted_player_follows_its_rules_on_fixed_boards` (every board in plan
+  §Design 3), `named_decks_are_ten_cards_from_their_pools`,
+  `a_scripted_match_terminates_against_every_roster_opponent` (one match per
+  pair). No new crate; nothing under `src/` changes. (Copies
+  `full_match_terminates_within_bounded_updates` and the `opponent_at` board
+  helper in `game.rs` tests.)
+  *Verify: `cargo build --all-targets` / `cargo test -q` green, reported
+  verbatim, with the three new tests listed as passing and `balance_table`
+  as ignored; then `KAAZAP_SIM_N=200 cargo test --release --test balance
+  balance_table -- --ignored --nocapture` prints 50 rows (5 decks × 10
+  opponents in roster order), eight `T` lines, five `B` lines with the
+  constants header `(SEED 50, reserve 10, P_outer 20, P_mid 50, P_core 120)`,
+  and the summary line — output pasted verbatim (the PASS/FAIL values are not
+  judged here). Report that `git diff --stat` shows only `tests/balance.rs`.
+  **PAUSE for the person** (phase attestation, profile/saves backed up and
+  checksum-restored): Quick Play with an Outer-only built deck deals ±6 /
+  flip / tiebreaker cards over a match; a campaign match deals only Outer
+  cards; the deck-builder album shows 7 owned types and 8 placeholders and fits
+  139×31; the shop reads the new owned counts; New Campaign and a run-over
+  reset both hand out the new starter.*
+
+## Phase 2 — Measure, then tune
+
+<!-- The baseline measurement fixes the pool-best decks and records the
+untuned curve; T004 tunes opponents/starter/tiers to the win-rate targets; T005
+tunes prices and economy constants to the bounds. Each tuning task is a bounded
+loop at the implementation tier; non-convergence goes to the person. Phase
+ends with the spec's play attestation. -->
+
+- [ ] **T003** — Baseline. Run the documented command twice at `DEFAULT_N`
+  (`cargo test --release --test balance balance_table -- --ignored
+  --nocapture`), timing each (`time`). Then, for each pool, measure up to
+  three hand-built candidate decks (the plan's plus at most two alternatives
+  each, no flips, buildable from the pool) against that pool's region
+  opponents at `N = 2000` by temporarily swapping the const, and fix the best
+  as `BEST_OUTER` / `BEST_OUTER_MID` / `BEST_FULL`. Create
+  `specs/022-balance-pass/tuning-log.md` with: both full runs, the per-pair
+  max |Δ| between them, the wall times, the candidate tables with the choice
+  and reason, and the baseline summary line. If any pair's |Δ| exceeds 2.5
+  points raise `DEFAULT_N` (and say so). Plan tensions §3, §5. (Copies nothing —
+  a measurement task; the only code edits are the three candidate consts and
+  possibly `DEFAULT_N`.)
+  *Verify: `tuning-log.md` holds two complete 50-row tables with their wall
+  times and the max |Δ| ≤ 2.5 points (or `DEFAULT_N` raised and re-run), plus
+  the candidate tables; the reported wall time of one run is under 60 s (the
+  plan's "seconds" claim — report the actual figure); `cargo build
+  --all-targets` / `cargo test -q` green; `git diff --stat` shows only
+  `tests/balance.rs` and the log.*
+
+- [ ] **T004** — Tune the win-rate curve (targets T1–T8). Levers and limits
+  exactly plan §Design 4 (T004 bullet): `OPPONENTS` values inside the kept
+  structure, `STARTER_SIDE_DECK` / `STARTER_SPARES` (Outer only), `card_tier`
+  (with `card_tier_partitions_the_universe`'s lists updated), the three
+  candidate consts. Never the scripted player, the loop, `card_price`, or the
+  economy constants. Start from plan tension §8's pressure points. Loop: edit →
+  run the command at `DEFAULT_N` → read the `T` lines; at most **six**
+  iterations; append each iteration's changed values and summary line to
+  `tuning-log.md`. Stop when all eight pass, or at six with the stuck target
+  named and what was tried. Re-sync nothing in `docs/` yet (T007). (Copies the
+  data-only shape of the `OPPONENTS` / `card_tier` consts.)
+  *Verify: the final run's eight `T` lines all read PASS and the summary says
+  `targets 8/8` (pasted verbatim, with `N`); `cargo build --all-targets` /
+  `cargo test -q` green including `roster_runs_easy_to_hard_by_threshold`,
+  `misplay_rates_are_valid_and_the_default_is_deterministic`,
+  `the_final_boss_is_flawless_and_fully_equipped`,
+  `card_tier_partitions_the_universe`, `default_profile_plays_a_valid_outer_tier_starter`;
+  `tuning-log.md` has one entry per iteration. If not converged: the return
+  names the stuck target, the pinned lever, and the six tables — the
+  orchestrator re-dispatches once as T004a with the log; a second
+  non-convergence goes to the person as a plain-language question (which
+  target, which lever is pinned by which other target), not to a decision
+  review.*
+
+- [ ] **T005** — Tune the economy bounds (B1–B5). Levers exactly plan §Design 4
+  (T005 bullet): `card_price` by tier, `SEED_PURSE`, `ANTE_BASE_THRESHOLD`,
+  `ANTE_PER_THRESHOLD_STEP`, `STAKE_STEP` — **not** `PAYOUT_RATIO` and
+  nothing T004 owns. Amend the exact-value tests the new constants break in
+  the same edit (`ante_floor_is_the_difficulty_scalar`, `payout_is_even_money`
+  untouched, `earning_grows_the_balance_and_purchase_holds_back_the_ante_reserve`'s
+  59/60 boundary, `every_card_has_a_positive_price_that_rises_with_tier`,
+  `cheapest_floor_is_the_min_over_launchable_nodes`'s `== 10`, the `wager.rs`
+  grid tests if `STAKE_STEP` moves) — to the new values, never loosened. Same
+  bounded loop as T004 (six iterations, log every one). A final run after the
+  last edit is the table `docs/balance.md` records.
+  *Verify: the final run's five `B` lines all read PASS (B4 may read `PASS
+  (above floor)` — say which) and the summary says `targets 8/8, bounds 5/5`
+  (pasted verbatim); `cargo build --all-targets` / `cargo test -q` green;
+  `PAYOUT_RATIO == 1`; `git diff main -- src/opponent.rs src/profile.rs` is
+  empty for this task (T004's data untouched). Non-convergence escalates as in
+  T004. **PAUSE for the person** (phase attestation, profile/saves backed up
+  and checksum-restored): on a fresh campaign the starter clears the Outer Rim
+  over a few attempts; the Mid Rim is a wall until Mid cards are bought; the
+  shop and deck-builder read correctly with the new collection; Quick Play
+  plays with the premium deck. The orchestrator's pause report states the
+  measured table's headline numbers in plain words.*
+
+## Phase 3 — Guards and docs
+
+<!-- The unit-test guards sized against the measured gaps, then the balance doc
+and the two re-synced docs. Phase ends with a short pause: the docs are
+readable and the guards are green. -->
+
+- [ ] **T006** — `tests/balance.rs`: the guards. Add
+  `starter_deck_beats_greeb_above_the_floor` (rate ≥ 0.50),
+  `starter_deck_cannot_credibly_take_the_core` (≤ 0.50 vs each Core opponent),
+  `the_full_pool_deck_outperforms_the_starter_against_every_opponent` (strict
+  `>` per opponent), all at `GUARD_N`. From T005's final table compute each
+  guard's margin in standard errors (single rate: `(w − bound) / √(w(1−w)/N)`;
+  the difference: `gap / √((w₁(1−w₁) + w₂(1−w₂))/N)`), raise `GUARD_N` until
+  every margin ≥ 5 SE, and write the margins in a comment above the guards.
+  Plan tension §6. (Copies `win_rate` + the existing assertion style in the
+  same file.)
+  *Verify: `cargo build --all-targets` / `cargo test -q` green **three times
+  in a row** (all three tails pasted); the smallest margin and `GUARD_N`
+  reported with the arithmetic; `time cargo test --test balance` reported
+  (debug) — under 30 s; `git diff --stat` shows only `tests/balance.rs`.*
+
+- [ ] **T007** — Docs. Create `docs/balance.md` (plan §Design 5: command and
+  `N`, agreement figure, the scripted player rules verbatim plus the flip
+  limitation, the five decks with the candidate alternatives and rates, the
+  targets table with measured values / `N` / date, the bounds with the
+  arithmetic shown, the guards and margins, how to re-run and what to update
+  after a change). Re-sync `docs/opponents.md` (roster table, the per-opponent
+  prose where a value moved, the "first cut" closer → tuned in spec 022) and
+  `docs/economy.md` (constants, ante, tier/price tables; starter is Outer-tier;
+  "first guesses" → tuned; Quick Play deals the standard deck). `README.md`:
+  one clause at the Quick Play sentence. Update the `profile.rs` / `app.rs`
+  docs if T004/T005 moved anything they name. Draft
+  `specs/022-balance-pass/closeout-main-docs.md` with the `ROADMAP.md`
+  (balance pass shipped; Difficulty setting has its baseline; lines 90–91
+  starter note) and `DECISIONS.md` (rulings A–H, plan tensions §1, §2, §4, §5,
+  §7; lines 115–118 superseded) text to apply on `main` after the merge —
+  never on the branch. (Copies `docs/economy.md`'s section shape and 021's
+  `closeout-main-docs.md`.)
+  *Verify: `cargo build --all-targets` / `cargo test -q` green; every value in
+  the three tables equals the const it snapshots — report a `grep` per
+  constant and per roster threshold/misplay; `balance.md`'s table is T005's
+  final run byte-for-byte in the numbers; `git diff --stat` shows docs, README,
+  the spec-dir files, and at most comment lines in `src/`. **PAUSE for the
+  person**: the docs read correctly; nothing to try in play.*
+
+## Final phase — Spec close-out
+
+- [ ] **T008** — Flake check, sweep, AC checkoff. Run `cargo test -q` **ten
+  consecutive times** and paste the ten tails. Mechanical checks: `git diff
+  main --stat` shows no `game.rs`, `player.rs`, `save.rs`, `campaign.rs`,
+  `wager.rs`, `Cargo.toml`, `Cargo.lock`; `git diff main -- src/card.rs`
+  changes comment lines only; `PROFILE_VERSION == 1` and `SAVE_VERSION == 1`;
+  `PAYOUT_RATIO == 1`; `cargo build --all-targets` warning count equals
+  `main`'s; `grep -rn "starter" docs README.md src` finds no sentence calling
+  the starter the default/premium deck. Check off `spec.md` acceptance
+  criteria with evidence (the verbatim lines). Request the pre-merge
+  whole-spec sweep; apply `closeout-main-docs.md` on `main` after the merge.
+  *Verify: ten green tails, zero failures; every mechanical check listed with
+  its command and output; sweep clean or findings resolved.*
+
+---
+
+## Handoff note
+
+Read `CLAUDE.md` and `specs/022-balance-pass/{spec,plan,tasks}.md`, then
+implement from the first unchecked task. Involvement level is **product
+owner**. Dispatch each task to the `sdd-implementer` per the model policy;
+verify by running the build and tests yourself, then commit. **The one task
+marked `review: per-task` (T002):** run the `skeptical-reviewer` after it,
+scoped to its diff, plan §Design 3 and tensions §2–§4, and the simulator
+acceptance criterion (a shell-assembled bundle), one review plus at most one
+re-review, and re-run the verification command yourself before committing.
+**Every other task (T001, T003–T008):** review at phase end. Pause for the
+person after each phase and whenever something unexpected bears on spec
+adherence. The **Phase 1 pause** is the starter/Quick-Play look (new
+collection in the builder and shop, premium hand in Quick Play, Outer hand in
+campaign); the **Phase 2 pause** is the curve attestation (Outer Rim clearable,
+Mid Rim a wall, shop/builder legible, Quick Play premium); the **Phase 3
+pause** is a read of the docs. Back up + checksum-restore the real
+profile/saves before every driver session — this spec resets real profiles by
+design.
+
+Model & effort: the session runs at the session tier (`claude-fable-5-1`,
+medium) per `.claude/settings.json`; the planner and the sign-off ran at the
+top tier (`fable`) by per-call override. **Binding ruling (person,
+2026-09-13): every implementation task, every simulator run, and every tuning
+iteration runs in the `sdd-implementer` at `opus`; no simulator output is sent
+to the top tier.** A tuning task that does not converge after one re-dispatch
+(T004a / T005a) goes to the **person** as a plain-language question, not to a
+decision review. Per-phase and per-task reviews and the sweep run at `opus`.
+Per Erik's standing ruling, never infer the fable budget from a successful
+dispatch — ask if unsure, and log which tier actually ran. Every
+session-ending pause ends with a continuation prompt (spec directory, files to
+read, where to resume, involvement level, pause cadence, any model switch) in
+its own fenced block.
+
+## Tier log (this spec, under the model policy)
+
+<!-- Record the evidence: token usage from each subagent return (implementer runs
+and reviewer invocations), any escape-hatch miss (a task the orchestrator had to
+redo, and why). Compare the spec total against spec 021 before treating the
+policy as settled. Tuning tasks: one row per dispatch (T004, T004a, …), with the
+iteration count in the outcome column. -->
+
+| Task / invocation | Tier | Tokens | Outcome / miss reason |
+|---|---|---|---|
+| **Experiment 1, spec 2** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: (read at the implementation session's open); at spec end: (read after the merge). Person's ruling 2026-09-13: all implementation, simulator runs, and tuning at `opus`. | — | — | header |
+| Planning: draft (sdd-planner) | fable | ~205K (budget counter at return) | drafted; no blocking product questions; three design edges flagged (plan §Open questions) |
+| plan + tasks sign-off (skeptical-reviewer) | fable | | |
+| T001 impl (sdd-implementer) | opus | | |
+| T002 impl (sdd-implementer) | opus | | |
+| T002 review (skeptical-reviewer, per-task) | opus | | |
+| Phase 1 review (skeptical-reviewer) | opus | | |
+| T003 impl (sdd-implementer) | opus | | |
+| T004 impl (sdd-implementer) | opus | | iterations: |
+| T005 impl (sdd-implementer) | opus | | iterations: |
+| Phase 2 review (skeptical-reviewer) | opus | | |
+| T006 impl (sdd-implementer) | opus | | |
+| T007 impl (sdd-implementer) | opus | | |
+| Phase 3 review (skeptical-reviewer) | opus | | |
+| T008 close-out (orchestrator) | fable (session, medium) | — | |
+| Pre-merge whole-spec sweep (skeptical-reviewer) | opus | | |
