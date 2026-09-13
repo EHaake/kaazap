@@ -81,14 +81,18 @@ of, not guessed at here in advance.
   **card collection** (a bag of owned copies) and a **built 10-card side deck**,
   plus a **deck-builder `Screen`** reached from a new **Side Deck** menu item
   where you add/remove copies (arrows/`wasd`/emacs, Enter/Backspace) against the
-  owned counts. Matches deal the player's hand from the built deck — the player
+  owned counts. Matches deal the player's hand from the built deck (campaign matches, since
+  spec 022) — the player
   deck moved from the `DEFAULT_SIDE_DECK` const onto `GameState`, mirroring how
   spec 007 moved the opponent's deck — and each match **snapshots its deck into
   the save**, so editing your deck never rewrites an in-progress match; resume
   falls back to the default for a pre-spec or malformed deck. Decks must be
   exactly 10 to play (an incomplete deck routes Start Game to the builder). The
-  whole 15-card side-card universe is `card::ALL_SIDE_CARDS`; the starter is the
-  default 10 + a few spares (tunable in C's balance pass). A two-panel
+  whole 15-card side-card universe is `card::ALL_SIDE_CARDS`; the starter was
+  the default 10 + a few spares — **superseded by spec 022**, which gave a fresh
+  profile its own Outer-tier `profile::STARTER_SIDE_DECK` plus lateral spares
+  and left `card::DEFAULT_SIDE_DECK` as the opponent baseline and Quick Play's
+  deal. A two-panel
   "briefcase" builder is a logged follow-up (below).
 - **Campaign map** (spec 009) — the campaign's integration layer (subsystem D),
   scoped to navigation + progression structure with the **economy stubbed**
@@ -265,6 +269,33 @@ of, not guessed at here in advance.
   `PROFILE_VERSION` bump, no `SAVE_VERSION` bump**, and no engine change
   (`game.rs` / `player.rs` / `card.rs` / `save.rs` untouched). Every number is a
   tunable constant in `economy.rs`; see `docs/economy.md`.
+- **Difficulty & economy balance pass** (spec 022) — the difficulty curve is now
+  **measured, not guessed**. A headless **balance simulator**
+  (`tests/balance.rs`, an ignored integration test run as
+  `KAAZAP_SIM_N=10000 cargo test --release --test balance balance_table --
+  --ignored --nocapture`) plays a **scripted player** — the AI's own
+  deterministic core, no misplays — against all ten opponents with five named
+  decks (the starter, the standard deck, and a best deck per card pool), then
+  prints the win-rate table plus every spec target and economy bound with
+  PASS/FAIL. Tuning moved **data only** (no AI logic, no new mechanics): the
+  **starter deck is now Outer-tier only** (`profile::STARTER_SIDE_DECK`, its own
+  constant, with lateral spares), the **standard deck** keeps its role as the
+  opponent baseline and is what **Quick Play** deals, the roster was retuned
+  (the Outer Rim's weakness moved out of `misplay` and into weak all-1s decks
+  (mostly `+1`/`−1`, and no `±` card) —
+  Greeb's slip rate fell 0.25 → 0.18 as shipped; Nima 16/Cautious →
+  17/Basic; Rix 18 → 19; Kesh 18/Aggressive → 19/Basic), and the **Mid and Core
+  card prices rose 50 → 100 and 120 → 200**. Final curve at N = 10 000: all
+  eight targets and all five economy bounds pass — the starter wins about
+  70 % against Greeb, stays under 41 % across the Mid Rim and under 30 %
+  across the Core, while a full-pool deck takes the finale 51 % of the time.
+  Three ordinary sampled tests guard points on that curve at a small sample,
+  plus one exact
+  test that a fresh profile's starter is Outer-tier, so a future data edit that
+  breaks it fails `cargo test`. **No engine, save-format or UI change**, and
+  existing profiles keep their cards and credits. Method, measurements and
+  re-run instructions in `docs/balance.md`; `docs/opponents.md` and
+  `docs/economy.md` re-synced.
 
 ## Backlog
 
@@ -392,22 +423,20 @@ the endgame and the mode-identity question are deferred, below.
   "beating the game" awards (the endgame/victory) and the
   casual-campaign-vs-roguelike-mode identity question (see **E · Roguelike
   mode**).
-- **Difficulty & economy balance pass** — the concrete home for the cross-cutting
-  balance pass noted above: tune the curve across the **three coupled levers —
-  opponents** (the per-opponent stand threshold, side-deck quality, `AiStrategy`,
-  and misplay rate), **cards** (shop prices vs. the 15-card universe's power), and
-  **economy** (ante floors, payouts, starting credits) — so a better deck is a
-  real, near-required edge. Invariant to tune toward: a **basic deck's win-rate
-  against later opponents drops below the rate at which safe minimum-wager grinding
-  can fund the next card tier**, so progress needs better cards or bigger, riskier
-  bets. Caveat (human-flagged): "cards required" is *probabilistic* in a
-  high-variance game — you tilt per-match odds, you don't guarantee a basic-deck
-  loss — and the knife-edge (too hard = unfair/grindy, too soft = cards optional)
-  only settles by playtest, so build with tunable constants. **Now unblocked** — the wager loop shipped (spec
-  021), and every lever it owns (seed purse, ante floors, stake step, payout
-  ratio, shop prices) is a tunable constant in `economy.rs`, with the rematch
-  grind live for the invariant above to be tuned against. Distinct from the global **Difficulty setting** (easy / normal /
-  hard) in *Other* — that's a player-facing selector layered on this baseline curve.
+- **Difficulty & economy balance pass** — ✅ **Shipped (spec 022** — see Shipped
+  above and `docs/balance.md`). The three coupled levers (opponents, card
+  prices, economy constants) were tuned together against measured win rates, and
+  the invariant landed as a set of explicit targets: the starter deck clears the
+  Outer Rim, **walls at the Mid Rim** (under 50 %) and **cannot credibly take
+  the Core** (under 33 %), while funding a Core card by safe floor-stake
+  grinding takes **43** expected matches against **11** by betting in the Mid
+  Rim with a bought deck — so progress needs better cards or bigger bets. The
+  human-flagged caveat stands: "cards required" is probabilistic and the *feel*
+  only settles by playtest, so every lever remained a tunable constant and
+  `docs/balance.md` records how to re-measure after a change. Distinct from the
+  global **Difficulty setting** (easy / normal / hard) in *Other* — that is a
+  player-facing selector layered on this curve, which is now the baseline it
+  moves relative to.
 
 ### Other (not campaign-dependent)
 
@@ -420,10 +449,13 @@ the endgame and the mode-identity question are deferred, below.
 - **Difficulty setting** (easy / normal / hard) — a global option (in the
   Settings overlay) that nudges how sharply opponents play and/or the player's
   starting resources. Widens the audience for a public / itch.io release at low
-  cost. **Now unblocked:** the board-aware AI shipped (spec 010), so difficulty
-  can scale how well opponents actually *think* — e.g. globally nudging the
-  misplay rate and/or the effective threshold, not merely the raw stand
-  thresholds. Suggested during the post-spec-009 review.
+  cost. **Now unblocked, and now with a baseline:** the board-aware AI shipped
+  (spec 010), so difficulty can scale how well opponents actually *think* —
+  e.g. globally nudging the misplay rate and/or the effective threshold, not
+  merely the raw stand thresholds — and spec 022 measured the **normal** curve
+  those nudges would move relative to (`docs/balance.md`). Any proposed offset
+  can be re-measured against the same targets with the balance simulator before
+  it ships, rather than being playtested blind. Suggested during the post-spec-009 review.
 - **Considered animation pass** — deliberate, sparse animations that
   guide the eye during play: a dealt card arriving, a flip resolving,
   a total changing, round transitions. Builds on spec 002's selection
