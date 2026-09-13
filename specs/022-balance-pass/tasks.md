@@ -133,7 +133,12 @@ applied to the "sovereign hardest" half — the doc states both; (c) B4's
 (one-match edge); (d) `easiest_other` in T8 is really the hardest other
 opponent and prints as "next" — rename when the file is next touched (T006);
 (e) T006 must drop GUARD_N's `#[allow(dead_code)]`; (f) `git diff --stat`
-can't show an untracked file — T002's scope was confirmed via `git status`. -->
+can't show an untracked file — T002's scope was confirmed via `git status`.
+From the Phase 1 review (2026-09-13): (g) T004 adds
+`assert!(ALL_SIDE_CARDS.contains(card))` to the starter test's tier loop so a
+retuned starter can never leave the album's universe; (h) T007 fixes the
+`start_match` precondition paragraph in app.rs — an undersized deck now only
+affects campaign matches, Quick Play always deals 10. -->
 
 <!-- The baseline measurement fixes the pool-best decks and records the
 untuned curve; T004 tunes opponents/starter/tiers to the win-rate targets; T005
@@ -352,7 +357,7 @@ iteration count in the outcome column. -->
 | T001 impl (sdd-implementer) | opus | ~61K (measured return) | done first try; restaged a sixth deck_builder test (`nav_reports_moved_only_when_it_actually_moves`) that also read the old starter slots — inside the task's stated goal |
 | T002 impl (sdd-implementer) | opus | ~99K (measured return) | done first try; two plan fixed-boards were arithmetically impossible (23−2≠18; 16+4=20 triggers rule 2) — covered the rules with corrected boards, reviewer confirmed faithful |
 | T002 review (skeptical-reviewer, per-task) | opus | ~84K (measured return) | signed off, 0 blocking, 10 notes — carried to T005/T007 docs (C vs B4 not identical; T8 tolerance is per adjacent pair and also applied to the sovereign-hardest half; `easiest_other`/"next" label misnamed) and T006 (drop GUARD_N allow) and the sweep |
-| Phase 1 review (skeptical-reviewer) | opus | | |
+| Phase 1 review (skeptical-reviewer) | opus | ~58K (measured return) | signed off, 0 blocking, 7 notes — N2 (no test pins starter ⊆ ALL_SIDE_CARDS) carried to T004; N1 (start_match precondition doc half-stale) to T007; rest informational |
 | T003 impl (sdd-implementer) | opus | | |
 | T004 impl (sdd-implementer) | opus | | iterations: |
 | T005 impl (sdd-implementer) | opus | | iterations: |
