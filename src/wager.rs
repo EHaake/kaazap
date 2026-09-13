@@ -38,7 +38,7 @@ pub struct WagerState {
 
 /// A content row's role in the prompt — what it says and how it's emphasized.
 /// `Spacer` is an empty row: the breathing room the design brief asks for
-/// around the stake and under the title.
+/// around the stake.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Role {
     Plain,
@@ -123,7 +123,6 @@ impl WagerState {
                 Role::Plain,
                 format!("Wager — {} · {}", self.opponent.name, self.planet.name),
             ),
-            (Role::Spacer, String::new()),
             (
                 Role::Plain,
                 format!("Ante ◈ {}   Balance ◈ {}", self.floor, self.max),
@@ -132,7 +131,6 @@ impl WagerState {
             (Role::Stake, format!("◂  Stake ◈ {stake}  ▸")),
             (Role::Spacer, String::new()),
             (Role::Plain, format!("Win +{winnings}   ·   Lose −{stake}")),
-            (Role::Spacer, String::new()),
             (
                 Role::Hint,
                 "←/→ stake  ·  Enter play  ·  Esc back".to_string(),
@@ -143,8 +141,8 @@ impl WagerState {
     /// The prompt's content rows as plain text, in draw order — pure, so the
     /// tests read the same strings the box renders. Blank entries are the
     /// spacer rows the design brief's breathing-room rule calls for (one above
-    /// and below the stake the player acts on, one under the title); the box
-    /// grows with them, since [`draw`] sizes the overlay from [`rows`].
+    /// and one below the stake the player acts on; every other row is packed);
+    /// the box grows with them, since [`draw`] sizes the overlay from [`rows`].
     ///
     /// [`draw`]: WagerState::draw
     /// [`rows`]: WagerState::rows
@@ -282,10 +280,11 @@ mod tests {
     }
 
     #[test]
-    fn rows_breathe_around_the_stake_and_under_the_title() {
+    fn rows_breathe_around_the_stake() {
         // The design brief's density rule: a blank row above and below the row
-        // the player acts on, and one between the title and the body. Roles (not
-        // indices) carry the emphasis, so the spacers can't shift it.
+        // the player acts on, and nowhere else — the rest of the prompt stays
+        // packed. Roles (not indices) carry the emphasis, so the spacers can't
+        // shift it.
         let s = state(53);
         let rows = s.rows();
         let roles: Vec<Role> = rows.iter().map(|(role, _)| *role).collect();
@@ -293,13 +292,11 @@ mod tests {
             roles,
             vec![
                 Role::Plain,  // title
-                Role::Spacer,
                 Role::Plain,  // ante · balance
                 Role::Spacer,
                 Role::Stake,  // the row the player acts on
                 Role::Spacer,
                 Role::Plain,  // win · lose
-                Role::Spacer,
                 Role::Hint,
             ]
         );
@@ -318,8 +315,8 @@ mod tests {
 
     #[test]
     fn the_prompt_fits_the_minimum_terminal_unclamped() {
-        // The taller, sparser box must still fit 139×31 with margin — if it ever
-        // outgrows the frame, OverlayLayout clamps and the rows get eaten.
+        // The box must still fit 139×31 with margin — if it ever outgrows the
+        // frame, OverlayLayout clamps and the rows get eaten.
         let (cols, rows) = Config::min_size();
         let config = Config { num_cols: cols, num_rows: rows };
         let s = state(999_999);
@@ -328,7 +325,7 @@ mod tests {
         let layout = OverlayLayout::new(config, width, lines.len());
         assert_eq!(
             layout.outer.height(),
-            lines.len() + 2 * crate::V_PAD,
+            lines.len() + crate::V_PAD,
             "box height clamped — the prompt outgrew the minimum terminal"
         );
         assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");

@@ -642,6 +642,32 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn overlay_layout_pads_content_symmetrically() {
+        // Callers draw `content_height` rows from the top of `inner`, so a box
+        // whose interior is taller than its content leaves the slack at the
+        // bottom — the lopsided modal. When the box fits the frame, `inner` is
+        // exactly the content's height and the blank rows above and below it
+        // match, as do the blank columns left and right.
+        let (cols, rows) = Config::min_size();
+        let cfg = Config { num_cols: cols, num_rows: rows };
+        for (cw, ch) in [(20, 5), (40, 6), (52, 7), (60, 12)] {
+            let l = OverlayLayout::new(cfg, cw, ch);
+            assert_eq!(l.outer.height(), ch + V_PAD, "box height for {ch} rows");
+            assert_eq!(l.inner.height(), ch, "inner must fit the content exactly");
+            assert_eq!(
+                l.inner.y0 - l.outer.y0,
+                l.outer.y1 - l.inner.y1,
+                "uneven vertical padding for {ch} rows"
+            );
+            assert_eq!(
+                l.inner.x0 - l.outer.x0,
+                l.outer.x1 - l.inner.x1,
+                "uneven horizontal padding for {cw} columns"
+            );
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -661,8 +687,15 @@ impl OverlayLayout {
         // — an overlay taller/wider than the terminal is clamped rather
         // than letting the centering math underflow (panic) or the box
         // run off-screen. Positions saturate for the same reason.
+        //
+        // Vertically the box is border + one blank row + content + one
+        // blank row + border: `inner` is inset `V_PAD / 2` top and bottom,
+        // so `content_height + V_PAD` makes `inner` exactly as tall as the
+        // content and leaves the same gap above it as below. (A taller box
+        // would pad only the top, since callers draw from `inner`'s first
+        // row down.)
         let box_width = (content_width + 2 * H_PAD).min(cols);
-        let box_height = (content_height + 2 * V_PAD).min(rows);
+        let box_height = (content_height + V_PAD).min(rows);
 
         let x0 = mid_x.saturating_sub(box_width / 2);
         let y0 = mid_y.saturating_sub(box_height / 2);
@@ -672,12 +705,14 @@ impl OverlayLayout {
         let outer = Rect::new(x0, x1, y0, y1);
 
         // Inner box: shrink by half the padding, clamped so it never
-        // inverts (x0 > x1) on a box squeezed down to the frame.
+        // inverts (x0 > x1, y0 > y1) on a box squeezed down to the frame
+        // or sized for empty content.
+        let inner_y0 = (y0 + V_PAD / 2).min(y1);
         let inner = Rect::new(
             (x0 + H_PAD / 2).min(x1),
             x1.saturating_sub(H_PAD / 2),
-            (y0 + V_PAD / 2).min(y1),
-            y1.saturating_sub(V_PAD / 2),
+            inner_y0,
+            y1.saturating_sub(V_PAD / 2).max(inner_y0),
         );
 
         Self { outer, inner }
