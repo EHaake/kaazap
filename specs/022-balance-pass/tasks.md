@@ -363,6 +363,26 @@ readable and the guards are green. -->
   *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff`
   shows comment/doc lines only.*
 
+- [ ] **T008a** (sweep findings, 2026-09-13) — text only: (B1) `src/card.rs`
+  test comment above the `DEFAULT_SIDE_DECK` universe loop — it is the
+  standard deck, not the starter; (B2) "all-±1 decks/hands" → "all-1s decks
+  (`+1`/`−1` only, no ± card)" in `docs/balance.md` rule of thumb 3 and both
+  places in `closeout-main-docs.md`; (S1) the same paragraph's "(Greeb 0.44 →
+  0.18)" gains "0.44 mid-tuning; 0.25 as shipped before this pass"; (S2)
+  `Readme.md` line ~71 "dealt from each match" → "each campaign match"; (S3)
+  a fourth ROADMAP edit in `closeout-main-docs.md` qualifying line 84's
+  "Matches deal the player's hand from the built deck" with "(campaign
+  matches, since spec 022)"; (S4) `docs/opponents.md` "the two masters' card"
+  → three opponents hold the tiebreaker (Old Toran too); (S5) soften
+  `docs/opponents.md`'s "found that this AI plays better at 18" to the
+  rule-of-thumb wording balance.md uses; (S9) closeout "Four ordinary tests
+  guard … the curve" → three sampled guards plus one exact tier test; (S6)
+  run the documented command twice on the shipped data, record the per-pair
+  max |Δ| in `tuning-log.md` (`## T008a — shipped-data agreement`) and cite
+  it in `docs/balance.md` alongside T003's figure.
+  *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff`
+  shows comment/doc lines only under `src/`; the two runs' max |Δ| reported.*
+
 ## Final phase — Spec close-out
 
 - [ ] **T008** — Flake check, sweep, AC checkoff. Run `cargo test -q` **ten
@@ -450,4 +470,6 @@ iteration count in the outcome column. -->
 | Phase 3 review (skeptical-reviewer) | opus | ~94K (measured return) | signed off, 0 blocking, 3 notes + minor: "Kesh 6.5 SE is the smallest Mid Rim margin" is wrong (Toran 4.9 SE is, and is why no Mid Rim guard exists); balance.md re-run step omits its own guards table; closeout ROADMAP text says Greeb 0.44 → 0.18 but the pre-022 shipped value was 0.25 — all three → T007b |
 | T007b review-note text fixes (sdd-implementer) | opus | ~29K (measured return) | done; left balance.md rule-of-thumb #3's "0.44 → 0.18" (intra-spec narrative) for the sweep to judge |
 | T008 close-out (orchestrator) | fable (session, medium) | — | ten consecutive `cargo test -q` green; no forbidden file in `git diff main`; card.rs comment-only; PROFILE_VERSION 1 / SAVE_VERSION 1 / PAYOUT_RATIO 1; warnings 0 on branch and on main (worktree build); spec.md ACs checked off with evidence |
-| Pre-merge whole-spec sweep (skeptical-reviewer) | opus | | |
+| Pre-merge whole-spec sweep (skeptical-reviewer) | opus | ~146K (measured return) | fix-and-re-review: 2 blocking text errors (card.rs test comment still calls DEFAULT_SIDE_DECK the starter; "all-±1 decks" in balance.md and the closeout text — the Outer Rim decks hold no ± card) + 9 notes → T008a |
+| T008a sweep fixes (sdd-implementer) | opus | | |
+| Sweep re-review (skeptical-reviewer) | opus | | |
