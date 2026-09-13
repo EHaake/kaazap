@@ -643,7 +643,10 @@ campaign completions, and a current-run tally, shown on a new read-only
   `campaign && player_won && run_complete()`; the recording block is placed *after*
   the existing campaign-win block in `tick`, so `mark_beaten` has run and
   `run_complete()` is accurate. It can't double-count: a completed run exposes no
-  launchable match.
+  launchable match. *Superseded by spec 021:* rematches made a completed run
+  launchable again, so completion detection moved into
+  `Profile::settle_campaign_match` as an edge (`!was_complete && run_complete()`)
+  — see "Wager & loss condition (spec 021)", design tensions.
 - **Menu-wide selection preservation** [Erik-ruled, 2026-09-09]. The spec
   criterion "Esc returns to the menu with its selection preserved" surfaced that
   *every* screen's Back rebuilt the menu at the top (Continue). Rather than a
