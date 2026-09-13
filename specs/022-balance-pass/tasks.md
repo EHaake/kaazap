@@ -254,7 +254,7 @@ ends with the spec's play attestation. -->
   and the log. The final table replaces T005's as the one `docs/balance.md`
   records.*
 
-- [ ] **T004b** (person's ruling, 2026-09-13 — a deliberate exception to the
+- [x] **T004b** (person's ruling, 2026-09-13 — a deliberate exception to the
   spec's "roster changes" non-goal, limited to two blurbs) — Reword Nima's
   and Kesh's in-game blurbs in `src/opponent.rs` so each describes the plain
   (`Basic`) strategy they now run, in the same voice and length as the other
@@ -407,7 +407,7 @@ iteration count in the outcome column. -->
 | T003 impl (sdd-implementer) | opus | ~77K (measured return) | done first try; two DEFAULT_N runs ≈ 4.9 s and 4.8 s (compile excluded), max per-pair |Δ| 1.1 pts, no doubling; BEST_OUTER and BEST_OUTER_MID replaced by measured winners, BEST_FULL kept after an N=10k tie-break; finding: T8 sits at 1.9 vs TOL 2 because the plan's full-pool deck barely beats the Mid deck — T004 may replace it |
 | T004 impl (sdd-implementer) | opus | ~146K (measured return) | iterations: 5 (converged at 4; 5th fixed the misplay ramp and re-checked) — `targets 8/8, coupling 1/1`, C passes at the floor; levers used: opponent decks/misplays/strategies/two thresholds, starter deck + spares, BEST_FULL; card_tier untouched |
 | T004a retune (sdd-implementer) | opus | ~72K (measured return) | iterations: 2 — Outer Rim decks now all ±1s (Dax/Vessa with one or two +2s), misplays 0.44/0.36/0.34 → 0.18/0.16/0.15 (pinned by Nima's 0.15 and the non-increasing ramp); all 8 targets, C, 5 bounds pass; T1 69.0, B3 k_grind 43 |
-| T004b blurbs (sdd-implementer) | opus | | |
+| T004b blurbs (sdd-implementer) | opus | ~22K (measured return) | done first try; both new blurbs shorter than the Sovereign's 65-char longest |
 | T005 impl (sdd-implementer) | opus | ~57K (measured return) | iterations: 1 — Mid price 50→100, Core 120→200; `bounds 5/5`, B4 PASS at the floor; no exact-value test needed amending (floors unchanged); profile.rs untouched |
 | Phase 2 review (skeptical-reviewer) | opus | ~91K (measured return) | signed off, 0 blocking, 8 notes — log factual slip (Sovereign never had flips) + T8 tolerance-carried on Dax + observed-not-measured design notes → T007; guard bars sized from GUARD_N SE → T006; Nima/Kesh strategy vs blurb, four opponents at floor 50, Outer Rim misplay ≥ 0.34, lateral spares → person at the Phase 2 pause |
 | T006 impl (sdd-implementer) | opus | | |

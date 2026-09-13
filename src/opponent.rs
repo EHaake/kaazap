@@ -156,7 +156,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         id: "nima",
         name: "Nima Sarn",
         difficulty: "Broker",
-        blurb: "Counts every credit — folds the moment she's ahead.",
+        blurb: "Counts every credit — steady play, with the odd miscount.",
         stand_threshold: 17,
         side_deck: &[
             Card::Plus(2),
@@ -233,7 +233,7 @@ pub const OPPONENTS: [OpponentProfile; 10] = [
         id: "kesh",
         name: "Kesh Varn",
         difficulty: "Duelist",
-        blurb: "A hair-trigger duelist who plays every edge hard.",
+        blurb: "A patient duelist — holds his nerve, and rarely slips.",
         stand_threshold: 19,
         side_deck: &[
             Card::PlusMinus(6),
