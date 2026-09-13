@@ -369,7 +369,7 @@ before treating the policy as settled. -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
-| **Experiment 1** — session `claude-fable-5-1` at medium, from 2026-09-11 (Phase 3 onward; Phases 1–2 ran the session at `claude-opus-4-8` medium). Fable allowance at start: 93% left (2026-09-11) | — | — | header |
+| **Experiment 1** — session `claude-fable-5-1` at medium, from 2026-09-11 (Phase 3 onward; Phases 1–2 ran the session at `claude-opus-4-8` medium). Fable allowance at start: 93% left (2026-09-11); at spec end: 81% left (read 2026-09-12, after the merge — confounded by unrelated fable use in between, so the 12-point draw is an upper bound for this spec's Phase 3 + close-out session) | — | — | header |
 | Planning: draft (sdd-planner) | fable | ~210K (measured return) | drafted; no product questions |
 | plan + tasks sign-off (skeptical-reviewer) | fable | ~69K (measured return) | 1 blocking (T001 NodeRef literals) + 11 notes; B1 and notes 1,2,3,4,6,11 fixed; 5,7,8,9,10 accepted no-change |
 | sign-off re-review (skeptical-reviewer) | fable | ~21K (measured return) | signed off; T007 wording tightened; open for sweep: T001 no longer strictly "additive only" (cosmetic) |
