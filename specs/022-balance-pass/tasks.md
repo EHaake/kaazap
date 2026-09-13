@@ -457,7 +457,7 @@ iteration count in the outcome column. -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
-| **Experiment 1, spec 2** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: 68% left (person's reading, 2026-09-13, after Phase 1); at spec end: (read after the merge). Person's ruling 2026-09-13: all implementation, simulator runs, and tuning at `opus`. | — | — | header |
+| **Experiment 1, spec 2** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: 68% left (person's reading, 2026-09-13, after Phase 1); at spec end: 52% left (person's reading, 2026-09-13, after the merge and the two follow-up chores PR #26–#27 — so the 16-point draw is an upper bound for spec 022 itself). Person's ruling 2026-09-13: all implementation, simulator runs, and tuning at `opus`. | — | — | header |
 | Planning: draft + sign-off fixes (sdd-planner) | fable | ~230K (budget counter at return; ~205K draft + ~25K fixes) | drafted; three design edges flagged (plan §Open questions); sign-off's 3 blocking findings (B4 ownership → T004; DEFAULT_N 10_000 sized for all 50 pairs; T005 diff check vs working tree) and 5 notes applied |
 | plan + tasks sign-off (skeptical-reviewer) | fable | ~115K (measured return) | 3 blocking (B4 owned by a task with no lever over it; DEFAULT_N sized per pair, not per grid; T005 verify uncheckable) + 5 notes — all sent to the planner and applied |
 | sign-off re-review (skeptical-reviewer) | fable | ~20K (measured return) | signed off; 3 wording notes applied by the orchestrator (T005: profile.rs hunks read under cfg(test); T005: own ANTE_BASE change is its own revert, not a T004a; T002 review bundle adds tension §8) |
