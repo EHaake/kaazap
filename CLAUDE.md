@@ -41,6 +41,13 @@ standing instruction to Claude Code as much as a note to the human.
   (ratatui, etc.); that would mean rewriting the whole rendering layer
   for a mostly-cosmetic win.
 - **Language**: Rust, 2024 edition, stable toolchain.
+- **Sparse text by default.** Modals, prompts, and panels leave an empty
+  row above and below the element the player acts on and between a title
+  and its body; lines of different purpose never sit flush. This is the
+  design brief's *Density and breathing room* rule (added 2026-09-13 after
+  the wager prompt shipped dense, the third such review finding); a new or
+  changed screen is checked against it at review, not after the person
+  plays it.
 
 ## Architecture
 
@@ -291,6 +298,20 @@ technical-lead level by the person directly.
 Do not begin implementation on a feature without an approved spec and
 plan in that feature's directory. When resuming a session, check
 `specs/<feature>/tasks.md` for current state before doing anything else.
+
+### Chores (no spec)
+
+Small, self-contained fixes the person rules do not need a spec — a
+one-line flow change, a layout spacing fix, a wording fix — run as a
+**chore**: a `chore-<slug>` branch off `main`, a draft PR, each fix
+dispatched to the `sdd-implementer` with the person's words as the task
+line, one `skeptical-reviewer` pass on the combined diff, then merge
+(branch kept). No `specs/` directory. What makes something a chore is
+the person's ruling plus the footprint: no engine, AI, save-format,
+balance-data, or dependency change, and no new screen or mode. If a fix
+supersedes a line in an earlier spec, the chore's merge gets a short
+`DECISIONS.md` entry saying so. (Ruled 2026-09-13 for the first chore:
+run-over returns to the menu; wager prompt spacing.)
 
 ## Collaboration workflow
 

@@ -88,6 +88,20 @@ typography here means glyph discipline:
 - **Key hints**: the established parenthetical convention —
   `(n: next round)`, `(c cancels)` — everywhere a key is being taught.
 
+## Density and breathing room
+
+Text on any one screen or modal is **sparse by default**. A prompt, notice,
+or panel gets an empty row above and below the thing the player acts on
+(the stake, the selected item, the confirm line), and one empty row between
+a title and its body; adjacent lines of different purpose never touch. The
+test is the glance: the player should find the one thing they need to read
+without scanning. This is a standing rule because dense modals have come up
+in review more than once (spec 021's wager prompt, and earlier panels) — the
+default an AI-assisted TUI reaches for is to pack every row, so the
+instruction has to be the other way. Sparse is not "padded panels" from the
+avoid-list above: no extra borders or boxes, just empty rows and margins
+inside the box that already exists.
+
 ## Signature element
 
 **The card frame.** It is recurring (dealer rows, played rows, hands —
