@@ -445,7 +445,10 @@ the endgame and the mode-identity question are deferred, below.
   current-run view. Built on the existing `profile.json` save (additive fields, no
   version bump); presentation resolved as a full `Screen` (not a campaign-map
   panel), monochrome. Suggested during the post-spec-009 review.
-- **Difficulty setting** (easy / normal / hard) — a global option (in the
+- **Difficulty setting** (easy / normal / hard) — **on hold (human-ruled
+  2026-09-13):** a single well-tuned default curve suits this game better than
+  a selector; revisit only if a public release shows the tuned curve losing
+  players. Original framing kept below for the record. A global option (in the
   Settings overlay) that nudges how sharply opponents play and/or the player's
   starting resources. Widens the audience for a public / itch.io release at low
   cost. **Now unblocked, and now with a baseline:** the board-aware AI shipped
