@@ -236,6 +236,34 @@ ends with the spec's play attestation. -->
   plays with the premium deck. The orchestrator's pause report states the
   measured table's headline numbers in plain words.*
 
+- [ ] **T004a** (person's Phase 2 finding, 2026-09-13) — Retune the Outer
+  Rim so its play reads as weak rather than random: give Greeb, Dax and Vessa
+  really weak decks (Outer-tier, e.g. mostly 1s) and bring their `misplay`
+  rates down as far as the targets allow (aim: Greeb ≤ 0.25, Dax and Vessa
+  lower still; the ramp stays non-increasing with Greeb the roster max). Same
+  levers and limits as T004 (T004's bullet in plan §Design 4), same bounded
+  loop (≤ 6 iterations, each logged in `tuning-log.md` under `## T004a`),
+  same stop condition: `targets 8/8, coupling 1/1, bounds 5/5` on the final
+  run — the T005 prices stay fixed, so B2/B3 must still hold with the new
+  `w_g`. If the misplay aim and the targets cannot both be met, stop and
+  report the lowest misplay ramp that passes, for the person.
+  *Verify: final run's summary line verbatim (with N); the three Outer Rim
+  misplays and decks (old → new); `cargo build --all-targets` / `cargo test
+  -q` green; `git diff --stat` shows only `src/opponent.rs`, possibly
+  `src/profile.rs` (starter values) / `tests/balance.rs` (candidate consts),
+  and the log. The final table replaces T005's as the one `docs/balance.md`
+  records.*
+
+- [ ] **T004b** (person's ruling, 2026-09-13 — a deliberate exception to the
+  spec's "roster changes" non-goal, limited to two blurbs) — Reword Nima's
+  and Kesh's in-game blurbs in `src/opponent.rs` so each describes the plain
+  (`Basic`) strategy they now run, in the same voice and length as the other
+  blurbs; nothing else about the roster text changes. Fix the matching prose
+  in `docs/opponents.md` in T007, not here.
+  *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff
+  --stat` shows only `src/opponent.rs`; the two new blurbs fit the
+  opponent-select line width (the driver snapshot at the Phase 3 pause).*
+
 ## Phase 3 — Guards and docs
 
 <!-- Findings carried from the Phase 2 review (2026-09-13):
@@ -378,6 +406,8 @@ iteration count in the outcome column. -->
 | Phase 1 review (skeptical-reviewer) | opus | ~58K (measured return) | signed off, 0 blocking, 7 notes — N2 (no test pins starter ⊆ ALL_SIDE_CARDS) carried to T004; N1 (start_match precondition doc half-stale) to T007; rest informational |
 | T003 impl (sdd-implementer) | opus | ~77K (measured return) | done first try; two DEFAULT_N runs ≈ 4.9 s and 4.8 s (compile excluded), max per-pair |Δ| 1.1 pts, no doubling; BEST_OUTER and BEST_OUTER_MID replaced by measured winners, BEST_FULL kept after an N=10k tie-break; finding: T8 sits at 1.9 vs TOL 2 because the plan's full-pool deck barely beats the Mid deck — T004 may replace it |
 | T004 impl (sdd-implementer) | opus | ~146K (measured return) | iterations: 5 (converged at 4; 5th fixed the misplay ramp and re-checked) — `targets 8/8, coupling 1/1`, C passes at the floor; levers used: opponent decks/misplays/strategies/two thresholds, starter deck + spares, BEST_FULL; card_tier untouched |
+| T004a retune (sdd-implementer) | opus | | iterations: |
+| T004b blurbs (sdd-implementer) | opus | | |
 | T005 impl (sdd-implementer) | opus | ~57K (measured return) | iterations: 1 — Mid price 50→100, Core 120→200; `bounds 5/5`, B4 PASS at the floor; no exact-value test needed amending (floors unchanged); profile.rs untouched |
 | Phase 2 review (skeptical-reviewer) | opus | ~91K (measured return) | signed off, 0 blocking, 8 notes — log factual slip (Sovereign never had flips) + T8 tolerance-carried on Dax + observed-not-measured design notes → T007; guard bars sized from GUARD_N SE → T006; Nima/Kesh strategy vs blurb, four opponents at floor 50, Outer Rim misplay ≥ 0.34, lateral spares → person at the Phase 2 pause |
 | T006 impl (sdd-implementer) | opus | | |
