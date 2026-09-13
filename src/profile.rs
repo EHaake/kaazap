@@ -77,19 +77,19 @@ fn default_version() -> u32 {
 pub const STARTER_SIDE_DECK: [Card; SIDE_DECK_SIZE] = [
     Card::Plus(1),
     Card::Plus(1),
+    Card::Plus(1),
+    Card::Plus(1),
     Card::Plus(2),
     Card::Plus(2),
-    Card::Plus(3),
+    Card::Minus(1),
     Card::Minus(1),
     Card::Minus(1),
     Card::Minus(2),
-    Card::Minus(2),
-    Card::Minus(3),
 ];
 
 /// The Outer-tier spares a fresh profile owns beyond its deck, so the builder
 /// is a real choice from the first launch (spec 008's intent, kept).
-pub const STARTER_SPARES: [Card; 3] = [Card::Plus(3), Card::Minus(3), Card::PlusMinus(1)];
+pub const STARTER_SPARES: [Card; 3] = [Card::PlusMinus(1), Card::Plus(2), Card::Minus(2)];
 
 /// The side deck a fresh profile starts with — the Outer-tier starter.
 fn starter_deck() -> Vec<Card> {
@@ -731,7 +731,7 @@ mod tests {
 
     #[test]
     fn default_profile_plays_a_valid_outer_tier_starter() {
-        use crate::card::DEFAULT_SIDE_DECK;
+        use crate::card::{ALL_SIDE_CARDS, DEFAULT_SIDE_DECK};
         use crate::economy::{RegionTier, card_tier};
 
         let p = Profile::default();
@@ -750,6 +750,8 @@ mod tests {
         // The point of the starter: every shop tier above Outer is an upgrade.
         for card in STARTER_SIDE_DECK.iter().chain(STARTER_SPARES.iter()) {
             assert_eq!(card_tier(*card), RegionTier::Outer, "{card:?}");
+            // ...and every starter card stays inside the album's universe.
+            assert!(ALL_SIDE_CARDS.contains(card), "universe missing {card:?}");
         }
     }
 

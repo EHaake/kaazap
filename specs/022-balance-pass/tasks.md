@@ -171,7 +171,7 @@ ends with the spec's play attestation. -->
   --all-targets` / `cargo test -q` green; `git diff --stat` shows only
   `tests/balance.rs` and the log.*
 
-- [ ] **T004** — Tune the win-rate curve (targets T1–T8 **and the B4
+- [x] **T004** — Tune the win-rate curve (targets T1–T8 **and the B4
   coupling `C`** — `EV_m > 2·EV_g` for some Mid Rim opponent, at its floor or
   at 2×floor; plan tension §8 shows why only T004's levers move it). Levers and
   limits exactly plan §Design 4 (T004 bullet): `OPPONENTS` values inside the
@@ -359,7 +359,7 @@ iteration count in the outcome column. -->
 | T002 review (skeptical-reviewer, per-task) | opus | ~84K (measured return) | signed off, 0 blocking, 10 notes — carried to T005/T007 docs (C vs B4 not identical; T8 tolerance is per adjacent pair and also applied to the sovereign-hardest half; `easiest_other`/"next" label misnamed) and T006 (drop GUARD_N allow) and the sweep |
 | Phase 1 review (skeptical-reviewer) | opus | ~58K (measured return) | signed off, 0 blocking, 7 notes — N2 (no test pins starter ⊆ ALL_SIDE_CARDS) carried to T004; N1 (start_match precondition doc half-stale) to T007; rest informational |
 | T003 impl (sdd-implementer) | opus | ~77K (measured return) | done first try; two DEFAULT_N runs ≈ 4.9 s and 4.8 s (compile excluded), max per-pair |Δ| 1.1 pts, no doubling; BEST_OUTER and BEST_OUTER_MID replaced by measured winners, BEST_FULL kept after an N=10k tie-break; finding: T8 sits at 1.9 vs TOL 2 because the plan's full-pool deck barely beats the Mid deck — T004 may replace it |
-| T004 impl (sdd-implementer) | opus | | iterations: |
+| T004 impl (sdd-implementer) | opus | ~146K (measured return) | iterations: 5 (converged at 4; 5th fixed the misplay ramp and re-checked) — `targets 8/8, coupling 1/1`, C passes at the floor; levers used: opponent decks/misplays/strategies/two thresholds, starter deck + spares, BEST_FULL; card_tier untouched |
 | T005 impl (sdd-implementer) | opus | | iterations: |
 | Phase 2 review (skeptical-reviewer) | opus | | |
 | T006 impl (sdd-implementer) | opus | | |

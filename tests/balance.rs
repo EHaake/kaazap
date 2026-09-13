@@ -57,11 +57,11 @@ const BEST_FULL: [Card; 10] = [
     Card::PlusMinus(6),
     Card::PlusMinus(3),
     Card::PlusMinus(3),
+    Card::PlusMinus(3),
+    Card::PlusMinus(2),
     Card::PlusMinus(2),
     Card::PlusMinus(1),
     Card::PlusMinus(1),
-    Card::Plus(4),
-    Card::Minus(4),
     Card::Tiebreaker,
 ];
 

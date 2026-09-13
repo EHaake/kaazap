@@ -399,3 +399,292 @@ at three candidates per pool (plan tension §5), so that is T004's call under
 
 Also unchanged from the plan's prediction (tension §8): B2 still fails by
 arithmetic (`90 >= 60`), and T1–T5 fail — the tuning tasks own those.
+
+## T004 — iteration 1
+
+Changed (old → new):
+
+| lever | old | new |
+| --- | --- | --- |
+| `STARTER_SIDE_DECK` | +1 +1 +2 +2 +3 −1 −1 −2 −2 −3 | +1 +1 +1 +2 +2 +2 −1 −1 −2 −2 (no 3s) |
+| `STARTER_SPARES` | +3 −3 ±1 | ±1 +2 −2 (lateral, so the starter deck is what a fresh player fields) |
+| greeb `misplay` | 0.25 | 0.40 |
+| greeb `side_deck` | +1 +2 +3 −1 −2 −3 +1 −1 +2 −2 | +1 +1 +1 +2 +2 −1 −1 −1 −2 −2 |
+| dax `misplay` | 0.22 | 0.32 |
+| vessa `misplay` | 0.15 | 0.30 |
+| vessa `side_deck` | +2 +4 −2 −4 ±1 ±2 +1 −1 +3 −3 | +3 +2 +2 +1 +1 −1 −1 −2 −2 −3 |
+| nima `stand_threshold` | 16 | 17 |
+| nima `strategy` | Cautious | Basic |
+| rix `misplay` | 0.05 | 0.03 |
+| rix `side_deck` | ±6 ±3 ±1 −4 −2 +4 +2 F24 F36 T | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 −1 |
+| magistrate `side_deck` | ±6 ±6 ±3 ±1 −4 −4 −2 F24 F36 T | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 T F24 |
+| sovereign `side_deck` | ±6 ±6 ±3 ±3 ±1 −4 −4 −2 −1 T | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 T |
+| `BEST_FULL` | ±6 ±6 ±3 ±3 ±2 ±1 ±1 +4 −4 T | ±6 ±6 ±3 ±3 ±3 ±2 ±2 ±1 ±1 T |
+
+Reasoning: the AI's strongest branch is "play the card that lands exactly 20",
+so opponent strength tracks *playable* hand coverage — which is why the
+Sovereign's two dead flips were worth ~11 points. The Core masters get
+full ±1/±2/±3/±6 + 4 coverage (the Magistrate keeps one flip, as its guard
+requires); the starter loses its 3s (the 17 → 20 card) and the Outer Rim is
+softened to compensate. `BEST_FULL` is re-shaped to the all-± form that won
+the Outer+Mid pool, which also fixes T8's 1.9-point ordering drop.
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          63.5  FAIL
+  T2 starter vs each Outer Rim opponent >= 50%                        min 48.9 (vessa)  FAIL
+  T3 starter vs each Mid Rim opponent < 50%                           max 44.5 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 31.9 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 61.5 (vessa)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 65.0 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.7 (sovereign), sovereign 51.7  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.7 vs next 56.7 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 12.6 (kesh) vs 2·EV_g 5.4  PASS; @2×floor 25.1  PASS
+summary: targets 6/8, coupling 1/1, bounds 4/5   (N = 10 000)
+```
+
+Only T1 (+1.5 needed) and T2 (+1.1 needed on vessa) are left; T4 passes with
+1.1 points of margin, so the starter deck must not get stronger — the next
+iteration weakens Greeb and Vessa instead.
+
+## T004 — iteration 2
+
+Changed (old → new):
+
+| lever | old | new |
+| --- | --- | --- |
+| greeb `strategy` | Basic | Cautious (effective threshold 15 → 14 — "folds early") |
+| greeb `misplay` | 0.40 | 0.38 |
+| dax `side_deck` | +4 +3 +3 +2 +2 +1 −1 −2 −3 −2 | +3 +2 +2 +2 +1 +1 −1 −1 −2 −2 (no +4/−3: narrower reach-20 coverage) |
+| vessa `misplay` | 0.30 | 0.34 |
+| vessa `side_deck` | +3 +2 +2 +1 +1 −1 −1 −2 −2 −3 | +1 +1 +1 +2 +2 +2 +2 −1 −1 −2 (no 3s, thin recovery) |
+| rix `side_deck` | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 −1 | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 T |
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          67.9  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 57.2 (dax)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 44.5 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 31.7 (magistrate)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 66.3 (dax)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 64.7 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 49.2 (rix), sovereign 52.0  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (greeb); sovereign 52.0 vs next 49.2 (rix)  FAIL
+  C  B4 coupling (T004): best EV_m@floor 13.1 (kesh) vs 2·EV_g 7.2  PASS; @2×floor 26.2  PASS
+summary: targets 7/8, coupling 1/1, bounds 4/5   (N = 10 000)
+```
+
+T1 and T2 cleared with room (Cautious Greeb is worth ~4 points, the narrowed
+Outer decks ~3). T8 broke instead: with the Sovereign's exact deck and
+threshold 18, **Rix became the hardest opponent for the full-pool deck**
+(49.2 vs the Sovereign's 52.0). The finding behind it: this AI plays *better*
+at an effective threshold of 18 than at 19 — standing at 19 costs more busts
+than the higher total wins back — so the Sovereign's mandatory max threshold is
+a handicap, and the opponents below it must not be given both the best deck and
+the better threshold.
+
+## T004 — iteration 3
+
+Changed (old → new):
+
+| lever | old | new |
+| --- | --- | --- |
+| greeb `misplay` | 0.38 | 0.44 (still the roster's highest — the rookie slips most) |
+| rix `stand_threshold` | 18 | 19 |
+| rix `side_deck` | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 T | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 −1 (the tiebreaker is the two masters' card) |
+| kesh `stand_threshold` | 18 | 19 (forced: the roster order puts Rix before Kesh) |
+| kesh `strategy` | Aggressive | Basic (keeps its effective threshold at 19, unchanged strength; the floor rises 40 → 50) |
+| `STARTER_SIDE_DECK` | +1 +1 +1 +2 +2 +2 −1 −1 −2 −2 | +1 +1 +1 +1 +2 +2 −1 −1 −1 −2 |
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          65.3  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 52.9 (dax)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 40.0 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 29.2 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 67.7 (dax)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 64.5 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.2 (sovereign), sovereign 51.2  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.2 vs next 56.0 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 16.7 (kesh) vs 2·EV_g 6.1  PASS; @2×floor 33.5  PASS
+summary: targets 8/8, coupling 1/1, bounds 4/5   (N = 10 000)
+```
+
+The stop condition is met — but **T1 passes by 0.3 points** (65.3 vs 65), well
+inside the ±1 point of run-to-run noise T003 measured, so it would flip on a
+re-run and leave T006 no margin to write a guard against. Iteration 4 buys
+headroom there and changes nothing else.
+
+## T004 — iteration 4 (targets converge)
+
+Changed (old → new):
+
+| lever | old | new |
+| --- | --- | --- |
+| greeb `side_deck` | +1 +1 +1 +2 +2 −1 −1 −1 −2 −2 | +1 +1 +1 +1 +2 −1 −1 −1 −1 −2 (almost all 1s — the rookie can rarely land 20) |
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          68.7  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 54.2 (dax)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 40.2 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 28.7 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 66.8 (dax)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 65.3 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.7 (sovereign), sovereign 51.7  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.7 vs next 56.8 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 15.9 (kesh) vs 2·EV_g 7.5  PASS; @2×floor 31.7  PASS
+summary: targets 8/8, coupling 1/1, bounds 4/5   (N = 10 000)
+```
+
+**Converged: `targets 8/8, coupling 1/1` at iteration 4**, with `C` passing
+at the floor (not only at 2× floor). Margins on the final run, in percentage
+points of win rate: T1 +3.7, T2 +4.2, T3 +9.8, T4 +4.3, T5 +11.8, T6 +15.3,
+T7 +6.7 above the 45 bar and 3.3 below the Sovereign's 55 ceiling, T8 worst
+drop 0.0 against a tolerance of 2 with the Sovereign 5.1 points clear of the
+next-hardest, `C` 15.9 vs 7.5. Every margin is wider than the ±1.1 points of
+run-to-run spread T003 measured, so T006 has room to write guards.
+
+### What the tuning turned on (for `docs/balance.md` and T005/T006)
+
+1. **Opponent strength is mostly *playable hand coverage*.** The AI's strongest
+   branch plays the card that lands exactly 20, so a deck's value is how often
+   a 4-card hand holds the exact value it needs. Dead cards (flips) cost about
+   4–5 win-rate points each, and narrowing a deck to ±1/±2 is worth as much as
+   a threshold step. This is why the two Core masters now carry full
+   ±1/±2/±3/±6 + 4 coverage and the Outer Rim carries almost none.
+2. **The AI peaks at an effective threshold of about 18.** At 19 it busts more
+   than the higher total wins back (iteration 2: Rix, at threshold 18 with the
+   Sovereign's exact deck, was *harder* than the Sovereign). Since the Sovereign
+   must hold the roster's maximum threshold, the finale's edge has to come from
+   its deck and its flawless play, and the opponents just below it must not get
+   both the best deck *and* the better threshold — Rix moved to 19 and gave up
+   the tiebreaker for that reason (which forced Kesh to 19 too, as the roster
+   order puts Rix first).
+3. **The Magistrate is structurally ~5 points softer than the Sovereign** — its
+   guard requires it to keep a dead flip — so it, not the Sovereign, is what T4
+   binds on. The starter deck had to come down far enough that a nine-playable
+   master holds it under 33 %.
+4. **`BEST_FULL` was replaced** (allowed by plan tension §5) with the all-±
+   shape that won the Outer+Mid pool, plus the ±6s and the tiebreaker:
+   `±6 ±6 ±3 ±3 ±3 ±2 ±2 ±1 ±1 T`, against T003's `±6 ±6 ±3 ±3 ±2 ±1 ±1 +4 −4 T`.
+   Measured against the Core opponents on the final roster it reads
+   49.2 / 51.7 / 56.8 (rix / sovereign / magistrate) where T003's shape trailed
+   `BEST_OUTER_MID` by 1.9 points on some rows; the fixed +4/−4 are dead weight
+   half the time for a player that needs both signs. T8's worst ordering drop
+   went from 1.9 (against a tolerance of 2) to 0.0.
+5. **`STARTER_SPARES` are now lateral, not upgrades** (±1, +2, −2 instead of
+   +3, −3, ±1): with 3s out of the starter deck, keeping 3s as spares would have
+   meant the measured "starter" is not what a fresh player would field.
+6. **For T005**: the Greeb grind is `w_g = 68.7 %`, `EV_g = 3.7` at floor 10, so
+   B3 sits at `k_grind = 22` — a Core price rise widens it, a further Greeb
+   softening would narrow it. Kesh's floor is now 50 and Nima's 30, which is
+   where B4's headroom comes from.
+
+## T004 — iteration 5 (final run)
+
+Changed (old → new):
+
+| lever | old | new |
+| --- | --- | --- |
+| dax `misplay` | 0.32 | 0.36 |
+
+Only reason: with Vessa at 0.34 the Scrapper was slipping *more* than the
+Greenhorn. The roster now reads greeb 0.44 > dax 0.36 > vessa 0.34 > nima 0.15 >
+brakka 0.12 > toran 0.10 > kesh 0.06 > rix 0.03 > magistrate/sovereign 0.00.
+Dax appears in T2 and T5 only, and both move the safe way. The run doubles as a
+**reproducibility check** of iteration 4's table.
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          67.9  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 54.5 (dax)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 40.5 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 29.0 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 67.8 (dax)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 64.4 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.8 (sovereign), sovereign 51.8  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.8 vs next 56.7 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 16.2 (kesh) vs 2·EV_g 7.2  PASS; @2×floor 32.4  PASS
+summary: targets 8/8, coupling 1/1, bounds 4/5   (N = 10 000)
+```
+
+Iteration 4 → iteration 5, per target (Dax excluded — deliberately changed):
+T1 68.7 → 67.9, T3 40.2 → 40.5, T4 28.7 → 29.0, T6 65.3 → 64.4,
+T7 51.7 → 51.8, T8 51.7 vs 56.8 → 51.8 vs 56.7, `C` 15.9 vs 7.5 → 16.2 vs 7.2.
+Every line moves by less than a point, so the converged table reproduces.
+
+### Final measured grid (N = 10 000, the table `docs/balance.md` records in T007)
+
+```
+deck            opponent          n    win%   ev/match@floor
+starter         greeb         10000    67.9             +3.6
+starter         dax           10000    54.5             +0.9
+starter         vessa         10000    55.4             +2.1
+starter         nima          10000    37.6             -7.4
+starter         toran         10000    40.5             -5.7
+starter         brakka        10000    36.0             -8.4
+starter         rix           10000    29.0            -21.0
+starter         kesh          10000    36.3            -13.7
+starter         magistrate    10000    27.9            -22.1
+starter         sovereign     10000    23.8            -26.2
+standard        greeb         10000    77.9             +5.6
+standard        dax           10000    64.7             +2.9
+standard        vessa         10000    68.3             +7.3
+standard        nima          10000    49.6             -0.2
+standard        toran         10000    53.1             +1.9
+standard        brakka        10000    50.1             +0.0
+standard        rix           10000    41.8             -8.2
+standard        kesh          10000    50.4             +0.4
+standard        magistrate    10000    40.7             -9.3
+standard        sovereign     10000    34.4            -15.6
+best_outer      greeb         10000    80.5             +6.1
+best_outer      dax           10000    67.8             +3.6
+best_outer      vessa         10000    69.7             +7.9
+best_outer      nima          10000    52.6             +1.5
+best_outer      toran         10000    56.0             +3.6
+best_outer      brakka        10000    53.4             +2.0
+best_outer      rix           10000    42.9             -7.2
+best_outer      kesh          10000    52.8             +2.8
+best_outer      magistrate    10000    41.6             -8.4
+best_outer      sovereign     10000    36.9            -13.1
+best_outer_mid  greeb         10000    86.7             +7.3
+best_outer_mid  dax           10000    78.0             +5.6
+best_outer_mid  vessa         10000    79.8            +11.9
+best_outer_mid  nima          10000    64.4             +8.6
+best_outer_mid  toran         10000    66.2             +9.7
+best_outer_mid  brakka        10000    65.3             +9.2
+best_outer_mid  rix           10000    56.6             +6.6
+best_outer_mid  kesh          10000    66.2            +16.2
+best_outer_mid  magistrate    10000    53.8             +3.8
+best_outer_mid  sovereign     10000    49.9             -0.1
+best_full       greeb         10000    87.6             +7.5
+best_full       dax           10000    79.2             +5.8
+best_full       vessa         10000    81.2            +12.5
+best_full       nima          10000    65.9             +9.6
+best_full       toran         10000    68.1            +10.9
+best_full       brakka        10000    66.8            +10.1
+best_full       rix           10000    58.7             +8.7
+best_full       kesh          10000    67.7            +17.7
+best_full       magistrate    10000    56.7             +6.7
+best_full       sovereign     10000    51.8             +1.8
+```
+
+### Final roster values
+
+| opponent | threshold | strategy | misplay | side deck |
+| --- | --- | --- | --- | --- |
+| greeb | 15 | Cautious | 0.44 | +1 +1 +1 +1 +2 −1 −1 −1 −1 −2 |
+| dax | 15 | Aggressive | 0.36 | +3 +2 +2 +2 +1 +1 −1 −1 −2 −2 |
+| vessa | 16 | Aggressive | 0.34 | +1 +1 +1 +2 +2 +2 +2 −1 −1 −2 |
+| nima | 17 | Basic | 0.15 | *(unchanged)* |
+| toran | 17 | Cautious | 0.10 | *(unchanged — the standard deck)* |
+| brakka | 17 | Aggressive | 0.12 | *(unchanged)* |
+| rix | 19 | Calculating | 0.03 | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 −1 |
+| kesh | 19 | Basic | 0.06 | *(unchanged)* |
+| magistrate | 19 | Calculating | 0.00 | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 T F24 |
+| sovereign | 19 | Calculating | 0.00 | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 T |
+
+Starter deck `+1 +1 +1 +1 +2 +2 −1 −1 −1 −2`, spares `±1 +2 −2`;
+`card_tier` untouched (no re-tiering was needed, so
+`card_tier_partitions_the_universe`'s lists are unchanged).
