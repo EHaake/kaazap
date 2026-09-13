@@ -47,13 +47,6 @@ enum Role {
     Spacer,
 }
 
-impl Role {
-    /// A blank content row.
-    fn row(self) -> (Role, String) {
-        (self, String::new())
-    }
-}
-
 impl WagerState {
     /// Open the prompt at the ante floor.
     ///
@@ -130,16 +123,16 @@ impl WagerState {
                 Role::Plain,
                 format!("Wager — {} · {}", self.opponent.name, self.planet.name),
             ),
-            Role::Spacer.row(),
+            (Role::Spacer, String::new()),
             (
                 Role::Plain,
                 format!("Ante ◈ {}   Balance ◈ {}", self.floor, self.max),
             ),
-            Role::Spacer.row(),
+            (Role::Spacer, String::new()),
             (Role::Stake, format!("◂  Stake ◈ {stake}  ▸")),
-            Role::Spacer.row(),
+            (Role::Spacer, String::new()),
             (Role::Plain, format!("Win +{winnings}   ·   Lose −{stake}")),
-            Role::Spacer.row(),
+            (Role::Spacer, String::new()),
             (
                 Role::Hint,
                 "←/→ stake  ·  Enter play  ·  Esc back".to_string(),
@@ -147,22 +140,22 @@ impl WagerState {
         ]
     }
 
-    /// The prompt's content rows, in draw order — pure, so the tests read the
-    /// same strings the box renders. Blank entries are the spacer rows the
-    /// design brief's breathing-room rule calls for (one above and below the
-    /// stake the player acts on, one under the title); the box grows with them,
-    /// since [`draw`] sizes the overlay from this list.
+    /// The prompt's content rows as plain text, in draw order — pure, so the
+    /// tests read the same strings the box renders. Blank entries are the
+    /// spacer rows the design brief's breathing-room rule calls for (one above
+    /// and below the stake the player acts on, one under the title); the box
+    /// grows with them, since [`draw`] sizes the overlay from [`rows`].
     ///
     /// [`draw`]: WagerState::draw
-    pub fn lines(&self) -> Vec<String> {
+    /// [`rows`]: WagerState::rows
+    #[cfg(test)]
+    fn lines(&self) -> Vec<String> {
         self.rows().into_iter().map(|(_, text)| text).collect()
     }
 
-    /// Draw the centered, bordered prompt: the content rows from [`lines`],
-    /// each row's emphasis taken from its [`Role`] (the stake breathing with
+    /// Draw the centered, bordered prompt: the content rows from `rows`, each
+    /// row's emphasis taken from its [`Role`] (the stake breathing with
     /// `pulse`, the hint muted) — monochrome by construction.
-    ///
-    /// [`lines`]: WagerState::lines
     pub fn draw(&self, frame: &mut Frame, config: &Config, pulse: Emphasis) {
         let rows = self.rows();
         let width = rows.iter().map(|(_, l)| l.chars().count()).max().unwrap_or(0);
