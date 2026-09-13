@@ -1,6 +1,6 @@
 # Spec: Difficulty & economy balance pass — spec 022
 
-**Status**: Approved (person, 2026-09-12) — planning
+**Status**: Implemented (2026-09-13) — acceptance criteria checked off below; PR #25
 **Depends on**: spec 021 (wager & loss, rematches), spec 012 (economy, shop,
 depth-gated pool), spec 010/013 (board-aware AI, bounded misplays), spec 008
 (profile, starter collection, deck-builder)
@@ -202,41 +202,50 @@ unnoticed. The guards must not be flaky at the chosen sample size.
 
 ## Acceptance criteria
 
-- [ ] A documented developer command runs the simulator and prints, for every
+- [x] A documented developer command runs the simulator and prints, for every
       pair in the named set, the deck, the opponent, the matches played, the
       win rate, and the expected credits per match at the floor; the default
       sample size finishes in seconds, and two consecutive runs agree within
       about two points on every pair.
-- [ ] A fresh profile's deck is 10 Outer-tier cards and its collection is that
+      *Evidence:* T003: two runs ≈ 4.9 s / 4.8 s (release, compile excluded), max per-pair |Δ| 1.1 pts over 50 pairs; command in docs/balance.md.
+- [x] A fresh profile's deck is 10 Outer-tier cards and its collection is that
       deck plus a few Outer-tier spares; New Campaign and the run-over reset
       produce the same; the deck-builder shows the new collection; an existing
       profile loads with the deck, collection and credits it had.
-- [ ] Quick Play deals the player the standard deck regardless of the built
+      *Evidence:* T001/T004: `default_profile_plays_a_valid_outer_tier_starter`, `an_existing_profile_keeps_its_premium_deck_collection_and_credits`, `reset_to_starter_…` green; album and shop driven at 139×31 (Phase 1 and 2 pauses).
+- [x] Quick Play deals the player the standard deck regardless of the built
       deck (verified with a built deck that shares no card with it); a
       campaign match deals the built deck; a mid-match Quick Play save from
       before this spec resumes as it was.
-- [ ] Every win-rate target in the table is met by the measured rates, and the
+      *Evidence:* T001: `quick_play_deals_the_standard_deck_and_campaign_deals_the_built_one` (disjoint deck); driver: Quick Play hand ±1T/2&4/3&6/±3, campaign hand Outer only; save.rs untouched.
+- [x] Every win-rate target in the table is met by the measured rates, and the
       measured table is recorded with its sample size in `docs/balance.md`.
-- [ ] Every economy bound in the table holds by arithmetic on the measured rates
+      *Evidence:* T004/T004a final run: `targets 8/8, coupling 1/1` at N = 10 000, recorded in docs/balance.md (2026-09-13).
+- [x] Every economy bound in the table holds by arithmetic on the measured rates
       and the shipped constants, shown in `docs/balance.md`.
-- [ ] Unit-test guards cover at least: every starter card is Outer-tier; the
+      *Evidence:* T005/T004a final run: `bounds 5/5`, B4 PASS at the floor; arithmetic in docs/balance.md.
+- [x] Unit-test guards cover at least: every starter card is Outer-tier; the
       starter deck wins against Greeb above a generous floor; the starter deck
       wins against each Core opponent below a generous ceiling; the full-pool
       deck outperforms the starter against every opponent; the roster and
       economy guards that already exist still pass with the new data. Ten
       consecutive `cargo test` runs show no flake.
-- [ ] `docs/opponents.md` and `docs/economy.md` tables match the shipped
+      *Evidence:* T006: three guards at GUARD_N 600, margins 10.1 / 10.8 / 8.8 SE; starter-tier test exact; roster/economy guards green; T008: ten consecutive `cargo test -q` runs green.
+- [x] `docs/opponents.md` and `docs/economy.md` tables match the shipped
       constants; the starter deck is described as Outer-tier wherever it is
       described; `docs/balance.md` exists with method, scripted player,
       targets, measured table, and the re-run command.
-- [ ] No change to engine rules, the AI decision core, the misplay seam, the
+      *Evidence:* T007/T007a/T007b: every table value machine-compared to source and to the T004a table; docs/balance.md 292 lines.
+- [x] No change to engine rules, the AI decision core, the misplay seam, the
       wager prompt, settlement, or any save format; `PROFILE_VERSION` and
       `SAVE_VERSION` are 1; `cargo build` has no new warnings; `cargo test` is
       green.
-- [ ] Attested in play by the person: a fresh campaign with the starter deck
+      *Evidence:* T008: `git diff main` touches none of game.rs/player.rs/save.rs/campaign.rs/wager.rs/Cargo.*; card.rs comment-only; PROFILE_VERSION 1, SAVE_VERSION 1, PAYOUT_RATIO 1; warnings 0 on branch and on main.
+- [x] Attested in play by the person: a fresh campaign with the starter deck
       can clear the Outer Rim; the Mid Rim is a wall until Mid cards are bought;
       the shop and deck-builder read correctly with the new collection; Quick
       Play plays with the premium deck.
+      *Evidence:* Person: Phase 1 and Phase 2 pauses attested 2026-09-13 ("Looks good" at Phase 3).
 
 ## Resolved decisions
 

@@ -449,5 +449,5 @@ iteration count in the outcome column. -->
 | T007a balance.md fix (sdd-implementer) | opus | ~23K (measured return) | done; guards table and sizing paragraph now match the test comment |
 | Phase 3 review (skeptical-reviewer) | opus | ~94K (measured return) | signed off, 0 blocking, 3 notes + minor: "Kesh 6.5 SE is the smallest Mid Rim margin" is wrong (Toran 4.9 SE is, and is why no Mid Rim guard exists); balance.md re-run step omits its own guards table; closeout ROADMAP text says Greeb 0.44 → 0.18 but the pre-022 shipped value was 0.25 — all three → T007b |
 | T007b review-note text fixes (sdd-implementer) | opus | ~29K (measured return) | done; left balance.md rule-of-thumb #3's "0.44 → 0.18" (intra-spec narrative) for the sweep to judge |
-| T008 close-out (orchestrator) | fable (session, medium) | — | |
+| T008 close-out (orchestrator) | fable (session, medium) | — | ten consecutive `cargo test -q` green; no forbidden file in `git diff main`; card.rs comment-only; PROFILE_VERSION 1 / SAVE_VERSION 1 / PAYOUT_RATIO 1; warnings 0 on branch and on main (worktree build); spec.md ACs checked off with evidence |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus | | |
