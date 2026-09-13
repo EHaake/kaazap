@@ -437,6 +437,72 @@ the endgame and the mode-identity question are deferred, below.
   player-facing selector layered on this curve, which is now the baseline it
   moves relative to.
 
+### Onboarding, endgame & release readiness (suggested 2026-09-13, after spec 022)
+
+Raised at the spec 022 close-out, once the loss condition had teeth and the
+curve was tuned: the loop is complete except for its two ends — what a new
+player is told at the start, and what a finished player gets at the end — and
+the project is not yet presentable to strangers. Items are independent; the
+human's stated priority is the first-run onboarding.
+
+- **First-run onboarding (human-prioritized).** Two pieces, both shown once
+  per profile and dismissable, both **in the fewest possible words**:
+  1. **A first-campaign primer.** When a fresh profile opens the campaign map
+     for the first time, a short overlay says what to pay attention to and
+     nothing else: you stake credits on every match and a loss forfeits them;
+     going broke ends the run and resets you; the shop sells the cards that get
+     you past the Mid Rim, and the ante rises as you go deeper. A simplified
+     "How to Play" for the campaign layer — the existing How to Play overlay
+     stays as the full reference.
+  2. **A first-match popup.** In a fresh profile's first match, a popup
+     explains the mechanics and the basic controls: draw toward 20 without
+     going over, stand to lock your total, play a side card from your hand of
+     four to adjust it, first to three rounds wins; the keys for hit, stand,
+     play/select a card and flip a ± sign. Dismissed with one key, never shown
+     again for that profile (a serde-defaulted profile flag, no version bump).
+  Also here, cheap: **Quick Play says it deals the standard deck** (spec 022's
+  named non-goal — one line in the opponent-select hint or How to Play). Uses
+  the overlay convention (one modal at a time, neutral default) and the
+  design brief's density rule (the acted-on line gets air; the rest compact).
+- **The endgame / victory award** — what beating the Sovereign gives. Today
+  the map shows one line ("Campaign complete — rematches stay open") and
+  nothing else, while losing has a full reset behind it. Decide what the win
+  awards (credits, a card, a record, a title on the Records screen), what the
+  map shows afterward, and whether the run ends or continues. Deferred at
+  specs 021 and 022 (human-ruled); now the largest hole in the loop. Small
+  spec: flow and one screen, no engine change.
+- **A run summary on the run-over notice.** When the run ends, say how far it
+  got: matches played, credits won and lost, deepest planet reached, best
+  streak — so going broke reads as a score, not just a wipe. The lifetime
+  stats (spec 020) already carry most of the numbers; this is a current-run
+  slice plus presentation on the existing notice. Pairs with the endgame item
+  (a win gets the same summary).
+- **Archive the last run at reset.** Before the run-over (or New Campaign)
+  reset wipes the profile, write the outgoing `profile.json` to a dated
+  `runs/` file beside it. Costs nothing, changes no rule, and is insurance if
+  the full reset ever feels too punishing in play — the softer
+  *keep-your-cards* restart noted in spec 021 stays a separate lever.
+- **A path-injection seam for the profile and save locations.** `Profile::path`
+  and the match-save path go through `ProjectDirs` with no override, so no
+  `App`-level flow (e.g. "acknowledging the run-over lands on the start menu",
+  chore 2026-09-13) can have a test without touching the real data folder, and
+  every driver session has to back up the human's profile first. One small
+  chore (a `OnceLock<PathBuf>` root or a data-dir parameter); logged in
+  `DECISIONS.md` at that chore.
+- **Release readiness** (chores, not a spec): a **CI workflow** running
+  `cargo build --all-targets` and `cargo test` on push (none exists);
+  **README screenshots** of the menu, a match, the map and the shop;
+  a **packaging check** (release binaries for the three targets, the music
+  track's CC-BY attribution in the distributed files); a license check on
+  every bundled asset before anything goes to itch.io.
+- **A compact layout below 139 columns.** The minimum terminal grew to 139×31
+  with the portrait panel (spec 016), which is large for a general audience.
+  A layout that drops the presence panel (portrait + banter) when the terminal
+  is narrower — back to the pre-016 89-column board — would widen who can play
+  at all. Its own spec: a second `BoardLayout` arm and the panel-less draw
+  path, no engine change; the portraits and banter stay as they are above the
+  threshold.
+
 ### Other (not campaign-dependent)
 
 - **Stats & records** — ✅ **Shipped (spec 020** — see Shipped above). Per-opponent
