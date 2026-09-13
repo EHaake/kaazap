@@ -340,7 +340,7 @@ readable and the guards are green. -->
   *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff`
   shows comment lines only in `tests/balance.rs`.*
 
-- [ ] **T007a** (T006a finding, 2026-09-13) — `docs/balance.md` only: the
+- [x] **T007a** (T006a finding, 2026-09-13) — `docs/balance.md` only: the
   guards section repeats the Kesh misattribution in two places (the Core
   guard's margin is Rix at 10.8 SE; the smallest guard margin is 8.8 SE, full
   vs starter against Greeb; Kesh's 6.5 SE is a Mid Rim figure no guard
@@ -432,7 +432,7 @@ iteration count in the outcome column. -->
 | T006 impl (sdd-implementer) | opus | ~49K (measured return) | done first try; GUARD_N stays 600 — smallest margin 6.5 SE (starter vs Kesh ≤ 50%), Greeb guard 10.1 SE, full-vs-starter binding at Greeb 8.8 SE; balance test binary 1.1 s debug; notes (d) and (e) applied |
 | T007 impl (sdd-implementer) | opus | ~163K (measured return) | done first try; balance.md 289 lines, every table value machine-checked against source and the T004a table; two stale comments found in tests/balance.rs → T006a |
 | T006a comments (sdd-implementer) | opus | ~34K (measured return) | done; found the same misattribution in docs/balance.md → T007a |
-| T007a balance.md fix (sdd-implementer) | opus | | |
+| T007a balance.md fix (sdd-implementer) | opus | ~23K (measured return) | done; guards table and sizing paragraph now match the test comment |
 | Phase 3 review (skeptical-reviewer) | opus | | |
 | T008 close-out (orchestrator) | fable (session, medium) | — | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus | | |

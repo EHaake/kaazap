@@ -214,17 +214,17 @@ told, seconds in debug), with generous margins so they can't be flaky:
 | Guard | Bar | Target it protects | Margin |
 |---|---|---|---|
 | `starter_deck_beats_greeb_above_the_floor` | starter vs Greeb ≥ **50 %** | T1 (65 %) | **10.1 SE** (`w = .690`) |
-| `starter_deck_cannot_credibly_take_the_core` | starter vs each Core opponent ≤ **50 %** | T4 (< 33 %) | **6.5 SE** (binding Kesh, `w = .371`; rix 10.8, magistrate 12.4, sovereign 15.1) |
+| `starter_deck_cannot_credibly_take_the_core` | starter vs each Core opponent ≤ **50 %** | T4 (< 33 %) | **10.8 SE** (binding Rix, `w = .299`; magistrate 12.4, sovereign 15.1) |
 | `the_full_pool_deck_outperforms_the_starter_against_every_opponent` | `best_full` > `starter`, every opponent | T8's ordering | **8.8 SE** (binding Greeb, gap `.890 − .690 = .200`; every other opponent ≥ 9.0 SE) |
 | `default_profile_plays_a_valid_outer_tier_starter` (`profile.rs`) | every starter card is Outer tier | the starter's tiered-ness | exact — no sampling |
 
 Margins are sized from the **standard error at `GUARD_N`** — single rate
 `(w − bound) / √(w(1−w)/N)`, difference `gap / √((w₁(1−w₁) + w₂(1−w₂))/N)` —
 not from the run-to-run spread of the N = 10 000 table. The smallest quoted
-margin is 6.5 SE, which puts a false failure well under 1e-6 per guard, so
-`GUARD_N` stays at 600. (That 6.5 figure includes Kesh, a **Mid Rim** opponent
-the Core guard does not actually iterate; over the three Core opponents the
-guard's own binding margin is 10.8 SE, so the sizing is conservative.)
+margin is 8.8 SE — the full-vs-starter guard against Greeb — which puts a false
+failure well under 1e-6 per guard, so `GUARD_N` stays at 600. (The smallest
+starter-vs-**Mid Rim** gap, Kesh at 6.5 SE, is not a guard: no guard covers the
+Mid Rim, and the Core guard iterates only rix, magistrate and sovereign.)
 
 ## What the tuning turned on
 
