@@ -363,7 +363,7 @@ readable and the guards are green. -->
   *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff`
   shows comment/doc lines only.*
 
-- [ ] **T008a** (sweep findings, 2026-09-13) — text only: (B1) `src/card.rs`
+- [x] **T008a** (sweep findings, 2026-09-13) — text only: (B1) `src/card.rs`
   test comment above the `DEFAULT_SIDE_DECK` universe loop — it is the
   standard deck, not the starter; (B2) "all-±1 decks/hands" → "all-1s decks
   (`+1`/`−1` only, no ± card)" in `docs/balance.md` rule of thumb 3 and both
@@ -471,5 +471,5 @@ iteration count in the outcome column. -->
 | T007b review-note text fixes (sdd-implementer) | opus | ~29K (measured return) | done; left balance.md rule-of-thumb #3's "0.44 → 0.18" (intra-spec narrative) for the sweep to judge |
 | T008 close-out (orchestrator) | fable (session, medium) | — | ten consecutive `cargo test -q` green; no forbidden file in `git diff main`; card.rs comment-only; PROFILE_VERSION 1 / SAVE_VERSION 1 / PAYOUT_RATIO 1; warnings 0 on branch and on main (worktree build); spec.md ACs checked off with evidence |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus | ~146K (measured return) | fix-and-re-review: 2 blocking text errors (card.rs test comment still calls DEFAULT_SIDE_DECK the starter; "all-±1 decks" in balance.md and the closeout text — the Outer Rim decks hold no ± card) + 9 notes → T008a |
-| T008a sweep fixes (sdd-implementer) | opus | | |
+| T008a sweep fixes (sdd-implementer) | opus | ~48K (measured return) | B1, B2, S1–S5, S9 fixed; S6: two shipped-data runs both 8/8 · 1/1 · 5/5, max |Δ| 1.5 (starter vs nima), 0/50 over 2.5 |
 | Sweep re-review (skeptical-reviewer) | opus | | |

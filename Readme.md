@@ -68,7 +68,7 @@ cards with a copy count, the rest — those absent from that panel — as faint
 placeholders. Move the
 selection with the arrows (or `w`/`a`/`s`/`d`), **Tab** to switch panels, and
 **Enter** to move a copy across — adding one from the Collection or returning one
-from the Deck. Your side deck (the 10 cards your hand is dealt from each match)
+from the Deck. Your side deck (the 10 cards your hand is dealt from each campaign match)
 must be a full 10 to start a match.
 
 From the start menu, **Start Campaign** opens a full-screen star map: travel

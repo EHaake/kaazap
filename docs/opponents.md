@@ -137,8 +137,9 @@ tuning the **top four all sit at threshold 19** (see the note under the table):
 > **The top four share threshold 19.** Rix Vandal, Kesh Varn, The Magistrate and
 > The Sovereign all stand at 19, so they also all carry the same **ante floor of
 > 50** (`(19 − 14) × 10`, see [`economy.md`](economy.md)). Difficulty among them
-> is carried by deck and strategy, not by the threshold: the balance pass found
-> that this AI plays *better* at an effective threshold of 18 than at 19, so the
+> is carried by deck and strategy, not by the threshold: as a rule of thumb the
+> balance pass found this AI *seems to peak* near an effective threshold of 18
+> rather than 19 — a tuning observation, not a measured constant — so the
 > opponents just below the finale must not hold both the better threshold and
 > the better deck (`balance.md`, "What the tuning turned on").
 
@@ -162,7 +163,8 @@ What the gradient does (each opponent's blurb reflects its strategy):
 - **Rix Vandal** — threshold 19 and **Calculating** (targets the *minimal* safe
   winning total), with a genuinely strong, fully playable deck: the full ±
   range (±1/±2/±3/±6, doubled at the top), +4/−4 recovery and a −1 — but **no
-  tiebreaker**, which is the two masters' card, and no dead flips. Errs rarely
+  tiebreaker** — only three of the roster hold it: Old Toran (it rides in the
+  standard deck) and the two masters — and no dead flips. Errs rarely
   (0.03). An ace who counts every point.
 - **The Magistrate** — threshold 19, **Calculating**, and **flawless** (misplay
   0.0): targets the minimal safe winning total, steals ties with the tiebreaker,

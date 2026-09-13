@@ -430,7 +430,9 @@ mod tests {
     #[test]
     fn all_side_cards_cover_the_default_deck() {
         // The universe a player collects from must include everything the
-        // starter deck contains, or the deck-builder couldn't represent it.
+        // standard deck contains (the opponent baseline and Quick Play's deal,
+        // since spec 022), or the deck-builder couldn't represent it. The
+        // starter deck's own universe membership is pinned in `profile.rs`.
         for card in DEFAULT_SIDE_DECK {
             assert!(ALL_SIDE_CARDS.contains(&card), "universe missing {card:?}");
         }

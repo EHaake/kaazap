@@ -1058,3 +1058,63 @@ moved (T005's 67.6 → 69.0 for the player) while his slip rate fell by more tha
 half. The lever is spent, though: at the structural floor the ramp is
 0.18 / 0.16 / 0.15 against nima's 0.15, so any further reduction would need a
 Mid Rim opponent to move, which this task does not own.
+
+## T008a — shipped-data agreement
+
+A second, independent two-run agreement check, this time on the **shipped**
+data (the T004a Outer Rim decks and the T005 prices), at the default
+`N = 10 000`. Same machine and command as above; the release test target was
+built first (`cargo test --release --test balance --no-run`), so neither run
+includes a compile. Measured 2026-09-13. **No tuning was done in this task** —
+this is a measurement only.
+
+**Agreement: max |Δ| = 1.5 points** across the 50 pairs (`starter` vs Nima,
+37.1 → 38.6), with **0 of 50 pairs over 2.5 points**. That is in line with the
+T003 baseline figure (max |Δ| = 1.1) and with the SE of a two-run difference at
+N = 10 000 (0.71 points); `DEFAULT_N` stays at 10 000.
+
+Both runs pass identically — `summary: targets 8/8, coupling 1/1, bounds 5/5`.
+
+### Run 1
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          70.2  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 55.4 (vessa)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 40.3 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 28.8 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 70.5 (vessa)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 64.8 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.7 (sovereign), sovereign 51.7  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.7 vs hardest other 55.5 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 15.5 (kesh) vs 2·EV_g 8.1  PASS; @2×floor 31.0  PASS
+bounds (SEED 50, reserve 10, P_outer 20, P_mid 100, P_core 200)
+  B1 first Outer card within 5 Greeb floor matches                    k=0  PASS
+  B2 first Mid card not affordable after one Outer Rim clear          (90 vs 110); grind k=5  PASS
+  B3 Core card by Greeb grind >= 20 matches                           k_grind=40  PASS
+  B4 Core card by Mid Rim bets < k_grind/2                            best k_bet@floor=11 (kesh), @2×floor=6  PASS
+  B5 ruin within 8 floor losses; staked win never broke (021)         k_ruin=5  PASS
+summary: targets 8/8, coupling 1/1, bounds 5/5
+```
+
+### Run 2
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          70.1  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 55.6 (vessa)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 40.4 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 29.6 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 70.2 (vessa)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 64.5 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 50.6 (sovereign), sovereign 50.6  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 50.6 vs hardest other 56.7 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 15.9 (kesh) vs 2·EV_g 8.1  PASS; @2×floor 31.9  PASS
+bounds (SEED 50, reserve 10, P_outer 20, P_mid 100, P_core 200)
+  B1 first Outer card within 5 Greeb floor matches                    k=0  PASS
+  B2 first Mid card not affordable after one Outer Rim clear          (90 vs 110); grind k=5  PASS
+  B3 Core card by Greeb grind >= 20 matches                           k_grind=40  PASS
+  B4 Core card by Mid Rim bets < k_grind/2                            best k_bet@floor=11 (kesh), @2×floor=6  PASS
+  B5 ruin within 8 floor losses; staked win never broke (021)         k_ruin=5  PASS
+summary: targets 8/8, coupling 1/1, bounds 5/5
+```

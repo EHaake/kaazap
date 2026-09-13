@@ -11,7 +11,7 @@ constitution states.
 
 ---
 
-## 1. `ROADMAP.md` — four edits
+## 1. `ROADMAP.md` — five edits
 
 ### 1a. New entry at the end of the `## Shipped` list
 
@@ -32,14 +32,16 @@ ends "…Every number is a tunable constant in `economy.rs`; see
   **starter deck is now Outer-tier only** (`profile::STARTER_SIDE_DECK`, its own
   constant, with lateral spares), the **standard deck** keeps its role as the
   opponent baseline and is what **Quick Play** deals, the roster was retuned
-  (the Outer Rim's weakness moved out of `misplay` and into weak all-±1 decks —
+  (the Outer Rim's weakness moved out of `misplay` and into weak all-1s decks
+  (`+1`/`−1` only, no `±` card) —
   Greeb's slip rate fell 0.25 → 0.18 as shipped; Nima 16/Cautious →
   17/Basic; Rix 18 → 19; Kesh 18/Aggressive → 19/Basic), and the **Mid and Core
   card prices rose 50 → 100 and 120 → 200**. Final curve at N = 10 000: all
   eight targets and all five economy bounds pass — the starter wins 69 % against
   Greeb, stays under 41 % across the Mid Rim and under 30 % across the Core,
-  while a full-pool deck takes the finale 51 % of the time. Four ordinary tests
-  guard a subset of that curve at a small sample, so a future data edit that
+  while a full-pool deck takes the finale 51 % of the time. Three ordinary
+  sampled tests guard points on that curve at a small sample, plus one exact
+  test that a fresh profile's starter is Outer-tier, so a future data edit that
   breaks it fails `cargo test`. **No engine, save-format or UI change**, and
   existing profiles keep their cards and credits. Method, measurements and
   re-run instructions in `docs/balance.md`; `docs/opponents.md` and
@@ -114,6 +116,30 @@ with:
   deal.
 ```
 
+Note: the quoted block stops at "(tunable in C's balance pass)." — the sentence
+that follows it in that bullet ("A two-panel "briefcase" builder is a logged
+follow-up (below).") is **not** part of the replacement and must be left intact.
+
+### 1e. The same spec 008 entry's "matches deal from the built deck" is now campaign-only
+
+Two lines above 1d in the same **Side-deck customization (spec 008)** entry
+(currently `ROADMAP.md` line 84), replace:
+
+```markdown
+  Matches deal the player's hand from the built deck — the player
+```
+
+with:
+
+```markdown
+  Matches deal the player's hand from the built deck (campaign matches, since
+  spec 022) — the player
+```
+
+Quick Play deals `card::DEFAULT_SIDE_DECK` instead, by the human's ruling in
+spec 022; the rest of that sentence (the `GameState` move, the per-match deck
+snapshot) is unchanged and stays as written.
+
 ---
 
 ## 2. `DECISIONS.md` — append a new section at the end of the file
@@ -164,7 +190,8 @@ build:
 - **The Outer Rim is retuned to weak decks, not high slip rates.** Greeb, Dax
   and Vessa had been carrying their weakness in `misplay` (0.44 / 0.36 / 0.34),
   which read as *random* rather than *weak* in play. Moving it into the decks —
-  all-±1 hands with almost no exact-20 coverage — held the same win-rate curve
+  all-1s hands (`+1`/`−1` only, no `±` card) with almost no exact-20 coverage —
+  held the same win-rate curve
   while the slip rates fell to 0.18 / 0.16 / 0.15, so the early opponents now
   play their best line most turns and still lose. The re-measured table is the
   one the docs record.

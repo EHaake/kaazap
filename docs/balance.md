@@ -36,7 +36,10 @@ raised to the 50th power; at N = 4000 the all-pairs check would usually fail).
 
 **Measured agreement (T003, two independent runs, all 50 pairs): max |Δ| =
 1.1 points** (`best_outer` vs the Magistrate, tied with two other pairs), with
-**0 of 50 pairs over 2.5 points**. `DEFAULT_N` was not doubled.
+**0 of 50 pairs over 2.5 points**. Re-checked on the shipped data: **max |Δ| =
+1.5 points over 50 pairs, 2026-09-13** (`starter` vs Nima; again 0 of 50 over
+2.5, and both runs `targets 8/8, coupling 1/1, bounds 5/5` — see
+`specs/022-balance-pass/tuning-log.md`). `DEFAULT_N` was not doubled.
 
 ## The scripted player
 
@@ -250,11 +253,12 @@ quote:
    must not get **both** the best deck and the better threshold — Rix moved to
    19 and gave up the tiebreaker for that reason, which forced Kesh to 19 too
    (the roster order puts Rix first).
-3. **The Outer Rim's weakness lives in its decks, not in `misplay`.** All-±1
-   decks give the AI almost no exact-20 coverage, so it plays its best line
-   nearly every turn and still loses — which reads as *weak* rather than
-   *random*. That let the slip rates drop by more than half (Greeb 0.44 → 0.18)
-   for no measurable win-rate change.
+3. **The Outer Rim's weakness lives in its decks, not in `misplay`.** All-1s
+   decks (`+1`/`−1` only, no `±` card) give the AI almost no exact-20 coverage,
+   so it plays its best line nearly every turn and still loses — which reads as
+   *weak* rather than *random*. That let the slip rates drop by more than half
+   (Greeb 0.44 → 0.18, where 0.44 was the mid-tuning peak and 0.25 the value
+   shipped before this pass) for no measurable win-rate change.
 4. **The Mid/Core prices are the economy's real lever.** B2 fails by arithmetic
    at `P_mid = 50` (a clean Outer clear leaves 90 against 60); `P_mid = 100` and
    `P_core = 200` fixed B2 and widened B3 without touching a single ante floor,
