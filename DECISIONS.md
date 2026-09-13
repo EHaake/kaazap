@@ -866,3 +866,31 @@ still holds — this pass is what tuned it.
 
 No `game.rs`/`player.rs`/`card.rs`/`save.rs` logic change and no UI change;
 `PROFILE_VERSION` and `SAVE_VERSION` both stay 1. Monochrome by construction.
+
+## Chore: run-over returns to the start menu; wager prompt spacing (2026-09-13)
+
+The first fixes run under the constitution's *Chores (no spec)* lane, ruled by
+the human after playing the spec 022 build (PR #26; branch kept).
+
+- **Losing the run ends at the start menu.** Acknowledging the run-over notice
+  still resets the profile to the starter through the one reset path, but the
+  player now lands on the start menu instead of a fresh campaign map. This
+  supersedes spec 021's "On acknowledgement … a fresh map opens" — a lost run
+  should read as an ending, not an instant restart. New Campaign from the
+  map's own panel still resets and opens the map.
+- **The wager prompt breathes.** An empty row under the title and above and
+  below the stake row and the win/lose line; text unchanged; emphasis chosen by
+  each row's role rather than a hardcoded index. This is the first application
+  of the design brief's *Density and breathing room* rule, added the same day
+  because dense modals had come up in review three times; the constitution
+  now checks new or changed screens against it at review.
+- **Why a chore and not a spec.** Two one-file flow/layout fixes with no
+  engine, AI, save-format, balance-data or dependency change and no new
+  screen. The lane exists so that fixes of this size are recorded and
+  reviewed without the spec → plan → tasks ceremony; anything larger, or
+  anything touching the excluded areas, is still a spec.
+- **Known gap, deferred.** No unit test covers "after acknowledging, the
+  screen is the start menu": `Profile::path` and the match-save path go
+  through `ProjectDirs` with no injection seam, so an `App`-level test would
+  read and write the real profile. A path-injection seam is a candidate chore
+  of its own; until then the run-over destination is verified by playing.
