@@ -88,7 +88,10 @@ pub const STARTER_SIDE_DECK: [Card; SIDE_DECK_SIZE] = [
 ];
 
 /// The Outer-tier spares a fresh profile owns beyond its deck, so the builder
-/// is a real choice from the first launch (spec 008's intent, kept).
+/// is a real choice from the first launch (spec 008's intent, kept). Tuned
+/// **lateral** rather than as upgrades in spec 022 (`±1` is the only type the
+/// starter deck doesn't already hold), so the measured starter win rates in
+/// `docs/balance.md` describe the deck a fresh player actually fields.
 pub const STARTER_SPARES: [Card; 3] = [Card::PlusMinus(1), Card::Plus(2), Card::Minus(2)];
 
 /// The side deck a fresh profile starts with — the Outer-tier starter.

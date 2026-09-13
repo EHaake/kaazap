@@ -303,7 +303,7 @@ readable and the guards are green. -->
   reported with the arithmetic; `time cargo test --test balance` reported
   (debug) — under 30 s; `git diff --stat` shows only `tests/balance.rs`.*
 
-- [ ] **T007** — Docs. Create `docs/balance.md` (plan §Design 5: command and
+- [x] **T007** — Docs. Create `docs/balance.md` (plan §Design 5: command and
   `N`, the all-pairs agreement figure, the scripted player rules verbatim plus
   its two stated limitations — it never plays a flip, and rule 3 stands on a
   tie at ≥ 17 even when the opponent alone holds a tiebreaker in play (a sure
@@ -329,6 +329,16 @@ readable and the guards are green. -->
   final run byte-for-byte in the numbers; `git diff --stat` shows docs, README,
   the spec-dir files, and at most comment lines in `src/`. **PAUSE for the
   person**: the docs read correctly; nothing to try in play.*
+
+- [ ] **T006a** (T007 finding, 2026-09-13) — `tests/balance.rs` comments
+  only: the guard-margin comment names Kesh (Mid Rim) as the binding Core
+  opponent — the Core guard iterates rix/magistrate/sovereign, so the binding
+  margin is Rix at 10.8 SE (Kesh's 6.5 SE figure is not a guard); and the
+  file's line-2 command says `KAAZAP_SIM_N=4000` while `DEFAULT_N` and the
+  documented command are 10 000. Fix both; `docs/balance.md` already states
+  the corrected figures. No code change.
+  *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff`
+  shows comment lines only in `tests/balance.rs`.*
 
 ## Final phase — Spec close-out
 
@@ -411,7 +421,8 @@ iteration count in the outcome column. -->
 | T005 impl (sdd-implementer) | opus | ~57K (measured return) | iterations: 1 — Mid price 50→100, Core 120→200; `bounds 5/5`, B4 PASS at the floor; no exact-value test needed amending (floors unchanged); profile.rs untouched |
 | Phase 2 review (skeptical-reviewer) | opus | ~91K (measured return) | signed off, 0 blocking, 8 notes — log factual slip (Sovereign never had flips) + T8 tolerance-carried on Dax + observed-not-measured design notes → T007; guard bars sized from GUARD_N SE → T006; Nima/Kesh strategy vs blurb, four opponents at floor 50, Outer Rim misplay ≥ 0.34, lateral spares → person at the Phase 2 pause |
 | T006 impl (sdd-implementer) | opus | ~49K (measured return) | done first try; GUARD_N stays 600 — smallest margin 6.5 SE (starter vs Kesh ≤ 50%), Greeb guard 10.1 SE, full-vs-starter binding at Greeb 8.8 SE; balance test binary 1.1 s debug; notes (d) and (e) applied |
-| T007 impl (sdd-implementer) | opus | | |
+| T007 impl (sdd-implementer) | opus | ~163K (measured return) | done first try; balance.md 289 lines, every table value machine-checked against source and the T004a table; two stale comments found in tests/balance.rs → T006a |
+| T006a comments (sdd-implementer) | opus | | |
 | Phase 3 review (skeptical-reviewer) | opus | | |
 | T008 close-out (orchestrator) | fable (session, medium) | — | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus | | |

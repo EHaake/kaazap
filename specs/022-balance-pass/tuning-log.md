@@ -422,8 +422,18 @@ Changed (old → new):
 | `BEST_FULL` | ±6 ±6 ±3 ±3 ±2 ±1 ±1 +4 −4 T | ±6 ±6 ±3 ±3 ±3 ±2 ±2 ±1 ±1 T |
 
 Reasoning: the AI's strongest branch is "play the card that lands exactly 20",
-so opponent strength tracks *playable* hand coverage — which is why the
-Sovereign's two dead flips were worth ~11 points. The Core masters get
+so opponent strength tracks *playable* hand coverage — which is why this
+iteration trades Rix's and the Magistrate's two dead flips each for ± coverage.
+> **Correction (T007, 2026-09-13):** this sentence originally read "which is
+> why the Sovereign's two dead flips were worth ~11 points". The Sovereign
+> never carried a flip — before or after this iteration; **Rix and the
+> Magistrate** each carried two, and this iteration is what replaced them. The
+> ~11-point figure was never measured. The grounded figure for what a dead card
+> costs is the **Magistrate/Sovereign gap** — same threshold, same flawless
+> play, one dead flip apart — which reads **5.0 points** on the T004a final
+> table (`best_full` 56.1 vs 51.1) and 5.2 on T005's (56.2 vs 51.0).
+
+The Core masters get
 full ±1/±2/±3/±6 + 4 coverage (the Magistrate keeps one flip, as its guard
 requires); the starter loses its 3s (the 17 → 20 card) and the Outer Rim is
 softened to compensate. `BEST_FULL` is re-shaped to the all-± form that won

@@ -4,8 +4,10 @@ Reference for the opponent roster and how each opponent's difficulty is
 tuned. The roster shipped in spec 007 (`specs/007-opponent-roster/`); the
 **board-aware AI, per-opponent strategies, and the misplay seam** in spec 010
 (`specs/010-smarter-opponents/`); and it **grew to ten opponents across an
-eight-world campaign** in spec 011 (`specs/011-roster-and-worlds/`). The
-authoritative data lives in
+eight-world campaign** in spec 011 (`specs/011-roster-and-worlds/`). Every value
+below was **tuned against measured win rates** in spec 022
+(`specs/022-balance-pass/`) — see [`balance.md`](balance.md) for the simulator,
+the targets, and the curve. The authoritative data lives in
 [`src/opponent.rs`](../src/opponent.rs) (the `OPPONENTS` const) and the AI logic
 in [`src/game.rs`](../src/game.rs) (`decide_opponent_move` + `opponent_action`);
 this file explains the *mechanism* and snapshots the *current values*.
@@ -114,58 +116,78 @@ is `0.0`, so it (and the test harness) stays deterministic.
 > `PlusMinus`, `2&4`/`3&6` are `Flip`s, `±1T` is the `Tiebreaker`.
 
 Ordered easiest → hardest (a test, `roster_runs_easy_to_hard_by_threshold`,
-enforces the threshold ordering). Since spec 011 the roster is **two contrasting
-personalities per threshold tier** — difficulty rises by threshold, while the
-`AiStrategy` archetype varies the play within a tier:
+enforces the threshold ordering). Since spec 011 the roster pairs **contrasting
+personalities within a threshold tier** — difficulty rises by threshold, while
+the `AiStrategy` archetype varies the play within a tier. Since spec 022's
+tuning the **top four all sit at threshold 19** (see the note under the table):
 
 | Opponent | `id` | Label | Threshold | Strategy | Misplay | Side deck (10 cards) |
 |---|---|---|---|---|---|---|
-| **Greeb** | `greeb` | Rookie | **15** | Basic | **0.25** | +1 +2 +3 −1 −2 −3 +1 −1 +2 −2 |
-| **Dax Runo** | `dax` | Greenhorn | **15** | Aggressive | 0.22 | +4 +3 +3 +2 +2 +1 −1 −2 −3 −2 |
-| **Vessa Korr** | `vessa` | Scrapper | **16** | Aggressive | 0.15 | +2 +4 −2 −4 ±1 ±2 +1 −1 +3 −3 |
-| **Nima Sarn** | `nima` | Broker | **16** | Cautious | 0.15 | +2 +3 −2 −3 −4 ±1 ±2 −1 +1 +2 |
+| **Greeb** | `greeb` | Rookie | **15** | Cautious | **0.18** | +1 +1 +1 +1 +1 −1 −1 −1 −1 −1 |
+| **Dax Runo** | `dax` | Greenhorn | **15** | Aggressive | 0.16 | +1 +1 +1 +1 +1 +2 −1 −1 −1 −1 |
+| **Vessa Korr** | `vessa` | Scrapper | **16** | Aggressive | 0.15 | +1 +1 +1 +1 +2 +2 −1 −1 −1 −1 |
+| **Nima Sarn** | `nima` | Broker | **17** | Basic | 0.15 | +2 +3 −2 −3 −4 ±1 ±2 −1 +1 +2 |
 | **Old Toran** | `toran` | Veteran | **17** | Cautious | 0.10 | +2 +4 −2 −4 ±1 ±3 ±6 2&4 3&6 ±1T |
 | **Brakka** | `brakka` | Bruiser | **17** | Aggressive | 0.12 | ±6 ±3 +4 +3 +2 −2 −4 ±1 −1 2&4 |
-| **Rix Vandal** | `rix` | Ace | **18** | Calculating | 0.05 | ±6 ±3 ±1 −4 −2 +4 +2 2&4 3&6 ±1T |
-| **Kesh Varn** | `kesh` | Duelist | **18** | Aggressive | 0.06 | ±6 ±3 ±1 +4 −4 −2 +2 −3 +3 2&4 |
-| **The Magistrate** | `magistrate` | Master | **19** | Calculating | **0.0** | ±6 **±6** ±3 ±1 −4 **−4** −2 2&4 3&6 ±1T |
-| **The Sovereign** | `sovereign` | Kingpin | **19** | Calculating | **0.0** | ±6 ±6 ±3 ±3 ±1 −4 −4 −2 −1 ±1T |
+| **Rix Vandal** | `rix` | Ace | **19** | Calculating | 0.03 | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 −1 |
+| **Kesh Varn** | `kesh` | Duelist | **19** | Basic | 0.06 | ±6 ±3 ±1 +4 −4 −2 +2 −3 +3 2&4 |
+| **The Magistrate** | `magistrate` | Master | **19** | Calculating | **0.0** | ±6 **±6** ±3 ±3 ±2 ±2 ±1 +4 ±1T 2&4 |
+| **The Sovereign** | `sovereign` | Kingpin | **19** | Calculating | **0.0** | ±6 ±6 ±3 ±3 ±2 ±2 ±1 +4 −4 ±1T |
+
+> **The top four share threshold 19.** Rix Vandal, Kesh Varn, The Magistrate and
+> The Sovereign all stand at 19, so they also all carry the same **ante floor of
+> 50** (`(19 − 14) × 10`, see [`economy.md`](economy.md)). Difficulty among them
+> is carried by deck and strategy, not by the threshold: the balance pass found
+> that this AI plays *better* at an effective threshold of 18 than at 19, so the
+> opponents just below the finale must not hold both the better threshold and
+> the better deck (`balance.md`, "What the tuning turned on").
 
 What the gradient does (each opponent's blurb reflects its strategy):
 
-- **Greeb** — threshold 15, **Basic**, and it slips a quarter of the time
-  (misplay 0.25). A deck of only small plain +/− (no ±, no flips, **no
-  tiebreaker**): stands early, can't reach 20 easily, can't win ties. The
-  pushover you learn to beat.
-- **Vessa Korr** — a step up: **Aggressive** (effective threshold 17; when she
-  can beat you with a card she pushes for the *highest* safe total), misplay
-  0.15, with bigger values (up to 4) and two ± cards — still no tiebreaker or
-  flips. A scrapper who pushes hard and busts for it.
+- **Greeb** — threshold 15 and **Cautious** (effective 14 — he folds early),
+  slipping 0.18 of the time. His weakness is the **deck**, not the slips: five
+  `+1`s and five `−1`s and nothing else (no dual-sign ±, no flips, **no
+  tiebreaker**), so he can land exactly 20 only from 19 and recover only from
+  21. He plays his best line most
+  turns and still loses — weak rather than random. The pushover you learn to
+  beat.
+- **Vessa Korr** — a step up: threshold 16 and **Aggressive** (effective 17;
+  when she can beat you with a card she pushes for the *highest* safe total),
+  misplay 0.15. Her deck is 1s and 2s only — no 3s, no ±, no flips, no
+  tiebreaker — so the extra reach costs her busts she can rarely climb out of.
+  A scrapper who pushes hard and busts for it.
 - **Old Toran** — the deck **baseline** (the standard side deck, identical to the
   player's), but **Cautious**: he stands a point early (effective 16) and errs
   only 10% of the time. Balanced and patient.
-- **Rix Vandal** — threshold 18 and **Calculating** (targets the *minimal* safe
-  winning total and steals ties with the tiebreaker), with a genuinely strong
-  deck: full ± range, recovery minuses, both flips, the tiebreaker. Errs rarely
-  (0.05). An ace who counts every point.
+- **Rix Vandal** — threshold 19 and **Calculating** (targets the *minimal* safe
+  winning total), with a genuinely strong, fully playable deck: the full ±
+  range (±1/±2/±3/±6, doubled at the top), +4/−4 recovery and a −1 — but **no
+  tiebreaker**, which is the two masters' card, and no dead flips. Errs rarely
+  (0.03). An ace who counts every point.
 - **The Magistrate** — threshold 19, **Calculating**, and **flawless** (misplay
   0.0): targets the minimal safe winning total, steals ties with the tiebreaker,
-  and never slips. Its strong deck — **doubled ±6 and −4** — means it usually
-  holds both a big swing and a recovery card, which is what makes hitting to the
-  edge survivable for it.
+  and never slips. Its deck carries the full ± range (**doubled ±6, ±3 and ±2**)
+  plus +4 and the tiebreaker, so it usually holds both a big swing and the exact
+  card it needs. The one **2&4 flip** its guard requires is a dead card for the
+  AI, which is why it measures about five points softer than the Sovereign.
 
 The spec-011 additions — each the contrasting tier-mate of one above:
 
-- **Dax Runo** (15, **Aggressive**, 0.22) — a reckless greenhorn beside naive
-  Greeb: a plus-heavy deck and a high error rate, so he pushes for big totals and
-  busts for them.
-- **Nima Sarn** (16, **Cautious**, 0.15) — a tight broker beside aggressive
-  Vessa: recovery-leaning cards and an early stand; folds the moment she's ahead.
+- **Dax Runo** (15, **Aggressive**, 0.16) — a reckless greenhorn beside naive
+  Greeb: an almost-all-1s, plus-leaning deck with a single +2, so he pushes for
+  big totals on cards that can't reach them and busts for it.
+- **Nima Sarn** (17, **Basic**, 0.15) — a tight broker, moved into Toran's
+  tier: recovery-leaning cards (−2/−3/−4) and steady threshold play. Spec 022 moved
+  her from 16/Cautious to 17/**Basic** so the Mid Rim opens as a wall; the blurb
+  was reworded to match ("steady play, with the odd miscount").
 - **Brakka** (17, **Aggressive**, 0.12) — a bruiser beside patient Toran: wide ±
   swings toward 20.
-- **Kesh Varn** (18, **Aggressive**, 0.06) — a hair-trigger duelist beside
-  calculating Rix: a strong ± + recovery deck, and he pushes the highest safe
-  total.
+- **Kesh Varn** (19, **Basic**, 0.06) — a duelist beside calculating Rix: a
+  strong ± + recovery deck, played straight. Spec 022 moved him from
+  18/Aggressive to 19/**Basic** — the roster order forced the threshold up with
+  Rix, and Basic keeps his *effective* threshold (and so his strength) where it
+  was, while his ante floor rose 40 → 50; the blurb was reworded to match
+  ("a patient duelist — holds his nerve").
 - **The Sovereign** (19, **Calculating**, 0.0) — the **final boss**, the flawless
   Magistrate's deadlier twin. Same perfect play, but a **fully playable deck**:
   no flips (the AI never plays one), just maximal ± range, recovery, and the
@@ -202,10 +224,11 @@ The board-aware decision logic itself is covered by the `ai_*` tests in
 [`src/game.rs`](../src/game.rs) (stand-when-ahead, chase/play-when-behind, tie
 handling, per-archetype differences, and the misplay seam).
 
-A dedicated **balance/tuning pass** — playtesting the spread and adjusting
-these numbers — is a tracked cross-cutting item in the campaign epic (see
-[`ROADMAP.md`](../ROADMAP.md)). The values here are a reasonable first cut, not
-a finished curve.
+The dedicated **balance pass** shipped as **spec 022**: every threshold,
+misplay rate, strategy and deck above was tuned against measured win rates from
+a headless simulator, and a subset of the curve is now pinned by ordinary tests
+(`tests/balance.rs`). See [`balance.md`](balance.md) for the command, the
+targets, the measured table and what to re-run after a change.
 
 ## See also
 
@@ -213,6 +236,8 @@ a finished curve.
   truth).
 - [`src/game.rs`](../src/game.rs) — `decide_opponent_move` + `opponent_action`
   (the AI core and its misplay seam).
+- [`balance.md`](balance.md) — the simulator, the targets and the measured
+  difficulty curve (spec 022).
 - [`ROADMAP.md`](../ROADMAP.md) — the difficulty setting (now unblocked by
   spec 010) and the balance pass.
 - [`DECISIONS.md`](../DECISIONS.md) — why a campaign/progression layer exists;

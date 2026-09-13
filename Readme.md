@@ -84,7 +84,9 @@ Campaign first asks whether to **Continue** your run or begin a **New Campaign**
 a fresh start that resets your progress, credits, and collection (your settings
 are kept). **Quick Play** instead lets you pick
 any opponent from the roster directly (each has its own difficulty, side
-deck, and play style; see `docs/opponents.md` for how difficulty is tuned). The **Records** menu item
+deck, and play style; see `docs/opponents.md` for how difficulty is tuned), and
+deals you the **standard** side deck — campaign matches deal the one you built.
+The **Records** menu item
 opens a read-only popup of your play history — matches and rounds won/lost per
 opponent, your win streak, campaign completions, and collection progress —
 paged left/right across Overall, Quick Play, Campaign, and This Run views. In-game, press `?`

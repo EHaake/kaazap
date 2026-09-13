@@ -632,12 +632,15 @@ impl App {
     /// and persisting it.
     ///
     /// Precondition: the profile deck is valid (exactly `SIDE_DECK_SIZE`
-    /// cards). This is the only match-start entry, reached solely via
-    /// `open_opponent_select`, which enforces `deck_is_valid()` first — any new
-    /// caller must uphold that guard, or an undersized deck would deal a short
-    /// hand. Its two callers — the opponent-select Pick and the campaign map's
-    /// Launch — both enforce it. `campaign` marks the match as a campaign node
-    /// (persisted via the profile), or `None` for Quick Play.
+    /// cards). Since spec 022 an undersized deck can only short-deal a
+    /// **campaign** match — Quick Play deals the standard deck, so it always
+    /// gets its 10 — but this is still the only match-start entry and both of
+    /// its callers uphold the guard: the opponent-select Pick (reached via
+    /// `open_opponent_select`, which diverts an invalid deck to the builder
+    /// first — on the Quick Play path that divert is now only a consistency
+    /// nudge) and the campaign map's Launch. Any new caller must uphold it too.
+    /// `campaign` marks the match as a campaign node (persisted via the
+    /// profile), or `None` for Quick Play.
     fn start_match(&mut self, opponent: OpponentProfile, campaign: Option<NodeRef>) {
         // Which deck is dealt depends on the mode, so read it before the match
         // below moves `campaign`.
