@@ -16,9 +16,7 @@ use kaazap::profile::STARTER_SIDE_DECK;
 const SCRIPTED_STAND_AT: i32 = 17;
 const STEP_CAP: usize = 5_000; // a match that doesn't end in this many steps is a bug
 const DEFAULT_N: usize = 10_000; // KAAZAP_SIM_N overrides (plan tension §3)
-/// The guards' sample size; T006 adds the guards that use it and sets the
-/// final value. Allowed dead until then so the build stays warning-free.
-#[allow(dead_code)]
+/// The guards' sample size (see the margin note above the guards).
 const GUARD_N: usize = 600;
 const TOL: f64 = 0.02; // ordering allowance (plan tension §3)
 
@@ -380,7 +378,9 @@ fn targets(rows: &[Row]) -> Vec<(String, bool)> {
             }
         }
     }
-    let (easiest_other, easiest_id) = OPPONENTS
+    // The lowest full-pool rate among the others: the hardest opponent the
+    // Sovereign has to beat to be the hardest of all.
+    let (hardest_other, hardest_id) = OPPONENTS
         .iter()
         .filter(|o| o.id != "sovereign")
         .map(|o| (rate(rows, "best_full", o.id), o.id))
@@ -390,13 +390,13 @@ fn targets(rows: &[Row]) -> Vec<(String, bool)> {
         line(
             "T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest",
             format!(
-                "worst drop {} ({worst_pair}); sovereign {} vs next {} ({easiest_id})",
+                "worst drop {} ({worst_pair}); sovereign {} vs hardest other {} ({hardest_id})",
                 pct(worst_drop),
                 pct(sovereign),
-                pct(easiest_other)
+                pct(hardest_other)
             ),
         ),
-        worst_drop <= TOL && sovereign <= easiest_other + TOL,
+        worst_drop <= TOL && sovereign <= hardest_other + TOL,
     ));
 
     // C: B4's inequality, EV_m > 2·EV_g, printed where T004 can read it.
@@ -735,5 +735,54 @@ fn a_scripted_match_terminates_against_every_roster_opponent() {
         for opponent in OPPONENTS {
             play_match(opponent, &deck.cards);
         }
+    }
+}
+
+// The guard margins, in standard errors at `GUARD_N` = 600, computed from the
+// T004a final table (N = 10 000, `specs/022-balance-pass/tuning-log.md`).
+// Single rate: (w − bound) / √(w(1−w)/N). Difference: gap / √((w₁(1−w₁) +
+// w₂(1−w₂))/N). Sizing is from the SE at GUARD_N, not from the run-to-run
+// spread of the N = 10 000 table.
+//
+//   starter vs Greeb >= 50%   w = .690  (.690−.500)/√(.690·.310/600)
+//                             = .190/.01888 = 10.1 SE
+//   starter vs Core <= 50%    binding kesh, w = .371
+//                             (.500−.371)/√(.371·.629/600) = .129/.01972 = 6.5 SE
+//                             (rix 10.8, magistrate 12.4, sovereign 15.1)
+//   full > starter            binding greeb, gap .890−.690 = .200
+//                             .200/√((.890·.110 + .690·.310)/600) = .200/.02280 = 8.8 SE
+//                             (every other opponent is 9.0 SE or more)
+//
+// Smallest margin 6.5 SE (starter vs Kesh), so GUARD_N stays at 600: a false
+// failure is well under 1e-6 per guard, and the three guards together run
+// ~15 000 matches, seconds in debug.
+
+#[test]
+fn starter_deck_beats_greeb_above_the_floor() {
+    let greeb = opponent_by_id("greeb").expect("greeb is on the roster");
+    let w = win_rate(greeb, &STARTER_SIDE_DECK, GUARD_N);
+    assert!(w >= 0.50, "starter vs greeb is {}, below the 50% floor", pct(w));
+}
+
+#[test]
+fn starter_deck_cannot_credibly_take_the_core() {
+    for o in opponents_in(RegionTier::Core) {
+        let w = win_rate(o, &STARTER_SIDE_DECK, GUARD_N);
+        assert!(w <= 0.50, "starter vs {} is {}, above the 50% ceiling", o.id, pct(w));
+    }
+}
+
+#[test]
+fn the_full_pool_deck_outperforms_the_starter_against_every_opponent() {
+    for o in OPPONENTS {
+        let starter = win_rate(o, &STARTER_SIDE_DECK, GUARD_N);
+        let full = win_rate(o, &BEST_FULL, GUARD_N);
+        assert!(
+            full > starter,
+            "vs {}: full pool {} does not beat starter {}",
+            o.id,
+            pct(full),
+            pct(starter)
+        );
     }
 }

@@ -288,7 +288,7 @@ pause on whether the blurbs get reworded. -->
 and the two re-synced docs. Phase ends with a short pause: the docs are
 readable and the guards are green. -->
 
-- [ ] **T006** — `tests/balance.rs`: the guards. Add
+- [x] **T006** — `tests/balance.rs`: the guards. Add
   `starter_deck_beats_greeb_above_the_floor` (rate ≥ 0.50),
   `starter_deck_cannot_credibly_take_the_core` (≤ 0.50 vs each Core opponent),
   `the_full_pool_deck_outperforms_the_starter_against_every_opponent` (strict
@@ -410,7 +410,7 @@ iteration count in the outcome column. -->
 | T004b blurbs (sdd-implementer) | opus | ~22K (measured return) | done first try; both new blurbs shorter than the Sovereign's 65-char longest |
 | T005 impl (sdd-implementer) | opus | ~57K (measured return) | iterations: 1 — Mid price 50→100, Core 120→200; `bounds 5/5`, B4 PASS at the floor; no exact-value test needed amending (floors unchanged); profile.rs untouched |
 | Phase 2 review (skeptical-reviewer) | opus | ~91K (measured return) | signed off, 0 blocking, 8 notes — log factual slip (Sovereign never had flips) + T8 tolerance-carried on Dax + observed-not-measured design notes → T007; guard bars sized from GUARD_N SE → T006; Nima/Kesh strategy vs blurb, four opponents at floor 50, Outer Rim misplay ≥ 0.34, lateral spares → person at the Phase 2 pause |
-| T006 impl (sdd-implementer) | opus | | |
+| T006 impl (sdd-implementer) | opus | ~49K (measured return) | done first try; GUARD_N stays 600 — smallest margin 6.5 SE (starter vs Kesh ≤ 50%), Greeb guard 10.1 SE, full-vs-starter binding at Greeb 8.8 SE; balance test binary 1.1 s debug; notes (d) and (e) applied |
 | T007 impl (sdd-implementer) | opus | | |
 | Phase 3 review (skeptical-reviewer) | opus | | |
 | T008 close-out (orchestrator) | fable (session, medium) | — | |
