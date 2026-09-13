@@ -68,7 +68,7 @@ cards with a copy count, the rest — those absent from that panel — as faint
 placeholders. Move the
 selection with the arrows (or `w`/`a`/`s`/`d`), **Tab** to switch panels, and
 **Enter** to move a copy across — adding one from the Collection or returning one
-from the Deck. Your side deck (the 10 cards your hand is dealt from each match)
+from the Deck. Your side deck (the 10 cards your hand is dealt from each campaign match)
 must be a full 10 to start a match.
 
 From the start menu, **Start Campaign** opens a full-screen star map: travel
@@ -84,7 +84,9 @@ Campaign first asks whether to **Continue** your run or begin a **New Campaign**
 a fresh start that resets your progress, credits, and collection (your settings
 are kept). **Quick Play** instead lets you pick
 any opponent from the roster directly (each has its own difficulty, side
-deck, and play style; see `docs/opponents.md` for how difficulty is tuned). The **Records** menu item
+deck, and play style; see `docs/opponents.md` for how difficulty is tuned), and
+deals you the **standard** side deck — campaign matches deal the one you built.
+The **Records** menu item
 opens a read-only popup of your play history — matches and rounds won/lost per
 opponent, your win streak, campaign completions, and collection progress —
 paged left/right across Overall, Quick Play, Campaign, and This Run views. In-game, press `?`

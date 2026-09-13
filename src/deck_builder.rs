@@ -419,10 +419,10 @@ impl DeckBuilderState {
 mod tests {
     use super::*;
 
-    /// The default profile owns the 10 starter cards (all placed in the deck)
-    /// plus three spares not in it (+1, -1, ±2). So in the album: the starter
-    /// types are present in the Deck / placeholders in the Collection, the
-    /// spares the reverse, and unowned types (e.g. +3) are placeholders in both.
+    /// The starter profile: a full deck plus a few spares, so both panels have
+    /// present cards. Used only where that is all a test needs — anything that
+    /// depends on *which* cards sit where stages its own layout with
+    /// `profile_from`, so tuning the starter (spec 022) can't break it.
     fn default_profile() -> Profile {
         Profile::default()
     }
@@ -457,11 +457,12 @@ mod tests {
     fn enter_moves_a_present_card_across_add_in_collection_remove_in_deck() {
         // The direction is the active panel: Enter/Space on a *present*
         // Collection card adds, on a present Deck card removes.
-        let p = default_profile();
+        // Staged: one spare +1 (Collection-only) and one decked +2 (Deck-only).
+        let p = profile_from(vec![Card::Plus(1), Card::Plus(2)], vec![Card::Plus(2)]);
         let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
 
-        // Collection opens active; slot 0 = Plus(1), a spare the default owns
-        // (available 1) → present.
+        // Collection opens active; slot 0 = Plus(1), the spare (available 1)
+        // → present.
         assert_eq!(ALL_SIDE_CARDS[0], Card::Plus(1));
         assert_eq!(panel_count(Panel::Collection, Card::Plus(1), &p), 1);
         assert!(matches!(
@@ -475,7 +476,7 @@ mod tests {
 
         // Switch to the Deck. Its remembered cursor (slot 0 = Plus(1)) is a
         // placeholder there, so the next key re-validates onto the first present
-        // Deck slot — slot 1 = Plus(2), a decked starter — and Enter removes it.
+        // Deck slot — slot 1 = Plus(2), the decked card — and Enter removes it.
         // The cursor can never be steered onto a placeholder to begin with.
         s.handle_input(KeyCode::Tab, &p);
         assert_eq!(s.active, Panel::Deck);
@@ -556,10 +557,10 @@ mod tests {
 
     #[test]
     fn a_partly_decked_card_shows_in_both_panels_with_split_counts() {
-        // Grant a second +2 on top of the default's one (already decked): owned
-        // 2, in-deck 1 → available 1. That single type is present in *both*
-        // panels — the split-by-location model (`spec.md`, "Resolved decisions").
-        let mut p = default_profile();
+        // Grant a second +2 on top of one already decked: owned 2, in-deck 1 →
+        // available 1. That single type is present in *both* panels — the
+        // split-by-location model (`spec.md`, "Resolved decisions").
+        let mut p = profile_from(vec![Card::Plus(2)], vec![Card::Plus(2)]);
         p.grant_card(Card::Plus(2));
         assert_eq!(panel_count(Panel::Collection, Card::Plus(2), &p), 1, "one available");
         assert_eq!(panel_count(Panel::Deck, Card::Plus(2), &p), 1, "one placed");
@@ -567,10 +568,10 @@ mod tests {
 
     #[test]
     fn a_type_present_in_one_panel_is_a_placeholder_in_the_other() {
-        // A fully-decked starter type (Plus(2), no spare) is present in the Deck
-        // and a placeholder in the Collection; a spare-only type (Plus(1)) is the
+        // A fully-decked type (Plus(2), no spare) is present in the Deck and a
+        // placeholder in the Collection; a spare-only type (Plus(1)) is the
         // reverse.
-        let p = default_profile();
+        let p = profile_from(vec![Card::Plus(1), Card::Plus(2)], vec![Card::Plus(2)]);
         assert_eq!(panel_count(Panel::Deck, Card::Plus(2), &p), 1);
         assert_eq!(panel_count(Panel::Collection, Card::Plus(2), &p), 0);
         assert_eq!(panel_count(Panel::Collection, Card::Plus(1), &p), 1);
@@ -579,9 +580,9 @@ mod tests {
 
     #[test]
     fn an_unowned_type_is_a_placeholder_in_both_panels() {
-        // Plus(3) isn't in the default collection at all (owned 0), so it's a
+        // Plus(3) isn't in this collection at all (owned 0), so it's a
         // placeholder on both sides — the "see your gaps" album behavior.
-        let p = default_profile();
+        let p = profile_from(vec![Card::Plus(1), Card::Plus(2)], vec![Card::Plus(2)]);
         assert_eq!(p.owned_count(Card::Plus(3)), 0, "sanity: unowned");
         assert_eq!(panel_count(Panel::Collection, Card::Plus(3), &p), 0);
         assert_eq!(panel_count(Panel::Deck, Card::Plus(3), &p), 0);
@@ -589,11 +590,11 @@ mod tests {
 
     #[test]
     fn arrows_skip_placeholders_and_wrap_to_present_slots() {
-        // The default Collection is present only at slots 0 (Plus1), 4 (Minus1),
-        // and 9 (PlusMinus2) — every slot between them is a placeholder.
-        // Left/Right visit present slots in reading order, skipping placeholders
-        // and wrapping; the cursor never lands on a placeholder.
-        let p = default_profile();
+        // A Collection present only at slots 0 (Plus1), 4 (Minus1), and 9
+        // (PlusMinus2) — every slot between them is a placeholder. Left/Right
+        // visit present slots in reading order, skipping placeholders and
+        // wrapping; the cursor never lands on a placeholder.
+        let p = profile_from(vec![Card::Plus(1), Card::Minus(1), Card::PlusMinus(2)], vec![]);
         let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         for slot in [0usize, 4, 9] {
             assert_eq!(panel_count(Panel::Collection, ALL_SIDE_CARDS[slot], &p), 1);
@@ -647,10 +648,13 @@ mod tests {
     fn nav_reports_moved_only_when_it_actually_moves() {
         // The cue contract T010 rests on: a nav that changes the cursor or the
         // active panel is `Moved` (move cue); one that can't is `Blocked`
-        // (declined cue). The default Collection is present at slots 0, 4, 9, so
-        // an arrow between them genuinely moves, and Tab switches to the fully
-        // decked Deck.
-        let p = default_profile();
+        // (declined cue). This Collection is present at slots 0, 4, 9 (the
+        // decked +2 is a Collection placeholder), so an arrow between them
+        // genuinely moves, and Tab switches to the non-empty Deck.
+        let p = profile_from(
+            vec![Card::Plus(1), Card::Minus(1), Card::PlusMinus(2), Card::Plus(2)],
+            vec![Card::Plus(2)],
+        );
         let mut s = DeckBuilderState::new(BuilderOrigin::Menu);
         assert!(matches!(s.handle_input(KeyCode::Right, &p), Some(BuildOutcome::Moved)));
         assert_eq!(s.collection_cursor, 4, "a real move");

@@ -103,9 +103,10 @@ impl PlayedCard {
     }
 }
 
-/// The fixed pool side-deck hands are drawn from. Doubles as the player's
-/// starter deck (see `profile.rs`). One tunable constant, expected to be
-/// rebalanced by the campaign specs.
+/// The *standard* side deck: every opponent's baseline pool and the deck
+/// Quick Play deals the player (spec 022, ruling C). Not the player's starter
+/// — a fresh profile builds from `profile::STARTER_SIDE_DECK`, which is
+/// Outer-tier only. One tunable constant.
 pub const DEFAULT_SIDE_DECK: [Card; SIDE_DECK_SIZE] = [
     Card::Plus(2),
     Card::Plus(4),
@@ -143,7 +144,8 @@ pub const ALL_SIDE_CARDS: [Card; 15] = [
 
 /// Draw a fresh hand: HAND_SIZE distinct cards from `deck`. Each side deals
 /// its own hand, independently, once per game, from its own side deck (the
-/// player uses [`DEFAULT_SIDE_DECK`]; an opponent uses its profile's deck).
+/// player uses their built deck in a campaign match and [`DEFAULT_SIDE_DECK`]
+/// in Quick Play; an opponent uses its profile's deck).
 pub fn deal_hand<R: Rng + ?Sized>(rng: &mut R, deck: &[Card]) -> Vec<Option<Card>> {
     deck.choose_multiple(rng, HAND_SIZE)
         .copied()
@@ -428,7 +430,9 @@ mod tests {
     #[test]
     fn all_side_cards_cover_the_default_deck() {
         // The universe a player collects from must include everything the
-        // starter deck contains, or the deck-builder couldn't represent it.
+        // standard deck contains (the opponent baseline and Quick Play's deal,
+        // since spec 022), or the deck-builder couldn't represent it. The
+        // starter deck's own universe membership is pinned in `profile.rs`.
         for card in DEFAULT_SIDE_DECK {
             assert!(ALL_SIDE_CARDS.contains(&card), "universe missing {card:?}");
         }

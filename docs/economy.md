@@ -23,8 +23,9 @@ seed purse.
 
 ## Tunable constants
 
-All in [`src/economy.rs`](../src/economy.rs), all first guesses for the balance
-pass to change:
+All in [`src/economy.rs`](../src/economy.rs), **tuned in spec 022's balance
+pass** against measured win rates — see [`balance.md`](balance.md) for the
+targets, the bounds and the arithmetic each value answers to:
 
 | Constant | Name | Default | Meaning |
 |---|---|---|---|
@@ -65,7 +66,10 @@ On commit the stake is **escrowed**: `Profile::stake_match` deducts it from the
 balance immediately and stores the in-flight `NodeRef { planet, opponent, stake }`.
 The map header's `◈ N` is honest mid-match, and the stake rides beside the board
 in the presence panel ([`src/portrait.rs`](../src/portrait.rs)) for the whole
-match. Quick Play never touches any of this: no prompt, no stake, no payout.
+match. Quick Play never touches any of this: no prompt, no stake, no payout —
+and since spec 022 (ruling C) it deals the player the **standard** side deck
+(`card::DEFAULT_SIDE_DECK`), not the built one, so the deck you build matters in
+campaign matches only.
 
 ## Rematches
 
@@ -156,13 +160,21 @@ The 15-card universe is partitioned by power (`economy::card_tier`):
 | Tier | Opens at | Cards | Price |
 |---|---|---|---|
 | **Outer** | the start | `+1 +2 +3  −1 −2 −3  ±1` | 20 |
-| **Mid** | reaching the Mid Rim | `+4 −4  ±2 ±3  2&4 3&6` | 50 |
-| **Core** | reaching the Core | `±6  ±1T` | 120 |
+| **Mid** | reaching the Mid Rim | `+4 −4  ±2 ±3  2&4 3&6` | 100 |
+| **Core** | reaching the Core | `±6  ±1T` | 200 |
 
 > You keep your **starter** deck and collection regardless of tier — the gate is
 > on *acquiring more*, which since spec 021 means the shop alone. So the Outer
 > pool is what a fresh run can buy; the premium ±6 and the round-stealing
 > tiebreaker only become buyable once you reach the Core.
+>
+> Since spec 022 the starter is **Outer-tier only**
+> (`profile::STARTER_SIDE_DECK`, `+1 +1 +1 +1 +2 +2 −1 −1 −1 −2`, plus the
+> spares `±1 +2 −2`), so every shop tier above it is a real upgrade and a fresh
+> player can always buy more copies of what they already hold. The Mid and Core
+> prices rose here (50 → **100**, 120 → **200**) so that a clean floor-stake
+> Outer Rim clear leaves 90 credits against a first Mid card's 110 —
+> see `balance.md`'s bound B2.
 
 The pool is read after settlement, so the win that first unlocks a region (e.g.
 clearing The Anvil, which opens the Core) can already shop the new tier.
@@ -231,9 +243,12 @@ wager prompt's grid/commit/fit tests (`wager.rs`, including
 `quick_play_leaves_the_stake_rows_blank` (`portrait.rs`), and
 `the_full_pool_fits_the_minimum_terminal` (`shop.rs`).
 
-A dedicated **balance pass** (do the floors, payouts, and prices make progression
-feel right?) is a tracked cross-cutting item in `ROADMAP.md`; spec 021 exists to
-give it the levers.
+The **balance pass** shipped as **spec 022**: the seed purse, the ante formula
+and the tier prices above were checked against measured win rates from a
+headless simulator, and the economy bounds they have to satisfy (first card,
+first Mid card, the grind-vs-bet comparison, ruin) are computed from the live
+constants on every simulator run. See [`balance.md`](balance.md) for the
+command, the bounds and what to re-run after changing a constant.
 
 ## See also
 
@@ -243,4 +258,6 @@ give it the levers.
 - [`src/wager.rs`](../src/wager.rs) — the wager prompt.
 - [`src/shop.rs`](../src/shop.rs) — the shop screen and its reserve readout.
 - [`docs/opponents.md`](opponents.md) — the difficulty scalar antes ride on.
+- [`docs/balance.md`](balance.md) — the simulator, the targets and the economy
+  bounds these constants are tuned against (spec 022).
 - [`DECISIONS.md`](../DECISIONS.md) — why the economy is credits + depth (not gacha), and why it's now two-directional.
