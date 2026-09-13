@@ -83,7 +83,7 @@ premium deck (the starter composition may still move in Phase 2). -->
 
 - [ ] **T002 (foundational, review: per-task)** — Create `tests/balance.rs`
   exactly as plan §Design 3: constants (`SCRIPTED_STAND_AT = 17`, `STEP_CAP =
-  5_000`, `DEFAULT_N = 4_000` overridable by `KAAZAP_SIM_N`, `GUARD_N = 600`,
+  5_000`, `DEFAULT_N = 10_000` overridable by `KAAZAP_SIM_N`, `GUARD_N = 600`,
   `TOL = 0.02`), the three pool-best candidate consts, `Move`,
   `scripted_move` (plan tension §2, rules 1–4 in that order, flips never
   played), `play_match` (the plan's loop verbatim: stale-frame `update()`,
@@ -93,10 +93,12 @@ premium deck (the starter composition may still move in Phase 2). -->
   `DEFAULT_SIDE_DECK`, the three candidates), `opponents_in(tier)` from
   `PLANETS` × `region_tier` × `opponent_by_id`, `tier_price` (min `card_price`
   over the tier's cards), `floor_of`, `ev_per_match`, `measure(n)` over the
-  5×10 grid, `targets` (T1–T8) and `bounds` (B1–B5) with the plan's exact
-  formulas and PASS/FAIL strings, and the `#[ignore]` `balance_table` that
-  prints the table, both blocks, and the `summary: targets a/8, bounds b/5`
-  line — never asserting. Ordinary tests:
+  5×10 grid, `targets` (T1–T8 plus the coupled `C` line — best `EV_m` at the
+  floor and at 2×floor against `2·EV_g`, plan §Design 3 / tension §8) and
+  `bounds` (B1–B5) with the plan's exact formulas and PASS/FAIL strings, and
+  the `#[ignore]` `balance_table` that prints the table, both blocks, and the
+  `summary: targets a/8, coupling c/1, bounds b/5` line — never asserting.
+  Ordinary tests:
   `scripted_player_follows_its_rules_on_fixed_boards` (every board in plan
   §Design 3), `named_decks_are_ten_cards_from_their_pools`,
   `a_scripted_match_terminates_against_every_roster_opponent` (one match per
@@ -107,10 +109,11 @@ premium deck (the starter composition may still move in Phase 2). -->
   verbatim, with the three new tests listed as passing and `balance_table`
   as ignored; then `KAAZAP_SIM_N=200 cargo test --release --test balance
   balance_table -- --ignored --nocapture` prints 50 rows (5 decks × 10
-  opponents in roster order), eight `T` lines, five `B` lines with the
-  constants header `(SEED 50, reserve 10, P_outer 20, P_mid 50, P_core 120)`,
-  and the summary line — output pasted verbatim (the PASS/FAIL values are not
-  judged here). Report that `git diff --stat` shows only `tests/balance.rs`.
+  opponents in roster order), eight `T` lines plus the `C` line, five `B`
+  lines with the constants header `(SEED 50, reserve 10, P_outer 20, P_mid 50,
+  P_core 120)`, and the summary line — output pasted verbatim (the PASS/FAIL
+  values are not judged here). Report that `git diff --stat` shows only
+  `tests/balance.rs`.
   **PAUSE for the person** (phase attestation, profile/saves backed up and
   checksum-restored): Quick Play with an Outer-only built deck deals ±6 /
   flip / tiebreaker cards over a match; a campaign match deals only Outer
@@ -126,9 +129,11 @@ tunes prices and economy constants to the bounds. Each tuning task is a bounded
 loop at the implementation tier; non-convergence goes to the person. Phase
 ends with the spec's play attestation. -->
 
-- [ ] **T003** — Baseline. Run the documented command twice at `DEFAULT_N`
-  (`cargo test --release --test balance balance_table -- --ignored
-  --nocapture`), timing each (`time`). Then, for each pool, measure up to
+- [ ] **T003** — Baseline. Build the release test target first (`cargo test
+  --release --test balance --no-run`) so the timed runs exclude the one-time
+  compile, then run the documented command twice at `DEFAULT_N` (`cargo test
+  --release --test balance balance_table -- --ignored --nocapture`, 500k
+  matches), timing each (`time`). Then, for each pool, measure up to
   three hand-built candidate decks (the plan's plus at most two alternatives
   each, no flips, buildable from the pool) against that pool's region
   opponents at `N = 2000` by temporarily swapping the const, and fix the best
@@ -136,30 +141,37 @@ ends with the spec's play attestation. -->
   `specs/022-balance-pass/tuning-log.md` with: both full runs, the per-pair
   max |Δ| between them, the wall times, the candidate tables with the choice
   and reason, and the baseline summary line. If any pair's |Δ| exceeds 2.5
-  points raise `DEFAULT_N` (and say so). Plan tensions §3, §5. (Copies nothing —
-  a measurement task; the only code edits are the three candidate consts and
+  points, double `DEFAULT_N` **once** (to 20_000), re-run the pair of runs,
+  and report the result either way — no further raising; a second miss is
+  reported as a finding, not fixed. Plan tensions §3, §5. (Copies nothing — a
+  measurement task; the only code edits are the three candidate consts and
   possibly `DEFAULT_N`.)
   *Verify: `tuning-log.md` holds two complete 50-row tables with their wall
-  times and the max |Δ| ≤ 2.5 points (or `DEFAULT_N` raised and re-run), plus
-  the candidate tables; the reported wall time of one run is under 60 s (the
-  plan's "seconds" claim — report the actual figure); `cargo build
+  times (stated as excluding the compile) and the per-pair max |Δ| — ≤ 2.5
+  points, or one doubling of `DEFAULT_N` recorded with the re-run's max |Δ|
+  — plus the candidate tables; the reported wall time of one run is under
+  60 s (the plan's "seconds" claim — report the actual figure); `cargo build
   --all-targets` / `cargo test -q` green; `git diff --stat` shows only
   `tests/balance.rs` and the log.*
 
-- [ ] **T004** — Tune the win-rate curve (targets T1–T8). Levers and limits
-  exactly plan §Design 4 (T004 bullet): `OPPONENTS` values inside the kept
-  structure, `STARTER_SIDE_DECK` / `STARTER_SPARES` (Outer only), `card_tier`
-  (with `card_tier_partitions_the_universe`'s lists updated), the three
-  candidate consts. Never the scripted player, the loop, `card_price`, or the
-  economy constants. Start from plan tension §8's pressure points. Loop: edit →
-  run the command at `DEFAULT_N` → read the `T` lines; at most **six**
-  iterations; append each iteration's changed values and summary line to
-  `tuning-log.md`. Stop when all eight pass, or at six with the stuck target
-  named and what was tried. Re-sync nothing in `docs/` yet (T007). (Copies the
-  data-only shape of the `OPPONENTS` / `card_tier` consts.)
-  *Verify: the final run's eight `T` lines all read PASS and the summary says
-  `targets 8/8` (pasted verbatim, with `N`); `cargo build --all-targets` /
-  `cargo test -q` green including `roster_runs_easy_to_hard_by_threshold`,
+- [ ] **T004** — Tune the win-rate curve (targets T1–T8 **and the B4
+  coupling `C`** — `EV_m > 2·EV_g` for some Mid Rim opponent, at its floor or
+  at 2×floor; plan tension §8 shows why only T004's levers move it). Levers and
+  limits exactly plan §Design 4 (T004 bullet): `OPPONENTS` values inside the
+  kept structure, `STARTER_SIDE_DECK` / `STARTER_SPARES` (Outer only),
+  `card_tier` (with `card_tier_partitions_the_universe`'s lists updated), the
+  three candidate consts. Never the scripted player, the loop, `card_price`,
+  or the economy constants. Start from plan tension §8's pressure points.
+  Loop: edit → run the command at `DEFAULT_N` → read the `T` lines and the `C`
+  line; at most **six** iterations; append each iteration's changed values
+  and summary line to `tuning-log.md`. Stop when all eight targets and `C`
+  pass, or at six with the stuck line named and what was tried. Re-sync
+  nothing in `docs/` yet (T007). (Copies the data-only shape of the
+  `OPPONENTS` / `card_tier` consts.)
+  *Verify: the final run's eight `T` lines all read PASS, the `C` line reads
+  PASS (say whether at the floor or `PASS (above floor)`), and the summary
+  says `targets 8/8, coupling 1/1` (pasted verbatim, with `N`); `cargo build
+  --all-targets` / `cargo test -q` green including `roster_runs_easy_to_hard_by_threshold`,
   `misplay_rates_are_valid_and_the_default_is_deterministic`,
   `the_final_boss_is_flawless_and_fully_equipped`,
   `card_tier_partitions_the_universe`, `default_profile_plays_a_valid_outer_tier_starter`;
@@ -168,25 +180,34 @@ ends with the spec's play attestation. -->
   orchestrator re-dispatches once as T004a with the log; a second
   non-convergence goes to the person as a plain-language question (which
   target, which lever is pinned by which other target), not to a decision
-  review.*
+  review and not to the orchestrator's escape hatch (CLAUDE.md's
+  do-it-yourself rule does not apply to tuning — plan §Design 4).*
 
-- [ ] **T005** — Tune the economy bounds (B1–B5). Levers exactly plan §Design 4
-  (T005 bullet): `card_price` by tier, `SEED_PURSE`, `ANTE_BASE_THRESHOLD`,
-  `ANTE_PER_THRESHOLD_STEP`, `STAKE_STEP` — **not** `PAYOUT_RATIO` and
-  nothing T004 owns. Amend the exact-value tests the new constants break in
-  the same edit (`ante_floor_is_the_difficulty_scalar`, `payout_is_even_money`
-  untouched, `earning_grows_the_balance_and_purchase_holds_back_the_ante_reserve`'s
-  59/60 boundary, `every_card_has_a_positive_price_that_rises_with_tier`,
-  `cheapest_floor_is_the_min_over_launchable_nodes`'s `== 10`, the `wager.rs`
-  grid tests if `STAKE_STEP` moves) — to the new values, never loosened. Same
-  bounded loop as T004 (six iterations, log every one). A final run after the
-  last edit is the table `docs/balance.md` records.
+- [ ] **T005** — Tune the economy bounds B1, B2, B3, B5. Levers exactly plan
+  §Design 4 (T005 bullet): `card_price` by tier, `SEED_PURSE`,
+  `ANTE_BASE_THRESHOLD`, `ANTE_PER_THRESHOLD_STEP` — **not** `PAYOUT_RATIO`,
+  **not** `STAKE_STEP` (it enters no bound; `wager.rs` stays untouched), and
+  nothing T004 owns. B4 is not this task's: the final run re-reads it, and if
+  it reads FAIL the return says so and the orchestrator re-dispatches
+  **T004a** (its levers are T004's — plan tension §8), not T005a. Amend the
+  exact-value tests the new constants break in the same edit
+  (`ante_floor_is_the_difficulty_scalar`, `payout_is_even_money` untouched,
+  `earning_grows_the_balance_and_purchase_holds_back_the_ante_reserve`'s 59/60
+  boundary, `every_card_has_a_positive_price_that_rises_with_tier`,
+  `cheapest_floor_is_the_min_over_launchable_nodes`'s `== 10`) — to the new
+  values, never loosened. Same bounded loop as T004 (six iterations, log every
+  one). A final run after the last edit is the table `docs/balance.md`
+  records.
   *Verify: the final run's five `B` lines all read PASS (B4 may read `PASS
-  (above floor)` — say which) and the summary says `targets 8/8, bounds 5/5`
-  (pasted verbatim); `cargo build --all-targets` / `cargo test -q` green;
-  `PAYOUT_RATIO == 1`; `git diff main -- src/opponent.rs src/profile.rs` is
-  empty for this task (T004's data untouched). Non-convergence escalates as in
-  T004. **PAUSE for the person** (phase attestation, profile/saves backed up
+  (above floor)` — say which) and the summary says `targets 8/8, coupling
+  1/1, bounds 5/5` (pasted verbatim); `cargo build --all-targets` / `cargo
+  test -q` green; `PAYOUT_RATIO == 1` and `STAKE_STEP` unchanged; the
+  working-tree diff for this task (`git diff --stat` before the commit) lists
+  only `src/economy.rs`, `tuning-log.md`, and the test files whose exact
+  values the constants pin (`src/profile.rs` tests, `src/economy.rs` tests) —
+  no `src/opponent.rs`, no non-test `profile.rs` line, no `wager.rs`.
+  Non-convergence on B1/B2/B3/B5 escalates as in T004 (one T005a, then the
+  person; never the escape hatch). **PAUSE for the person** (phase attestation, profile/saves backed up
   and checksum-restored): on a fresh campaign the starter clears the Outer Rim
   over a few attempts; the Mid Rim is a wall until Mid cards are bought; the
   shop and deck-builder read correctly with the new collection; Quick Play
@@ -215,8 +236,11 @@ readable and the guards are green. -->
   (debug) — under 30 s; `git diff --stat` shows only `tests/balance.rs`.*
 
 - [ ] **T007** — Docs. Create `docs/balance.md` (plan §Design 5: command and
-  `N`, agreement figure, the scripted player rules verbatim plus the flip
-  limitation, the five decks with the candidate alternatives and rates, the
+  `N`, the all-pairs agreement figure, the scripted player rules verbatim plus
+  its two stated limitations — it never plays a flip, and rule 3 stands on a
+  tie at ≥ 17 even when the opponent alone holds a tiebreaker in play (a sure
+  loss; the proxy is kept as is) — the five decks with the candidate
+  alternatives and rates, the
   targets table with measured values / `N` / date, the bounds with the
   arithmetic shown, the guards and margins, how to re-run and what to update
   after a change). Re-sync `docs/opponents.md` (roster table, the per-opponent
@@ -282,7 +306,11 @@ top tier (`fable`) by per-call override. **Binding ruling (person,
 iteration runs in the `sdd-implementer` at `opus`; no simulator output is sent
 to the top tier.** A tuning task that does not converge after one re-dispatch
 (T004a / T005a) goes to the **person** as a plain-language question, not to a
-decision review. Per-phase and per-task reviews and the sweep run at `opus`.
+decision review — and **CLAUDE.md's escape hatch (the orchestrator doing a
+task itself after two failed verifications) does not apply to T004/T005**;
+the session never tunes by hand. A B4 failure surfacing in T005 is a T004a
+re-dispatch, not a T005 lever. Per-phase and per-task reviews and the sweep
+run at `opus`.
 Per Erik's standing ruling, never infer the fable budget from a successful
 dispatch — ask if unsure, and log which tier actually ran. Every
 session-ending pause ends with a continuation prompt (spec directory, files to
@@ -300,7 +328,7 @@ iteration count in the outcome column. -->
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
 | **Experiment 1, spec 2** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: (read at the implementation session's open); at spec end: (read after the merge). Person's ruling 2026-09-13: all implementation, simulator runs, and tuning at `opus`. | — | — | header |
-| Planning: draft (sdd-planner) | fable | ~205K (budget counter at return) | drafted; no blocking product questions; three design edges flagged (plan §Open questions) |
+| Planning: draft + sign-off fixes (sdd-planner) | fable | ~230K (budget counter at return; ~205K draft + ~25K fixes) | drafted; three design edges flagged (plan §Open questions); sign-off's 3 blocking findings (B4 ownership → T004; DEFAULT_N 10_000 sized for all 50 pairs; T005 diff check vs working tree) and 5 notes applied |
 | plan + tasks sign-off (skeptical-reviewer) | fable | | |
 | T001 impl (sdd-implementer) | opus | | |
 | T002 impl (sdd-implementer) | opus | | |

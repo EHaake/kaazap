@@ -118,12 +118,13 @@ test` stays fast; the guards (design §6) are ordinary tests in the same file at
 a small sample size. Developer command (documented in `docs/balance.md`):
 
 ```
-KAAZAP_SIM_N=4000 cargo test --release --test balance balance_table -- --ignored --nocapture
+KAAZAP_SIM_N=10000 cargo test --release --test balance balance_table -- --ignored --nocapture
 ```
 
-`--release` because 50 pairs × 4000 matches = 200k matches; the spec's
-"finishes in seconds" is measured on this command (T003). `KAAZAP_SIM_N`
-defaults to `DEFAULT_N = 4000` when unset.
+`--release` because 50 pairs × 10 000 matches = 500k matches; the spec's
+"finishes in seconds" is measured on this command (T003), excluding the
+one-time `--release` compile of the test target. `KAAZAP_SIM_N` defaults to
+`DEFAULT_N = 10_000` when unset.
 
 ### 2. The scripted player does exactly the four things the spec names, in a fixed order
 
@@ -151,15 +152,21 @@ proxy limitation recorded in `docs/balance.md`, and why no pool-best candidate
 carries one. Rules 1–3 mirror the AI's own scans, so the proxy is "a player
 as sharp as the AI's deterministic core, with no misplays".
 
-### 3. Agreement by sample size, not seeds
+### 3. Agreement by sample size, not seeds — sized for all 50 pairs at once
 
 For a proportion near ½, one run's standard error is `√(0.25/N)`; the
-difference between two independent runs has SE `√(0.5/N)`. At `N = 4000` that
-is 1.1 points, so two runs agree within ~2 points on a pair about 93% of the
-time and within 2.5 points ~97% — "about two points" in the spec's words.
-`DEFAULT_N = 4000`, raised if T003's two-run comparison shows a pair off by
-more than 2.5 points. The ordering target ("at least as often") is evaluated
-with a `TOL = 0.02` allowance for the same reason; the doc says so.
+difference between two independent runs has SE `√(0.5/N)`. The acceptance
+criterion is agreement "on every pair", so the per-pair figure has to survive
+being raised to the 50th power. At `N = 10 000` the difference SE is 0.71
+points: a single pair is within 2.5 points with probability ≈ 0.9996 (worst
+case, p = ½), so all 50 pairs are within 2.5 points ≈ 0.98 of the time and
+within 2 points most of the time — "about two points" in the spec's words.
+(At `N = 4000` the all-pairs figure would be roughly 0.3–0.5, i.e. the check
+would usually fail.) `DEFAULT_N = 10_000`; if T003's two-run comparison still
+shows a pair off by more than 2.5 points, T003 doubles `DEFAULT_N` **once**,
+re-runs, and reports either way — no open-ended raising. The ordering target
+("at least as often") is evaluated with a `TOL = 0.02` allowance for the same
+reason; the doc says so.
 
 ### 4. The simulator does the bound arithmetic and prints PASS/FAIL — so a tuning iteration is one command
 
@@ -226,6 +233,18 @@ By today's constants, before any measurement:
   separation has to come from decks/misplay — or Nima's threshold moves to 17
   (still non-decreasing). T004 has these levers; the plan names the pressure
   so the first iteration starts there.
+- **B4 is a win-rate constraint, not an economy one — it belongs to T004.**
+  `k_bet < k_grind / 2` with the same numerator on both sides reduces to
+  `EV_m > 2·EV_g`, i.e. `floor_m·(2w_m − 1) > 2·floor_g·(2w_g − 1)` for some
+  Mid Rim opponent `m`. Prices and the seed purse cancel out;
+  `ANTE_PER_THRESHOLD_STEP` scales both floors equally; `STAKE_STEP` enters no
+  bound. Only T004's outputs move it: `w_g`, each `w_m`, and the thresholds
+  (through the floors). At `w_g = 0.68`, `EV_g = 3.6`, so some Mid opponent
+  needs `EV_m > 7.2` at its floor: Nima (20) `w > 0.68`, Toran/Brakka (30)
+  `w > 0.62`, Kesh (40) `w > 0.59` — all above T6's 50% bar, so T6 passing
+  does not imply B4. The simulator prints the inequality in the targets block
+  as a coupled constraint (`C`, design §3) and T004's stop condition includes
+  it; T005 cannot fix a B4 failure and routes one back to T004a.
 
 None of this is decided here — T003 measures, T004/T005 tune.
 
@@ -236,7 +255,7 @@ None of this is decided here — T003 measures, T004/T005 tune.
 ```rust
 /// The side deck a fresh or reset profile plays (spec 022): Outer-tier only,
 /// so every shop tier above it is a real upgrade. Tunable balance data; the
-/// tiered-ness is pinned by `starter_deck_and_spares_are_outer_tier_only`.
+/// tiered-ness is pinned by `default_profile_plays_a_valid_outer_tier_starter`.
 pub const STARTER_SIDE_DECK: [Card; SIDE_DECK_SIZE] = [
     Card::Plus(1), Card::Plus(1), Card::Plus(2), Card::Plus(2), Card::Plus(3),
     Card::Minus(1), Card::Minus(1), Card::Minus(2), Card::Minus(2), Card::Minus(3),
@@ -280,7 +299,7 @@ changes; the divert stays (tension §7).
 
 const SCRIPTED_STAND_AT: i32 = 17;
 const STEP_CAP: usize = 5_000;          // a match that doesn't end in this many steps is a bug
-const DEFAULT_N: usize = 4_000;         // KAAZAP_SIM_N overrides
+const DEFAULT_N: usize = 10_000;        // KAAZAP_SIM_N overrides (tension §3)
 const GUARD_N: usize = 600;             // T006 sets the final value
 const TOL: f64 = 0.02;                  // ordering allowance (tension §3)
 
@@ -305,7 +324,7 @@ fn ev_per_match(floor: u32, w: f64) -> f64                  // floor × (2w − 
 struct Row { deck: &'static str, opponent: &'static str, n: usize, win: f64 }
 fn measure(n: usize) -> Vec<Row>                            // the 5×10 grid
 fn rate(rows: &[Row], deck: &str, opponent: &str) -> f64
-fn targets(rows: &[Row]) -> Vec<(String, bool)>             // T1–T8 below
+fn targets(rows: &[Row]) -> Vec<(String, bool)>             // T1–T8 below, plus the coupled C line
 fn bounds(rows: &[Row]) -> Vec<(String, bool)>              // B1–B5 below
 
 #[test] #[ignore] fn balance_table()                         // prints rows, targets, bounds, summary
@@ -352,7 +371,7 @@ order), then the two check blocks, then a summary:
 
 ```
 deck        opponent         n   win%   ev/match@floor
-starter     greeb         4000   68.2     +3.6
+starter     greeb        10000   68.2     +3.6
 …
 targets
   T1 starter vs greeb >= 65%                         68.2  PASS
@@ -363,13 +382,14 @@ targets
   T6 best_outer_mid vs each Mid Rim opponent >= 50%   …
   T7 best_full vs each Core opponent >= 45%; vs sovereign in 45–55%   …
   T8 ordering: outer <= outer_mid <= full per opponent (tol 2); sovereign hardest for full   …
+  C  B4 coupling (T004): best EV_m@floor 6.9 (toran) vs 2·EV_g 7.2  FAIL; @2×floor 13.8  PASS (above floor)
 bounds (SEED 50, reserve 10, P_outer 20, P_mid 50, P_core 120)
   B1 first Outer card within 5 Greeb floor matches     k=0   PASS
   B2 first Mid card not affordable after one Outer Rim clear (90 vs 60); grind from there k=…   FAIL
   B3 Core card by Greeb grind >= 20 matches            k_grind=…   PASS/FAIL
   B4 Core card by Mid Rim bets < k_grind/2             best k_bet@floor=… (toran), @2×floor=…   PASS/FAIL
   B5 ruin within 8 floor losses; staked win never broke (spec 021)   k_ruin=5   PASS
-summary: targets 7/8, bounds 4/5
+summary: targets 7/8, coupling 1/1, bounds 4/5
 ```
 
 **Bound arithmetic** (all from live constants; `reserve =
@@ -390,7 +410,12 @@ SEED_PURSE`):
   `S = 2·floor_m`. PASS iff `min_m k_bet(floor_m) < k_grind/2`; if only
   `min_m k_bet(2·floor_m) < k_grind/2` it is also PASS (the spec allows "or
   above") but printed as `PASS (above floor)` and recorded as such in the doc.
-  Same numerator as B3 so the two counts compare.
+  Same numerator as B3 so the two counts compare. Because that numerator
+  cancels, B4 is the inequality `EV_m > 2·EV_g` (tension §8) — the **`C`
+  line** in the targets block prints exactly that comparison (best `EV_m` at
+  the floor and at 2×floor against `2·EV_g`) so T004 can read its own
+  constraint without the bounds block; the B4 line in the bounds block is the
+  same fact in match counts, for the doc.
 - **B5**: `k_ruin = ceil(SEED_PURSE / floor_greeb)`; PASS iff `k_ruin ≤ 8`
   ("a small number" pinned here). The "staked win never leaves you broke" half
   is spec 021's pinned property (`is_broke_…` tests, plan 021 tension §5) —
@@ -409,7 +434,7 @@ flips and nothing else at 16 → `Hit` (flips never play).
 
 ### 4. Tuning levers and the order they move in
 
-- **T004 (win-rate curve, targets T1–T8)** may change: `OPPONENTS` entries
+- **T004 (win-rate curve: targets T1–T8 plus the B4 coupling `C`)** may change: `OPPONENTS` entries
   (`stand_threshold`, `side_deck`, `strategy`, `misplay`) inside the kept
   structure (thresholds non-decreasing in roster order; Greeb slips most;
   Magistrate and Sovereign 0.0; Sovereign the max threshold with a playable
@@ -419,27 +444,40 @@ flips and nothing else at 16 → `Hit` (flips never play).
   every starter card Outer — and `card_tier_partitions_the_universe`'s lists
   updated to match); the three pool-best candidates (each buildable from its
   pool). It **may not** touch the scripted player, the match loop, the
-  economy constants, or `card_price`.
-- **T005 (economy bounds B1–B5)** may change: `card_price` by tier,
-  `SEED_PURSE`, `ANTE_BASE_THRESHOLD`, `ANTE_PER_THRESHOLD_STEP`,
-  `STAKE_STEP`. **Not** `PAYOUT_RATIO` (even money unless the person rules
-  otherwise — a question, not a tuning move) and not anything T004 owns, so
-  T1–T8 stay as measured; floors only rescale EVs. `docs/economy.md`'s tests
-  that pin exact values (`ante_floor_is_the_difficulty_scalar`: 15→10 … 19→50
-  and the unknown-id → 30; the `profile.rs` reserve test's 59/60 boundary) are
+  economy constants, or `card_price`. Its stop condition is `targets 8/8,
+  coupling 1/1` — the `C` line is T004's because nothing T005 owns can move
+  it (tension §8).
+- **T005 (economy bounds B1, B2, B3, B5)** may change: `card_price` by tier,
+  `SEED_PURSE`, `ANTE_BASE_THRESHOLD`, `ANTE_PER_THRESHOLD_STEP`. **Not**
+  `PAYOUT_RATIO` (even money unless the person rules otherwise — a question,
+  not a tuning move), **not** `STAKE_STEP` (it enters no bound; `wager.rs` and
+  its tests stay untouched), and not anything T004 owns, so T1–T8 stay as
+  measured; floors only rescale EVs. B4 is reported by T005's final run but
+  not owned by it: if B4 reads FAIL there, the fix is a T004a re-dispatch,
+  never a T005 lever. The tests that pin exact values
+  (`ante_floor_is_the_difficulty_scalar`: 15→10 … 19→50 and the unknown-id →
+  30; `cheapest_floor_…`'s `== 10`; the `profile.rs` reserve test's 59/60
+  boundary; `every_card_has_a_positive_price_that_rises_with_tier`) are
   amended to the new constants **in the same task**, never loosened.
 - Both tasks are bounded: at most six edit → run → read iterations per
   dispatch; each iteration appends the changed values and the summary line to
   `specs/022-balance-pass/tuning-log.md`; the dispatch returns converged or
-  not. Two unconverged dispatches on one task → the orchestrator reports the
-  table and the stuck target to the **person** in plain language (which lever
-  is pinned by which target) — per spec Non-goals, never a new mechanic, never
-  a top-tier read of the output.
+  not. One unconverged dispatch → one re-dispatch (T004a / T005a) with the
+  log. A second non-convergence → the orchestrator reports the table and the
+  stuck target to the **person** in plain language (which lever is pinned by
+  which target) — per spec Non-goals, never a new mechanic, never a top-tier
+  read of the output. **CLAUDE.md's escape hatch (the orchestrator does the
+  task itself after two failed verifications) does not apply to T004/T005**:
+  a tuning task that cannot converge is a product question, not a task the
+  session takes over.
 
 ### 5. Docs
 
 - **`docs/balance.md`** (new, short): the command and `N`; the agreement
-  figure; the scripted player (tension §2 verbatim, plus the flip limitation);
+  figure (tension §3, the all-pairs number); the scripted player (tension §2
+  verbatim, plus two stated limitations: it never plays a flip, and in rule 3
+  it stands on a tie at ≥ 17 even when the opponent alone holds a tiebreaker
+  in play — a sure loss a human would chase; the proxy is kept as is);
   the five named decks with their cards and, for the pool-bests, the
   alternatives tried and their rates; the targets table with measured values,
   `N`, and date; the bounds with the arithmetic shown; the guards and their
@@ -518,12 +556,15 @@ Each claim names the task that owns its check. Driver items are marked.
 - **Named decks are legal** (T002): each is 10 cards; `BEST_OUTER` all Outer,
   `BEST_OUTER_MID` all ≤ Mid, none contains a flip; `starter ==
   STARTER_SIDE_DECK`, `standard == DEFAULT_SIDE_DECK`.
-- **The command finishes in seconds and two runs agree within ~2 points**
-  (T003): wall time of the documented command and the per-pair max |Δ| across
-  two consecutive runs, both reported verbatim; `DEFAULT_N` raised if any pair
-  exceeds 2.5 points. *Needs verification — the speed is an estimate.*
-- **Every target and bound passes** (T004: T1–T8; T005: B1–B5): the summary
-  line reads `targets 8/8, bounds 5/5` on a fresh run after the last edit, and
+- **The command finishes in seconds and two runs agree within ~2 points on
+  every pair** (T003): wall time of the documented command (excluding the
+  first `--release` compile) and the per-pair max |Δ| across two consecutive
+  runs, both reported verbatim; one doubling of `DEFAULT_N` allowed if any
+  pair exceeds 2.5 points, then report. *Needs verification — the speed is an
+  estimate.*
+- **Every target and bound passes** (T004: T1–T8 and `C`; T005: B1–B3, B5,
+  with B4 re-read): the summary line reads `targets 8/8, coupling 1/1, bounds
+  5/5` on a fresh run after the last edit, and
   the kept-structure guards (`roster_runs_easy_to_hard_by_threshold`,
   `misplay_rates_…`, `the_final_boss_…`, `card_tier_partitions_the_universe`,
   `every_card_has_a_positive_price_that_rises_with_tier`) still pass.
