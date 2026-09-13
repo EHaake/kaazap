@@ -843,3 +843,208 @@ The win-rate grid reproduces T004's converged table within sampling noise
 (T004's final run: T1 67.9 → 67.6, T3 40.5 → 39.6, T4 29.0 → 28.8, T6 64.4 →
 65.0, T7 51.8 → 51.0, `C` 16.2 vs 7.2 → 15.8 vs 7.0) — nothing T004 owns was
 touched, so the differences are the simulator's unseeded sampling only.
+
+## T004a — iteration 1
+
+The person's Phase 2 finding: the Outer Rim's play reads *random*, not weak.
+The fix direction is to move the weakness out of `misplay` and into the decks —
+a deck of only ±1s gives the AI almost no exact-20 coverage (the finding from
+T004: opponent strength is mostly playable hand coverage), so the same win-rate
+curve can be held with far fewer visible slips.
+
+Changed (old → new):
+
+| lever | old | new |
+| --- | --- | --- |
+| greeb `side_deck` | +1 +1 +1 +1 +2 −1 −1 −1 −1 −2 | +1 +1 +1 +1 +1 −1 −1 −1 −1 −1 (all 1s — no exact-20 coverage beyond 19/21) |
+| greeb `misplay` | 0.44 | 0.22 |
+| dax `side_deck` | +3 +2 +2 +2 +1 +1 −1 −1 −2 −2 | +1 +1 +1 +1 +1 +2 −1 −1 −1 −1 (one +2 left, plus-leaning for the pusher) |
+| dax `misplay` | 0.36 | 0.18 |
+| vessa `side_deck` | +1 +1 +1 +2 +2 +2 +2 −1 −1 −2 | +1 +1 +1 +1 +2 +2 −1 −1 −1 −1 |
+| vessa `misplay` | 0.34 | 0.16 |
+
+Thresholds untouched (greeb 15, dax 15, vessa 16), so every ante floor — and
+therefore B2's `after_outer` sum and the cheapest floor — is exactly as T005
+measured it. No Mid/Core opponent, no starter value, no candidate deck moved.
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          69.6  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 55.4 (vessa)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 39.9 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 29.6 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 71.1 (vessa)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 65.2 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.1 (sovereign), sovereign 51.1  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.1 vs next 57.6 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 17.5 (kesh) vs 2·EV_g 7.8  PASS; @2×floor 35.0  PASS
+bounds (SEED 50, reserve 10, P_outer 20, P_mid 100, P_core 200)
+  B1 first Outer card within 5 Greeb floor matches                    k=0  PASS
+  B2 first Mid card not affordable after one Outer Rim clear          (90 vs 110); grind k=6  PASS
+  B3 Core card by Greeb grind >= 20 matches                           k_grind=41  PASS
+  B4 Core card by Mid Rim bets < k_grind/2                            best k_bet@floor=10 (kesh), @2×floor=5  PASS
+  B5 ruin within 8 floor losses; staked win never broke (021)         k_ruin=5  PASS
+summary: targets 8/8, coupling 1/1, bounds 5/5   (N = 10 000)
+```
+
+The stop condition is met on the first iteration and the misplay aim
+(greeb ≤ 0.25, dax and vessa lower) with it: the ±1 decks gave back more than
+the halved misplay rates took — T1 rose 67.6 → 69.6 and `w_g = 0.696` is still
+far under B3's 0.90 edge (`k_grind = 41` against a bar of 20). Iteration 2
+probes how much further the misplay ramp can come down, since the roster floor
+is nima's 0.15, not a target.
+
+## T004a — iteration 2 (the lowest ramp the roster allows)
+
+Changed (old → new) — misplay only; the three ±1 decks from iteration 1 stand:
+
+| lever | old | new |
+| --- | --- | --- |
+| greeb `misplay` | 0.22 | 0.18 |
+| dax `misplay` | 0.18 | 0.16 |
+| vessa `misplay` | 0.16 | 0.15 |
+
+This is the floor: the ramp must be non-increasing along the roster order and
+nima (Mid Rim, out of this task's footprint) sits at 0.15, so vessa cannot go
+below 0.15, dax cannot go below vessa, and greeb must stay strictly the maximum.
+No target pins the ramp — only that structure does.
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          70.0  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 56.0 (vessa)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 40.8 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 29.6 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 70.9 (vessa)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 65.1 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.2 (sovereign), sovereign 51.2  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.2 vs next 57.1 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 16.4 (kesh) vs 2·EV_g 8.0  PASS; @2×floor 32.9  PASS
+bounds (SEED 50, reserve 10, P_outer 20, P_mid 100, P_core 200)
+  B1 first Outer card within 5 Greeb floor matches                    k=0  PASS
+  B2 first Mid card not affordable after one Outer Rim clear          (90 vs 110); grind k=6  PASS
+  B3 Core card by Greeb grind >= 20 matches                           k_grind=41  PASS
+  B4 Core card by Mid Rim bets < k_grind/2                            best k_bet@floor=10 (kesh), @2×floor=5  PASS
+  B5 ruin within 8 floor losses; staked win never broke (021)         k_ruin=5  PASS
+summary: targets 8/8, coupling 1/1, bounds 5/5   (N = 10 000)
+```
+
+Halving the slip rates again cost nothing measurable (T1 69.6 → 70.0, T2 min
+55.4 → 56.0, both inside the ±1.1 points of run-to-run spread): once an Outer
+Rim deck is all ±1s the AI has almost no play to slip *on*, so `misplay` is no
+longer where their weakness lives. Converged here — the misplay aim is beaten
+(greeb 0.18 against an aim of ≤ 0.25) and the ramp is at its structural floor.
+
+## T004a — final table
+
+A no-change reproducibility run of iteration 2's values, verbatim and in full —
+this is the table `docs/balance.md` records in T007, replacing T005's
+(N = `DEFAULT_N` = 10 000, 2026-09-13, macOS, release profile). It reproduces
+iteration 2 within noise on every line (T1 70.0 → 69.0, T2 min 56.0 → 55.4,
+T3 40.8 → 40.2, T4 29.6 → 29.9, T7 51.2 → 51.1, `C` 16.4 vs 8.0 → 15.4 vs 7.6,
+`k_grind` 41 → 43).
+
+```
+
+running 1 test
+
+deck            opponent          n    win%   ev/match@floor
+starter         greeb         10000    69.0             +3.8
+starter         dax           10000    60.9             +2.2
+starter         vessa         10000    55.4             +2.2
+starter         nima          10000    38.2             -7.1
+starter         toran         10000    40.2             -5.9
+starter         brakka        10000    37.3             -7.6
+starter         rix           10000    29.9            -20.1
+starter         kesh          10000    37.1            -12.8
+starter         magistrate    10000    27.4            -22.6
+starter         sovereign     10000    23.8            -26.2
+standard        greeb         10000    79.4             +5.9
+standard        dax           10000    72.1             +4.4
+standard        vessa         10000    67.8             +7.1
+standard        nima          10000    49.6             -0.3
+standard        toran         10000    53.2             +1.9
+standard        brakka        10000    50.6             +0.4
+standard        rix           10000    41.0             -9.0
+standard        kesh          10000    50.0             +0.0
+standard        magistrate    10000    40.1             -9.9
+standard        sovereign     10000    35.2            -14.8
+best_outer      greeb         10000    82.9             +6.6
+best_outer      dax           10000    75.5             +5.1
+best_outer      vessa         10000    70.2             +8.1
+best_outer      nima          10000    53.3             +2.0
+best_outer      toran         10000    56.4             +3.8
+best_outer      brakka        10000    53.6             +2.2
+best_outer      rix           10000    43.0             -7.0
+best_outer      kesh          10000    52.7             +2.7
+best_outer      magistrate    10000    41.2             -8.8
+best_outer      sovereign     10000    37.2            -12.8
+best_outer_mid  greeb         10000    88.2             +7.6
+best_outer_mid  dax           10000    82.3             +6.5
+best_outer_mid  vessa         10000    79.6            +11.8
+best_outer_mid  nima          10000    64.7             +8.8
+best_outer_mid  toran         10000    66.8            +10.1
+best_outer_mid  brakka        10000    66.1             +9.7
+best_outer_mid  rix           10000    55.4             +5.4
+best_outer_mid  kesh          10000    65.4            +15.4
+best_outer_mid  magistrate    10000    53.5             +3.5
+best_outer_mid  sovereign     10000    48.8             -1.3
+best_full       greeb         10000    89.0             +7.8
+best_full       dax           10000    83.5             +6.7
+best_full       vessa         10000    81.0            +12.4
+best_full       nima          10000    66.6            +10.0
+best_full       toran         10000    69.2            +11.5
+best_full       brakka        10000    67.7            +10.6
+best_full       rix           10000    58.2             +8.2
+best_full       kesh          10000    67.3            +17.3
+best_full       magistrate    10000    56.1             +6.1
+best_full       sovereign     10000    51.1             +1.1
+targets
+  T1 starter vs greeb >= 65%                                          69.0  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 55.4 (vessa)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 40.2 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 29.9 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 70.2 (vessa)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 64.7 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.1 (sovereign), sovereign 51.1  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.1 vs next 56.1 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 15.4 (kesh) vs 2·EV_g 7.6  PASS; @2×floor 30.9  PASS
+bounds (SEED 50, reserve 10, P_outer 20, P_mid 100, P_core 200)
+  B1 first Outer card within 5 Greeb floor matches                    k=0  PASS
+  B2 first Mid card not affordable after one Outer Rim clear          (90 vs 110); grind k=6  PASS
+  B3 Core card by Greeb grind >= 20 matches                           k_grind=43  PASS
+  B4 Core card by Mid Rim bets < k_grind/2                            best k_bet@floor=11 (kesh), @2×floor=6  PASS
+  B5 ruin within 8 floor losses; staked win never broke (021)         k_ruin=5  PASS
+summary: targets 8/8, coupling 1/1, bounds 5/5
+test balance_table ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 4.50s
+
+```
+
+### Final Outer Rim values (T004a)
+
+| opponent | threshold | strategy | misplay (was) | side deck (was) |
+| --- | --- | --- | --- | --- |
+| greeb | 15 *(unchanged)* | Cautious *(unchanged)* | 0.18 (0.44) | +1 +1 +1 +1 +1 −1 −1 −1 −1 −1 (+1 +1 +1 +1 +2 −1 −1 −1 −1 −2) |
+| dax | 15 *(unchanged)* | Aggressive *(unchanged)* | 0.16 (0.36) | +1 +1 +1 +1 +1 +2 −1 −1 −1 −1 (+3 +2 +2 +2 +1 +1 −1 −1 −2 −2) |
+| vessa | 16 *(unchanged)* | Aggressive *(unchanged)* | 0.15 (0.34) | +1 +1 +1 +1 +2 +2 −1 −1 −1 −1 (+1 +1 +1 +2 +2 +2 +2 −1 −1 −2) |
+
+No threshold moved, so every ante floor, the cheapest floor (greeb, 10), B2's
+`after_outer` sum (50 + 10 + 10 + 20 = 90 < 110) and the T005 prices are exactly
+as T005 left them. Nothing outside the three Outer Rim entries changed: no Mid
+or Core opponent, no starter deck or spares, no candidate deck, no `card_tier`,
+no economy constant.
+
+### What T004a turned on
+
+The Outer Rim's weakness had been carried by `misplay` (0.44 / 0.36 / 0.34 —
+the AI throwing away a won position roughly every third turn), which is what
+read as *random* to the player. Moving it into the decks instead trades that
+for a legible weakness: with only ±1-magnitude cards the AI can reach exactly 20
+from 19 (or recover from 21) and from nowhere else, so it plays its best line
+almost every turn and still loses — Greeb's win rate against the starter barely
+moved (T005's 67.6 → 69.0 for the player) while his slip rate fell by more than
+half. The lever is spent, though: at the structural floor the ramp is
+0.18 / 0.16 / 0.15 against nima's 0.15, so any further reduction would need a
+Mid Rim opponent to move, which this task does not own.
