@@ -238,6 +238,24 @@ ends with the spec's play attestation. -->
 
 ## Phase 3 — Guards and docs
 
+<!-- Findings carried from the Phase 2 review (2026-09-13):
+(i) T006 sizes every guard bar from the SE at GUARD_N (≈1.9 pts at N=600),
+not from T003's 1.1-point max |Δ| at N=10 000; (j) T007 corrects the
+tuning-log line in T004 iteration 1 claiming "the Sovereign's two dead flips
+were worth ~11 points" — the Sovereign never carried flips (Rix and the
+Magistrate did); the grounded flip-cost figure is the Magistrate/Sovereign
+gap (5.2 pts on the final table); (k) docs/balance.md presents "a dead flip
+costs ~4–5 points" and "the AI peaks near effective threshold 18" as tuning
+observations, not measured constants; (l) docs/balance.md notes T8 is
+tolerance-carried on the Mid Rim rows (smallest outer_mid → full gap +0.9 on
+Dax, TOL 2); (m) docs/balance.md states the starter spares are lateral (one
+new type, ±1) and the measured starter rates describe a player who does not
+rebuild; (n) docs/opponents.md shows Rix/Kesh/Magistrate/Sovereign all at
+threshold 19 / floor 50 — say so plainly; (o) closeout DECISIONS text records
+that `strategy` is a tuning knob independent of blurb text (Nima Cautious →
+Basic, Kesh Aggressive → Basic), pending the person's ruling at the Phase 2
+pause on whether the blurbs get reworded. -->
+
 <!-- The unit-test guards sized against the measured gaps, then the balance doc
 and the two re-synced docs. Phase ends with a short pause: the docs are
 readable and the guards are green. -->
@@ -361,7 +379,7 @@ iteration count in the outcome column. -->
 | T003 impl (sdd-implementer) | opus | ~77K (measured return) | done first try; two DEFAULT_N runs ≈ 4.9 s and 4.8 s (compile excluded), max per-pair |Δ| 1.1 pts, no doubling; BEST_OUTER and BEST_OUTER_MID replaced by measured winners, BEST_FULL kept after an N=10k tie-break; finding: T8 sits at 1.9 vs TOL 2 because the plan's full-pool deck barely beats the Mid deck — T004 may replace it |
 | T004 impl (sdd-implementer) | opus | ~146K (measured return) | iterations: 5 (converged at 4; 5th fixed the misplay ramp and re-checked) — `targets 8/8, coupling 1/1`, C passes at the floor; levers used: opponent decks/misplays/strategies/two thresholds, starter deck + spares, BEST_FULL; card_tier untouched |
 | T005 impl (sdd-implementer) | opus | ~57K (measured return) | iterations: 1 — Mid price 50→100, Core 120→200; `bounds 5/5`, B4 PASS at the floor; no exact-value test needed amending (floors unchanged); profile.rs untouched |
-| Phase 2 review (skeptical-reviewer) | opus | | |
+| Phase 2 review (skeptical-reviewer) | opus | ~91K (measured return) | signed off, 0 blocking, 8 notes — log factual slip (Sovereign never had flips) + T8 tolerance-carried on Dax + observed-not-measured design notes → T007; guard bars sized from GUARD_N SE → T006; Nima/Kesh strategy vs blurb, four opponents at floor 50, Outer Rim misplay ≥ 0.34, lateral spares → person at the Phase 2 pause |
 | T006 impl (sdd-implementer) | opus | | |
 | T007 impl (sdd-implementer) | opus | | |
 | Phase 3 review (skeptical-reviewer) | opus | | |
