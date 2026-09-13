@@ -81,19 +81,18 @@ of, not guessed at here in advance.
   **card collection** (a bag of owned copies) and a **built 10-card side deck**,
   plus a **deck-builder `Screen`** reached from a new **Side Deck** menu item
   where you add/remove copies (arrows/`wasd`/emacs, Enter/Backspace) against the
-  owned counts. Matches deal the player's hand from the built deck (campaign matches, since
-  spec 022) — the player
-  deck moved from the `DEFAULT_SIDE_DECK` const onto `GameState`, mirroring how
-  spec 007 moved the opponent's deck — and each match **snapshots its deck into
-  the save**, so editing your deck never rewrites an in-progress match; resume
-  falls back to the default for a pre-spec or malformed deck. Decks must be
-  exactly 10 to play (an incomplete deck routes Start Game to the builder). The
-  whole 15-card side-card universe is `card::ALL_SIDE_CARDS`; the starter was
-  the default 10 + a few spares — **superseded by spec 022**, which gave a fresh
-  profile its own Outer-tier `profile::STARTER_SIDE_DECK` plus lateral spares
-  and left `card::DEFAULT_SIDE_DECK` as the opponent baseline and Quick Play's
-  deal. A two-panel
-  "briefcase" builder is a logged follow-up (below).
+  owned counts. Matches deal the player's hand from the built deck (campaign
+  matches, since spec 022) — the player deck moved from the `DEFAULT_SIDE_DECK`
+  const onto `GameState`, mirroring how spec 007 moved the opponent's deck — and
+  each match **snapshots its deck into the save**, so editing your deck never
+  rewrites an in-progress match; resume falls back to the default for a pre-spec
+  or malformed deck. Decks must be exactly 10 to play (an incomplete deck routes
+  Start Game to the builder). The whole 15-card side-card universe is
+  `card::ALL_SIDE_CARDS`; the starter was the default 10 + a few spares —
+  **superseded by spec 022**, which gave a fresh profile its own Outer-tier
+  `profile::STARTER_SIDE_DECK` plus lateral spares and left
+  `card::DEFAULT_SIDE_DECK` as the opponent baseline and Quick Play's deal. A
+  two-panel "briefcase" builder is a logged follow-up (below).
 - **Campaign map** (spec 009) — the campaign's integration layer (subsystem D),
   scoped to navigation + progression structure with the **economy stubbed**
   (wins record progress; credits/rewards are C). A full-screen, node-based
@@ -455,7 +454,8 @@ the endgame and the mode-identity question are deferred, below.
   merely the raw stand thresholds — and spec 022 measured the **normal** curve
   those nudges would move relative to (`docs/balance.md`). Any proposed offset
   can be re-measured against the same targets with the balance simulator before
-  it ships, rather than being playtested blind. Suggested during the post-spec-009 review.
+  it ships, rather than being playtested blind. Suggested during the
+  post-spec-009 review.
 - **Considered animation pass** — deliberate, sparse animations that
   guide the eye during play: a dealt card arriving, a flip resolving,
   a total changing, round transitions. Builds on spec 002's selection
