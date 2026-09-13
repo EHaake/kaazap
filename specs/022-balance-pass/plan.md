@@ -1,6 +1,6 @@
 # Plan: Difficulty & economy balance pass — spec 022
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-13)
 **Implements**: `spec.md` in this directory
 
 ## Context

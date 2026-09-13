@@ -1,6 +1,6 @@
 # Tasks: Difficulty & economy balance pass — spec 022
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-13) — ready for implementation
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -189,7 +189,10 @@ ends with the spec's play attestation. -->
   **not** `STAKE_STEP` (it enters no bound; `wager.rs` stays untouched), and
   nothing T004 owns. B4 is not this task's: the final run re-reads it, and if
   it reads FAIL the return says so and the orchestrator re-dispatches
-  **T004a** (its levers are T004's — plan tension §8), not T005a. Amend the
+  **T004a** (its levers are T004's — plan tension §8), not T005a — but only
+  when B4 fails on T004's data: lowering `ANTE_BASE_THRESHOLD` changes the
+  floor *ratio* and can break a passing `C` line, and that is this task's own
+  edit to revert, never a T004a request. Amend the
   exact-value tests the new constants break in the same edit
   (`ante_floor_is_the_difficulty_scalar`, `payout_is_even_money` untouched,
   `earning_grows_the_balance_and_purchase_holds_back_the_ante_reserve`'s 59/60
@@ -205,7 +208,9 @@ ends with the spec's play attestation. -->
   working-tree diff for this task (`git diff --stat` before the commit) lists
   only `src/economy.rs`, `tuning-log.md`, and the test files whose exact
   values the constants pin (`src/profile.rs` tests, `src/economy.rs` tests) —
-  no `src/opponent.rs`, no non-test `profile.rs` line, no `wager.rs`.
+  no `src/opponent.rs`, no non-test `profile.rs` line (the orchestrator reads
+  `git diff -- src/profile.rs` and confirms every hunk sits under
+  `#[cfg(test)]`; `--stat` alone can't show it), no `wager.rs`.
   Non-convergence on B1/B2/B3/B5 escalates as in T004 (one T005a, then the
   person; never the escape hatch). **PAUSE for the person** (phase attestation, profile/saves backed up
   and checksum-restored): on a fresh campaign the starter clears the Outer Rim
@@ -286,7 +291,8 @@ implement from the first unchecked task. Involvement level is **product
 owner**. Dispatch each task to the `sdd-implementer` per the model policy;
 verify by running the build and tests yourself, then commit. **The one task
 marked `review: per-task` (T002):** run the `skeptical-reviewer` after it,
-scoped to its diff, plan §Design 3 and tensions §2–§4, and the simulator
+scoped to its diff, plan §Design 3, tensions §2–§4 and §8's B4 bullet (the
+derivation the `C` line implements), and the simulator
 acceptance criterion (a shell-assembled bundle), one review plus at most one
 re-review, and re-run the verification command yourself before committing.
 **Every other task (T001, T003–T008):** review at phase end. Pause for the
@@ -329,7 +335,8 @@ iteration count in the outcome column. -->
 |---|---|---|---|
 | **Experiment 1, spec 2** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: (read at the implementation session's open); at spec end: (read after the merge). Person's ruling 2026-09-13: all implementation, simulator runs, and tuning at `opus`. | — | — | header |
 | Planning: draft + sign-off fixes (sdd-planner) | fable | ~230K (budget counter at return; ~205K draft + ~25K fixes) | drafted; three design edges flagged (plan §Open questions); sign-off's 3 blocking findings (B4 ownership → T004; DEFAULT_N 10_000 sized for all 50 pairs; T005 diff check vs working tree) and 5 notes applied |
-| plan + tasks sign-off (skeptical-reviewer) | fable | | |
+| plan + tasks sign-off (skeptical-reviewer) | fable | ~115K (measured return) | 3 blocking (B4 owned by a task with no lever over it; DEFAULT_N sized per pair, not per grid; T005 verify uncheckable) + 5 notes — all sent to the planner and applied |
+| sign-off re-review (skeptical-reviewer) | fable | ~20K (measured return) | signed off; 3 wording notes applied by the orchestrator (T005: profile.rs hunks read under cfg(test); T005: own ANTE_BASE change is its own revert, not a T004a; T002 review bundle adds tension §8) |
 | T001 impl (sdd-implementer) | opus | | |
 | T002 impl (sdd-implementer) | opus | | |
 | T002 review (skeptical-reviewer, per-task) | opus | | |
