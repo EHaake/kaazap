@@ -146,7 +146,7 @@ tunes prices and economy constants to the bounds. Each tuning task is a bounded
 loop at the implementation tier; non-convergence goes to the person. Phase
 ends with the spec's play attestation. -->
 
-- [ ] **T003** — Baseline. Build the release test target first (`cargo test
+- [x] **T003** — Baseline. Build the release test target first (`cargo test
   --release --test balance --no-run`) so the timed runs exclude the one-time
   compile, then run the documented command twice at `DEFAULT_N` (`cargo test
   --release --test balance balance_table -- --ignored --nocapture`, 500k
@@ -358,7 +358,7 @@ iteration count in the outcome column. -->
 | T002 impl (sdd-implementer) | opus | ~99K (measured return) | done first try; two plan fixed-boards were arithmetically impossible (23−2≠18; 16+4=20 triggers rule 2) — covered the rules with corrected boards, reviewer confirmed faithful |
 | T002 review (skeptical-reviewer, per-task) | opus | ~84K (measured return) | signed off, 0 blocking, 10 notes — carried to T005/T007 docs (C vs B4 not identical; T8 tolerance is per adjacent pair and also applied to the sovereign-hardest half; `easiest_other`/"next" label misnamed) and T006 (drop GUARD_N allow) and the sweep |
 | Phase 1 review (skeptical-reviewer) | opus | ~58K (measured return) | signed off, 0 blocking, 7 notes — N2 (no test pins starter ⊆ ALL_SIDE_CARDS) carried to T004; N1 (start_match precondition doc half-stale) to T007; rest informational |
-| T003 impl (sdd-implementer) | opus | | |
+| T003 impl (sdd-implementer) | opus | ~77K (measured return) | done first try; two DEFAULT_N runs ≈ 4.9 s and 4.8 s (compile excluded), max per-pair |Δ| 1.1 pts, no doubling; BEST_OUTER and BEST_OUTER_MID replaced by measured winners, BEST_FULL kept after an N=10k tie-break; finding: T8 sits at 1.9 vs TOL 2 because the plan's full-pool deck barely beats the Mid deck — T004 may replace it |
 | T004 impl (sdd-implementer) | opus | | iterations: |
 | T005 impl (sdd-implementer) | opus | | iterations: |
 | Phase 2 review (skeptical-reviewer) | opus | | |

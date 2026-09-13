@@ -23,31 +23,33 @@ const GUARD_N: usize = 600;
 const TOL: f64 = 0.02; // ordering allowance (plan tension §3)
 
 // Pool-best candidates (plan tension §5); T003 fixes, T004 may replace.
-// All 10 cards, no flips (the scripted player never plays one).
+// All 10 cards, no flips (the scripted player never plays one). Each is the
+// strongest of the three candidates T003 measured against its own region —
+// see `specs/022-balance-pass/tuning-log.md` for the alternatives and rates.
 const BEST_OUTER: [Card; 10] = [
-    Card::Plus(1),
-    Card::Plus(2),
-    Card::Plus(2),
     Card::Plus(3),
     Card::Plus(3),
-    Card::Minus(1),
-    Card::Minus(2),
+    Card::Plus(3),
     Card::Minus(3),
+    Card::Minus(3),
+    Card::Minus(3),
+    Card::Plus(2),
+    Card::Minus(2),
     Card::PlusMinus(1),
     Card::PlusMinus(1),
 ];
 
 const BEST_OUTER_MID: [Card; 10] = [
-    Card::Plus(1),
-    Card::Plus(2),
-    Card::Plus(3),
-    Card::Plus(4),
-    Card::Minus(2),
-    Card::Minus(4),
-    Card::PlusMinus(1),
+    Card::PlusMinus(3),
+    Card::PlusMinus(3),
+    Card::PlusMinus(3),
+    Card::PlusMinus(3),
     Card::PlusMinus(2),
-    Card::PlusMinus(3),
-    Card::PlusMinus(3),
+    Card::PlusMinus(2),
+    Card::PlusMinus(2),
+    Card::PlusMinus(1),
+    Card::PlusMinus(1),
+    Card::PlusMinus(1),
 ];
 
 const BEST_FULL: [Card; 10] = [
