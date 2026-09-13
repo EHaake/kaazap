@@ -349,6 +349,20 @@ readable and the guards are green. -->
   correctly-framed non-guard mention, or nothing; the numbers equal the
   `tests/balance.rs` comment.*
 
+- [ ] **T007b** (Phase 3 review notes, 2026-09-13) — text only, three
+  files: (1) `tests/balance.rs` margin comment and `docs/balance.md`'s
+  matching sentence: the smallest starter-vs-Mid-Rim margin at GUARD_N is
+  Toran at 4.9 SE (w = .402 → .098/.02002), below the 5 SE bar — which is why
+  no Mid Rim guard exists; Kesh (6.5 SE) is the largest, not the smallest;
+  (2) `docs/balance.md` re-run step 3: add this file's own guards table and
+  margin paragraph to the list of things to update; (3)
+  `specs/022-balance-pass/closeout-main-docs.md` ROADMAP text: the pre-022
+  shipped Greeb slip rate was 0.25, not 0.44 (0.44 was an intra-spec peak) —
+  say "0.25 → 0.18". Optionally the minor (a)–(c) wording notes from the
+  review if trivial.
+  *Verify: `cargo build --all-targets` / `cargo test -q` green; `git diff`
+  shows comment/doc lines only.*
+
 ## Final phase — Spec close-out
 
 - [ ] **T008** — Flake check, sweep, AC checkoff. Run `cargo test -q` **ten
@@ -433,6 +447,7 @@ iteration count in the outcome column. -->
 | T007 impl (sdd-implementer) | opus | ~163K (measured return) | done first try; balance.md 289 lines, every table value machine-checked against source and the T004a table; two stale comments found in tests/balance.rs → T006a |
 | T006a comments (sdd-implementer) | opus | ~34K (measured return) | done; found the same misattribution in docs/balance.md → T007a |
 | T007a balance.md fix (sdd-implementer) | opus | ~23K (measured return) | done; guards table and sizing paragraph now match the test comment |
-| Phase 3 review (skeptical-reviewer) | opus | | |
+| Phase 3 review (skeptical-reviewer) | opus | ~94K (measured return) | signed off, 0 blocking, 3 notes + minor: "Kesh 6.5 SE is the smallest Mid Rim margin" is wrong (Toran 4.9 SE is, and is why no Mid Rim guard exists); balance.md re-run step omits its own guards table; closeout ROADMAP text says Greeb 0.44 → 0.18 but the pre-022 shipped value was 0.25 — all three → T007b |
+| T007b review-note text fixes (sdd-implementer) | opus | | |
 | T008 close-out (orchestrator) | fable (session, medium) | — | |
 | Pre-merge whole-spec sweep (skeptical-reviewer) | opus | | |
