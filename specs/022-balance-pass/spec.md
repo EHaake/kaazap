@@ -1,6 +1,6 @@
 # Spec: Difficulty & economy balance pass — spec 022
 
-**Status**: Draft — pending the person's approval
+**Status**: Approved (person, 2026-09-12) — planning
 **Depends on**: spec 021 (wager & loss, rematches), spec 012 (economy, shop,
 depth-gated pool), spec 010/013 (board-aware AI, bounded misplays), spec 008
 (profile, starter collection, deck-builder)
