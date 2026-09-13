@@ -11,7 +11,7 @@ use crate::{
     board::BoardView,
     campaign::{NodeRef, planet_by_id},
     campaign_map::{CampaignMapState, MapBanner, MapOutcome},
-    card::Card,
+    card::{Card, DEFAULT_SIDE_DECK},
     config::Config,
     deck_builder::{BuildOutcome, BuilderOrigin, DeckBuilderState},
     economy,
@@ -344,6 +344,18 @@ fn back_destination(origin: BuilderOrigin) -> BackTo {
     }
 }
 
+/// The deck the player is dealt (spec 022, ruling C): the built deck for a
+/// campaign match, the standard deck for Quick Play — whatever the builder
+/// holds. A pure mapping in the `confirm_choice` spirit, so the one decision
+/// `start_match` makes about the deal is unit-testable without an `App`.
+fn player_deck_for(is_campaign: bool, built: &[Card]) -> Vec<Card> {
+    if is_campaign {
+        built.to_vec()
+    } else {
+        DEFAULT_SIDE_DECK.to_vec()
+    }
+}
+
 pub struct App {
     pub config: Config,
     screen: Screen,
@@ -615,7 +627,9 @@ impl App {
     }
 
     /// Begin a fresh match against `opponent`, dealing the player's hand from
-    /// the profile's built deck, replacing any current match and persisting it.
+    /// [`player_deck_for`] — the built deck in a campaign match, the standard
+    /// deck in Quick Play (spec 022, ruling C) — replacing any current match
+    /// and persisting it.
     ///
     /// Precondition: the profile deck is valid (exactly `SIDE_DECK_SIZE`
     /// cards). This is the only match-start entry, reached solely via
@@ -625,6 +639,9 @@ impl App {
     /// Launch — both enforce it. `campaign` marks the match as a campaign node
     /// (persisted via the profile), or `None` for Quick Play.
     fn start_match(&mut self, opponent: OpponentProfile, campaign: Option<NodeRef>) {
+        // Which deck is dealt depends on the mode, so read it before the match
+        // below moves `campaign`.
+        let is_campaign = campaign.is_some();
         // Record whether this match belongs to the campaign, and against which
         // node — persisted, so a match resumed via Continue still routes back
         // to the map at game over. Quick Play passes None (clearing any stale
@@ -650,7 +667,7 @@ impl App {
         self.screen = Screen::InGame {
             game_state: Box::new(GameState::with_opponent(
                 opponent,
-                self.profile.deck().to_vec(),
+                player_deck_for(is_campaign, self.profile.deck()),
             )),
             cursor: HandCursor::default(),
         };
@@ -1635,6 +1652,37 @@ mod tests {
         for k in [KeyCode::Left, KeyCode::Right, KeyCode::Up, KeyCode::Char('g')] {
             assert!(!run_over_acknowledged(k));
         }
+    }
+
+    #[test]
+    fn quick_play_deals_the_standard_deck_and_campaign_deals_the_built_one() {
+        // Ruling C (spec 022): the built deck is a campaign reward, so Quick
+        // Play always deals the standard deck no matter what the builder holds.
+        // The built deck here shares no card with the standard one, so a
+        // regression that fell back to the profile's deck is unmistakable.
+        let built = vec![
+            Card::Plus(1),
+            Card::Plus(1),
+            Card::Plus(3),
+            Card::Plus(3),
+            Card::Minus(1),
+            Card::Minus(1),
+            Card::Minus(3),
+            Card::Minus(3),
+            Card::PlusMinus(2),
+            Card::PlusMinus(2),
+        ];
+        assert!(
+            built.iter().all(|c| !DEFAULT_SIDE_DECK.contains(c)),
+            "sanity: the built deck shares no card with the standard one"
+        );
+
+        assert_eq!(player_deck_for(true, &built), built, "a campaign match deals the built deck");
+        assert_eq!(
+            player_deck_for(false, &built),
+            DEFAULT_SIDE_DECK.to_vec(),
+            "Quick Play deals the standard deck regardless of the built deck"
+        );
     }
 
     #[test]

@@ -40,7 +40,7 @@ measures them. T002 gets a per-task review. Phase ends with a short pause: the
 person can see the new starter in the builder/shop and play Quick Play with the
 premium deck (the starter composition may still move in Phase 2). -->
 
-- [ ] **T001 (foundational)** — `src/profile.rs`, `src/app.rs`, `src/card.rs`
+- [x] **T001 (foundational)** — `src/profile.rs`, `src/app.rs`, `src/card.rs`
   (comments only), `src/deck_builder.rs` (tests only): the Outer-tier starter
   and the Quick Play deal. In `profile.rs` add `pub const STARTER_SIDE_DECK:
   [Card; SIDE_DECK_SIZE]` = `+1 +1 +2 +2 +3 −1 −1 −2 −2 −3` and `pub const
@@ -333,11 +333,11 @@ iteration count in the outcome column. -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
-| **Experiment 1, spec 2** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: (read at the implementation session's open); at spec end: (read after the merge). Person's ruling 2026-09-13: all implementation, simulator runs, and tuning at `opus`. | — | — | header |
+| **Experiment 1, spec 2** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: not readable from inside the session — person to supply at the Phase 1 pause (opened 2026-09-13); at spec end: (read after the merge). Person's ruling 2026-09-13: all implementation, simulator runs, and tuning at `opus`. | — | — | header |
 | Planning: draft + sign-off fixes (sdd-planner) | fable | ~230K (budget counter at return; ~205K draft + ~25K fixes) | drafted; three design edges flagged (plan §Open questions); sign-off's 3 blocking findings (B4 ownership → T004; DEFAULT_N 10_000 sized for all 50 pairs; T005 diff check vs working tree) and 5 notes applied |
 | plan + tasks sign-off (skeptical-reviewer) | fable | ~115K (measured return) | 3 blocking (B4 owned by a task with no lever over it; DEFAULT_N sized per pair, not per grid; T005 verify uncheckable) + 5 notes — all sent to the planner and applied |
 | sign-off re-review (skeptical-reviewer) | fable | ~20K (measured return) | signed off; 3 wording notes applied by the orchestrator (T005: profile.rs hunks read under cfg(test); T005: own ANTE_BASE change is its own revert, not a T004a; T002 review bundle adds tension §8) |
-| T001 impl (sdd-implementer) | opus | | |
+| T001 impl (sdd-implementer) | opus | ~61K (measured return) | done first try; restaged a sixth deck_builder test (`nav_reports_moved_only_when_it_actually_moves`) that also read the old starter slots — inside the task's stated goal |
 | T002 impl (sdd-implementer) | opus | | |
 | T002 review (skeptical-reviewer, per-task) | opus | | |
 | Phase 1 review (skeptical-reviewer) | opus | | |

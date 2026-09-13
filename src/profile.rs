@@ -8,7 +8,10 @@
 //! discipline. `Card` already derives serde, so the collection and deck
 //! persist as plain `Vec<Card>` — no projection type. Deck-building rules
 //! (own-a-copy, the size cap) live here as methods, so the UI just calls them.
-//! See `specs/008-side-deck-customization`.
+//! The starter a fresh (or reset) profile begins with lives here too, as
+//! [`STARTER_SIDE_DECK`] + [`STARTER_SPARES`] — Outer-tier balance data, tuned
+//! by spec 022, distinct from `card::DEFAULT_SIDE_DECK` (the standard deck).
+//! See `specs/008-side-deck-customization` and `specs/022-balance-pass`.
 
 use std::{fs, path::PathBuf};
 
@@ -18,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     SIDE_DECK_SIZE,
     campaign::{CampaignRun, NodeRef},
-    card::{ALL_SIDE_CARDS, Card, DEFAULT_SIDE_DECK},
+    card::{ALL_SIDE_CARDS, Card},
     economy::{self, StakeOutcome},
     stats::{LifetimeStats, Mode},
 };
@@ -68,19 +71,38 @@ fn default_version() -> u32 {
     PROFILE_VERSION
 }
 
-/// The side deck a fresh profile starts with — today's default pool, so a
-/// player who never opens the builder plays exactly as before this spec.
+/// The side deck a fresh or reset profile plays (spec 022): Outer-tier only,
+/// so every shop tier above it is a real upgrade. Tunable balance data; the
+/// tiered-ness is pinned by `default_profile_plays_a_valid_outer_tier_starter`.
+pub const STARTER_SIDE_DECK: [Card; SIDE_DECK_SIZE] = [
+    Card::Plus(1),
+    Card::Plus(1),
+    Card::Plus(2),
+    Card::Plus(2),
+    Card::Plus(3),
+    Card::Minus(1),
+    Card::Minus(1),
+    Card::Minus(2),
+    Card::Minus(2),
+    Card::Minus(3),
+];
+
+/// The Outer-tier spares a fresh profile owns beyond its deck, so the builder
+/// is a real choice from the first launch (spec 008's intent, kept).
+pub const STARTER_SPARES: [Card; 3] = [Card::Plus(3), Card::Minus(3), Card::PlusMinus(1)];
+
+/// The side deck a fresh profile starts with — the Outer-tier starter.
 fn starter_deck() -> Vec<Card> {
-    DEFAULT_SIDE_DECK.to_vec()
+    STARTER_SIDE_DECK.to_vec()
 }
 
 /// The cards a fresh profile owns: the starter deck plus a few spare adjusters,
 /// so building is a real choice from the first launch. Tunable balance data —
-/// spec C's economy is what actually grows the collection; the deck is always
-/// a sub-multiset of this.
+/// the economy is what actually grows the collection; the deck is always a
+/// sub-multiset of this.
 fn starter_collection() -> Vec<Card> {
     let mut cards = starter_deck();
-    cards.extend([Card::Plus(1), Card::Minus(1), Card::PlusMinus(2)]);
+    cards.extend(STARTER_SPARES);
     cards
 }
 
@@ -708,13 +730,50 @@ mod tests {
     }
 
     #[test]
-    fn default_profile_has_a_valid_deck_within_the_collection() {
+    fn default_profile_plays_a_valid_outer_tier_starter() {
+        use crate::card::DEFAULT_SIDE_DECK;
+        use crate::economy::{RegionTier, card_tier};
+
         let p = Profile::default();
         assert_eq!(p.deck().len(), SIDE_DECK_SIZE);
         assert!(p.deck_is_valid());
-        // The starter deck is the old default pool, so an untouched profile
-        // plays exactly as before this spec.
+        // The starter is its own deck now (spec 022), no longer the standard
+        // pool — that stays the opponent baseline and Quick Play's deck.
+        assert_eq!(p.deck(), &STARTER_SIDE_DECK);
+        assert_ne!(p.deck(), &DEFAULT_SIDE_DECK);
+
+        // The collection is exactly the deck plus the spares.
+        let mut expected = STARTER_SIDE_DECK.to_vec();
+        expected.extend(STARTER_SPARES);
+        assert_eq!(p.collection, expected);
+
+        // The point of the starter: every shop tier above Outer is an upgrade.
+        for card in STARTER_SIDE_DECK.iter().chain(STARTER_SPARES.iter()) {
+            assert_eq!(card_tier(*card), RegionTier::Outer, "{card:?}");
+        }
+    }
+
+    #[test]
+    fn an_existing_profile_keeps_its_premium_deck_collection_and_credits() {
+        use crate::card::DEFAULT_SIDE_DECK;
+
+        // A profile written before spec 022: the serde defaults only fill
+        // *missing* keys, so a saved deck/collection/credits survive a change
+        // to the starter untouched (ruling F) — and the format is unchanged,
+        // so the version stays 1.
+        let mut collection = DEFAULT_SIDE_DECK.to_vec();
+        collection.extend([Card::Plus(1), Card::Minus(1), Card::PlusMinus(2)]);
+        let doc = serde_json::json!({
+            "version": 1,
+            "collection": collection,
+            "deck": DEFAULT_SIDE_DECK.to_vec(),
+            "credits": 75,
+        });
+        let p = Profile::from_json(&doc.to_string()).expect("an existing profile loads");
         assert_eq!(p.deck(), &DEFAULT_SIDE_DECK);
+        assert_eq!(p.collection, collection);
+        assert_eq!(p.credits(), 75);
+        assert_eq!(PROFILE_VERSION, 1, "no save-format change in this spec");
     }
 
     #[test]
