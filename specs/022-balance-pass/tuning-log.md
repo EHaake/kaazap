@@ -688,3 +688,158 @@ best_full       sovereign     10000    51.8             +1.8
 Starter deck `+1 +1 +1 +1 +2 +2 −1 −1 −1 −2`, spares `±1 +2 −2`;
 `card_tier` untouched (no re-tiering was needed, so
 `card_tier_partitions_the_universe`'s lists are unchanged).
+
+## T005 — iteration 1
+
+Changed (old → new):
+
+| lever | old | new |
+| --- | --- | --- |
+| `card_price` Mid tier | 50 | 100 |
+| `card_price` Core tier | 120 | 200 |
+
+`SEED_PURSE` (50), `ANTE_BASE_THRESHOLD` (14) and `ANTE_PER_THRESHOLD_STEP`
+(10) were left alone, so every floor — and therefore the reserve, the EVs, the
+`C` line and B4 — is exactly as T004 measured it; only the two prices move.
+
+Reasoning before the run (plan tension §8): B2 was the one failing bound, and
+it fails by arithmetic — a clean floor-stake Outer Rim clear leaves
+`50 + (10 + 10 + 20) = 90`, against `P_mid + reserve = 60`. Raising the Mid
+price is the lever that touches nothing else: `P_mid = 100` puts the first Mid
+card at `110`, i.e. 20 credits and about six Greeb grinds (or two wins above the
+floor) past a perfect Outer clear. The Core price moved with it for two
+reasons: it keeps the tier ladder meaningful (a premium Core card at 120 would
+have been only 20 credits above a Mid card), and it widens B3's window, which
+read `k_grind = 23` against a bar of 20 with `w_g` sitting five points under the
+0.70 edge §8 names. `PAYOUT_RATIO` and `STAKE_STEP` untouched.
+
+No exact-value test needed amending: the floors did not move, so
+`ante_floor_is_the_difficulty_scalar`, `cheapest_floor_…`'s `== 10` and
+`profile.rs`'s 59/60 reserve boundary all still hold as written, and
+`every_card_has_a_positive_price_that_rises_with_tier` asserts the tier ladder
+as inequalities (20 < 100 < 200), not values.
+
+```
+targets
+  T1 starter vs greeb >= 65%                                          67.6  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 54.8 (dax)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 39.6 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 28.8 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 67.9 (dax)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 65.0 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.0 (sovereign), sovereign 51.0  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.0 vs next 56.2 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 15.8 (kesh) vs 2·EV_g 7.0  PASS; @2×floor 31.6  PASS
+bounds (SEED 50, reserve 10, P_outer 20, P_mid 100, P_core 200)
+  B1 first Outer card within 5 Greeb floor matches                    k=0  PASS
+  B2 first Mid card not affordable after one Outer Rim clear          (90 vs 110); grind k=6  PASS
+  B3 Core card by Greeb grind >= 20 matches                           k_grind=46  PASS
+  B4 Core card by Mid Rim bets < k_grind/2                            best k_bet@floor=11 (kesh), @2×floor=6  PASS
+  B5 ruin within 8 floor losses; staked win never broke (021)         k_ruin=5  PASS
+summary: targets 8/8, coupling 1/1, bounds 5/5
+```
+
+Stop condition met on the first iteration. B4 reads PASS **at the floor**
+(`k_bet = 11` against `k_grind/2 = 23`), not "above floor", so nothing routes
+back to T004a.
+
+## T005 — final table
+
+The run above is the final run (one iteration, one edit). Verbatim and in full
+— this is the table `docs/balance.md` records in T007 (N = `DEFAULT_N` = 10 000,
+2026-09-13, macOS, release profile).
+
+```
+
+running 1 test
+
+deck            opponent          n    win%   ev/match@floor
+starter         greeb         10000    67.6             +3.5
+starter         dax           10000    54.8             +1.0
+starter         vessa         10000    55.9             +2.4
+starter         nima          10000    38.2             -7.0
+starter         toran         10000    39.6             -6.2
+starter         brakka        10000    37.2             -7.7
+starter         rix           10000    28.8            -21.2
+starter         kesh          10000    37.2            -12.8
+starter         magistrate    10000    28.4            -21.6
+starter         sovereign     10000    23.2            -26.8
+standard        greeb         10000    77.1             +5.4
+standard        dax           10000    65.0             +3.0
+standard        vessa         10000    67.5             +7.0
+standard        nima          10000    50.3             +0.2
+standard        toran         10000    52.8             +1.7
+standard        brakka        10000    49.8             -0.1
+standard        rix           10000    40.2             -9.8
+standard        kesh          10000    50.0             -0.0
+standard        magistrate    10000    39.5            -10.5
+standard        sovereign     10000    35.3            -14.7
+best_outer      greeb         10000    80.0             +6.0
+best_outer      dax           10000    67.9             +3.6
+best_outer      vessa         10000    69.3             +7.7
+best_outer      nima          10000    52.2             +1.3
+best_outer      toran         10000    56.6             +4.0
+best_outer      brakka        10000    52.8             +1.7
+best_outer      rix           10000    42.6             -7.4
+best_outer      kesh          10000    52.5             +2.5
+best_outer      magistrate    10000    42.2             -7.8
+best_outer      sovereign     10000    36.1            -13.9
+best_outer_mid  greeb         10000    86.4             +7.3
+best_outer_mid  dax           10000    77.5             +5.5
+best_outer_mid  vessa         10000    79.5            +11.8
+best_outer_mid  nima          10000    65.0             +9.0
+best_outer_mid  toran         10000    66.4             +9.8
+best_outer_mid  brakka        10000    66.2             +9.7
+best_outer_mid  rix           10000    57.0             +7.0
+best_outer_mid  kesh          10000    65.8            +15.8
+best_outer_mid  magistrate    10000    54.1             +4.1
+best_outer_mid  sovereign     10000    48.0             -2.0
+best_full       greeb         10000    87.7             +7.5
+best_full       dax           10000    78.4             +5.7
+best_full       vessa         10000    81.0            +12.4
+best_full       nima          10000    66.7            +10.0
+best_full       toran         10000    67.8            +10.7
+best_full       brakka        10000    67.5            +10.5
+best_full       rix           10000    59.3             +9.3
+best_full       kesh          10000    67.6            +17.6
+best_full       magistrate    10000    56.2             +6.2
+best_full       sovereign     10000    51.0             +1.0
+targets
+  T1 starter vs greeb >= 65%                                          67.6  PASS
+  T2 starter vs each Outer Rim opponent >= 50%                        min 54.8 (dax)  PASS
+  T3 starter vs each Mid Rim opponent < 50%                           max 39.6 (toran)  PASS
+  T4 starter vs each Core opponent < 33%                              max 28.8 (rix)  PASS
+  T5 best_outer vs each Outer Rim opponent >= 55%                     min 67.9 (dax)  PASS
+  T6 best_outer_mid vs each Mid Rim opponent >= 50%                   min 65.0 (nima)  PASS
+  T7 best_full vs each Core opponent >= 45%; sovereign 45-55%         min 51.0 (sovereign), sovereign 51.0  PASS
+  T8 ordering: outer <= outer_mid <= full (tol 2); sovereign hardest  worst drop 0.0 (-); sovereign 51.0 vs next 56.2 (magistrate)  PASS
+  C  B4 coupling (T004): best EV_m@floor 15.8 (kesh) vs 2·EV_g 7.0  PASS; @2×floor 31.6  PASS
+bounds (SEED 50, reserve 10, P_outer 20, P_mid 100, P_core 200)
+  B1 first Outer card within 5 Greeb floor matches                    k=0  PASS
+  B2 first Mid card not affordable after one Outer Rim clear          (90 vs 110); grind k=6  PASS
+  B3 Core card by Greeb grind >= 20 matches                           k_grind=46  PASS
+  B4 Core card by Mid Rim bets < k_grind/2                            best k_bet@floor=11 (kesh), @2×floor=6  PASS
+  B5 ruin within 8 floor losses; staked win never broke (021)         k_ruin=5  PASS
+summary: targets 8/8, coupling 1/1, bounds 5/5
+test balance_table ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 3 filtered out; finished in 4.69s
+```
+
+### Final economy constants
+
+| constant | value | changed by T005? |
+| --- | --- | --- |
+| `SEED_PURSE` | 50 | no |
+| `ANTE_BASE_THRESHOLD` | 14 | no |
+| `ANTE_PER_THRESHOLD_STEP` | 10 | no |
+| `card_price` Outer | 20 | no |
+| `card_price` Mid | 100 | **yes** (50) |
+| `card_price` Core | 200 | **yes** (120) |
+| `PAYOUT_RATIO` | 1 | no (out of scope) |
+| `STAKE_STEP` | 5 | no (out of scope) |
+
+The win-rate grid reproduces T004's converged table within sampling noise
+(T004's final run: T1 67.9 → 67.6, T3 40.5 → 39.6, T4 29.0 → 28.8, T6 64.4 →
+65.0, T7 51.8 → 51.0, `C` 16.2 vs 7.2 → 15.8 vs 7.0) — nothing T004 owns was
+touched, so the differences are the simulator's unseeded sampling only.

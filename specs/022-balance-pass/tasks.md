@@ -200,7 +200,7 @@ ends with the spec's play attestation. -->
   review and not to the orchestrator's escape hatch (CLAUDE.md's
   do-it-yourself rule does not apply to tuning — plan §Design 4).*
 
-- [ ] **T005** — Tune the economy bounds B1, B2, B3, B5. Levers exactly plan
+- [x] **T005** — Tune the economy bounds B1, B2, B3, B5. Levers exactly plan
   §Design 4 (T005 bullet): `card_price` by tier, `SEED_PURSE`,
   `ANTE_BASE_THRESHOLD`, `ANTE_PER_THRESHOLD_STEP` — **not** `PAYOUT_RATIO`,
   **not** `STAKE_STEP` (it enters no bound; `wager.rs` stays untouched), and
@@ -360,7 +360,7 @@ iteration count in the outcome column. -->
 | Phase 1 review (skeptical-reviewer) | opus | ~58K (measured return) | signed off, 0 blocking, 7 notes — N2 (no test pins starter ⊆ ALL_SIDE_CARDS) carried to T004; N1 (start_match precondition doc half-stale) to T007; rest informational |
 | T003 impl (sdd-implementer) | opus | ~77K (measured return) | done first try; two DEFAULT_N runs ≈ 4.9 s and 4.8 s (compile excluded), max per-pair |Δ| 1.1 pts, no doubling; BEST_OUTER and BEST_OUTER_MID replaced by measured winners, BEST_FULL kept after an N=10k tie-break; finding: T8 sits at 1.9 vs TOL 2 because the plan's full-pool deck barely beats the Mid deck — T004 may replace it |
 | T004 impl (sdd-implementer) | opus | ~146K (measured return) | iterations: 5 (converged at 4; 5th fixed the misplay ramp and re-checked) — `targets 8/8, coupling 1/1`, C passes at the floor; levers used: opponent decks/misplays/strategies/two thresholds, starter deck + spares, BEST_FULL; card_tier untouched |
-| T005 impl (sdd-implementer) | opus | | iterations: |
+| T005 impl (sdd-implementer) | opus | ~57K (measured return) | iterations: 1 — Mid price 50→100, Core 120→200; `bounds 5/5`, B4 PASS at the floor; no exact-value test needed amending (floors unchanged); profile.rs untouched |
 | Phase 2 review (skeptical-reviewer) | opus | | |
 | T006 impl (sdd-implementer) | opus | | |
 | T007 impl (sdd-implementer) | opus | | |

@@ -89,8 +89,8 @@ pub fn available_pool(run: &CampaignRun) -> Vec<Card> {
 pub fn card_price(card: Card) -> u32 {
     match card_tier(card) {
         RegionTier::Outer => 20,
-        RegionTier::Mid => 50,
-        RegionTier::Core => 120,
+        RegionTier::Mid => 100,
+        RegionTier::Core => 200,
     }
 }
 
