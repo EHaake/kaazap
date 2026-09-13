@@ -90,17 +90,17 @@ typography here means glyph discipline:
 
 ## Density and breathing room
 
-Text on any one screen or modal is **sparse by default**. A prompt, notice,
-or panel gets an empty row above and below the thing the player acts on
-(the stake, the selected item, the confirm line), and one empty row between
-a title and its body; adjacent lines of different purpose never touch. The
-test is the glance: the player should find the one thing they need to read
-without scanning. This is a standing rule because dense modals have come up
-in review more than once (spec 021's wager prompt, and earlier panels) — the
-default an AI-assisted TUI reaches for is to pack every row, so the
-instruction has to be the other way. Sparse is not "padded panels" from the
-avoid-list above: no extra borders or boxes, just empty rows and margins
-inside the box that already exists.
+Text on a screen or modal stays **compact**, and the **one element the
+player acts on** — the stake, the selected item, the confirm line — gets
+an empty row above and below it so it stands apart at a glance. That is
+the whole rule: air marks the interactive line, not every line. Titles,
+figures, and hints stay packed as before; adding blank rows everywhere
+just makes the box taller and the acted-on line no easier to find (the
+first application of this rule did exactly that and was rolled back the
+same day, 2026-09-13). The modal box itself pads its content evenly, one
+empty row above and below, never a slab of empty rows under the text.
+Sparse here is not "padded panels" from the avoid-list above: no extra
+borders or boxes, just the one gap inside the box that already exists.
 
 ## Signature element
 

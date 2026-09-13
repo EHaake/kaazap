@@ -41,13 +41,14 @@ standing instruction to Claude Code as much as a note to the human.
   (ratatui, etc.); that would mean rewriting the whole rendering layer
   for a mostly-cosmetic win.
 - **Language**: Rust, 2024 edition, stable toolchain.
-- **Sparse text by default.** Modals, prompts, and panels leave an empty
-  row above and below the element the player acts on and between a title
-  and its body; lines of different purpose never sit flush. This is the
-  design brief's *Density and breathing room* rule (added 2026-09-13 after
-  the wager prompt shipped dense, the third such review finding); a new or
-  changed screen is checked against it at review, not after the person
-  plays it.
+- **The acted-on element stands apart.** In a modal, prompt, or panel,
+  the one element the player acts on (a stake, a selection, a confirm
+  line) gets an empty row above and below it; the rest of the text stays
+  compact. This is the design brief's *Density and breathing room* rule
+  (added 2026-09-13 after the wager prompt shipped dense; corrected the
+  same day when the first application over-padded every row — the person
+  ruled that only the acted-on line gets air). A new or changed screen is
+  checked against it at review, not after the person plays it.
 
 ## Architecture
 
