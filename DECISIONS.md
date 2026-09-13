@@ -878,7 +878,8 @@ the human after playing the spec 022 build (PR #26; branch kept).
   supersedes spec 021's "On acknowledgement … a fresh map opens" — a lost run
   should read as an ending, not an instant restart. New Campaign from the
   map's own panel still resets and opens the map.
-- **The wager prompt breathes.** An empty row under the title and above and
+- **The wager prompt breathes** *(superseded the same day — see the next
+  entry: only the stake row gets air).* An empty row under the title and above and
   below the stake row and the win/lose line; text unchanged; emphasis chosen by
   each row's role rather than a hardcoded index. This is the first application
   of the design brief's *Density and breathing room* rule, added the same day
@@ -894,3 +895,20 @@ the human after playing the spec 022 build (PR #26; branch kept).
   through `ProjectDirs` with no injection seam, so an `App`-level test would
   read and write the real profile. A path-injection seam is a candidate chore
   of its own; until then the run-over destination is verified by playing.
+
+## Chore: only the acted-on row gets air; modals pad evenly (2026-09-13)
+
+The human's correction to the wager-prompt spacing above (PR #27; branch kept).
+
+- **The rule was over-read.** The first application padded every row of the
+  wager prompt, which made the box taller without making the stake any easier
+  to find. The human's intent is narrower and now stands as the rule in
+  `CLAUDE.md` and `design/brief.md`: the one element the player acts on gets an
+  empty row above and below; everything else stays compact. The wager prompt
+  is back to its original rows plus one blank above and one below the stake.
+- **Modal boxes pad evenly.** `OverlayLayout` sized every small modal with four
+  rows of padding but placed the content two rows from the top, so each showed
+  one empty row above the text and about five below. The box is now border,
+  one empty row, content, one empty row, border — for the wager, run-over,
+  confirm, settings and help overlays alike. `V_PAD` now means the total
+  vertical padding; `H_PAD` is still per side.
