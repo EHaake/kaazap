@@ -140,9 +140,10 @@ impl WagerState {
 
     /// The prompt's content rows as plain text, in draw order — pure, so the
     /// tests read the same strings the box renders. Blank entries are the
-    /// spacer rows the design brief's breathing-room rule calls for (one above
-    /// and one below the stake the player acts on; every other row is packed);
-    /// the box grows with them, since [`draw`] sizes the overlay from [`rows`].
+    /// spacer rows the design brief's breathing-room rule calls for: the one
+    /// element the player acts on — the stake — gets an empty row above and
+    /// below, and every other row stays compact. The box grows with them,
+    /// since [`draw`] sizes the overlay from [`rows`].
     ///
     /// [`draw`]: WagerState::draw
     /// [`rows`]: WagerState::rows
@@ -281,10 +282,10 @@ mod tests {
 
     #[test]
     fn rows_breathe_around_the_stake() {
-        // The design brief's density rule: a blank row above and below the row
-        // the player acts on, and nowhere else — the rest of the prompt stays
-        // packed. Roles (not indices) carry the emphasis, so the spacers can't
-        // shift it.
+        // The design brief's breathing-room rule: the one element the player
+        // acts on — the stake — gets an empty row above and below, and every
+        // other row stays compact. Roles (not indices) carry the emphasis, so
+        // the spacers can't shift it.
         let s = state(53);
         let rows = s.rows();
         let roles: Vec<Role> = rows.iter().map(|(role, _)| *role).collect();

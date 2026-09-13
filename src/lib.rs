@@ -33,7 +33,13 @@ pub const CARD_WIDTH: usize = 9;
 pub const CARD_HEIGHT: usize = 5;
 
 // Padding
+/// Horizontal padding of an overlay box, **per side**: the box is
+/// `content_width + 2 * H_PAD` wide, and `inner` is inset `H_PAD / 2` on
+/// the left and the right.
 pub const H_PAD: usize = 4;
+/// Vertical padding of an overlay box, **in total** (not per side): the box
+/// is `content_height + V_PAD` tall, and `inner` is inset `V_PAD / 2` at the
+/// top and the bottom — so `inner` is exactly as tall as the content.
 pub const V_PAD: usize = 4;
 
 // Offsets

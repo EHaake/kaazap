@@ -690,10 +690,12 @@ impl OverlayLayout {
         //
         // Vertically the box is border + one blank row + content + one
         // blank row + border: `inner` is inset `V_PAD / 2` top and bottom,
-        // so `content_height + V_PAD` makes `inner` exactly as tall as the
-        // content and leaves the same gap above it as below. (A taller box
-        // would pad only the top, since callers draw from `inner`'s first
-        // row down.)
+        // so for `content_height >= 1` on a box that fits the frame,
+        // `content_height + V_PAD` makes `inner` exactly as tall as the
+        // content and leaves the same gap above it as below. (At
+        // `content_height == 0` the clamp that keeps `inner` from inverting
+        // leaves it one row tall instead. A taller box would pad only the
+        // top, since callers draw from `inner`'s first row down.)
         let box_width = (content_width + 2 * H_PAD).min(cols);
         let box_height = (content_height + V_PAD).min(rows);
 
