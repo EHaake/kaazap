@@ -47,7 +47,7 @@ standing instruction to Claude Code as much as a note to the human.
 - `App` (`app.rs`) owns a `Screen` enum and routes input to whichever
   screen is active. `Screen::StartMenu` and `Screen::InGame` each own
   their own state (`MenuState`, `GameState`). New top-level modes
-  (campaign map, shop/pack-opening) should become new `Screen`
+  (campaign map, shop) should become new `Screen`
   variants — don't bolt them onto existing ones. *Menu sub-panels*
   (How to Play, Settings), by contrast, are overlays shown over
   `StartMenu` — `App` holds their transient state and routes input to
@@ -69,8 +69,8 @@ standing instruction to Claude Code as much as a note to the human.
   save/load, and audio are added.
 - `GamePhase` already drives the core state machine
   (`PlayerTurn` → `OpponentThinking` → `OpponentTurn` → `RoundEnd` →
-  `AwaitingNextRound` → `GameOver`). Extend it for new phases (pack
-  opening, shop) rather than adding parallel ad hoc flags.
+  `AwaitingNextRound` → `GameOver`). Extend it for new phases rather
+  than adding parallel ad hoc flags.
 
 ## Testing
 
