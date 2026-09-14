@@ -116,7 +116,7 @@ match with the new keys (no onboarding pieces yet). -->
   verbatim with the three new tests passing and all `cursor_confirm_*` tests
   unchanged; `git diff --stat` shows only `src/app.rs`.*
 
-- [ ] **T004** — `src/board.rs`: the turn hints. Delete the
+- [x] **T004** — `src/board.rs`: the turn hints. Delete the
   `AwaitingSignChoice` branch of `status_message` (the phase now falls to
   `_ => None`) and its "number-key path" doc; rewrite `play_prompt_line` and
   `over_twenty_alert` to the exact strings in plan tension §7. Tests: rewrite
@@ -316,3 +316,4 @@ policy as settled. -->
 | T001 impl (sdd-implementer) | opus | ~41K (measured return) | done first try; note: the private `profile_with` test helper constructs `Profile` literally, so every additive field must be added there too |
 | T002 impl (sdd-implementer) | opus | ~41K (measured return) | done first try; kept a two-line early return so `AwaitingSignChoice` answers `None` for every key (plan §Design 2's "d, s unchanged" would have left `d` live there, contradicting §Tests bullet 3) — plan snippet reconciled by the orchestrator; for the Phase 1 review |
 | T003 impl (sdd-implementer) | opus | ~43K (measured return) | done first try; `Play` binds lowercase `p` only (matches the existing lowercase x/d/s convention); Continue arm binds `mut game` to apply the cancel |
+| T004 impl (sdd-implementer) | opus | ~37K (measured return) | done first try; the ± hint line measures 64 chars against the 81-col band (at the plan's stated ceiling — re-measure if a key is ever added) |
