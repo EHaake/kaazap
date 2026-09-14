@@ -107,17 +107,18 @@ that is what the spacebar does.
 
 ### The primer
 
-- **When.** The galaxy map screen opens (from Start Campaign's no-progress
-  path, Continue, or a confirmed discard-and-enter) and the profile's primer
-  mark is unset. Not on Back from the shop or the deck-builder — those return
-  to a map the player has already seen — and not from a match's game-over
+- **When.** The galaxy map screen opens from the start menu — Start
+  Campaign's no-progress path, Continue, a confirmed discard-and-enter, or a
+  confirmed New Campaign — and the profile's primer mark is unset. (New
+  Campaign is only reachable from the start menu; there is no map-side New
+  Campaign.) Not on Back from the shop or the deck-builder — those return to
+  a map the player has already seen — and not from a match's game-over
   acknowledgement.
 - **Precedence.** If the map opens broke (an existing profile from before this
   spec could), the run-over notice shows instead and the primer waits for the
   next time the map opens. One modal at a time.
 - **While up.** The map is visible underneath. No node can be launched, no
-  wager prompt, shop, deck-builder or New Campaign panel opens until it is
-  dismissed.
+  wager prompt, shop or deck-builder opens until it is dismissed.
 - **Dismissal.** Enter, Space or Esc; every other key is ignored, matching the
   run-over notice. Dismissing sets and saves the mark. Quitting the app with the
   primer up leaves the mark unset, so it shows again next time.
@@ -244,8 +245,8 @@ On the player's turn:
 ## Acceptance criteria
 
 - [ ] A fresh profile's first entry to the galaxy map shows the primer with
-      the text above; Enter, Space or Esc dismisses it; no node, wager, shop,
-      deck-builder or New Campaign panel opens while it is up; it does not show
+      the text above; Enter, Space or Esc dismisses it; no node, wager, shop
+      or deck-builder opens while it is up; it does not show
       on any later map open, including after a run-over reset and after New
       Campaign.
 - [ ] A fresh profile's first match — Quick Play or campaign — shows the
