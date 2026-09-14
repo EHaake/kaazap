@@ -136,7 +136,7 @@ match with the new keys (no onboarding pieces yet). -->
   verbatim; `grep -n "(h)\|h/l\|number-key" src/board.rs` is empty; `git
   diff --stat` shows only `src/board.rs`.*
 
-- [ ] **T005** — `assets/game_overlay_text.txt`, `assets/how_to_play_text.txt`,
+- [x] **T005** — `assets/game_overlay_text.txt`, `assets/how_to_play_text.txt`,
   `src/overlay.rs` (tests only): the help texts. Edit the five control rows
   and the last line of the game overlay exactly as plan §Design 4; in How to
   Play replace the last line with the spec's campaign section and controls
@@ -317,3 +317,4 @@ policy as settled. -->
 | T002 impl (sdd-implementer) | opus | ~41K (measured return) | done first try; kept a two-line early return so `AwaitingSignChoice` answers `None` for every key (plan §Design 2's "d, s unchanged" would have left `d` live there, contradicting §Tests bullet 3) — plan snippet reconciled by the orchestrator; for the Phase 1 review |
 | T003 impl (sdd-implementer) | opus | ~43K (measured return) | done first try; `Play` binds lowercase `p` only (matches the existing lowercase x/d/s convention); Continue arm binds `mut game` to apply the cancel |
 | T004 impl (sdd-implementer) | opus | ~37K (measured return) | done first try; the ± hint line measures 64 chars against the 81-col band (at the plan's stated ceiling — re-measure if a key is ever added) |
+| T005 impl (sdd-implementer) | opus | ~39K (measured return) | done first try; fit test also covers MenuHelp; How to Play is now 24 lines (28-row box) |

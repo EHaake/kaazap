@@ -224,4 +224,71 @@ mod tests {
         assert!(top.at_top);
         assert_eq!(top.scroll, 0);
     }
+
+    /// The overlay text as the game ships it, read the same way `draw` does.
+    fn text(kind: OverlayKind) -> Vec<String> {
+        let (cols, rows) = Config::min_size();
+        Overlay::new(kind, Config { num_cols: cols, num_rows: rows }).read_text_from_file()
+    }
+
+    #[test]
+    fn help_texts_name_the_new_keys_and_nothing_old() {
+        let game = text(OverlayKind::GameHelp);
+        let has = |rows: &[String], a: &str, b: &str| {
+            rows.iter().any(|l| l.contains(a) && l.contains(b))
+        };
+        assert!(has(&game, "Space / D", "Draw"), "no Space/D draw row: {game:?}");
+        assert!(has(&game, "Enter / P", "Play"), "no Enter/P play row: {game:?}");
+        assert!(has(&game, "1 2 3 4", "Select"), "no 1-4 select row: {game:?}");
+        assert!(
+            !game.iter().any(|l| l.contains("Enter / Space")),
+            "the game overlay still pairs Enter with Space: {game:?}"
+        );
+        assert!(
+            !has(&game, "1 2 3 4", "Play"),
+            "the game overlay still says 1-4 play a card: {game:?}"
+        );
+
+        let how = text(OverlayKind::HowToPlay);
+        assert!(
+            how.iter().any(|l| l.contains("Campaign:")),
+            "How to Play has no campaign section: {how:?}"
+        );
+        assert!(
+            how.iter().any(|l| l.contains("Space draws")),
+            "How to Play does not name Space as draw: {how:?}"
+        );
+        assert!(
+            how.iter().any(|l| l.contains("Enter plays it")),
+            "How to Play does not name Enter as play: {how:?}"
+        );
+        assert!(
+            !how.iter().any(|l| l.contains("Enter/Space")),
+            "How to Play still pairs Enter with Space: {how:?}"
+        );
+    }
+
+    #[test]
+    fn help_texts_fit_the_minimum_terminal_unclamped() {
+        // The boxes must still fit 139×31 with margin — if either outgrows the
+        // frame, OverlayLayout clamps and the rows get eaten.
+        let (cols, rows) = Config::min_size();
+        let config = Config { num_cols: cols, num_rows: rows };
+        for kind in [OverlayKind::GameHelp, OverlayKind::MenuHelp, OverlayKind::HowToPlay] {
+            let lines = text(kind);
+            let (width, height) = measure(&lines);
+            let layout = OverlayLayout::new(config, width, height);
+            assert_eq!(
+                layout.outer.height(),
+                height + crate::V_PAD,
+                "box height clamped — {kind:?} outgrew the minimum terminal"
+            );
+            assert_eq!(
+                layout.outer.width(),
+                width + 2 * crate::H_PAD,
+                "box width clamped — {kind:?}"
+            );
+            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame: {kind:?}");
+        }
+    }
 }
