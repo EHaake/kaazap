@@ -224,7 +224,7 @@ after the `Profile::default()` swap. `Default` leaves both false.
 },
 ```
 
-`d`, `s`, `n`, `g` unchanged. New:
+`d`, `s`, `n`, `g` unchanged on the player's turn; the fn opens with an early `return None` for `AwaitingSignChoice`, so no key — `d` and `s` included — maps to anything in that phase (tension §1; reconciled with §Tests bullet 3 at T002). New:
 
 ```rust
 /// Re-arm the opponent's thinking pause from now, if one is running (spec 023:

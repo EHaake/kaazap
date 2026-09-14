@@ -58,7 +58,7 @@ match with the new keys (no onboarding pieces yet). -->
   (reported verbatim) with the two tests named passing; `git diff --stat`
   shows only `src/profile.rs`.*
 
-- [ ] **T002 (foundational)** — `src/game.rs`: the key map and the pause
+- [x] **T002 (foundational)** — `src/game.rs`: the key map and the pause
   helper. In `game_action_from_key` delete the `AwaitingSignChoice` branch
   (h/l/+/−/1/2/c) and the `'1' | '2' | '3' | '4' => PlayHand` arm; make `' '`
   map to `Hit` in `PlayerTurn` (plan §Design 2, exact match block) and keep
@@ -314,3 +314,4 @@ policy as settled. -->
 | plan + tasks sign-off (skeptical-reviewer) | fable | ~70K (measured return) | 1 blocking (start_new_campaign never raised the primer after the spec's New Campaign amendment; reviewer verified New Campaign is menu-only) + 6 notes — B1, S1–S5 sent to the planner and applied; S6 (phantom map-side panel wording) fixed in spec.md by the orchestrator |
 | sign-off re-review (skeptical-reviewer) | fable | ~17K (measured return) | signed off; 2 wording notes applied by the orchestrator (T007: the open_campaign_map grep also hits enter_campaign_map's body and a doc comment; T008: the post-Continue new match must be launched from opponent select or the map, not G) |
 | T001 impl (sdd-implementer) | opus | ~41K (measured return) | done first try; note: the private `profile_with` test helper constructs `Profile` literally, so every additive field must be added there too |
+| T002 impl (sdd-implementer) | opus | ~41K (measured return) | done first try; kept a two-line early return so `AwaitingSignChoice` answers `None` for every key (plan §Design 2's "d, s unchanged" would have left `d` live there, contradicting §Tests bullet 3) — plan snippet reconciled by the orchestrator; for the Phase 1 review |
