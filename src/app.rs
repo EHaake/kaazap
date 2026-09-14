@@ -83,7 +83,8 @@ impl SelectionPulse {
 /// The player's card-selection cursor: which hand slot is selected, and
 /// the pending sign for a plus-or-minus / tiebreaker card. Pure logic
 /// over the hand — the arrow-key/Enter interaction model deferred from
-/// spec 001. Coexists with the direct number-key + h/l play path.
+/// spec 001. Since spec 023 it is the only way a card is played: the
+/// number keys select through it too.
 #[derive(Debug)]
 pub struct HandCursor {
     index: usize,
@@ -123,6 +124,18 @@ impl HandCursor {
             self.index = next;
         }
         self.pending_positive = true;
+    }
+
+    /// Select `index` if that slot is occupied (1–4, spec 023) — then does
+    /// exactly what `move_left` / `move_right` do after landing: sets the index
+    /// and resets the pending sign to positive (selecting the already-selected
+    /// slot resets it too, as an arrow that lands on the same slot does). An
+    /// empty or out-of-range slot changes nothing, sign included.
+    pub fn select(&mut self, index: usize, hand: &[Option<Card>]) {
+        if matches!(hand.get(index), Some(Some(_))) {
+            self.index = index;
+            self.pending_positive = true;
+        }
     }
 
     /// Flip the pending sign — only meaningful on a sign-choice card.
@@ -325,6 +338,38 @@ fn confirm_choice(on_yes: bool, key: KeyCode) -> ConfirmChoice {
 /// notice, since there is nothing to go back to.
 fn run_over_acknowledged(key: KeyCode) -> bool {
     matches!(key, KeyCode::Enter | KeyCode::Char(' '))
+}
+
+/// What a key does in a match — the decision table behind the InGame arm,
+/// pulled out so the spec-023 bindings are unit-testable without an `App`
+/// (the `confirm_choice` pattern). On the player's turn: 1–4 select, ←/→ move,
+/// ↑/↓ flip, Enter / P play; every other char (Space, d, s, n, g…) goes to the
+/// engine's key map, which validates by phase. Esc / x always leave.
+#[derive(Debug, PartialEq, Eq)]
+enum TurnKey {
+    Menu,
+    MoveLeft,
+    MoveRight,
+    FlipSign,
+    Select(usize),
+    Play,
+    Engine(char),
+    Ignore,
+}
+
+fn turn_key(key: KeyCode, player_turn: bool) -> TurnKey {
+    match key {
+        KeyCode::Esc | KeyCode::Char('x') => TurnKey::Menu,
+        KeyCode::Left if player_turn => TurnKey::MoveLeft,
+        KeyCode::Right if player_turn => TurnKey::MoveRight,
+        KeyCode::Up | KeyCode::Down if player_turn => TurnKey::FlipSign,
+        KeyCode::Char(c @ '1'..='4') if player_turn => {
+            TurnKey::Select(c as usize - '1' as usize)
+        }
+        KeyCode::Enter | KeyCode::Char('p') if player_turn => TurnKey::Play,
+        KeyCode::Char(c) => TurnKey::Engine(c),
+        _ => TurnKey::Ignore,
+    }
 }
 
 /// Where the deck-builder's `Back` returns to — the menu or the campaign map.
@@ -953,37 +998,33 @@ impl App {
                     None => {}
                 },
 
-                // Route the game inputs to game_state. The cursor model
-                // (arrows + Enter/Space) and the direct keys (1-4, d/s, h/l)
-                // coexist — cursor keys act only on the player's turn.
+                // Route the game inputs to game_state through the `turn_key`
+                // table (spec 023): the cursor keys — 1-4, arrows, Enter/P —
+                // act only on the player's turn; every other char goes to the
+                // engine's key map, which validates it by phase.
                 Screen::InGame { game_state, cursor } => {
                     let player_turn = matches!(game_state.game_phase, GamePhase::PlayerTurn);
-                    match key {
+                    match turn_key(key, player_turn) {
                         // Esc or X quits the game back to the main menu
-                        KeyCode::Char('x') | KeyCode::Esc => {
+                        TurnKey::Menu => {
                             self.screen = self.start_menu();
                         }
-                        KeyCode::Left if player_turn => cursor.move_left(&game_state.player.hand),
-                        KeyCode::Right if player_turn => cursor.move_right(&game_state.player.hand),
-                        KeyCode::Up | KeyCode::Down if player_turn => {
-                            cursor.toggle_sign(&game_state.player.hand)
-                        }
-                        // Space mirrors Enter here: it's the "select /
-                        // confirm" key everywhere else, so on the player's
-                        // turn it plays the highlighted card. Drawing has its
-                        // own dedicated key (D).
-                        KeyCode::Enter | KeyCode::Char(' ') if player_turn => {
+                        TurnKey::MoveLeft => cursor.move_left(&game_state.player.hand),
+                        TurnKey::MoveRight => cursor.move_right(&game_state.player.hand),
+                        TurnKey::FlipSign => cursor.toggle_sign(&game_state.player.hand),
+                        TurnKey::Select(i) => cursor.select(i, &game_state.player.hand),
+                        TurnKey::Play => {
                             cursor_confirm(game_state, cursor);
                             game_changed = true;
                         }
-                        KeyCode::Char(c) => {
+                        TurnKey::Engine(c) => {
                             if let Some(game_action) = game_state.handle_game_input(c) {
                                 game_state.apply_game_action(game_action);
                                 cursor.normalize(&game_state.player.hand);
                                 game_changed = true;
                             }
                         }
-                        _ => {}
+                        TurnKey::Ignore => {}
                     }
                 }
 
@@ -1283,7 +1324,12 @@ impl App {
                 // Resume the saved match. Continue only appears when a save
                 // exists, but a race or corruption could still yield None —
                 // then it's a no-op, not a crash.
-                if let Some(game) = crate::save::load() {
+                if let Some(mut game) = crate::save::load() {
+                    // A pre-023 save can sit in AwaitingSignChoice (the old `1`
+                    // on a ± card saved there). No key answers that phase any
+                    // more, so cancel it on load: a no-op everywhere else, and
+                    // there it returns the card to hand at PlayerTurn.
+                    game.apply_game_action(GameAction::CancelSignChoice);
                     // The cursor isn't saved. Snap it onto a real hand card:
                     // the default index 0 may now be empty (that card was
                     // played), which would show the empty-hand prompt on the
@@ -1744,6 +1790,41 @@ mod tests {
     }
 
     #[test]
+    fn turn_key_binds_the_spec_023_keys() {
+        use TurnKey::*;
+
+        // On the player's turn: 1-4 select that slot...
+        assert_eq!(turn_key(KeyCode::Char('1'), true), Select(0));
+        assert_eq!(turn_key(KeyCode::Char('4'), true), Select(3));
+        // ...Enter and P play the selection...
+        assert_eq!(turn_key(KeyCode::Enter, true), Play);
+        assert_eq!(turn_key(KeyCode::Char('p'), true), Play);
+        // ...the arrows move and flip...
+        assert_eq!(turn_key(KeyCode::Left, true), MoveLeft);
+        assert_eq!(turn_key(KeyCode::Right, true), MoveRight);
+        assert_eq!(turn_key(KeyCode::Up, true), FlipSign);
+        assert_eq!(turn_key(KeyCode::Down, true), FlipSign);
+        // ...and every other char is the engine's (Space draws there).
+        assert_eq!(turn_key(KeyCode::Char(' '), true), Engine(' '));
+        assert_eq!(turn_key(KeyCode::Char('d'), true), Engine('d'));
+        assert_eq!(turn_key(KeyCode::Char('s'), true), Engine('s'));
+
+        // Off the player's turn the cursor keys do nothing, but Space — and
+        // the number keys, which the engine maps to nothing — still pass.
+        assert_eq!(turn_key(KeyCode::Enter, false), Ignore);
+        assert_eq!(turn_key(KeyCode::Left, false), Ignore);
+        assert_eq!(turn_key(KeyCode::Up, false), Ignore);
+        assert_eq!(turn_key(KeyCode::Char(' '), false), Engine(' '));
+        assert_eq!(turn_key(KeyCode::Char('1'), false), Engine('1'));
+
+        // Esc / x leave the match either way.
+        for on_turn in [true, false] {
+            assert_eq!(turn_key(KeyCode::Esc, on_turn), Menu);
+            assert_eq!(turn_key(KeyCode::Char('x'), on_turn), Menu);
+        }
+    }
+
+    #[test]
     fn cursor_move_right_skips_empty_slots_and_wraps() {
         // occupied at 0 and 2; 1 and 3 empty
         let h = hand(&[Some(Card::Plus(2)), None, Some(Card::Minus(4)), None]);
@@ -1824,6 +1905,48 @@ mod tests {
         h[1] = None; // that card was played
         c.normalize(&h);
         assert_eq!(c.index(), 0); // snapped back to the remaining card
+    }
+
+    #[test]
+    fn cursor_select_lands_on_an_occupied_slot_and_resets_the_sign_like_a_move() {
+        let h = hand(&[Some(Card::PlusMinus(3)), Some(Card::Minus(4)), None, None]);
+
+        // Selecting slot 2 from a flipped slot 1 leaves exactly the state an
+        // arrow landing there would.
+        let mut c = HandCursor::default();
+        c.toggle_sign(&h); // negative on the ±3
+        c.select(1, &h);
+        assert_eq!(c.index(), 1);
+        assert!(c.pending_positive());
+
+        let mut moved = HandCursor::default();
+        moved.toggle_sign(&h);
+        moved.move_right(&h);
+        assert_eq!((c.index(), c.pending_positive()), (moved.index(), moved.pending_positive()));
+
+        // Selecting the already-selected slot resets the sign too, as an arrow
+        // landing on the same slot does.
+        let mut c = HandCursor::default();
+        c.toggle_sign(&h);
+        assert!(!c.pending_positive());
+        c.select(0, &h);
+        assert_eq!(c.index(), 0);
+        assert!(c.pending_positive());
+    }
+
+    #[test]
+    fn cursor_select_ignores_an_empty_or_out_of_range_slot() {
+        let h = hand(&[Some(Card::PlusMinus(3)), Some(Card::Minus(4)), None, None]);
+        let mut c = HandCursor::default();
+        c.toggle_sign(&h); // negative on the ±3
+
+        c.select(2, &h); // empty slot
+        assert_eq!(c.index(), 0);
+        assert!(!c.pending_positive()); // sign untouched as well
+
+        c.select(8, &h); // out of range
+        assert_eq!(c.index(), 0);
+        assert!(!c.pending_positive());
     }
 
     // --- confirm emits the right actions through the engine ---

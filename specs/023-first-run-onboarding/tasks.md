@@ -91,7 +91,7 @@ match with the new keys (no onboarding pieces yet). -->
   `src/game.rs`; `git diff -- src/game.rs` has no hunk outside
   `game_action_from_key`, the new fn, and `mod tests`.*
 
-- [ ] **T003 (foundational)** — `src/app.rs`: the in-match key table, cursor
+- [x] **T003 (foundational)** — `src/app.rs`: the in-match key table, cursor
   select, and the Continue guard. Add `enum TurnKey` + `fn turn_key(key,
   player_turn)` exactly as plan §Design 3 (doc included); add
   `HandCursor::select(index, hand)` (occupied slot → index set and the
@@ -315,3 +315,4 @@ policy as settled. -->
 | sign-off re-review (skeptical-reviewer) | fable | ~17K (measured return) | signed off; 2 wording notes applied by the orchestrator (T007: the open_campaign_map grep also hits enter_campaign_map's body and a doc comment; T008: the post-Continue new match must be launched from opponent select or the map, not G) |
 | T001 impl (sdd-implementer) | opus | ~41K (measured return) | done first try; note: the private `profile_with` test helper constructs `Profile` literally, so every additive field must be added there too |
 | T002 impl (sdd-implementer) | opus | ~41K (measured return) | done first try; kept a two-line early return so `AwaitingSignChoice` answers `None` for every key (plan §Design 2's "d, s unchanged" would have left `d` live there, contradicting §Tests bullet 3) — plan snippet reconciled by the orchestrator; for the Phase 1 review |
+| T003 impl (sdd-implementer) | opus | ~43K (measured return) | done first try; `Play` binds lowercase `p` only (matches the existing lowercase x/d/s convention); Continue arm binds `mut game` to apply the cancel |
