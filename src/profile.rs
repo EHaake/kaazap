@@ -39,9 +39,11 @@ pub struct CardEntry {
     pub in_deck: usize,
 }
 
-/// The player's persistent profile. Every field carries a `#[serde(default)]`
-/// so a partial or older file still loads (a missing collection/deck fills
-/// from the starter), matching `settings.rs`'s additive-field tolerance.
+/// The player's persistent profile: the collection and built deck, campaign
+/// progress, credits, lifetime stats, and the onboarding seen-marks. Every
+/// field carries a `#[serde(default)]` so a partial or older file still loads
+/// (a missing collection/deck fills from the starter), matching
+/// `settings.rs`'s additive-field tolerance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Profile {
     #[serde(default = "default_version")]
@@ -65,6 +67,14 @@ pub struct Profile {
     /// pre-stats profile loads all-zero — no version bump.
     #[serde(default)]
     stats: LifetimeStats,
+    /// Onboarding seen-marks (spec 023): set when the primer / first-match
+    /// popup is *dismissed*, never when shown. Additive and serde-defaulted
+    /// false — no version bump — and, like `stats`, they survive
+    /// [`Profile::reset_to_starter`].
+    #[serde(default)]
+    primer_seen: bool,
+    #[serde(default)]
+    first_match_seen: bool,
 }
 
 fn default_version() -> u32 {
@@ -118,6 +128,8 @@ impl Default for Profile {
             campaign: CampaignRun::default(),
             credits: economy::SEED_PURSE,
             stats: LifetimeStats::default(),
+            primer_seen: false,
+            first_match_seen: false,
         }
     }
 }
@@ -149,12 +161,18 @@ impl Profile {
     /// campaign progress, the seed purse — a full fresh start (spec 014's New
     /// Campaign). Lifetime stats survive the reset (spec 020) — like Settings,
     /// which live in a separate file and are also untouched — so a New Campaign
-    /// doesn't erase the player's cross-run record. The caller persists (`save`)
-    /// and clears any in-progress match save.
+    /// doesn't erase the player's cross-run record. The onboarding seen-marks
+    /// (spec 023) survive it for the same reason: a reset is a fresh run, not a
+    /// first launch. The caller persists (`save`) and clears any in-progress
+    /// match save.
     pub fn reset_to_starter(&mut self) {
         let stats = std::mem::take(&mut self.stats);
+        let primer_seen = std::mem::take(&mut self.primer_seen);
+        let first_match_seen = std::mem::take(&mut self.first_match_seen);
         *self = Profile::default();
         self.stats = stats;
+        self.primer_seen = primer_seen;
+        self.first_match_seen = first_match_seen;
     }
 
     /// Parse profile JSON, discarding a document whose version doesn't match
@@ -257,6 +275,28 @@ impl Profile {
     /// The player's lifetime statistics (spec 020).
     pub fn stats(&self) -> &LifetimeStats {
         &self.stats
+    }
+
+    /// Whether the how-to-play primer has been dismissed (spec 023).
+    pub fn primer_seen(&self) -> bool {
+        self.primer_seen
+    }
+
+    /// Mark the primer dismissed. Callers pair this with [`Profile::save`], as
+    /// with deck edits.
+    pub fn mark_primer_seen(&mut self) {
+        self.primer_seen = true;
+    }
+
+    /// Whether the first-match popup has been dismissed (spec 023).
+    pub fn first_match_seen(&self) -> bool {
+        self.first_match_seen
+    }
+
+    /// Mark the first-match popup dismissed. Callers pair this with
+    /// [`Profile::save`], as with deck edits.
+    pub fn mark_first_match_seen(&mut self) {
+        self.first_match_seen = true;
     }
 
     /// Record a completed match (spec 020). Always bumps lifetime stats for the
@@ -389,6 +429,8 @@ mod tests {
             campaign: CampaignRun::default(),
             credits: 0,
             stats: LifetimeStats::default(),
+            primer_seen: false,
+            first_match_seen: false,
         }
     }
 
@@ -427,15 +469,18 @@ mod tests {
     }
 
     #[test]
-    fn reset_to_starter_wipes_the_run_but_preserves_lifetime_stats() {
+    fn reset_to_starter_wipes_the_run_but_preserves_lifetime_stats_and_onboarding_marks() {
         let mut p = Profile::default();
         // Dirty every persisted field: campaign progress, an in-flight match,
-        // credits, the collection — and lifetime stats plus the run tally.
+        // credits, the collection — lifetime stats plus the run tally, and the
+        // onboarding seen-marks.
         p.campaign_mut().mark_beaten("cinder", "greeb");
         p.campaign_mut().set_in_progress(Some(node("scree", "dax", 0)));
         p.earn_credits(250);
         p.grant_card(Card::PlusMinus(6));
         p.record_match(Mode::Campaign, "greeb", true, 3, 1);
+        p.mark_primer_seen();
+        p.mark_first_match_seen();
         assert!(p.campaign().has_progress() && p.credits() > 0, "sanity: profile is dirtied");
         assert_eq!(p.stats().campaign().get("greeb").match_wins, 1, "sanity: stats recorded");
         assert_eq!(p.campaign().run_stats().match_wins, 1, "sanity: run tally recorded");
@@ -455,6 +500,10 @@ mod tests {
             1,
             "lifetime stats are preserved across a reset",
         );
+        // ...and so do the onboarding marks: a reset is a fresh run, not a
+        // first launch, so neither piece of onboarding comes back.
+        assert!(p.primer_seen(), "the primer mark survives a reset");
+        assert!(p.first_match_seen(), "the first-match mark survives a reset");
     }
 
     #[test]
@@ -481,6 +530,39 @@ mod tests {
         let json = serde_json::to_string(&p).unwrap();
         let p2 = Profile::from_json(&json).expect("a valid profile loads");
         assert_eq!(p2.credits(), 75);
+    }
+
+    #[test]
+    fn onboarding_marks_default_unset_round_trip_and_load_unset_from_older_documents() {
+        // A brand-new profile has seen neither piece of onboarding.
+        let fresh = Profile::default();
+        assert!(!fresh.primer_seen());
+        assert!(!fresh.first_match_seen());
+
+        // A pre-023 profile (no marks) loads with both unset — the same
+        // additive-field discipline as `credits` / `campaign` / `stats`.
+        let older = r#"{"version":1,"collection":[],"deck":[]}"#;
+        let p = Profile::from_json(older).expect("an older profile still loads");
+        assert!(!p.primer_seen());
+        assert!(!p.first_match_seen());
+        assert_eq!(PROFILE_VERSION, 1, "the seen-marks are no on-disk shape change");
+
+        // Both marks round-trip through the profile JSON.
+        let mut p = Profile::default();
+        p.mark_primer_seen();
+        p.mark_first_match_seen();
+        let json = serde_json::to_string(&p).unwrap();
+        let p2 = Profile::from_json(&json).expect("a valid profile loads");
+        assert!(p2.primer_seen());
+        assert!(p2.first_match_seen());
+
+        // The marks are independent: one set doesn't set the other.
+        let mut only_primer = Profile::default();
+        only_primer.mark_primer_seen();
+        let json = serde_json::to_string(&only_primer).unwrap();
+        let p3 = Profile::from_json(&json).expect("a valid profile loads");
+        assert!(p3.primer_seen());
+        assert!(!p3.first_match_seen());
     }
 
     #[test]

@@ -38,7 +38,7 @@ describes. Order inside the phase follows dependency: engine key map before the
 app's key table before the hints. Phase ends with a pause: the person plays a
 match with the new keys (no onboarding pieces yet). -->
 
-- [ ] **T001 (foundational)** — `src/profile.rs`: the seen marks. Add
+- [x] **T001 (foundational)** — `src/profile.rs`: the seen marks. Add
   `#[serde(default)] primer_seen: bool` and `#[serde(default)]
   first_match_seen: bool` to `Profile` with the doc comment in plan §Design 1;
   accessors `primer_seen()`, `mark_primer_seen()`, `first_match_seen()`,
@@ -309,7 +309,8 @@ policy as settled. -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
-| **Experiment 1, spec 3** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: (person's reading, date); at spec end: (person's reading, date). | — | — | header |
+| **Experiment 1, spec 3** — session `claude-fable-5-1` at medium throughout. Fable allowance at start: (person's reading pending — placeholder left unfilled in the opening prompt; to be recorded at the Phase 1 pause); at spec end: (person's reading, date). | — | — | header |
 | Planning: draft + sign-off fixes (sdd-planner) | fable | ~205K draft + ~20K fixes (budget counter at return) | drafted; sign-off's 1 blocking (New Campaign is menu-only → `start_new_campaign` raises the primer via `enter_campaign_map(true)`) and 5 notes applied; two design edges flagged (plan §Open questions) |
 | plan + tasks sign-off (skeptical-reviewer) | fable | ~70K (measured return) | 1 blocking (start_new_campaign never raised the primer after the spec's New Campaign amendment; reviewer verified New Campaign is menu-only) + 6 notes — B1, S1–S5 sent to the planner and applied; S6 (phantom map-side panel wording) fixed in spec.md by the orchestrator |
 | sign-off re-review (skeptical-reviewer) | fable | ~17K (measured return) | signed off; 2 wording notes applied by the orchestrator (T007: the open_campaign_map grep also hits enter_campaign_map's body and a doc comment; T008: the post-Continue new match must be launched from opponent select or the map, not G) |
+| T001 impl (sdd-implementer) | opus | ~41K (measured return) | done first try; note: the private `profile_with` test helper constructs `Profile` literally, so every additive field must be added there too |
