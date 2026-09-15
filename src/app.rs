@@ -24,7 +24,7 @@ use crate::{
     menu::{MenuItem, MenuOutcome, MenuState},
     opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
-    overlay::{Overlay, OverlayKind, draw_scrollable_overlay},
+    overlay::{Overlay, OverlayKind, draw_scrollable_overlay, draw_text_overlay, overlay_text},
     play_log::PlayLog,
     player::Player,
     profile::Profile,
@@ -300,6 +300,17 @@ enum Modal {
     /// start menu (chore 2026-09-13, supersedes spec 021's "a fresh map opens");
     /// nothing dismisses it (Esc does not), because the run really is over.
     RunOver,
+    /// The first-run campaign primer (spec 023): raised over a freshly opened
+    /// campaign map the first time the player reaches it from the start menu,
+    /// naming the stake loop and the outfitter. Unit-like — it carries no data;
+    /// its text is an asset re-read on each draw. Enter/Space/Esc dismiss it,
+    /// marking the profile so it shows once.
+    Primer,
+    /// The first-match popup (spec 023): raised over the dealt board the first
+    /// time this profile *starts* a match (never on a resume), naming the keys.
+    /// Unit-like — it carries no data. The match is held while it is up (`tick`
+    /// skips the engine update); Enter/Space/Esc dismiss it, marking the profile.
+    FirstMatch,
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
@@ -338,6 +349,29 @@ fn confirm_choice(on_yes: bool, key: KeyCode) -> ConfirmChoice {
 /// notice, since there is nothing to go back to.
 fn run_over_acknowledged(key: KeyCode) -> bool {
     matches!(key, KeyCode::Enter | KeyCode::Char(' '))
+}
+
+/// Whether a key dismisses the first-run primer or the first-match popup (spec
+/// 023) — a pure mapping in the `run_over_acknowledged` spirit, so the bindings
+/// are unit-testable without an `App`. Enter, Space and Esc dismiss; every other
+/// key is ignored. (Unlike the run-over notice, Esc *does* dismiss: these are
+/// notices the player is allowed to wave away.)
+fn onboarding_dismissed(key: KeyCode) -> bool {
+    matches!(key, KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Esc)
+}
+
+/// What a freshly opened campaign map raises (specs 021 + 023): the run-over
+/// notice if the balance can no longer cover any ante, else the first-run primer
+/// if it is due, else nothing. One modal at a time, so a map that opens broke
+/// shows the notice and the primer waits for the next open.
+fn map_entry_modal(broke: bool, primer_due: bool) -> Option<Modal> {
+    if broke {
+        Some(Modal::RunOver)
+    } else if primer_due {
+        Some(Modal::Primer)
+    } else {
+        None
+    }
 }
 
 /// What a key does in a match — the decision table behind the InGame arm,
@@ -573,20 +607,23 @@ impl App {
                 self.profile.campaign_mut().set_in_progress(None);
                 self.profile.save();
             }
-            self.enter_campaign_map();
+            self.enter_campaign_map(true);
         }
     }
 
-    /// Open the campaign map, then raise the run-over notice if the balance can
-    /// no longer cover any ante (spec 021). The one seam the broke check runs
-    /// at: the game-over acknowledgement and both campaign-entry paths route
-    /// through here, while Back from the shop or deck builder (which cannot
-    /// create a broke state) keeps using `open_campaign_map`.
-    fn enter_campaign_map(&mut self) {
+    /// Open the campaign map, then raise whatever the entry calls for (specs 021
+    /// + 023): the run-over notice if the balance can no longer cover any ante,
+    /// else the first-run primer when the map was reached from the start menu
+    /// (`from_menu`) and the primer is still unseen. The one seam both checks run
+    /// at: the three menu-entry paths pass `from_menu: true`, the game-over
+    /// acknowledgement passes `false` (a match's game-over is not a menu entry,
+    /// spec 023), while Back from the shop or deck builder — which returns to a
+    /// map already seen and cannot create a broke state — keeps using
+    /// `open_campaign_map`.
+    fn enter_campaign_map(&mut self, from_menu: bool) {
         self.open_campaign_map();
-        if self.profile.is_broke() {
-            self.modal = Some(Modal::RunOver);
-        }
+        let primer_due = from_menu && !self.profile.primer_seen();
+        self.modal = map_entry_modal(self.profile.is_broke(), primer_due);
     }
 
     /// Route a key to the run-over notice: Enter/Space acknowledge, wiping to a
@@ -605,6 +642,32 @@ impl App {
         }
     }
 
+    /// Route a key to the first-run primer or the first-match popup (spec 023):
+    /// Enter/Space/Esc dismiss — marking the matching profile flag and saving,
+    /// so each piece shows exactly once — and every other key is swallowed, so
+    /// nothing underneath can be acted on. Dismissing the popup re-arms any
+    /// opponent thinking pause that elapsed while the match was held, so the
+    /// usual pause runs from the dismissal rather than expiring instantly.
+    /// Quitting with either up leaves its mark unset.
+    fn handle_onboarding_input(&mut self, key: KeyCode) {
+        if !onboarding_dismissed(key) {
+            return;
+        }
+        match self.modal {
+            Some(Modal::Primer) => self.profile.mark_primer_seen(),
+            Some(Modal::FirstMatch) => {
+                self.profile.mark_first_match_seen();
+                if let Screen::InGame { game_state, .. } = &mut self.screen {
+                    game_state.restart_opponent_pause();
+                }
+            }
+            _ => return,
+        }
+        self.profile.save();
+        self.modal = None;
+        self.audio.play(Sfx::MenuSelect);
+    }
+
     /// Wipe to a fresh starter profile — the one reset path, shared by New
     /// Campaign (spec 014) and the run-over acknowledgement (spec 021), which
     /// differ only in where they land afterwards. Discards any in-progress match
@@ -620,12 +683,14 @@ impl App {
     }
 
     /// Wipe to a fresh starter profile and open a new campaign map — the New
-    /// Campaign action (spec 014), still the map's own New Campaign panel's
-    /// behaviour.
+    /// Campaign action (spec 014), reachable only from the start menu's
+    /// `CampaignEntry` confirm. A menu entry, so it goes through
+    /// `enter_campaign_map(true)`: the reset leaves the seed purse, so it is
+    /// never broke, and the primer shows here if it has not been seen yet.
     fn start_new_campaign(&mut self) {
         self.reset_run();
         self.audio.play(Sfx::MenuSelect);
-        self.open_campaign_map();
+        self.enter_campaign_map(true);
     }
 
     /// The pre-match gate for a campaign node (both ids): uphold `start_match`'s
@@ -748,6 +813,13 @@ impl App {
         // Fresh match — reset the play log; the first snapshot seeds its diff
         // silently, mirroring the banter/audio seeding above.
         self.play_log.reset(opp_name);
+        // The profile's first match *start* (spec 023): raise the controls popup
+        // over the dealt board. The save below still happens, so quitting under
+        // the popup leaves a resumable match and an unset mark — and Continue,
+        // a resume rather than a start, never raises it.
+        if !self.profile.first_match_seen() {
+            self.modal = Some(Modal::FirstMatch);
+        }
         // Persist immediately (overwriting any prior save), so quitting right
         // away still leaves a resumable game and Continue appears next launch.
         self.save_game();
@@ -920,6 +992,11 @@ impl App {
             // The run-over notice takes all input while open (spec 021): only
             // Enter/Space get past it, and they reset the run.
             self.handle_run_over_input(key);
+        } else if matches!(self.modal, Some(Modal::Primer | Modal::FirstMatch)) {
+            // The first-run pieces take all input while open (spec 023): only
+            // Enter/Space/Esc get past them, and they dismiss. Nothing on the
+            // map or the board underneath can be acted on meanwhile.
+            self.handle_onboarding_input(key);
         } else if matches!(self.modal, Some(Modal::Wager(_))) {
             // The wager prompt takes all input while open (spec 021): ←/→ set
             // the stake, Enter commits and launches, Esc returns to the map.
@@ -980,7 +1057,7 @@ impl App {
                 self.profile.campaign_mut().set_in_progress(None);
                 self.profile.save();
                 self.audio.play(Sfx::MenuSelect);
-                self.enter_campaign_map();
+                self.enter_campaign_map(false);
                 return;
             }
 
@@ -1247,7 +1324,7 @@ impl App {
                         self.profile.campaign_mut().set_in_progress(None);
                         self.profile.save();
                         self.has_save = false;
-                        self.enter_campaign_map();
+                        self.enter_campaign_map(true);
                     }
                     None => self.audio.play(Sfx::MenuBack),
                 }
@@ -1401,8 +1478,16 @@ impl App {
         // One pulse drives every screen's selection breathe
         self.pulse.tick(dt);
 
+        // The first-match popup holds the match (spec 023): skipping the engine
+        // update freezes whatever phase it opened on — including an opponent
+        // thinking pause whose deadline passes underneath — until it is
+        // dismissed, which re-arms that pause. The observers below still run;
+        // nothing changed, so none of them fire.
+        let held = matches!(self.modal, Some(Modal::FirstMatch));
         let mut phase_changed = false;
-        if let Screen::InGame { game_state, .. } = &mut self.screen {
+        if !held
+            && let Screen::InGame { game_state, .. } = &mut self.screen
+        {
             let before = std::mem::discriminant(&game_state.game_phase);
             game_state.update();
             phase_changed = std::mem::discriminant(&game_state.game_phase) != before;
@@ -1501,6 +1586,15 @@ impl App {
             }
             Some(Modal::Wager(state)) => state.draw(frame, &self.config, pulse),
             Some(Modal::RunOver) => self.draw_run_over(frame),
+            // The first-run primer and the first-match popup (spec 023): the same
+            // bordered text box the other overlays use, rebuilt from its asset
+            // every frame — so, like the play log, they need no resize arm.
+            Some(Modal::Primer) => {
+                draw_text_overlay(self.config, &overlay_text(OverlayKind::Primer), frame)
+            }
+            Some(Modal::FirstMatch) => {
+                draw_text_overlay(self.config, &overlay_text(OverlayKind::FirstMatch), frame)
+            }
             Some(Modal::CampaignEntry { on_new }) => {
                 self.draw_campaign_entry(*on_new, pulse, frame)
             }
@@ -2076,5 +2170,102 @@ mod tests {
 
         app.resize(big);
         assert!(!app.is_too_small());
+    }
+
+    #[test]
+    fn onboarding_dismissed_on_enter_space_or_esc_only() {
+        // The first-run pieces (spec 023) are notices, not choices: Enter, Space
+        // and Esc all wave them away, and nothing else does — so a stray key
+        // over the map or the board can never mark them seen by accident.
+        assert!(onboarding_dismissed(KeyCode::Enter));
+        assert!(onboarding_dismissed(KeyCode::Char(' ')));
+        assert!(onboarding_dismissed(KeyCode::Esc));
+        for k in [
+            KeyCode::Char('x'),
+            KeyCode::Char('d'),
+            KeyCode::Char('1'),
+            KeyCode::Char('?'),
+            KeyCode::Up,
+            KeyCode::Left,
+        ] {
+            assert!(!onboarding_dismissed(k), "{k:?} must not dismiss");
+        }
+    }
+
+    #[test]
+    fn map_entry_modal_prefers_run_over_then_primer() {
+        // One modal at a time (spec 023): a broke map shows the run-over notice
+        // even when the primer is still due, and the primer waits for the next
+        // map open. An unbroke map shows the primer only while it is due.
+        assert!(matches!(map_entry_modal(true, true), Some(Modal::RunOver)));
+        assert!(matches!(map_entry_modal(true, false), Some(Modal::RunOver)));
+        assert!(matches!(map_entry_modal(false, true), Some(Modal::Primer)));
+        assert!(map_entry_modal(false, false).is_none());
+    }
+
+    #[test]
+    fn the_first_match_popup_holds_the_match_and_swallows_play_keys() {
+        // Spec 023: while the popup is up the match does not advance — an
+        // opponent thinking pause whose deadline has already passed still does
+        // not fire on a tick — and no play key reaches the game. Only
+        // non-dismiss keys are pressed and no phase changes, so nothing here
+        // saves the game or the profile to disk.
+        use std::time::Instant;
+
+        let mut app = App::new(Config { num_cols: 120, num_rows: 40 });
+        let mut game_state = GameState::new();
+        game_state.game_phase = GamePhase::OpponentThinking { until: Instant::now() };
+        app.screen = Screen::InGame {
+            game_state: Box::new(game_state),
+            cursor: HandCursor::default(),
+        };
+        app.modal = Some(Modal::FirstMatch);
+
+        app.tick(Duration::from_millis(500));
+        let Screen::InGame { game_state, .. } = &mut app.screen else {
+            panic!("still in the match");
+        };
+        assert!(
+            matches!(game_state.game_phase, GamePhase::OpponentThinking { .. }),
+            "an elapsed thinking pause must not resolve under the popup"
+        );
+
+        // Back on the player's turn: the play keys are swallowed too.
+        game_state.game_phase = GamePhase::PlayerTurn;
+        let hand_before = game_state.player.hand.clone();
+        let dealer_before = game_state.player.dealer_row.len();
+        let played_before = game_state.player.played_row.len();
+
+        for k in [KeyCode::Char('d'), KeyCode::Char('1'), KeyCode::Char('s'), KeyCode::Char('p')] {
+            app.handle_key(k);
+        }
+
+        assert!(matches!(app.modal, Some(Modal::FirstMatch)), "the popup stays up");
+        let Screen::InGame { game_state, .. } = &app.screen else {
+            panic!("still in the match");
+        };
+        assert!(matches!(game_state.game_phase, GamePhase::PlayerTurn), "phase unchanged");
+        assert_eq!(game_state.player.hand, hand_before, "hand unchanged");
+        assert_eq!(game_state.player.dealer_row.len(), dealer_before, "no card drawn");
+        assert_eq!(game_state.player.played_row.len(), played_before, "no card played");
+    }
+
+    #[test]
+    fn the_primer_swallows_map_keys() {
+        // Spec 023: nothing on the campaign map can be acted on while the primer
+        // is up — no outfitter, no deck builder, no cursor move, no Back. Only
+        // non-dismiss keys are pressed, so nothing writes to disk.
+        let mut app = App::new(Config { num_cols: 120, num_rows: 40 });
+        app.open_campaign_map();
+        app.modal = Some(Modal::Primer);
+
+        for k in [KeyCode::Char('b'), KeyCode::Char('c'), KeyCode::Up, KeyCode::Char('x')] {
+            app.handle_key(k);
+            assert!(
+                matches!(app.screen, Screen::CampaignMap { .. }),
+                "{k:?} must not leave the map"
+            );
+            assert!(matches!(app.modal, Some(Modal::Primer)), "{k:?} must not dismiss the primer");
+        }
     }
 }

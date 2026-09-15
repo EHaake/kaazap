@@ -186,7 +186,7 @@ attestation on a fresh profile and an existing one. -->
   line); `git status` shows only `src/overlay.rs` and the two new assets
   (`--stat` can't list untracked files).*
 
-- [ ] **T007** — `src/app.rs`: the two modals. Add `Modal::Primer` and
+- [x] **T007** — `src/app.rs`: the two modals. Add `Modal::Primer` and
   `Modal::FirstMatch` (unit-like, doc-commented like `RunOver`),
   `onboarding_dismissed(key)`, `map_entry_modal(broke, primer_due)`, and
   `handle_onboarding_input` exactly as plan §Design 3; give
@@ -322,3 +322,4 @@ policy as settled. -->
 | T005 impl (sdd-implementer) | opus | ~39K (measured return) | done first try; fit test also covers MenuHelp; How to Play is now 24 lines (28-row box) |
 | Phase 1 review (skeptical-reviewer) | opus | ~65K (measured return) | signed off, 0 blocking, 5 notes — T002 early return confirmed correct (required by §Tests bullet 3; Esc/x still exits in every phase); Continue's cancel→normalize has no wiring test (plan-sanctioned, tension §4) → sweep; stale test name `status_player_turn_shows_nav_and_play_prompt_strong` (asserts the empty-hand shape) → T009 sweep; uppercase P inert like D/S/N/G (pre-existing convention); Ctrl-P safe (`resolve_key` maps it to Up first). Orchestrator verified the How to Play tail is the spec's text verbatim. |
 | T006 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~42K (measured return) | done first try; asset files extracted from the bundle with sed, orchestrator diffed both against spec.md — verbatim; the T005 `text(kind)` test helper folded into direct `overlay_text` calls |
+| T007 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~59K (measured return) | done first try; `enter_campaign_map` now assigns the modal unconditionally (all four callers have no modal open at the call); the onboarding branch sits after `RunOver` in the modal chain; open_campaign_map grep: doc mention, own body, builder Back, shop Back, one test |
