@@ -240,6 +240,23 @@ attestation on a fresh profile and an existing one. -->
   map; the opponent-select line is on-frame with the full roster. Then the
   person's real profile: each piece once, cards/credits/records intact.*
 
+- [x] **T006a** — Finding from the person's Phase 2 walkthrough (2026-09-14):
+  "the bottom `Enter to continue` is over to the left side slightly, which
+  makes it look off for both prompts." Restated: the dismiss line is the
+  acted-on element (spec §Design requirements); the spec's code blocks give
+  it 13 leading spaces, but `draw_text_overlay` left-aligns every line after
+  the title inside a box sized to the widest line (52 columns for the primer,
+  53 for the popup), so the line lands left of center. Fix: center the
+  dismiss line within each text by its leading spaces in the two asset files
+  — `(widest − len) / 2` — so `Enter to continue` (17 chars) gets 17 spaces
+  and `Enter to begin` (14 chars) gets 19 (20 also acceptable; pick the one
+  that centers visually — round down). Update the spec's two code blocks
+  (`spec.md` §The primer / §The first-match popup) to the same leading
+  spaces, since the person changed the text. No code change; the T006 tests
+  compare the trimmed last line, so they stand. *Verify: constitution command
+  green; `diff` of each asset against the spec's code block is empty; the
+  dismiss line is centered within 1 column of the widest line's center.*
+
 ## Final phase — Spec close-out
 
 - [ ] **T009** — Close-out. Draft
@@ -326,3 +343,4 @@ policy as settled. -->
 | T008 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~29K (measured return) | done first try; `QUICK_PLAY_NOTE` module-level so the test can assert its text; footer reserve 7 in both `MenuLayout::new` calls — headroom at 31 rows is now the binding constraint for this screen's footer |
 | Phase 2 review (skeptical-reviewer) | opus | ~75K (measured return) | signed off, 0 blocking, 6 notes — modal assignment in `start_match`/`enter_campaign_map` is order-sensitive and untested (driver confirmed both the wager-commit and New Campaign paths raise their piece; carry to the sweep as "verified by driver + person, not by a test"); two inaccurate doc comments ("asset re-read on each draw" — it is `include_str!`) → T009; `the_primer_swallows_map_keys` asserts less than its comment claims → T009; opponent-select title/preview not pinned against row 0 (green at 31 rows) → sweep |
 | Phase 2 driver walkthrough (orchestrator, scratch profile, 139×31; real profile/saves backed up and checksum-restored) | — | — | fresh profile: primer over the map (b swallowed; Enter dismissed; `primer_seen` true); popup over the dealt board (d and 1 swallowed); quit with the popup up → `first_match_seen` false → Continue resumed with no popup; next new match from the map → popup → dismissed → board live, mark set; Quick Play: no popup, "Quick Play deals the standard deck." on-frame with the full roster; New Campaign: marks kept, no primer; pre-023-shaped profile with progress whose first act is New Campaign → primer; broke pre-023 profile → run-over notice without the primer, then the primer on the next map open |
+| T006a walkthrough fix (sdd-implementer) | opus (fallback, experiment 2 paused) | ~24K (measured return) | person's Phase 2 finding: the dismiss line sat left of center; leading spaces 13 → 17 (primer) and 13 → 19 (popup), spec code blocks updated to match; driver snapshots at 139×31 confirm both centered; no test pins the centering (a future text edit could un-center it) → sweep |

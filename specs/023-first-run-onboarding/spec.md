@@ -134,7 +134,7 @@ Go broke and the run ends: starter deck, seed purse.
 The Outfitter (b) sells the cards that get you
 past the Mid Rim. The ante rises as you go deeper.
 
-             Enter to continue
+                 Enter to continue
 ```
 
 ### The first-match popup
@@ -163,7 +163,7 @@ First to 3 rounds wins the match.
  1-4 or ←/→  pick a card    Enter  play it
  ↑/↓  flip a ± card's sign
 
-             Enter to begin
+                   Enter to begin
 ```
 
 ### Seen marks and persistence
