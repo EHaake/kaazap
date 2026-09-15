@@ -216,7 +216,7 @@ attestation on a fresh profile and an existing one. -->
   call site outside the shop Back, the builder Back, and
   `enter_campaign_map`'s own body (a doc-comment mention is fine).*
 
-- [ ] **T008** — `src/opponent_select.rs`: the Quick Play line. Add `const
+- [x] **T008** — `src/opponent_select.rs`: the Quick Play line. Add `const
   QUICK_PLAY_NOTE: &str = "Quick Play deals the standard deck.";`, draw it
   `Muted` at `y + 4`, move `HINT` to `y + 5`, footer reserve 6 → 7 in both
   `MenuLayout::new` calls and the `draw` comment. Tests: update
@@ -323,3 +323,4 @@ policy as settled. -->
 | Phase 1 review (skeptical-reviewer) | opus | ~65K (measured return) | signed off, 0 blocking, 5 notes — T002 early return confirmed correct (required by §Tests bullet 3; Esc/x still exits in every phase); Continue's cancel→normalize has no wiring test (plan-sanctioned, tension §4) → sweep; stale test name `status_player_turn_shows_nav_and_play_prompt_strong` (asserts the empty-hand shape) → T009 sweep; uppercase P inert like D/S/N/G (pre-existing convention); Ctrl-P safe (`resolve_key` maps it to Up first). Orchestrator verified the How to Play tail is the spec's text verbatim. |
 | T006 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~42K (measured return) | done first try; asset files extracted from the bundle with sed, orchestrator diffed both against spec.md — verbatim; the T005 `text(kind)` test helper folded into direct `overlay_text` calls |
 | T007 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~59K (measured return) | done first try; `enter_campaign_map` now assigns the modal unconditionally (all four callers have no modal open at the call); the onboarding branch sits after `RunOver` in the modal chain; open_campaign_map grep: doc mention, own body, builder Back, shop Back, one test |
+| T008 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~29K (measured return) | done first try; `QUICK_PLAY_NOTE` module-level so the test can assert its text; footer reserve 7 in both `MenuLayout::new` calls — headroom at 31 rows is now the binding constraint for this screen's footer |

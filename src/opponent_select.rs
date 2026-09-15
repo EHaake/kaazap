@@ -16,10 +16,15 @@ use crate::{
     portrait::{PANEL_W, PORTRAIT_HEIGHT, draw_presence_panel},
 };
 
+/// The Quick Play note under the roster: what this screen deals, said once,
+/// so the campaign's side-deck rules aren't assumed here. Drawn `Muted` above
+/// the controls hint.
+const QUICK_PLAY_NOTE: &str = "Quick Play deals the standard deck.";
+
 /// The opponent-preview panel Rect: a snug bordered panel (border + name +
 /// portrait, no reserved rows) to the right of the centered roster list.
 fn preview_rect(config: &Config) -> Rect {
-    let layout = MenuLayout::new(*config, 1, OPPONENTS.len(), 6);
+    let layout = MenuLayout::new(*config, 1, OPPONENTS.len(), 7);
     let x0 = layout.center_x + 18; // clears the widest roster row
     let y0 = layout.items_top; // top-aligned with the list
     let h = 2 + 1 + PORTRAIT_HEIGHT; // top+bottom border, name row, portrait — snug
@@ -99,10 +104,11 @@ impl OpponentSelectState {
         const TITLE: &str = "Choose Your Opponent";
         const HINT: &str = "↑/↓ choose  ·  Enter play  ·  Esc back";
 
-        // Reserve the rows below the list for the blurb (at `y + 2`) and hint
-        // (at `y + 4`) so the full 10-opponent roster plus its footer fits the
-        // minimum terminal (one item-spacing + those four rows = 6).
-        let layout = MenuLayout::new(*config, 1, OPPONENTS.len(), 6);
+        // Reserve the rows below the list for the blurb (at `y + 2`), the Quick
+        // Play note (at `y + 4`) and the hint (at `y + 5`) so the full
+        // 10-opponent roster plus its footer fits the minimum terminal (one
+        // item-spacing + those five rows = 7).
+        let layout = MenuLayout::new(*config, 1, OPPONENTS.len(), 7);
 
         draw_text_centered(frame, layout.center_x, layout.title_top, TITLE, Emphasis::Normal);
 
@@ -124,7 +130,8 @@ impl OpponentSelectState {
         // close).
         let blurb = OPPONENTS[self.selected].blurb;
         draw_text_centered(frame, layout.center_x, y + 2, blurb, Emphasis::Normal);
-        draw_text_centered(frame, layout.center_x, y + 4, HINT, Emphasis::Normal);
+        draw_text_centered(frame, layout.center_x, y + 4, QUICK_PLAY_NOTE, Emphasis::Muted);
+        draw_text_centered(frame, layout.center_x, y + 5, HINT, Emphasis::Normal);
 
         // The cursored opponent's presence panel, right of the centered list.
         let o = OPPONENTS[self.selected];
@@ -194,19 +201,27 @@ mod tests {
     #[test]
     fn the_full_roster_and_footer_fit_the_minimum_terminal() {
         // At the 139×31 minimum the title, all opponents, the blurb (drawn at
-        // `y + 2`) and the controls hint (`y + 4`) must all land on-frame — the
-        // footer reserve passed to MenuLayout is what makes the grown roster fit.
+        // `y + 2`), the Quick Play note (`y + 4`) and the controls hint (`y + 5`)
+        // must all land on-frame — the footer reserve passed to MenuLayout is what
+        // makes the grown roster fit.
         // (Width is irrelevant here — this guards the vertical fit — but track the
         // real minimum so the name stays honest.)
         use crate::layout::IN_MATCH_MIN_WIDTH;
         let config = Config { num_cols: IN_MATCH_MIN_WIDTH, num_rows: 31 };
-        let layout = MenuLayout::new(config, 1, OPPONENTS.len(), 6);
+        let layout = MenuLayout::new(config, 1, OPPONENTS.len(), 7);
         let after_items = layout.items_top + OPPONENTS.len() * layout.item_spacing;
-        let hint_y = after_items + 4; // must match `draw`
+        let note_y = after_items + 4; // must match `draw`
+        let hint_y = after_items + 5; // must match `draw`
+        assert!(
+            note_y < config.num_rows,
+            "Quick Play note at row {note_y} clips the {}-row minimum terminal",
+            config.num_rows
+        );
         assert!(
             hint_y < config.num_rows,
             "controls hint at row {hint_y} clips the {}-row minimum terminal",
             config.num_rows
         );
+        assert_eq!(QUICK_PLAY_NOTE, "Quick Play deals the standard deck.");
     }
 }
