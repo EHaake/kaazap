@@ -164,7 +164,7 @@ match with the new keys (no onboarding pieces yet). -->
 (T007), then the opponent-select line (T008). Phase ends with the spec's play
 attestation on a fresh profile and an existing one. -->
 
-- [ ] **T006** — `src/overlay.rs`, `assets/primer_text.txt` (new),
+- [x] **T006** — `src/overlay.rs`, `assets/primer_text.txt` (new),
   `assets/first_match_text.txt` (new): the texts. Add `OverlayKind::Primer`
   and `OverlayKind::FirstMatch`; turn `read_text_from_file` into `pub fn
   overlay_text(kind: OverlayKind) -> Vec<String>` (five `include_str!` arms;
@@ -321,3 +321,4 @@ policy as settled. -->
 | T004 impl (sdd-implementer) | opus | ~37K (measured return) | done first try; the ± hint line measures 64 chars against the 81-col band (at the plan's stated ceiling — re-measure if a key is ever added) |
 | T005 impl (sdd-implementer) | opus | ~39K (measured return) | done first try; fit test also covers MenuHelp; How to Play is now 24 lines (28-row box) |
 | Phase 1 review (skeptical-reviewer) | opus | ~65K (measured return) | signed off, 0 blocking, 5 notes — T002 early return confirmed correct (required by §Tests bullet 3; Esc/x still exits in every phase); Continue's cancel→normalize has no wiring test (plan-sanctioned, tension §4) → sweep; stale test name `status_player_turn_shows_nav_and_play_prompt_strong` (asserts the empty-hand shape) → T009 sweep; uppercase P inert like D/S/N/G (pre-existing convention); Ctrl-P safe (`resolve_key` maps it to Up first). Orchestrator verified the How to Play tail is the spec's text verbatim. |
+| T006 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~42K (measured return) | done first try; asset files extracted from the bundle with sed, orchestrator diffed both against spec.md — verbatim; the T005 `text(kind)` test helper folded into direct `overlay_text` calls |
