@@ -1,6 +1,6 @@
 # Plan: Endgame, victory & what you keep — spec 024
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at opus, 2026-09-15; re-review's B3 — the three spec.md amendments — pending the person's ratification)
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -345,8 +345,10 @@ pub fn differs_from_starter(&self) -> bool
 ```
 
 `record_match` and `settle_campaign_match` lose their `pub` (T003, once
-`app.rs` no longer calls them); their **signatures and bodies are otherwise
-untouched** (tension §1), with one exception: the completion edge inside
+`app.rs` no longer calls them), and `settle_campaign_match`'s doc gains one
+line: callers go through `resolve_match`; this alone does not move the run
+tally. Their **signatures and bodies are otherwise untouched** (tension §1),
+with one exception: the completion edge inside
 `settle_campaign_match` now passes the run tally's `matches_played()` to
 `record_campaign_completion` —
 
@@ -626,7 +628,8 @@ Each claim names the task that owns its check. Driver items are marked.
 - **The summary block reads the run** (T001): `run_summary_lines` on a tally of
   4 wins / 2 losses, 640 won / 210 lost, best streak 6, 7 of 8 worlds → the
   three exact strings, `matches played 6`, `7/8`.
-- **Settlement moves the counters, and only settlement does** (T002): a staked
+- **`resolve_match` moves the counters, and only it does** (T002,
+  `resolve_match_moves_the_run_credit_counters_and_nothing_else_does`): a staked
   win adds `win_payout(stake) − stake` to `credits_won` and nothing to
   `credits_lost`; a loss adds the stake to `credits_lost`; a second settlement
   of the same pointer (escrow emptied) adds 0 to both; staking then
@@ -723,7 +726,9 @@ Each claim names the task that owns its check. Driver items are marked.
   `git diff main -- src/card.rs` contains only comment lines (the amended
   acceptance criterion, §Design 7); `PROFILE_VERSION == 1`, `SAVE_VERSION == 1`;
   warning count equals `main`'s; `grep -rn "standard deck\|standard pool\|\*\*standard\*\*"
-  src README.md docs` shows no line saying Quick Play is dealt one (the README's
+  src README.md docs` is read, not counted: the opponent-baseline hits in
+  `docs/opponents.md` (and `src/profile.rs:13`, which only names the constant)
+  legitimately remain, and no hit may say Quick Play is dealt one (the README's
   old claim is line-broken across `**standard**` and `side deck`, so all three
   patterns are searched).
 

@@ -1,6 +1,13 @@
 # Spec: Endgame, victory & what you keep — spec 024
 
-**Status**: Approved (2026-09-15)
+**Status**: Approved (2026-09-15). **Amended by the orchestrating session
+after approval, 2026-09-15, on the sign-off's notes — pending the person's
+ratification:** (1) the proposed-text figures read 8/8 and 2/8 (eight worlds,
+not seven); (2) the "quitting under the notice" line now says only matches and
+streak stay readable on This Run, the credit counters and worlds cleared being
+on the notices only; (3) the last acceptance criterion allows comment-only
+corrections of "Quick Play deals the standard deck" in the otherwise frozen
+files.
 **Depends on**: spec 021 (wager & loss, run-over, rematches), spec 020 (stats &
 records), spec 014 (New Campaign — partly superseded here), spec 022 (Quick
 Play deals the standard deck — superseded here), spec 023 (onboarding texts)

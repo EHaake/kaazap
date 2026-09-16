@@ -1,6 +1,6 @@
 # Tasks: Endgame, victory & what you keep — spec 024
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at opus, 2026-09-15; re-review's B3 — the three spec.md amendments — pending the person's ratification)
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -100,7 +100,7 @@ is nothing new to see on screen yet. -->
   `a_rematch_settles_for_credits_but_changes_no_progress_or_completions` at
   `resolve_match` (the latter would otherwise be vacuous — it calls settlement
   directly, which no longer carries the new outputs), and add
-  `settlement_moves_the_run_credit_counters_and_nothing_else_does`,
+  `resolve_match_moves_the_run_credit_counters_and_nothing_else_does`,
   `the_run_counters_and_first_clear_round_trip_and_default_for_older_profiles`,
   `the_first_clear_counts_the_completing_match_and_survives_a_replay`,
   `resolve_match_reports_the_completion_edge_and_skips_quick_play`,
@@ -273,15 +273,17 @@ run-straight-through ruling. -->
   footer reserve are unchanged. Then the **comment-only** corrections the
   amended acceptance criterion allows (plan §Design 7): `src/card.rs:106-108`
   (`DEFAULT_SIDE_DECK`'s doc), `:147-148` (`deal_hand`'s doc) and `:433` (a test
-  comment), plus `src/profile.rs:13` and `:826-827` ("the standard pool … and
-  Quick Play's deck") — each keeps the standard deck's remaining role, the
-  opponents' baseline, and drops the claim that Quick Play deals it. No code
-  line in `card.rs` changes. (Copies nothing new.)
+  comment), plus `src/profile.rs:826-827` ("the standard pool … and Quick
+  Play's deck") — each keeps the standard deck's remaining role, the
+  opponents' baseline, and drops the claim that Quick Play deals it.
+  `src/profile.rs:13` only names `DEFAULT_SIDE_DECK` "the standard deck", which
+  stays true — leave it or reword it, either passes. No code line in `card.rs`
+  or `profile.rs` changes. (Copies nothing new.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim; `grep -n "DEFAULT_SIDE_DECK\|player_deck_for" src/app.rs` is empty;
-  `git diff -- src/card.rs` shows only comment / doc-comment lines; `git diff
-  --stat` shows only `src/app.rs`, `src/opponent_select.rs`, `src/card.rs` and
-  `src/profile.rs`.*
+  `git diff -- src/card.rs` and `git diff -- src/profile.rs` each show only
+  comment / doc-comment lines; `git diff --stat` shows only `src/app.rs`,
+  `src/opponent_select.rs`, `src/card.rs` and `src/profile.rs`.*
 
 - [ ] **T009** — `README.md`, `docs/economy.md` + `docs/balance.md`: the texts
   that described the old rules (plan §Design 7). In the README: line ~71 ("the
@@ -300,7 +302,8 @@ run-straight-through ruling. -->
   neighbouring prose voice in each file.)
   *Verify: `cargo build --all-targets` + `cargo test -q` green verbatim
   (docs-only, but the constitution's command still runs); `grep -rn "standard
-  deck\|standard pool\|\*\*standard\*\*" README.md docs` shows no line claiming
+  deck\|standard pool\|\*\*standard\*\*" README.md docs` is read, not counted —
+  `docs/opponents.md`'s baseline lines legitimately remain — and no hit claims
   Quick Play deals it; `git diff --stat` shows only `README.md`,
   `docs/economy.md` and `docs/balance.md`. **PAUSE for the person — advisory**
   (the person's 2026-09-15 ruling: run straight through; drive this and report
@@ -335,8 +338,9 @@ run-straight-through ruling. -->
   comment lines (the amended acceptance criterion); `grep -n "PROFILE_VERSION:
   u32" src/profile.rs` and the `SAVE_VERSION` line both read 1; `cargo build
   --all-targets` warning count equals `main`'s; `grep -rn "standard
-  deck\|standard pool\|\*\*standard\*\*" src README.md docs` shows no line
-  saying Quick Play is dealt one; `grep -rn "Erases progress" src` appears only
+  deck\|standard pool\|\*\*standard\*\*" src README.md docs` is a read-and-judge
+  check (the opponent-baseline hits in `docs/opponents.md` and `src/profile.rs:13`
+  stay): no hit says Quick Play is dealt one; `grep -rn "Erases progress" src` appears only
   under the Reset Everything title. Check off `spec.md`'s acceptance criteria
   with evidence (the verbatim lines). Request the pre-merge whole-spec sweep;
   apply `closeout-main-docs.md` on `main` after the merge.
@@ -396,7 +400,9 @@ policy as settled. -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
-| **Experiment 1, spec 4** — session `claude-fable-5-1` at medium throughout. Fable allowance at spec start: _record the person's reading here_. | — | — | header |
+| **Experiment 1, spec 4** — session `claude-fable-5-1`, at **high** for the spec conversation (person raised it, 2026-09-15) and — by the person's ruling the same day — implementation runs on in the same session without phase pauses, still at high unless the person lowers it. Fable allowance at spec start: 20% left (person's reading 2026-09-15, after the spec 023 merge). | — | — | header |
 | **Experiment 2 still paused** (person's ruling 2026-09-14, carried into this spec): the Fable allowance had not reset when planning began, so every implementer dispatch goes to `sdd-implementer` (opus, high) and the planner / sign-off ran at `opus` with the override dropped. Experiment 2 resumes with the Fable implementer on the first spec that starts after the reset, not mid-spec. | — | — | header |
-| Planning: draft (sdd-planner) | opus | _fill from the return_ | drafted |
-| plan + tasks sign-off (skeptical-reviewer) | opus | | |
+| Planning: draft (sdd-planner) | opus (override dropped, experiment 2 paused) | ~203K (measured return; planner's own count ~205K in / 13K out) | drafted; 10 tasks in 4 phases, T002 the one per-task review; no product fork |
+| Planning: sign-off fixes (sdd-planner, same context) | opus | ~39K (measured delta; planner's own count ~65K in / 9K out) | B1 (T001 updates its own caller) and B2 (option b: resolve_match owns the edge and counters, settle_campaign_match's signature untouched) applied; S2.1–S2.8 applied; pause ruling written into the handoff |
+| plan + tasks sign-off (skeptical-reviewer) | opus (override dropped) | ~153K (measured return; reviewer's own estimate ~68K) | 2 blocking (T001 and T002 could not build green as scoped) + 8 notes; S2.1 exposed a spec-internal conflict (goal 5 vs the card.rs freeze) — orchestrator amended spec.md (three hunks) |
+| sign-off re-review (skeptical-reviewer) | opus | ~32K (measured delta; reviewer's own estimate ~23K) | B1, B2 fixed; new B3: the spec.md amendments need the person's ratification — amendment note added under the spec's Status, ratification requested, Phase 1 dispatched meanwhile (nothing in it depends on the amended lines); N1 (test rename), N2 (profile.rs comment-only check), N3 (grep is read-and-judge), N5 (settle_campaign_match doc line) applied by the orchestrator |
