@@ -87,6 +87,13 @@ pub struct LifetimeStats {
     overall_streak: Streak,
     #[serde(default)]
     campaign_completions: u32,
+    /// Matches played in the run that produced this profile's **first**
+    /// campaign completion (spec 024). Set once, on the completions 0 → 1
+    /// edge, and never changed — a profile that had already completed a run
+    /// before this spec has no record and never gains one. Serde-defaulted
+    /// to `None`.
+    #[serde(default)]
+    first_clear_matches: Option<u32>,
 }
 
 impl LifetimeStats {
@@ -117,8 +124,13 @@ impl LifetimeStats {
         self.overall_streak.record(player_won);
     }
 
-    /// Record that the player finished a full campaign run.
-    pub fn record_campaign_completion(&mut self) {
+    /// Record a completed campaign run. `matches_played` is the run's match
+    /// count *including* the completing match; on the profile's first
+    /// completion — completions still 0 — it becomes the first-clear record.
+    pub fn record_campaign_completion(&mut self, matches_played: u32) {
+        if self.campaign_completions == 0 {
+            self.first_clear_matches = Some(matches_played);
+        }
         self.campaign_completions += 1;
     }
 
@@ -140,6 +152,12 @@ impl LifetimeStats {
     /// How many campaign runs the player has completed.
     pub fn campaign_completions(&self) -> u32 {
         self.campaign_completions
+    }
+
+    /// Matches played in the run that produced the first campaign completion,
+    /// or `None` when this profile has no record (spec 024).
+    pub fn first_clear_matches(&self) -> Option<u32> {
+        self.first_clear_matches
     }
 
     /// An opponent's combined record across both modes, summed field-by-field.
@@ -169,6 +187,17 @@ pub struct RunStats {
     pub round_losses: u32,
     #[serde(default)]
     pub streak: Streak,
+    /// Credits won this run (spec 024): the **net gain** on each settled win
+    /// (`win_payout(stake) − stake` — the number the map banner reports).
+    /// Additive and serde-defaulted, so a pre-024 run loads with zero, and
+    /// zeroed with the run because the tally lives on `CampaignRun`.
+    #[serde(default)]
+    pub credits_won: u32,
+    /// Credits lost this run (spec 024): each forfeited stake on a settled
+    /// loss. A stake forfeited by discarding a saved match settles nothing
+    /// and counts toward neither counter.
+    #[serde(default)]
+    pub credits_lost: u32,
 }
 
 impl RunStats {
@@ -184,6 +213,45 @@ impl RunStats {
         self.round_losses += opp_rounds;
         self.streak.record(player_won);
     }
+
+    /// Matches played this run — wins plus losses.
+    pub fn matches_played(&self) -> u32 {
+        self.match_wins + self.match_losses
+    }
+
+    /// Add a settled win's net gain to the run's credits-won tally (spec 024).
+    /// Saturating, so a long run can't wrap.
+    pub fn record_credits_won(&mut self, amount: u32) {
+        self.credits_won = self.credits_won.saturating_add(amount);
+    }
+
+    /// Add a settled loss's forfeited stake to the run's credits-lost tally
+    /// (spec 024). Saturating, so a long run can't wrap.
+    pub fn record_credits_lost(&mut self, amount: u32) {
+        self.credits_lost = self.credits_lost.saturating_add(amount);
+    }
+}
+
+/// The run summary both notices show (spec 024): one block, defined once and
+/// rendered twice. Pure, so the wording is testable without a terminal; the
+/// world counts are passed in because the map graph is not a stats concern.
+pub fn run_summary_lines(run: &RunStats, worlds_cleared: usize, worlds_total: usize) -> [String; 3] {
+    [
+        format!(
+            "Matches played {}  ·  won {}  ·  lost {}",
+            run.matches_played(),
+            run.match_wins,
+            run.match_losses
+        ),
+        format!(
+            "Credits won {}  ·  lost {}",
+            run.credits_won, run.credits_lost
+        ),
+        format!(
+            "Best streak {}  ·  Worlds cleared {}/{}",
+            run.streak.longest, worlds_cleared, worlds_total
+        ),
+    ]
 }
 
 /// The rounded integer win-rate percentage, or `None` when no matches have been
@@ -291,6 +359,82 @@ mod tests {
         let (wins, losses) = stats.quick_play().totals();
         assert_eq!(wins, 2);
         assert_eq!(losses, 1);
+    }
+
+    #[test]
+    fn run_counters_default_zero_round_trip_and_accumulate() {
+        let fresh = RunStats::default();
+        assert_eq!(fresh.credits_won, 0);
+        assert_eq!(fresh.credits_lost, 0);
+        assert_eq!(fresh.matches_played(), 0);
+        assert_eq!(LifetimeStats::default().first_clear_matches(), None);
+
+        // A pre-024 document carries neither counter nor the record.
+        let old: RunStats = serde_json::from_str(r#"{"match_wins":2}"#).unwrap();
+        assert_eq!(old.match_wins, 2);
+        assert_eq!(old.credits_won, 0);
+        assert_eq!(old.credits_lost, 0);
+        let old_stats: LifetimeStats = serde_json::from_str(r#"{"campaign_completions":1}"#).unwrap();
+        assert_eq!(old_stats.first_clear_matches(), None);
+
+        let mut run = RunStats::default();
+        run.record_match(true, 3, 1);
+        run.record_match(false, 2, 3);
+        assert_eq!(run.matches_played(), 2);
+        run.record_credits_won(120);
+        run.record_credits_won(80);
+        run.record_credits_lost(50);
+        assert_eq!(run.credits_won, 200);
+        assert_eq!(run.credits_lost, 50);
+
+        // Both counters saturate rather than wrapping.
+        run.record_credits_won(u32::MAX);
+        run.record_credits_lost(u32::MAX);
+        assert_eq!(run.credits_won, u32::MAX);
+        assert_eq!(run.credits_lost, u32::MAX);
+    }
+
+    #[test]
+    fn the_first_completion_sets_the_record_and_later_ones_never_do() {
+        let mut stats = LifetimeStats::default();
+        stats.record_campaign_completion(14);
+        assert_eq!(stats.campaign_completions(), 1);
+        assert_eq!(stats.first_clear_matches(), Some(14));
+
+        stats.record_campaign_completion(9);
+        assert_eq!(stats.campaign_completions(), 2);
+        assert_eq!(
+            stats.first_clear_matches(),
+            Some(14),
+            "a replay never rewrites the record"
+        );
+
+        // A profile whose completion edge passed before spec 024 never gains one.
+        let mut existing: LifetimeStats =
+            serde_json::from_str(r#"{"campaign_completions":3}"#).unwrap();
+        assert_eq!(existing.first_clear_matches(), None);
+        existing.record_campaign_completion(5);
+        assert_eq!(existing.campaign_completions(), 4);
+        assert_eq!(existing.first_clear_matches(), None);
+    }
+
+    #[test]
+    fn run_summary_lines_read_the_run_tally() {
+        let mut run = RunStats::default();
+        for _ in 0..4 {
+            run.record_match(true, 3, 1);
+        }
+        for _ in 0..2 {
+            run.record_match(false, 1, 3);
+        }
+        run.streak.longest = 6;
+        run.record_credits_won(640);
+        run.record_credits_lost(210);
+
+        let lines = run_summary_lines(&run, 7, 8);
+        assert_eq!(lines[0], "Matches played 6  ·  won 4  ·  lost 2");
+        assert_eq!(lines[1], "Credits won 640  ·  lost 210");
+        assert_eq!(lines[2], "Best streak 6  ·  Worlds cleared 7/8");
     }
 
     #[test]

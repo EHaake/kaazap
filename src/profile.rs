@@ -241,6 +241,13 @@ impl Profile {
     /// [`CampaignRun::take_stake`] zeroes the escrow, so a second settlement
     /// pays `win_payout(0) == 0` and `mark_beaten` is idempotent. Callers pair
     /// this with [`Profile::save`].
+    ///
+    /// The completion edge hands the run tally's `matches_played()` to
+    /// [`LifetimeStats::record_campaign_completion`] as the first-clear record
+    /// (spec 024): the run's matches played *including* the completing match,
+    /// which holds once the match-resolution seam records before it settles.
+    /// Until that seam lands the app still settles first, so a completion
+    /// reached in that window records one short; nothing reads the record yet.
     pub fn settle_campaign_match(&mut self, player_won: bool) -> Option<StakeOutcome> {
         let node = self.campaign.in_progress()?.clone();
         let stake = self.campaign.take_stake();
@@ -249,7 +256,8 @@ impl Profile {
             let was_complete = self.campaign.run_complete();
             self.campaign.mark_beaten(&node.planet, &node.opponent);
             if !was_complete && self.campaign.run_complete() {
-                self.stats.record_campaign_completion();
+                let matches = self.campaign.run_stats().matches_played();
+                self.stats.record_campaign_completion(matches);
             }
             Some(StakeOutcome::Won(stake))
         } else {

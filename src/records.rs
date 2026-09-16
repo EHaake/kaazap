@@ -495,7 +495,7 @@ mod tests {
     #[test]
     fn campaign_has_completions_line_others_do_not() {
         let mut stats = LifetimeStats::default();
-        stats.record_campaign_completion();
+        stats.record_campaign_completion(12);
         let run = RunStats::default();
 
         let campaign = view_body(RecordsView::Campaign, &stats, &run).join("\n");

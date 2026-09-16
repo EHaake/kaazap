@@ -42,7 +42,7 @@ profile methods that write them (T002) before the app block that calls them
 (T003). No UI in this phase; it ends with a review, not a person pause — there
 is nothing new to see on screen yet. -->
 
-- [ ] **T001 (foundational)** — `src/stats.rs`: the run counters, the
+- [x] **T001 (foundational)** — `src/stats.rs`: the run counters, the
   first-clear record, and the shared summary. Add `#[serde(default)] pub
   credits_won: u32` and `#[serde(default)] pub credits_lost: u32` to `RunStats`
   with the doc comments in plan §Design 1, plus `matches_played()`,
@@ -406,3 +406,4 @@ policy as settled. -->
 | Planning: sign-off fixes (sdd-planner, same context) | opus | ~39K (measured delta; planner's own count ~65K in / 9K out) | B1 (T001 updates its own caller) and B2 (option b: resolve_match owns the edge and counters, settle_campaign_match's signature untouched) applied; S2.1–S2.8 applied; pause ruling written into the handoff |
 | plan + tasks sign-off (skeptical-reviewer) | opus (override dropped) | ~153K (measured return; reviewer's own estimate ~68K) | 2 blocking (T001 and T002 could not build green as scoped) + 8 notes; S2.1 exposed a spec-internal conflict (goal 5 vs the card.rs freeze) — orchestrator amended spec.md (three hunks) |
 | sign-off re-review (skeptical-reviewer) | opus | ~32K (measured delta; reviewer's own estimate ~23K) | B1, B2 fixed; new B3: the spec.md amendments need the person's ratification — amendment note added under the spec's Status, ratification requested, Phase 1 dispatched meanwhile (nothing in it depends on the amended lines); N1 (test rename), N2 (profile.rs comment-only check), N3 (grep is read-and-judge), N5 (settle_campaign_match doc line) applied by the orchestrator |
+| T001 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~62K (measured return) | done first try; `run_summary_lines` signature on one line (rustfmt-wrapping avoided); note for T002: the "completions > 0, no record" case needs a `LifetimeStats` JSON round-trip, `first_clear_matches` has no setter |
