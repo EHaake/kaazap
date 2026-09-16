@@ -68,11 +68,11 @@ python3 .claude/skills/run-kaazap/play.py 'wait:Start Campaign' 'key:\r' \
 
 | Key | Action |
 |---|---|
-| `1`–`4` | Play hand card at that slot |
+| `1`–`4` | Select the hand card at that slot (selects only — does not play it) |
 | `\e[C` / `\e[D` | Cursor select next/prev hand card (right/left arrow) |
 | `\e[A` / `\e[B` | Toggle a ±/tiebreaker card's sign (up/down arrow) |
-| `\r` / space | Confirm/play the cursor-selected card (Enter or Space) |
-| `d` | Hit (draw a dealer card) — Space no longer draws |
+| `\r` / `p` | Play the cursor-selected card, at the sign shown on it (Enter or P) |
+| `d` / space | Hit (draw a dealer card) — Space draws on the player's turn |
 | `s` | Stand |
 | `n` / space | Next round (when prompted) |
 | `g` / space | New game (after game over) |
@@ -90,6 +90,10 @@ Menu: arrows/`w`/`s` navigate, Enter/space select.
 - The app handles live resize (spec 002): the `resize:WxH` step works
   mid-run, and below the minimum it shows a "too small" recovery screen,
   restoring when the terminal grows back.
+- A fresh profile gets two one-off onboarding pieces (spec 023): the primer
+  on the campaign map (wait on `Your first campaign`) and the popup at the
+  first match (wait on `How a match works`), each dismissed with Enter. The
+  marks live in `profile.json` as `primer_seen` / `first_match_seen`.
 
 ## Run (direct, for humans)
 

@@ -42,7 +42,9 @@ impl Overlay {
     }
 }
 
-/// Open a text file and read it into a Vec<String> based on OverlayKind.
+/// The shipped text for an OverlayKind, as a Vec<String>. The files are
+/// compiled in with `include_str!`, so this splits a &'static str into lines
+/// rather than reading from disk.
 /// A free function so a modal that carries no `Overlay` (the onboarding
 /// pieces) draws the same shipped text through `draw_text_overlay`.
 pub fn overlay_text(kind: OverlayKind) -> Vec<String> {

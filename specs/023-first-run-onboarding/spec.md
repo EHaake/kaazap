@@ -244,44 +244,104 @@ On the player's turn:
 
 ## Acceptance criteria
 
-- [ ] A fresh profile's first entry to the galaxy map shows the primer with
+- [x] A fresh profile's first entry to the galaxy map shows the primer with
       the text above; Enter, Space or Esc dismisses it; no node, wager, shop
       or deck-builder opens while it is up; it does not show
       on any later map open, including after a run-over reset and after New
       Campaign.
-- [ ] A fresh profile's first match — Quick Play or campaign — shows the
+      *Evidence: `map_entry_modal` raises `Modal::Primer` only when
+      `from_menu && !profile.primer_seen()` and dismissal marks the profile —
+      `map_entry_modal_prefers_run_over_then_primer`,
+      `the_primer_swallows_map_keys`,
+      `onboarding_texts_are_the_spec_text_and_fit`; the mark survives the reset
+      (`reset_to_starter_wipes_the_run_but_preserves_lifetime_stats_and_onboarding_marks`),
+      so neither a run-over nor New Campaign shows it again.*
+- [x] A fresh profile's first match — Quick Play or campaign — shows the
       popup with the text above over the dealt board; the match does not
       advance while it is up, including when the opponent acts first; Enter,
       Space or Esc dismisses it; it does not show for any later match, a
       resumed match, or after a reset.
-- [ ] Both marks round-trip through `profile.json`; a profile document without
+      *Evidence: the popup is raised at the one match-start seam, guarded by
+      `!profile.first_match_seen()` (`src/app.rs:821`), which Continue's resume
+      path never reaches; `tick` freezes the engine while it is up (`let held =
+      matches!(self.modal, Some(Modal::FirstMatch))`) — tested by
+      `the_first_match_popup_holds_the_match_and_swallows_play_keys`,
+      `onboarding_dismissed_on_enter_space_or_esc_only`,
+      `onboarding_texts_are_the_spec_text_and_fit`.*
+- [x] Both marks round-trip through `profile.json`; a profile document without
       them loads with both unset; `PROFILE_VERSION` is 1 and the match save
       format is untouched; quitting with either piece up leaves its mark unset.
-- [ ] If the map opens broke, the run-over notice shows and the primer does
+      *Evidence:
+      `onboarding_marks_default_unset_round_trip_and_load_unset_from_older_documents`
+      (which also asserts `PROFILE_VERSION == 1`); `git diff main --stat` shows
+      no `src/save.rs`, and `SAVE_VERSION` is 1; the marks are written only in
+      `handle_onboarding_input`, on dismissal, so quitting under either leaves
+      them unset.*
+- [x] If the map opens broke, the run-over notice shows and the primer does
       not; the primer shows on the next map open.
-- [ ] The opponent select screen shows "Quick Play deals the standard deck."
+      *Evidence: `map_entry_modal_prefers_run_over_then_primer` — `(true,
+      true)` and `(true, false)` both give `Modal::RunOver`, `(false, true)`
+      gives `Modal::Primer`, and the mark is set only on dismissal, so the
+      primer is still due at the next open.*
+- [x] The opponent select screen shows "Quick Play deals the standard deck."
       above its hint, on-frame at the minimum terminal with the full roster.
-- [ ] How to Play contains the campaign section and the new controls line;
+      *Evidence: `QUICK_PLAY_NOTE` drawn `Muted` at `y + 4` with the hint moved
+      to `y + 5` and the layout footer widened 6 → 7;
+      `the_full_roster_and_footer_fit_the_minimum_terminal` and
+      `preview_panel_is_on_frame_and_clear_of_the_list_at_the_minimum`.*
+- [x] How to Play contains the campaign section and the new controls line;
       the in-game controls overlay and the board's turn hint name Space as
       draw, Enter/P as play, and 1–4 as select; no on-screen text says Space
       plays a card or that 1–4 play one.
-- [ ] On the player's turn: 1–4 move the selection to that slot (an empty slot
+      *Evidence: `help_texts_name_the_new_keys_and_nothing_old`,
+      `help_texts_fit_the_minimum_terminal_unclamped`,
+      `turn_hints_fit_the_status_band`, `status_never_shows_a_sign_prompt`;
+      and the T009 greps of
+      `assets`, `src/board.rs`, `src/app.rs` return only "Space draw", "Space /
+      D  Draw", "Over 20: Space, D or S accepts the bust" and 1–4 "pick" /
+      "Select" lines — no line says Space plays a card or that 1–4 play one.*
+- [x] On the player's turn: 1–4 move the selection to that slot (an empty slot
       changes nothing) and play nothing; Enter or P plays the selected card
       with the sign shown on it, for fixed, ±, flip and tiebreaker cards
       alike; Space draws, and over 20 accepts the bust like D; no key opens a
       + or − prompt. Space at round end, game over, menus, modals and notices
       behaves as before.
-- [ ] Unit tests cover: the seen marks' defaults, round trip and survival of
+      *Evidence:
+      `cursor_select_lands_on_an_occupied_slot_and_resets_the_sign_like_a_move`,
+      `cursor_select_ignores_an_empty_or_out_of_range_slot`,
+      `turn_key_binds_the_spec_023_keys`,
+      `cursor_confirm_plays_a_fixed_card_immediately`,
+      `cursor_confirm_plays_sign_card_at_the_pending_sign`,
+      `cursor_confirm_tiebreaker_commits_as_pending_sign`,
+      `cursor_confirm_flip_card_applies_and_does_not_prompt`,
+      `space_draws_on_the_players_turn_and_advances_at_the_pauses`,
+      `space_over_twenty_accepts_the_bust_like_d`,
+      `number_and_sign_keys_map_to_nothing_on_the_players_turn`,
+      `sign_phase_maps_no_keys`.*
+- [x] Unit tests cover: the seen marks' defaults, round trip and survival of
       the reset; the primer and popup showing exactly once and blocking input
       underneath; 1–4 selecting; Enter/P playing each card kind at the shown
       sign; Space drawing on the player's turn and advancing at the pauses;
       the existing card-effect and resolution tests unchanged.
-- [ ] No change to `game.rs` rules (card effects, scoring, resolution), the
+      *Evidence: the tests named above, all in the 386-test suite; `git diff
+      main -- src/game.rs | grep '^@@'` shows engine hunks only in
+      `game_action_from_key`, the added `restart_opponent_pause`, and `mod
+      tests` — every `sign_*`, card-effect and resolution test is untouched.*
+- [x] No change to `game.rs` rules (card effects, scoring, resolution), the
       AI, the economy, the wager prompt, settlement, or `save.rs`; `cargo
       build` has no new warnings; `cargo test` is green.
-- [ ] Attested in play by the person: a fresh profile sees the primer once on
+      *Evidence: `git diff main --stat` touches no `save.rs`, `player.rs`,
+      `card.rs`, `economy.rs`, `wager.rs`, `campaign_map.rs`, `tests/balance.rs`,
+      `Cargo.toml` or `Cargo.lock`; `cargo build --all-targets 2>&1 | grep -c
+      warning` is 0 on this branch and 0 on `main`; three consecutive `cargo
+      test -q` runs were green (386 + 6 passed, 0 failed, 1 ignored).*
+- [x] Attested in play by the person: a fresh profile sees the primer once on
       the map and the popup once at its first match; the new keys feel right;
       an existing profile sees each piece once and keeps everything else.
+      *Evidence: attested by the person in play on 2026-09-14/15 — Phase 1
+      (controls) and Phase 2 (onboarding, including the T006a centering fix);
+      the Phase 2 driver walkthrough is logged in this spec's `tasks.md` tier
+      log.*
 
 ## Resolved decisions
 

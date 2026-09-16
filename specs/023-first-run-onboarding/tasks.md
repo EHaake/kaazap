@@ -259,7 +259,7 @@ attestation on a fresh profile and an existing one. -->
 
 ## Final phase — Spec close-out
 
-- [ ] **T009** — Close-out. Draft
+- [x] **T009** — Close-out. Draft
   `specs/023-first-run-onboarding/closeout-main-docs.md` (plan §Design 7:
   ROADMAP — onboarding item shipped, lines 56–59 superseded; DECISIONS —
   rulings A–H; tension §1 (pass-through kept); tension §3 as amended — the
@@ -344,3 +344,4 @@ policy as settled. -->
 | Phase 2 review (skeptical-reviewer) | opus | ~75K (measured return) | signed off, 0 blocking, 6 notes — modal assignment in `start_match`/`enter_campaign_map` is order-sensitive and untested (driver confirmed both the wager-commit and New Campaign paths raise their piece; carry to the sweep as "verified by driver + person, not by a test"); two inaccurate doc comments ("asset re-read on each draw" — it is `include_str!`) → T009; `the_primer_swallows_map_keys` asserts less than its comment claims → T009; opponent-select title/preview not pinned against row 0 (green at 31 rows) → sweep |
 | Phase 2 driver walkthrough (orchestrator, scratch profile, 139×31; real profile/saves backed up and checksum-restored) | — | — | fresh profile: primer over the map (b swallowed; Enter dismissed; `primer_seen` true); popup over the dealt board (d and 1 swallowed); quit with the popup up → `first_match_seen` false → Continue resumed with no popup; next new match from the map → popup → dismissed → board live, mark set; Quick Play: no popup, "Quick Play deals the standard deck." on-frame with the full roster; New Campaign: marks kept, no primer; pre-023-shaped profile with progress whose first act is New Campaign → primer; broke pre-023 profile → run-over notice without the primer, then the primer on the next map open |
 | T006a walkthrough fix (sdd-implementer) | opus (fallback, experiment 2 paused) | ~24K (measured return) | person's Phase 2 finding: the dismiss line sat left of center; leading spaces 13 → 17 (primer) and 13 → 19 (popup), spec code blocks updated to match; driver snapshots at 139×31 confirm both centered; no test pins the centering (a future text edit could un-center it) → sweep |
+| T009 close-out (sdd-implementer) | opus (fallback, experiment 2 paused) | ~81K (measured return) | done first try; three green test runs, every mechanical check clean (warning count 0 on both main and the branch; game.rs hunks only in `game_action_from_key`, `restart_opponent_pause`, `mod tests`); acceptance criteria checked off with evidence; carried notes applied (two doc comments, one test comment, one test rename, driver skill key reference); flagged that `CLAUDE.md` rides in on the branch (person's one-commit ruling of 2026-09-14) |

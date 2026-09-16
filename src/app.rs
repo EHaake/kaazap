@@ -303,8 +303,9 @@ enum Modal {
     /// The first-run campaign primer (spec 023): raised over a freshly opened
     /// campaign map the first time the player reaches it from the start menu,
     /// naming the stake loop and the outfitter. Unit-like — it carries no data;
-    /// its text is an asset re-read on each draw. Enter/Space/Esc dismiss it,
-    /// marking the profile so it shows once.
+    /// its text is compiled in with `include_str!` and rebuilt into lines on
+    /// each draw, not re-read from disk. Enter/Space/Esc dismiss it, marking
+    /// the profile so it shows once.
     Primer,
     /// The first-match popup (spec 023): raised over the dealt board the first
     /// time this profile *starts* a match (never on a resume), naming the keys.
@@ -2253,8 +2254,12 @@ mod tests {
     #[test]
     fn the_primer_swallows_map_keys() {
         // Spec 023: nothing on the campaign map can be acted on while the primer
-        // is up — no outfitter, no deck builder, no cursor move, no Back. Only
-        // non-dismiss keys are pressed, so nothing writes to disk.
+        // is up. The map keys that would open the outfitter or the deck builder,
+        // move the cursor, or go Back all leave the screen and the modal exactly
+        // as they were — which is what is asserted here (the map's cursor field
+        // is private to campaign_map.rs, so it is covered by that module's own
+        // tests rather than here). Only non-dismiss keys are pressed, so nothing
+        // writes to disk.
         let mut app = App::new(Config { num_cols: 120, num_rows: 40 });
         app.open_campaign_map();
         app.modal = Some(Modal::Primer);

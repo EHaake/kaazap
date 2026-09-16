@@ -367,7 +367,7 @@ mod tests {
     }
 
     #[test]
-    fn status_player_turn_shows_nav_and_play_prompt_strong() {
+    fn status_player_turn_with_no_selection_shows_draw_and_stand_strong() {
         let gs = GameState::new(); // starts in PlayerTurn
         // msg() passes no selection → the empty-hand shape: only the
         // keys that still do something.
