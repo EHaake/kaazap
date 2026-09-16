@@ -9,7 +9,7 @@ use crate::{
         BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
     },
     board::BoardView,
-    campaign::{NodeRef, planet_by_id},
+    campaign::{NodeRef, PLANETS, planet_by_id},
     campaign_map::{CampaignMapState, MapBanner, MapOutcome},
     card::{Card, DEFAULT_SIDE_DECK},
     config::Config,
@@ -32,6 +32,7 @@ use crate::{
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
+    stats::{RunStats, run_summary_lines},
     wager::{WagerOutcome, WagerState},
 };
 
@@ -299,6 +300,13 @@ enum Modal {
     /// start menu (chore 2026-09-13, supersedes spec 021's "a fresh map opens");
     /// nothing dismisses it (Esc does not), because the run really is over.
     RunOver,
+    /// The victory notice (spec 024): raised over the campaign map when the
+    /// player acknowledges the game-over popup of the match that completed the
+    /// run. Unit-like — it carries no data; its content is rebuilt from the run
+    /// tally on each draw. Enter, Space or Esc dismiss it; nothing else acts
+    /// while it is up. Transient: no seen mark, so quitting under it loses the
+    /// notice but not the completion or its payout, both already persisted.
+    Victory,
     /// The first-run campaign primer (spec 023): raised over a freshly opened
     /// campaign map the first time the player reaches it from the start menu,
     /// naming the stake loop and the outfitter. Unit-like — it carries no data;
@@ -351,27 +359,70 @@ fn run_over_acknowledged(key: KeyCode) -> bool {
     matches!(key, KeyCode::Enter | KeyCode::Char(' '))
 }
 
-/// Whether a key dismisses the first-run primer or the first-match popup (spec
-/// 023) — a pure mapping in the `run_over_acknowledged` spirit, so the bindings
-/// are unit-testable without an `App`. Enter, Space and Esc dismiss; every other
-/// key is ignored. (Unlike the run-over notice, Esc *does* dismiss: these are
-/// notices the player is allowed to wave away.)
-fn onboarding_dismissed(key: KeyCode) -> bool {
+/// Whether a key dismisses a notice the player may wave away — the first-run
+/// primer, the first-match popup (spec 023) and the victory notice (spec 024) —
+/// a pure mapping in the `run_over_acknowledged` spirit, so the bindings are
+/// unit-testable without an `App`. Enter, Space and Esc dismiss; every other key
+/// is ignored. (Unlike the run-over notice, Esc *does* dismiss: none of these
+/// asks the player for a decision.)
+fn notice_dismissed(key: KeyCode) -> bool {
     matches!(key, KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Esc)
 }
 
-/// What a freshly opened campaign map raises (specs 021 + 023): the run-over
-/// notice if the balance can no longer cover any ante, else the first-run primer
-/// if it is due, else nothing. One modal at a time, so a map that opens broke
-/// shows the notice and the primer waits for the next open.
-fn map_entry_modal(broke: bool, primer_due: bool) -> Option<Modal> {
+/// What a freshly opened campaign map raises (specs 021 + 023 + 024): the
+/// run-over notice if the balance can no longer cover any ante, else the victory
+/// notice if a completed run is waiting to be announced, else the first-run
+/// primer if it is due, else nothing. One modal at a time, so a map that opens
+/// broke shows the notice and the primer waits for the next open. A completing
+/// win can never leave the player broke and the primer is menu-entry only, so
+/// the precedence never actually arbitrates — it is written down so it can't
+/// drift.
+fn map_entry_modal(broke: bool, victory_due: bool, primer_due: bool) -> Option<Modal> {
     if broke {
         Some(Modal::RunOver)
+    } else if victory_due {
+        Some(Modal::Victory)
     } else if primer_due {
         Some(Modal::Primer)
     } else {
         None
     }
+}
+
+/// The victory notice's content (spec 024), title first and dismiss line last,
+/// blank rows included — pure, so the wording, the breathing room and the fit
+/// are testable without a terminal. The run summary is the same block the
+/// run-over notice shows, built once in `stats`.
+fn victory_notice_lines(run: &RunStats, cleared: usize, total: usize) -> Vec<String> {
+    let mut lines = vec![
+        "Campaign complete — the house's best has lost.".to_string(),
+        String::new(),
+        "Your cards and credits are yours to keep.".to_string(),
+        "Rematches stay open; New Campaign replays the map with your deck.".to_string(),
+        String::new(),
+    ];
+    lines.extend(run_summary_lines(run, cleared, total));
+    // The dismiss line is the acted-on element, so it gets an empty row above
+    // it; the box's own padding gives it the one below (design brief §Density
+    // and breathing room).
+    lines.push(String::new());
+    lines.push("Enter  continue".to_string());
+    lines
+}
+
+/// The run-over notice's content (spec 021), now carrying the same run summary
+/// between its title and its reset note (spec 024). Same shape and same rules as
+/// `victory_notice_lines`.
+fn run_over_notice_lines(run: &RunStats, cleared: usize, total: usize) -> Vec<String> {
+    let mut lines = vec!["You're broke — the run is over.".to_string(), String::new()];
+    lines.extend(run_summary_lines(run, cleared, total));
+    lines.push(String::new());
+    lines.push(
+        "Deck, collection, and progress reset to the starter; your records stay.".to_string(),
+    );
+    lines.push(String::new());
+    lines.push("Enter  continue".to_string());
+    lines
 }
 
 /// What a key does in a match — the decision table behind the InGame arm,
@@ -488,6 +539,12 @@ pub struct App {
     // why a launch was refused. Shown until the player navigates the map. UI
     // state only — not saved (the credits it reports are already persisted).
     banner: Option<MapBanner>,
+    // Whether a completed campaign run is owed its victory notice (spec 024):
+    // set at settlement from `Settlement::completed_run` and taken by the next
+    // campaign map entry, which in that window is the game-over acknowledgement.
+    // UI state only — never saved, since the completion and its payout are
+    // already persisted and only the notice is lost by quitting under it.
+    victory_due: bool,
 }
 
 impl App {
@@ -517,6 +574,7 @@ impl App {
             play_log_follow: true,
             too_small: None,
             banner: None,
+            victory_due: false,
         }
     }
 
@@ -612,18 +670,22 @@ impl App {
     }
 
     /// Open the campaign map, then raise whatever the entry calls for (specs 021
-    /// + 023): the run-over notice if the balance can no longer cover any ante,
-    /// else the first-run primer when the map was reached from the start menu
-    /// (`from_menu`) and the primer is still unseen. The one seam both checks run
-    /// at: the three menu-entry paths pass `from_menu: true`, the game-over
-    /// acknowledgement passes `false` (a match's game-over is not a menu entry,
-    /// spec 023), while Back from the shop or deck builder — which returns to a
-    /// map already seen and cannot create a broke state — keeps using
-    /// `open_campaign_map`.
+    /// + 023 + 024): the run-over notice if the balance can no longer cover any
+    /// ante, else the victory notice if a run was just completed, else the
+    /// first-run primer when the map was reached from the start menu
+    /// (`from_menu`) and the primer is still unseen. The one seam all three
+    /// checks run at: the three menu-entry paths pass `from_menu: true`, the
+    /// game-over acknowledgement passes `false` (a match's game-over is not a
+    /// menu entry, spec 023), while Back from the shop or deck builder — which
+    /// returns to a map already seen and cannot create a broke state — keeps
+    /// using `open_campaign_map`. The victory flag is **taken** here: the notice
+    /// is owed exactly once per completion, and the acknowledgement is the only
+    /// entry that can happen in the window between settling and showing it.
     fn enter_campaign_map(&mut self, from_menu: bool) {
         self.open_campaign_map();
+        let victory_due = std::mem::take(&mut self.victory_due);
         let primer_due = from_menu && !self.profile.primer_seen();
-        self.modal = map_entry_modal(self.profile.is_broke(), primer_due);
+        self.modal = map_entry_modal(self.profile.is_broke(), victory_due, primer_due);
     }
 
     /// Route a key to the run-over notice: Enter/Space acknowledge, wiping to a
@@ -650,7 +712,7 @@ impl App {
     /// usual pause runs from the dismissal rather than expiring instantly.
     /// Quitting with either up leaves its mark unset.
     fn handle_onboarding_input(&mut self, key: KeyCode) {
-        if !onboarding_dismissed(key) {
+        if !notice_dismissed(key) {
             return;
         }
         match self.modal {
@@ -992,6 +1054,14 @@ impl App {
             // The run-over notice takes all input while open (spec 021): only
             // Enter/Space get past it, and they reset the run.
             self.handle_run_over_input(key);
+        } else if matches!(self.modal, Some(Modal::Victory)) {
+            // The victory notice takes all input while open (spec 024): only
+            // Enter/Space/Esc get past it, and they dismiss it back to a live
+            // map. Nothing on the map underneath can be acted on meanwhile.
+            if notice_dismissed(key) {
+                self.modal = None;
+                self.audio.play(Sfx::MenuSelect);
+            }
         } else if matches!(self.modal, Some(Modal::Primer | Modal::FirstMatch)) {
             // The first-run pieces take all input while open (spec 023): only
             // Enter/Space/Esc get past them, and they dismiss. Nothing on the
@@ -1534,6 +1604,10 @@ impl App {
                 self.profile.resolve_match(opponent_id, player_won, player_rounds, opp_rounds)
             {
                 self.banner = Some(MapBanner::Settled(settlement.outcome));
+                // The completion edge is a one-shot signal, not a saved flag
+                // (spec 024): it waits here until the acknowledgement opens the
+                // map, which is what raises the victory notice.
+                self.victory_due |= settlement.completed_run;
             }
             self.profile.save();
         }
@@ -1582,7 +1656,16 @@ impl App {
                 self.draw_confirm_new_game(*on_yes, pulse, frame)
             }
             Some(Modal::Wager(state)) => state.draw(frame, &self.config, pulse),
-            Some(Modal::RunOver) => self.draw_run_over(frame),
+            Some(Modal::RunOver) => {
+                let lines =
+                    run_over_notice_lines(self.run_tally(), self.worlds_cleared(), PLANETS.len());
+                self.draw_notice(frame, &lines)
+            }
+            Some(Modal::Victory) => {
+                let lines =
+                    victory_notice_lines(self.run_tally(), self.worlds_cleared(), PLANETS.len());
+                self.draw_notice(frame, &lines)
+            }
             // The first-run primer and the first-match popup (spec 023): the same
             // bordered text box the other overlays use, rebuilt from its asset
             // every frame — so, like the play log, they need no resize arm.
@@ -1744,26 +1827,38 @@ impl App {
             .map(|s| format!("…and forfeit your {s}-credit stake."))
     }
 
-    /// The run-over notice (spec 021): the balance can't cover any ante, so the
-    /// run ends here. Borrows `draw_two_choice`'s bordered-box shape without its
-    /// choices — there is only one way on, and Enter takes it.
-    fn draw_run_over(&self, frame: &mut Frame) {
-        let title = "You're broke — the run is over.";
-        let note = "Deck, collection, and progress reset to the starter; your records stay.";
-        let hint = "Enter  continue";
+    /// The run tally both notices report (spec 024).
+    fn run_tally(&self) -> &RunStats {
+        self.profile.campaign().run_stats()
+    }
 
-        let content_width = title
-            .chars()
-            .count()
-            .max(note.chars().count())
-            .max(hint.chars().count());
-        let layout = OverlayLayout::new(self.config, content_width, 5);
+    /// How many worlds this run has cleared — the summary's last figure.
+    fn worlds_cleared(&self) -> usize {
+        self.profile.campaign().worlds_cleared()
+    }
+
+    /// Draw a one-way notice — the run-over notice (spec 021) and the victory
+    /// notice (spec 024) — as a bordered box over whatever is underneath.
+    /// Borrows `draw_two_choice`'s shape without its choices: the title row is
+    /// Strong, the dismiss line (always the last row) is Muted, everything
+    /// between is Normal, and every row is centred. The blank rows are part of
+    /// the content the caller built, so the breathing room is testable without a
+    /// terminal; the box pads itself evenly above and below (`OverlayLayout`).
+    fn draw_notice(&self, frame: &mut Frame, lines: &[String]) {
+        let content_width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+        let layout = OverlayLayout::new(self.config, content_width, lines.len());
 
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
-        draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Strong);
-        draw_text_in(frame, layout.inner, 2, Align::Center, note, Emphasis::Normal);
-        draw_text_in(frame, layout.inner, 4, Align::Center, hint, Emphasis::Muted);
+        let last = lines.len().saturating_sub(1);
+        for (row, line) in lines.iter().enumerate() {
+            let emphasis = match row {
+                0 => Emphasis::Strong,
+                r if r == last => Emphasis::Muted,
+                _ => Emphasis::Normal,
+            };
+            draw_text_in(frame, layout.inner, row, Align::Center, line, emphasis);
+        }
     }
 }
 
@@ -2170,13 +2265,15 @@ mod tests {
     }
 
     #[test]
-    fn onboarding_dismissed_on_enter_space_or_esc_only() {
-        // The first-run pieces (spec 023) are notices, not choices: Enter, Space
-        // and Esc all wave them away, and nothing else does — so a stray key
-        // over the map or the board can never mark them seen by accident.
-        assert!(onboarding_dismissed(KeyCode::Enter));
-        assert!(onboarding_dismissed(KeyCode::Char(' ')));
-        assert!(onboarding_dismissed(KeyCode::Esc));
+    fn notice_dismissed_on_enter_space_or_esc_only() {
+        // The first-run pieces (spec 023) and the victory notice (spec 024) are
+        // notices, not choices: Enter, Space and Esc all wave them away, and
+        // nothing else does — so a stray key over the map or the board can never
+        // mark a first-run piece seen, or wave off the victory notice, by
+        // accident.
+        assert!(notice_dismissed(KeyCode::Enter));
+        assert!(notice_dismissed(KeyCode::Char(' ')));
+        assert!(notice_dismissed(KeyCode::Esc));
         for k in [
             KeyCode::Char('x'),
             KeyCode::Char('d'),
@@ -2185,19 +2282,100 @@ mod tests {
             KeyCode::Up,
             KeyCode::Left,
         ] {
-            assert!(!onboarding_dismissed(k), "{k:?} must not dismiss");
+            assert!(!notice_dismissed(k), "{k:?} must not dismiss");
         }
     }
 
     #[test]
-    fn map_entry_modal_prefers_run_over_then_primer() {
-        // One modal at a time (spec 023): a broke map shows the run-over notice
-        // even when the primer is still due, and the primer waits for the next
-        // map open. An unbroke map shows the primer only while it is due.
-        assert!(matches!(map_entry_modal(true, true), Some(Modal::RunOver)));
-        assert!(matches!(map_entry_modal(true, false), Some(Modal::RunOver)));
-        assert!(matches!(map_entry_modal(false, true), Some(Modal::Primer)));
-        assert!(map_entry_modal(false, false).is_none());
+    fn map_entry_modal_prefers_run_over_then_victory_then_primer() {
+        // One modal at a time (specs 023 + 024): broke wins over everything, a
+        // completed run wins over the primer, and the primer shows only while it
+        // is due. The first two cases never actually arise together in play — a
+        // completing win can't leave the player broke, and the primer is
+        // menu-entry only — so the order is pinned here rather than left to
+        // drift.
+        assert!(matches!(map_entry_modal(true, true, true), Some(Modal::RunOver)));
+        assert!(matches!(map_entry_modal(true, false, false), Some(Modal::RunOver)));
+        assert!(matches!(map_entry_modal(false, true, true), Some(Modal::Victory)));
+        assert!(matches!(map_entry_modal(false, false, true), Some(Modal::Primer)));
+        assert!(map_entry_modal(false, false, false).is_none());
+    }
+
+    #[test]
+    fn both_notices_read_right_breathe_and_fit_the_minimum_terminal() {
+        // Spec 024: the two notices share one summary block, both end on the
+        // dismiss line with an empty row above it (the acted-on element gets its
+        // air — the box's own padding gives the row below), neither doubles a
+        // blank row, and both fit 139x31 unclamped so no row is ever eaten.
+        let mut run = RunStats::default();
+        for _ in 0..4 {
+            run.record_match(true, 3, 1);
+        }
+        for _ in 0..2 {
+            run.record_match(false, 1, 3);
+        }
+        run.record_credits_won(640);
+        run.record_credits_lost(210);
+
+        let summary = run_summary_lines(&run, 7, 8);
+        let victory = victory_notice_lines(&run, 7, 8);
+        let run_over = run_over_notice_lines(&run, 7, 8);
+
+        assert_eq!(victory[0], "Campaign complete — the house's best has lost.");
+        assert_eq!(run_over[0], "You're broke — the run is over.");
+
+        let (cols, rows) = Config::min_size();
+        let config = Config { num_cols: cols, num_rows: rows };
+
+        for lines in [&victory, &run_over] {
+            let summary_at = lines
+                .iter()
+                .position(|l| l == &summary[0])
+                .expect("the summary block is on the notice");
+            assert_eq!(
+                &lines[summary_at..summary_at + 3],
+                &summary[..],
+                "the three summary lines run in order"
+            );
+            assert_eq!(lines.last().unwrap(), "Enter  continue", "the dismiss line is last");
+            assert_eq!(
+                lines[lines.len() - 2],
+                "",
+                "the dismiss line needs an empty row above it"
+            );
+            assert!(
+                lines.windows(2).all(|w| !(w[0].is_empty() && w[1].is_empty())),
+                "no slab of empty rows: {lines:?}"
+            );
+
+            let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+            let layout = OverlayLayout::new(config, width, lines.len());
+            assert_eq!(
+                layout.outer.height(),
+                lines.len() + crate::V_PAD,
+                "box height clamped — the notice outgrew the minimum terminal"
+            );
+            assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");
+            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame");
+        }
+
+        // The victory notice's two spec'd lines sit above the summary...
+        let victory_at = victory.iter().position(|l| l == &summary[0]).unwrap();
+        assert_eq!(victory[2], "Your cards and credits are yours to keep.");
+        assert_eq!(
+            victory[3],
+            "Rematches stay open; New Campaign replays the map with your deck."
+        );
+        assert!(victory_at > 3, "the summary follows the victory text");
+
+        // ...and the run-over notice keeps its reset note *after* the summary.
+        let run_over_at = run_over.iter().position(|l| l == &summary[0]).unwrap();
+        let reset_note = "Deck, collection, and progress reset to the starter; your records stay.";
+        let note_at = run_over
+            .iter()
+            .position(|l| l == reset_note)
+            .expect("the run-over notice keeps its reset note");
+        assert!(note_at > run_over_at + 2, "the reset note follows the summary");
     }
 
     #[test]
