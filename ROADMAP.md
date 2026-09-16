@@ -85,7 +85,9 @@ of, not guessed at here in advance.
   plus a **deck-builder `Screen`** reached from a new **Side Deck** menu item
   where you add/remove copies (arrows/`wasd`/emacs, Enter/Backspace) against the
   owned counts. Matches deal the player's hand from the built deck (campaign
-  matches, since spec 022) — the player deck moved from the `DEFAULT_SIDE_DECK`
+  matches only, between spec 022 and spec 024 — **superseded by spec 024**,
+  which gives **every** match, Quick Play included, the built deck) — the player
+  deck moved from the `DEFAULT_SIDE_DECK`
   const onto `GameState`, mirroring how spec 007 moved the opponent's deck — and
   each match **snapshots its deck into the save**, so editing your deck never
   rewrites an in-progress match; resume falls back to the default for a pre-spec
@@ -94,7 +96,9 @@ of, not guessed at here in advance.
   `card::ALL_SIDE_CARDS`; the starter was the default 10 + a few spares —
   **superseded by spec 022**, which gave a fresh profile its own Outer-tier
   `profile::STARTER_SIDE_DECK` plus lateral spares and left
-  `card::DEFAULT_SIDE_DECK` as the opponent baseline and Quick Play's deal. A
+  `card::DEFAULT_SIDE_DECK` as the opponent baseline and Quick Play's deal — the
+  Quick Play half **superseded in turn by spec 024**, which leaves
+  `DEFAULT_SIDE_DECK` the opponent baseline *only*. A
   two-panel "briefcase" builder is a logged follow-up (below).
 - **Campaign map** (spec 009) — the campaign's integration layer (subsystem D),
   scoped to navigation + progression structure with the **economy stubbed**
@@ -170,12 +174,19 @@ of, not guessed at here in advance.
   mutation-checked. Details in `docs/opponents.md` / `DECISIONS.md`.
 - **New Campaign / start over** (spec 014) — from playtest: "Start Campaign" only
   ever resumed, with no way to begin again. Now, when cleared progress exists,
-  Campaign offers **Continue** vs **New Campaign**; New Campaign is a full fresh
+  Campaign offers **Continue** vs **New Campaign**; New Campaign was a full fresh
   start (`Profile::reset_to_starter` — wipes progress, credits, and collection/deck
   to the starter, keeping settings) behind a default-No confirm. A no-progress
-  profile opens the map directly (unchanged). Menu/profile only — no engine, board,
-  or save-format change; rendering DRYed into a shared two-choice overlay helper,
-  and the irreversible wipe guarded by a mutation-checked `confirm_choice` seam.
+  profile opens the map directly — **superseded by spec 024**, which made New
+  Campaign reset the **map only** (you keep credits, collection and deck), added
+  a third **Reset Everything** choice for the old full wipe, and widened the
+  panel's trigger to "the run has progress *or* the pool differs from the
+  starter". The default-No confirm and its `confirm_choice` seam are unchanged. Menu/profile only — no engine, board,
+  or save-format change; rendering DRYed into a shared two-choice overlay helper
+  — **generalized by spec 024** to `draw_choice_panel`, which takes any number of
+  labels and serves the three-choice entry panel too — and the irreversible wipe
+  guarded by a mutation-checked `confirm_choice` seam, which still guards both of
+  spec 024's reset scopes.
 - **Two-panel briefcase deck-builder** (spec 015) — the side-deck builder is now a
   two-panel "briefcase": **Collection** (left) and built **Deck** (right), each a fixed
   album of every card type — owned shown as solid card frames with a copy count, the rest
@@ -282,7 +293,9 @@ of, not guessed at here in advance.
   PASS/FAIL. Tuning moved **data only** (no AI logic, no new mechanics): the
   **starter deck is now Outer-tier only** (`profile::STARTER_SIDE_DECK`, its own
   constant, with lateral spares), the **standard deck** keeps its role as the
-  opponent baseline and is what **Quick Play** deals, the roster was retuned
+  opponent baseline and was what **Quick Play** dealt — **superseded by spec
+  024**, which gives Quick Play the deck you built; the standard deck's
+  opponent-baseline role is unchanged — the roster was retuned
   (the Outer Rim's weakness moved out of `misplay` and into weak all-1s decks
   (mostly `+1`/`−1`, and no `±` card) —
   Greeb's slip rate fell 0.25 → 0.18 as shipped; Nima 16/Cautious →
@@ -325,9 +338,51 @@ of, not guessed at here in advance.
   so `save.rs`, `tests/balance.rs` and every `sign_*` engine test are unchanged.
   How to Play gained a short **campaign section** so the primer's content is
   findable afterward, the in-game `?` overlay and the board's turn hint were
-  re-synced, and the opponent select screen finally says **"Quick Play deals the
-  standard deck."** (spec 022's deferred line). No rules, AI, economy, wager or
+  re-synced, and the opponent select screen finally said **"Quick Play deals the
+  standard deck."** (spec 022's deferred line) — **superseded by spec 024**,
+  which made Quick Play deal the built deck and rewrote that line as **"Quick
+  Play deals your deck. Nothing is staked."** No rules, AI, economy, wager or
   settlement change.
+
+- **Endgame, victory & what you keep** (spec 024) — the win finally has an
+  ending, and one principle is now explicit across the game: **what you earn is
+  yours.** Acknowledging the game-over popup of the match that **completes the
+  run** lands on the galaxy map with a **victory notice** over it — title, a
+  keep-your-pool note, the run summary, one dismiss line — raised once per
+  completion (a rematch win on a complete run raises nothing; a replayed
+  campaign's completing win raises it again), dismissed with Enter, Space or
+  Esc, and holding every map key while it is up. The run does **not** end: the
+  map stays open with rematches and the Outfitter. The **run summary** —
+  matches played / won / lost, credits won and lost this run, best streak,
+  worlds cleared — is one pure builder shown on **both** notices, so going broke
+  now reads as a score too (folding in the backlog's *run summary on the
+  run-over notice* item). The run tally gained two serde-defaulted counters
+  (`credits_won` the net gain on each settled win, `credits_lost` each forfeited
+  stake; a stake forfeited by discarding a saved match counts toward neither),
+  and the lifetime stats gained one optional **first-clear record** — matches
+  played in the run that produced the profile's first completion, set on the
+  0 → 1 completions edge, never overwritten, folded into the Records Campaign
+  line (`Campaign completions: 2  ·  first clear in 14 matches`) so the
+  breakdown table keeps its fixed offset. The map header's axis label gives way
+  to **`★  Campaign complete`** until the map is reset. **Quick Play now deals
+  the deck you built** (superseding spec 022's ruling): `player_deck_for` is
+  gone, `start_match` has one deal for both modes, and the opponent select line
+  reads "Quick Play deals your deck. Nothing is staked." **New Campaign keeps
+  your cards and credits** (superseding spec 014's full-wipe New Campaign): it
+  resets the map only — beaten opponents, the in-flight match and its escrowed
+  stake, the run tally — while a third entry choice, **Reset Everything**, is
+  the old full wipe. Start Campaign's panel is therefore three choices, shown
+  whenever the run has progress *or* the pool differs from the starter.
+  Structurally, `App::tick`'s two profile calls became one
+  `Profile::resolve_match` that owns the record-then-settle order (the
+  first-clear number depends on it), `draw_two_choice` became an N-label
+  `draw_choice_panel` that gives the acted-on choice row its blank row above
+  even when a note is showing (which also corrected the spec-021 discard
+  confirm), and `draw_run_over` became a shared `draw_notice`. No engine, AI,
+  wager, settlement-math or save-format change; `tests/balance.rs`, `Cargo.toml`
+  and `Cargo.lock` untouched; `PROFILE_VERSION` and `SAVE_VERSION` stay 1.
+  `Readme.md`, `docs/economy.md` and `docs/balance.md` re-synced (the last with
+  a short *Replays* note: a replay starts premium, deliberately not retuned).
 
 ## Backlog
 
@@ -487,24 +542,29 @@ human's stated priority is the first-run onboarding.
   a reset — a player who has read the rules is not re-taught on the way back in.
   How to Play kept its role as the full reference and gained the campaign
   section; the cheap extra shipped too ("Quick Play deals the standard deck." on
-  the opponent select screen). The spec also carried the **controls refinement**
+  the opponent select screen — **superseded by spec 024**, which made Quick Play
+  deal the built deck and rewrote the line as "Quick Play deals your deck.
+  Nothing is staked."). The spec also carried the **controls refinement**
   the popup's key list depends on (1–4 select, Enter/P play, Space draws, the ±
   prompt retired), which the backlog had not anticipated.
-- **The endgame / victory award** — what beating the Sovereign gives. Today
-  the map shows one line ("Campaign complete — rematches stay open") and
-  nothing else, while losing has a full reset behind it. Decide what the win
-  awards (credits, a card, a record, a title on the Records screen), what the
-  map shows afterward, and whether the run ends or continues. Deferred at
-  specs 021 and 022 (human-ruled); now the largest hole in the loop. Small
-  spec: flow and one screen, no engine change.
-- **A run summary on the run-over notice.** When the run ends, say how far it
-  got: matches played, credits won and lost, deepest planet reached, best
-  streak — so going broke reads as a score, not just a wipe. The lifetime
-  stats (spec 020) already carry most of the numbers; this is a current-run
-  slice plus presentation on the existing notice. Pairs with the endgame item
-  (a win gets the same summary).
-- **Archive the last run at reset.** Before the run-over (or New Campaign)
-  reset wipes the profile, write the outgoing `profile.json` to a dated
+- **The endgame / victory award** — ✅ **Shipped (spec 024** — see Shipped
+  above). The win awards a **victory notice with a run summary** plus one
+  lifetime **first-clear record** on the Records Campaign view; the map shows
+  **`★  Campaign complete`** afterward; and the run **continues** — rematches
+  and the Outfitter stay open, with New Campaign replaying the map with the deck
+  you built. A credit bonus and a unique card were ruled out (nothing to buy
+  after completion; a new card is an engine and balance change), and New Game
+  Plus scaling stays deferred.
+- **A run summary on the run-over notice.** — ✅ **Shipped (spec 024**, folded
+  into the endgame spec: one `run_summary_lines` builder, two notices). The
+  run-over notice now carries matches played / won / lost, credits won and lost
+  this run, best streak and worlds cleared between its title and its reset note.
+  "Deepest planet reached" shipped as **worlds cleared out of the total**, which
+  reads better on a map whose tiers unlock by clears.
+- **Archive the last run at reset.** Before the run-over (or **Reset
+  Everything**) reset wipes the profile — since spec 024 New Campaign keeps the
+  pool and wipes nothing worth archiving but the run tally — write the outgoing
+  `profile.json` to a dated
   `runs/` file beside it. Costs nothing, changes no rule, and is insurance if
   the full reset ever feels too punishing in play — the softer
   *keep-your-cards* restart noted in spec 021 stays a separate lever.

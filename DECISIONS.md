@@ -312,12 +312,22 @@ miscounted loss. The calls (both human-ruled):
 - **Offer the choice at Campaign entry** — when cleared progress exists, a
   Continue / New Campaign panel (a `Modal` over the menu), not a separate top-level
   menu item. With no progress the map opens directly (the choice would be a no-op).
+  **Spec 024 widened both**: the panel is three choices (Continue / New Campaign /
+  Reset Everything) and shows whenever the run has progress *or* the pool differs
+  from the starter, so only a truly fresh profile opens the map directly.
 - **New Campaign = full fresh start** — wipe campaign progress, credits, and the
   collection/deck back to the starter (`Profile::reset_to_starter` = a fresh
   `Profile::default`), keeping audio/settings (a separate file). Chosen over an
   NG+-style replay that keeps your arsenal, so the early game and the depth-gated
   economy stay meaningful; NG+ stays deferred to spec E (see the amended economy
   note above). Destructive, so it sits behind a default-No confirm.
+  **Superseded by spec 024**: New Campaign now resets the **map only** and keeps
+  the pool, with a separate **Reset Everything** choice doing the wipe described
+  here (same `reset_to_starter`, same default-No confirm). The 014 argument no
+  longer holds — since spec 021 every match is even money and a first clear pays
+  only progress, so a replay earns no more than rematches already can; going
+  broke is now the only thing that takes the pool. See *Endgame, victory & what
+  you keep (spec 024)* below.
 - **The irreversible decision is a tested seam** — the wipe fires only via a pure
   `confirm_choice(on_yes, key)` (Commit iff Enter/Space + Yes), unit-tested and
   mutation-checked, so a future refactor can't silently flip it (the `cursor_confirm`
@@ -784,6 +794,12 @@ recommendations as proposed except **C**.
   recommendation to deal the built deck]. Accepted downside, on record: the deck
   you build only matters in campaign matches, so Quick Play is no longer a place
   to test a build. Reversible in one line if that proves annoying.
+  **Reversed by spec 024** — the accepted downside is exactly what proved
+  annoying, and "what you earn is yours" made the one profile pool the rule in
+  every mode. Quick Play deals the built deck; the standard deck keeps its
+  opponent-baseline role. The consequence, accepted: a fresh profile's Quick
+  Play deals the starter deck, so Quick Play against the Core is hard until the
+  player has shopped. See *Endgame, victory & what you keep (spec 024)* below.
 - **Targets, not vibes**: the starter beats Greeb at least two matches in three,
   is under half against the Mid Rim and under a third against the Core; each
   better pool's best deck wins at least as often as the one below it; a finished
@@ -855,7 +871,11 @@ Design tensions resolved during planning:
   still sends an under-filled built deck to the builder before Quick Play even
   though Quick Play no longer *uses* that deck; the spec is silent, so the plan
   kept the behavior as a consistency nudge rather than adding a behavior change.
-  Dropping it is a two-line change if it ever annoys.
+  Dropping it is a two-line change if it ever annoys. **Both halves superseded
+  by spec 024**: Quick Play deals the built deck, so the divert is no longer a
+  nudge but the thing that upholds `start_match`'s deck-valid precondition for a
+  deck that *is* dealt — and dropping it would now be a bug, not a two-line
+  tidy.
 
 **Supersedes the spec 008 bullet above**, "Modest starter collection, seeded by
 spec 008": the starter is no longer the default 10-card deck plus `+1`, `−1`,
@@ -863,7 +883,8 @@ spec 008": the starter is no longer the default 10-card deck plus `+1`, `−1`,
 with **lateral** spares (`±1 +2 −2` — only `±1` is a type the deck doesn't
 already hold), so the measured starter rates describe the deck a fresh player
 actually fields, and `card::DEFAULT_SIDE_DECK` is the opponent baseline and
-Quick Play's deal. The "exact list is tunable balance data" part of that bullet
+Quick Play's deal — the latter **superseded by spec 024**, which leaves it the
+opponent baseline only. The "exact list is tunable balance data" part of that bullet
 still holds — this pass is what tuned it.
 
 No `game.rs`/`player.rs`/`card.rs`/`save.rs` logic change and no UI change;
@@ -974,7 +995,8 @@ Design tensions resolved during planning:
   Continue), the `PendingStart::Campaign` confirm arm, and `start_new_campaign`
   — which switched from `open_campaign_map()` to `enter_campaign_map(true)`,
   and is never broke at that moment because the reset just left the seed purse.
-  New Campaign is **menu-only** (no `MapOutcome` variant; `ConfirmNewCampaign`
+  New Campaign is **menu-only** (no `MapOutcome` variant; the confirm —
+  `ConfirmNewCampaign`, renamed `ConfirmReset` and given a scope by spec 024 —
   is raised only from `CampaignEntry`), so no origin flag beyond `from_menu` is
   needed. The game-over acknowledgement passes `false` — the spec says the
   primer is not raised from a match's game-over path, which is reachable with
@@ -1013,3 +1035,133 @@ at `game_action_from_key`, a new `restart_opponent_pause` (so the opponent's
 thinking pause runs from the popup's dismissal rather than through it), and its
 own tests. `PROFILE_VERSION` and `SAVE_VERSION` both stay 1. Monochrome by
 construction.
+
+## Endgame, victory & what you keep (spec 024)
+
+Beating the Sovereign did almost nothing: the ordinary win popup, a settled
+banner, one muted line, a lifetime counter. Losing had a full notice and a reset
+behind it; winning had nothing. Ruled with the human on 2026-09-15, on the
+recommendations as proposed, around one principle **in the person's words**:
+the profile is a global pool of cards and credits between all modes; a new
+player has only the basic deck and no credits to buy anything, plays the
+campaign to earn, and once they win they keep everything for Quick Play as
+well; New Campaign keeps accumulating, with a separate option to reset
+everything.
+
+- **1 — The run continues after the win.** A notice once, then the map stays
+  open with rematches and the shop. No new reset path. Ending like a loss would
+  throw away the deck built to win; New Game Plus with scaled difficulty stays
+  deferred.
+- **2 — The award is a victory notice with a run summary, plus one lifetime
+  record.** A credit bonus buys nothing after completion; a unique card is an
+  engine and balance change.
+- **3 — The run-summary backlog item folds in.** One summary, two notices.
+- **4 — The map keeps a persistent completed marker** (`★  Campaign complete`
+  in place of the rim→core axis label) until the map is reset.
+- **5 — Quick Play deals the built deck.** **Supersedes spec 022's ruling**
+  ("Quick Play deals the standard (premium) deck", quoted and annotated above),
+  which had accepted on record that the deck you build only matters in campaign
+  matches. That was the one line spec 022 said would be reversible in one line;
+  it was.
+- **6 — New Campaign keeps cards and credits; Reset Everything is the full
+  wipe.** **Supersedes spec 014's "New Campaign = full fresh start"** (quoted
+  and annotated above). The 014 argument — keep the early game and the
+  depth-gated economy meaningful — no longer holds: since spec 021 a first clear
+  pays only progress and every match is even money, so a replay earns no more
+  than rematches already can. Going broke becomes the only thing that takes the
+  pool, which is the loss condition's intent. This also answers the open
+  casual-versus-roguelike identity question (spec 021's "spec E") in the
+  **casual** direction, with going broke as the one roguelike bite.
+- **Record flag (session's pick).** The first-clear record counts the **first**
+  completion only, so a starter-deck first run is never compared with a
+  premium-deck replay. A "best completion" that replays could beat was the
+  alternative. A profile whose completions are already above zero never gains a
+  record — accepted: this is a record for runs from here on.
+- **Not retuning the curve for replays** — a replay with a premium deck is
+  easier than the spec 022 curve assumed. It is opt-in and deliberate; **no
+  constant moved**, and `docs/balance.md` gained a short *Replays* note saying
+  so. Reset Everything is what returns a profile to the run those numbers
+  describe.
+
+Design tensions resolved during planning:
+
+- **One `Profile::resolve_match` owns the record-then-settle order.** The
+  first-clear number is "the run's matches played *including* the completing
+  match", captured on the completion edge inside settlement — but the run tally
+  is bumped by `record_match`, which `App::tick` called *after* settling, while
+  `profile.rs`'s own tests recorded first. A latent app-versus-tests
+  disagreement is exactly what spec 021 removed when it moved the completion
+  edge into one method, so `App::tick`'s two profile calls became one
+  `resolve_match(opponent_id, player_won, player_rounds, opp_rounds) ->
+  Option<Settlement>` that derives the `Mode` itself, records, then settles;
+  `record_match` and `settle_campaign_match` are now private to `profile.rs`.
+  **Settlement's `Option<StakeOutcome>` signature deliberately stayed put**:
+  flipping it would have broken the app's call site and nine `assert_eq!`s in
+  the settling tests in the *same* task that added the new method, so the
+  data-model task could not have built and tested green on its own (the
+  constitution's rule that every task ends green). The cost, accepted and
+  written down: **the completion edge is evaluated twice** — once inside
+  settlement for the completions counter, once in `resolve_match` for the
+  victory signal — pinned by a test asserting the two always agree
+  (`campaign_completions` increases on exactly the resolutions that return
+  `completed_run: true`, and on no others). The rejected alternatives were a
+  `+ 1` inside the edge (correct only under the app's order, silently wrong
+  under the tests') and a third app-level `record_first_clear` call (an ordering
+  rule spanning three calls, unverifiable without an `App` that writes to disk).
+- **The completion signal reaches the notice as a transient App flag.** The
+  notice is raised on the *acknowledgement* of the game-over popup, one key
+  event after the settlement that completed the run, so `Settlement.completed_run`
+  is stored as `App::victory_due` and `mem::take`n by the next
+  `enter_campaign_map`. **Not persisted, by design** — a flag on disk would be a
+  save-format change for a transient. Consequences, all spec'd: a rematch win
+  sets nothing; a replayed campaign's completing win sets it again; quitting
+  before acknowledging loses the notice but neither the completion nor the
+  payout, both already persisted.
+- **The choice panel's breathing room was corrected while it was open.**
+  `draw_two_choice` became `draw_choice_panel(title, note, labels, selected,
+  hint, pulse)` taking N labels, and its row placement moved into a pure
+  `choice_rows(note_present) -> (note_row, choice_row, hint_row, height)`:
+  without a note the rows are unchanged (title 0, choices 2, hint 4), with a
+  note the choices move to row 3 so the note never sits flush against the
+  acted-on row — the design brief's *Density and breathing room* rule, which the
+  panel had been quietly missing. **This also corrects the spec-021
+  discard-a-save confirm**, the only other note-carrying panel. A correction
+  inside a screen this spec already changed, not new scope.
+- **`player_deck_for` was deleted rather than kept with one branch.** With Quick
+  Play dealing the built deck there is one answer for both modes, so the fn, its
+  `is_campaign` argument and the `DEFAULT_SIDE_DECK` / `stats::Mode` imports in
+  `app.rs` all went; `start_match` has one deal. Keeping a one-line wrapper
+  would be indirection the spec doesn't demand (constitution: *Simplicity*). The
+  accepted cost: the claim loses its pure-fn test, because `start_match` writes
+  the profile and the save and no App test may touch disk. It is pinned
+  **structurally** instead — `app.rs` no longer names `DEFAULT_SIDE_DECK` at
+  all, so it *cannot* deal the standard deck — plus a driver run with a
+  deliberately non-standard built deck (a ten-card +1/−1 deck dealt
+  `-1 +1 +1 -1`).
+- **The Reset Everything confirm was retitled.** `spec.md` quoted only the tail
+  (`… Erases progress, credits & cards.`); under the three-choice panel the old
+  head ("New campaign?") would have named the wrong choice, so the title is
+  **"Reset everything? Erases progress, credits & cards."** and New Campaign's
+  is "New campaign? Resets the map; you keep your cards and credits." A wording
+  decision, not a behavior change.
+- **A pre-economy profile document shows the entry panel.** A `profile.json`
+  without a `credits` key loads with 0 credits (spec 021's deliberate serde
+  default, diverging from `SEED_PURSE`), so `differs_from_starter` is true for
+  it and Start Campaign offers the three choices; Continue then meets the
+  run-over notice as spec 021 intended. Only a document that *is* the starter —
+  a serialized fresh profile — opens the map directly, which is what the
+  acceptance criterion says. Ruled by the orchestrator on 2026-09-16 as what the
+  spec's own predicate specifies, and asserted by the test.
+- **The Records *This Run* view was not extended.** It keeps today's lines; the
+  new credit counters and the worlds-cleared figure appear on the two notices
+  only. `spec.md` was corrected to say so.
+
+No engine change (`game.rs`, `player.rs`, `save.rs`, `economy.rs`, `wager.rs`
+untouched; `card.rs` moved only in **doc comments**, by an acceptance criterion
+amended for exactly that), no AI change, no balance data moved,
+`tests/balance.rs` / `Cargo.toml` / `Cargo.lock` untouched, and no new crate.
+The profile gained three additive `#[serde(default)]` fields
+(`RunStats::credits_won`, `RunStats::credits_lost`,
+`LifetimeStats::first_clear_matches`); `PROFILE_VERSION` and `SAVE_VERSION`
+both stay 1, so a pre-024 profile loads with zero counters and no record.
+Monochrome by construction.
