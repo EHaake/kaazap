@@ -9,9 +9,9 @@ use crate::{
         BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
     },
     board::BoardView,
-    campaign::{NodeRef, planet_by_id},
+    campaign::{NodeRef, PLANETS, planet_by_id},
     campaign_map::{CampaignMapState, MapBanner, MapOutcome},
-    card::{Card, DEFAULT_SIDE_DECK},
+    card::Card,
     config::Config,
     deck_builder::{BuildOutcome, BuilderOrigin, DeckBuilderState},
     economy,
@@ -32,7 +32,7 @@ use crate::{
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
-    stats::Mode,
+    stats::{RunStats, run_summary_lines},
     wager::{WagerOutcome, WagerState},
 };
 
@@ -275,14 +275,17 @@ enum Modal {
     /// `on_yes` is the highlighted choice, defaulting to No — the safe option;
     /// `pending` is what to start if confirmed.
     ConfirmNewGame { on_yes: bool, pending: PendingStart },
-    /// Shown when entering Campaign with existing cleared progress: Continue
-    /// (resume) vs New Campaign (start over). `on_new` is the highlighted choice,
-    /// defaulting to Continue — the safe option (spec 014).
-    CampaignEntry { on_new: bool },
-    /// The destructive confirmation reached from `CampaignEntry`'s New Campaign:
-    /// wiping progress, credits, and collection back to the starter. `on_yes` is
-    /// the highlighted choice, defaulting to No — the safe option (spec 014).
-    ConfirmNewCampaign { on_yes: bool },
+    /// Shown at campaign entry when there is anything the choices would affect —
+    /// the run has progress, or the pool differs from the starter: Continue /
+    /// New Campaign / Reset Everything (spec 024, superseding spec 014's
+    /// two-choice panel). `choice` is the highlighted one, defaulting to
+    /// Continue — the safe option.
+    CampaignEntry { choice: CampaignChoice },
+    /// The destructive confirmation behind New Campaign (the map only) and Reset
+    /// Everything (the full wipe back to the starter) — `scope` says which.
+    /// `on_yes` is the highlighted choice, defaulting to No — the safe option
+    /// (spec 014's `confirm_choice` seam, unchanged).
+    ConfirmReset { on_yes: bool, scope: ResetScope },
     /// The in-match move-history overlay (spec 018). Unit-like — it carries no
     /// data; its content is rebuilt from live state on each draw.
     PlayLog,
@@ -300,6 +303,13 @@ enum Modal {
     /// start menu (chore 2026-09-13, supersedes spec 021's "a fresh map opens");
     /// nothing dismisses it (Esc does not), because the run really is over.
     RunOver,
+    /// The victory notice (spec 024): raised over the campaign map when the
+    /// player acknowledges the game-over popup of the match that completed the
+    /// run. Unit-like — it carries no data; its content is rebuilt from the run
+    /// tally on each draw. Enter, Space or Esc dismiss it; nothing else acts
+    /// while it is up. Transient: no seen mark, so quitting under it loses the
+    /// notice but not the completion or its payout, both already persisted.
+    Victory,
     /// The first-run campaign primer (spec 023): raised over a freshly opened
     /// campaign map the first time the player reaches it from the start menu,
     /// naming the stake loop and the outfitter. Unit-like — it carries no data;
@@ -314,11 +324,54 @@ enum Modal {
     FirstMatch,
 }
 
+/// A choice on the campaign-entry panel (spec 024): resume the run, replay the
+/// map keeping the pool, or wipe everything back to the starter. Listed in the
+/// order the panel draws them, Continue first — the safe option it opens on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CampaignChoice {
+    Continue,
+    NewCampaign,
+    ResetEverything,
+}
+
+impl CampaignChoice {
+    /// Every choice, in the order the panel draws them.
+    const ALL: [Self; 3] = [Self::Continue, Self::NewCampaign, Self::ResetEverything];
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Continue => "Continue",
+            Self::NewCampaign => "New Campaign",
+            Self::ResetEverything => "Reset Everything",
+        }
+    }
+
+    /// The next choice in the given direction, wrapping at both ends — the
+    /// two-choice panel's toggle generalized to three (spec 024). A pure mapping
+    /// in the `confirm_choice` spirit, so the highlight's movement is
+    /// unit-testable without an `App`.
+    fn step(self, forward: bool) -> Self {
+        let n = Self::ALL.len();
+        let i = Self::ALL.iter().position(|c| *c == self).unwrap_or(0);
+        Self::ALL[(if forward { i + 1 } else { i + n - 1 }) % n]
+    }
+}
+
+/// How much a confirmed reset takes (spec 024): New Campaign resets the map
+/// only — credits, collection and deck stay — while Reset Everything wipes back
+/// to the starter, which is what New Campaign did before this spec.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResetScope {
+    MapOnly,
+    Everything,
+}
+
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
-/// the *irreversible* choice (New Campaign's wipe) is unit-testable without
-/// constructing an `App` (the `cursor_confirm` pattern: a tested decision pulled
-/// out of a handler). `Commit` is returned **only** for Enter/Space with Yes
-/// highlighted; No and Esc `Cancel`, arrows `Toggle`, anything else is `Ignore`.
+/// the *irreversible* choice (Reset Everything's wipe, and New Campaign's map
+/// reset — spec 024) is unit-testable without constructing an `App` (the
+/// `cursor_confirm` pattern: a tested decision pulled out of a handler).
+/// `Commit` is returned **only** for Enter/Space with Yes highlighted; No and
+/// Esc `Cancel`, arrows `Toggle`, anything else is `Ignore`.
 #[derive(Debug, PartialEq, Eq)]
 enum ConfirmChoice {
     Toggle,
@@ -352,27 +405,104 @@ fn run_over_acknowledged(key: KeyCode) -> bool {
     matches!(key, KeyCode::Enter | KeyCode::Char(' '))
 }
 
-/// Whether a key dismisses the first-run primer or the first-match popup (spec
-/// 023) — a pure mapping in the `run_over_acknowledged` spirit, so the bindings
-/// are unit-testable without an `App`. Enter, Space and Esc dismiss; every other
-/// key is ignored. (Unlike the run-over notice, Esc *does* dismiss: these are
-/// notices the player is allowed to wave away.)
-fn onboarding_dismissed(key: KeyCode) -> bool {
+/// Whether a key dismisses a notice the player may wave away — the first-run
+/// primer, the first-match popup (spec 023) and the victory notice (spec 024) —
+/// a pure mapping in the `run_over_acknowledged` spirit, so the bindings are
+/// unit-testable without an `App`. Enter, Space and Esc dismiss; every other key
+/// is ignored. (Unlike the run-over notice, Esc *does* dismiss: none of these
+/// asks the player for a decision.)
+fn notice_dismissed(key: KeyCode) -> bool {
     matches!(key, KeyCode::Enter | KeyCode::Char(' ') | KeyCode::Esc)
 }
 
-/// What a freshly opened campaign map raises (specs 021 + 023): the run-over
-/// notice if the balance can no longer cover any ante, else the first-run primer
-/// if it is due, else nothing. One modal at a time, so a map that opens broke
-/// shows the notice and the primer waits for the next open.
-fn map_entry_modal(broke: bool, primer_due: bool) -> Option<Modal> {
+/// What a freshly opened campaign map raises (specs 021 + 023 + 024): the
+/// run-over notice if the balance can no longer cover any ante, else the victory
+/// notice if a completed run is waiting to be announced, else the first-run
+/// primer if it is due, else nothing. One modal at a time, so a map that opens
+/// broke shows the notice and the primer waits for the next open. A completing
+/// win can never leave the player broke and the primer is menu-entry only, so
+/// the precedence never actually arbitrates — it is written down so it can't
+/// drift.
+fn map_entry_modal(broke: bool, victory_due: bool, primer_due: bool) -> Option<Modal> {
     if broke {
         Some(Modal::RunOver)
+    } else if victory_due {
+        Some(Modal::Victory)
     } else if primer_due {
         Some(Modal::Primer)
     } else {
         None
     }
+}
+
+/// The victory notice's content (spec 024), title first and dismiss line last,
+/// blank rows included — pure, so the wording, the breathing room and the fit
+/// are testable without a terminal. The run summary is the same block the
+/// run-over notice shows, built once in `stats`.
+fn victory_notice_lines(run: &RunStats, cleared: usize, total: usize) -> Vec<String> {
+    let mut lines = vec![
+        "Campaign complete — the house's best has lost.".to_string(),
+        String::new(),
+        "Your cards and credits are yours to keep.".to_string(),
+        "Rematches stay open; New Campaign replays the map with your deck.".to_string(),
+        String::new(),
+    ];
+    lines.extend(run_summary_lines(run, cleared, total));
+    // The dismiss line is the acted-on element, so it gets an empty row above
+    // it; the box's own padding gives it the one below (design brief §Density
+    // and breathing room).
+    lines.push(String::new());
+    lines.push("Enter  continue".to_string());
+    lines
+}
+
+/// The run-over notice's content (spec 021), now carrying the same run summary
+/// between its title and its reset note (spec 024). Same shape and same rules as
+/// `victory_notice_lines`.
+fn run_over_notice_lines(run: &RunStats, cleared: usize, total: usize) -> Vec<String> {
+    let mut lines = vec!["You're broke — the run is over.".to_string(), String::new()];
+    lines.extend(run_summary_lines(run, cleared, total));
+    lines.push(String::new());
+    lines.push(
+        "Deck, collection, and progress reset to the starter; your records stay.".to_string(),
+    );
+    lines.push(String::new());
+    lines.push("Enter  continue".to_string());
+    lines
+}
+
+/// The gap between adjacent choices on a choice panel's row.
+const CHOICE_GAP: usize = 6;
+
+/// The width of a choice panel's choice row: every label with its marker (▸, or
+/// the two spaces that keep the marker from shifting the text), plus the gaps
+/// between them. Pure, so the three-choice row's fit is testable without a
+/// terminal (spec 024).
+fn choice_row_width(labels: &[&str]) -> usize {
+    let text: usize = labels.iter().map(|l| l.chars().count() + 2).sum();
+    text + CHOICE_GAP * labels.len().saturating_sub(1)
+}
+
+/// How wide a choice panel's content is: the widest of its title, its note, its
+/// hint and its choice row. Pure, so a panel's fit is measured by the test
+/// through the same expression the draw uses (spec 024).
+fn choice_panel_width(title: &str, note: Option<&str>, hint: &str, labels: &[&str]) -> usize {
+    title
+        .chars()
+        .count()
+        .max(note.map_or(0, |n| n.chars().count()))
+        .max(hint.chars().count())
+        .max(choice_row_width(labels))
+}
+
+/// Where a choice panel's rows sit, and how tall its content is (spec 024,
+/// design brief §Density and breathing room): the choice row is the acted-on
+/// element, so it keeps a blank row above and below it — which makes a panel
+/// carrying a note one row taller rather than letting the note sit flush against
+/// the choices. Returns `(note_row, choice_row, hint_row, height)`; `note_row`
+/// is drawn on only when there is a note.
+fn choice_rows(note_present: bool) -> (usize, usize, usize, usize) {
+    if note_present { (1, 3, 5, 6) } else { (1, 2, 4, 5) }
 }
 
 /// What a key does in a match — the decision table behind the InGame arm,
@@ -422,18 +552,6 @@ fn back_destination(origin: BuilderOrigin) -> BackTo {
     match origin {
         BuilderOrigin::Menu => BackTo::Menu,
         BuilderOrigin::Map => BackTo::Map,
-    }
-}
-
-/// The deck the player is dealt (spec 022, ruling C): the built deck for a
-/// campaign match, the standard deck for Quick Play — whatever the builder
-/// holds. A pure mapping in the `confirm_choice` spirit, so the one decision
-/// `start_match` makes about the deal is unit-testable without an `App`.
-fn player_deck_for(is_campaign: bool, built: &[Card]) -> Vec<Card> {
-    if is_campaign {
-        built.to_vec()
-    } else {
-        DEFAULT_SIDE_DECK.to_vec()
     }
 }
 
@@ -489,6 +607,12 @@ pub struct App {
     // why a launch was refused. Shown until the player navigates the map. UI
     // state only — not saved (the credits it reports are already persisted).
     banner: Option<MapBanner>,
+    // Whether a completed campaign run is owed its victory notice (spec 024):
+    // set at settlement from `Settlement::completed_run` and taken by the next
+    // campaign map entry, which in that window is the game-over acknowledgement.
+    // UI state only — never saved, since the completion and its payout are
+    // already persisted and only the notice is lost by quitting under it.
+    victory_due: bool,
 }
 
 impl App {
@@ -518,6 +642,7 @@ impl App {
             play_log_follow: true,
             too_small: None,
             banner: None,
+            victory_due: false,
         }
     }
 
@@ -613,18 +738,22 @@ impl App {
     }
 
     /// Open the campaign map, then raise whatever the entry calls for (specs 021
-    /// + 023): the run-over notice if the balance can no longer cover any ante,
-    /// else the first-run primer when the map was reached from the start menu
-    /// (`from_menu`) and the primer is still unseen. The one seam both checks run
-    /// at: the three menu-entry paths pass `from_menu: true`, the game-over
-    /// acknowledgement passes `false` (a match's game-over is not a menu entry,
-    /// spec 023), while Back from the shop or deck builder — which returns to a
-    /// map already seen and cannot create a broke state — keeps using
-    /// `open_campaign_map`.
+    /// + 023 + 024): the run-over notice if the balance can no longer cover any
+    /// ante, else the victory notice if a run was just completed, else the
+    /// first-run primer when the map was reached from the start menu
+    /// (`from_menu`) and the primer is still unseen. The one seam all three
+    /// checks run at: the three menu-entry paths pass `from_menu: true`, the
+    /// game-over acknowledgement passes `false` (a match's game-over is not a
+    /// menu entry, spec 023), while Back from the shop or deck builder — which
+    /// returns to a map already seen and cannot create a broke state — keeps
+    /// using `open_campaign_map`. The victory flag is **taken** here: the notice
+    /// is owed exactly once per completion, and the acknowledgement is the only
+    /// entry that can happen in the window between settling and showing it.
     fn enter_campaign_map(&mut self, from_menu: bool) {
         self.open_campaign_map();
+        let victory_due = std::mem::take(&mut self.victory_due);
         let primer_due = from_menu && !self.profile.primer_seen();
-        self.modal = map_entry_modal(self.profile.is_broke(), primer_due);
+        self.modal = map_entry_modal(self.profile.is_broke(), victory_due, primer_due);
     }
 
     /// Route a key to the run-over notice: Enter/Space acknowledge, wiping to a
@@ -651,7 +780,7 @@ impl App {
     /// usual pause runs from the dismissal rather than expiring instantly.
     /// Quitting with either up leaves its mark unset.
     fn handle_onboarding_input(&mut self, key: KeyCode) {
-        if !onboarding_dismissed(key) {
+        if !notice_dismissed(key) {
             return;
         }
         match self.modal {
@@ -669,27 +798,48 @@ impl App {
         self.audio.play(Sfx::MenuSelect);
     }
 
-    /// Wipe to a fresh starter profile — the one reset path, shared by New
-    /// Campaign (spec 014) and the run-over acknowledgement (spec 021), which
-    /// differ only in where they land afterwards. Discards any in-progress match
-    /// save and the stale map banner; the reset core is
-    /// `Profile::reset_to_starter`. Callers play their own sfx and set the
-    /// screen.
+    /// Wipe to a fresh starter profile — the full reset, shared by Reset
+    /// Everything (spec 014's New Campaign, rescoped by spec 024) and the
+    /// run-over acknowledgement (spec 021), which differ only in where they land
+    /// afterwards. The reset core is `Profile::reset_to_starter`; the app-side
+    /// tail it shares with the map-only reset is `discard_match_and_banner`.
+    /// Callers play their own sfx and set the screen.
     fn reset_run(&mut self) {
         self.profile.reset_to_starter();
         self.profile.save();
+        self.discard_match_and_banner();
+    }
+
+    /// Reset the campaign map only — spec 024's New Campaign: the beaten set,
+    /// the in-flight pointer (and its escrowed stake) and the run tally go with
+    /// `Profile::reset_campaign_run`, while credits, collection, deck, lifetime
+    /// records and the onboarding marks stay. Same app-side tail as the full
+    /// reset. Callers play their own sfx and set the screen.
+    fn reset_map_only(&mut self) {
+        self.profile.reset_campaign_run();
+        self.profile.save();
+        self.discard_match_and_banner();
+    }
+
+    /// The tail both resets share (spec 024): discard the saved match — the run
+    /// it belonged to is gone — and the now-stale map banner.
+    fn discard_match_and_banner(&mut self) {
         crate::save::clear();
         self.has_save = false;
         self.banner = None;
     }
 
-    /// Wipe to a fresh starter profile and open a new campaign map — the New
-    /// Campaign action (spec 014), reachable only from the start menu's
-    /// `CampaignEntry` confirm. A menu entry, so it goes through
-    /// `enter_campaign_map(true)`: the reset leaves the seed purse, so it is
-    /// never broke, and the primer shows here if it has not been seen yet.
-    fn start_new_campaign(&mut self) {
-        self.reset_run();
+    /// Reset per `scope` and open a fresh campaign map — the New Campaign and
+    /// Reset Everything actions (spec 024), reachable only from the start menu's
+    /// `ConfirmReset`. A menu entry, so it goes through
+    /// `enter_campaign_map(true)`: the broke check runs there (a map-only reset
+    /// keeps the purse, which may no longer cover the fresh map's cheapest ante),
+    /// and the primer shows here if it has not been seen yet.
+    fn start_fresh_campaign(&mut self, scope: ResetScope) {
+        match scope {
+            ResetScope::MapOnly => self.reset_map_only(),
+            ResetScope::Everything => self.reset_run(),
+        }
         self.audio.play(Sfx::MenuSelect);
         self.enter_campaign_map(true);
     }
@@ -755,24 +905,18 @@ impl App {
     }
 
     /// Begin a fresh match against `opponent`, dealing the player's hand from
-    /// [`player_deck_for`] — the built deck in a campaign match, the standard
-    /// deck in Quick Play (spec 022, ruling C) — replacing any current match
-    /// and persisting it.
+    /// the profile's built deck — every match, campaign or Quick Play (spec
+    /// 024) — replacing any current match and persisting it.
     ///
     /// Precondition: the profile deck is valid (exactly `SIDE_DECK_SIZE`
-    /// cards). Since spec 022 an undersized deck can only short-deal a
-    /// **campaign** match — Quick Play deals the standard deck, so it always
-    /// gets its 10 — but this is still the only match-start entry and both of
-    /// its callers uphold the guard: the opponent-select Pick (reached via
-    /// `open_opponent_select`, which diverts an invalid deck to the builder
-    /// first — on the Quick Play path that divert is now only a consistency
-    /// nudge) and the campaign map's Launch. Any new caller must uphold it too.
-    /// `campaign` marks the match as a campaign node (persisted via the
-    /// profile), or `None` for Quick Play.
+    /// cards). Since spec 024 an undersized deck would short-deal **any**
+    /// match, Quick Play included, and this is still the only match-start
+    /// entry: both of its callers uphold the guard — the opponent-select Pick
+    /// (reached via `open_opponent_select`, whose existing divert sends an
+    /// invalid deck to the builder first) and the campaign map's Launch. Any
+    /// new caller must uphold it too. `campaign` marks the match as a campaign
+    /// node (persisted via the profile), or `None` for Quick Play.
     fn start_match(&mut self, opponent: OpponentProfile, campaign: Option<NodeRef>) {
-        // Which deck is dealt depends on the mode, so read it before the match
-        // below moves `campaign`.
-        let is_campaign = campaign.is_some();
         // Record whether this match belongs to the campaign, and against which
         // node — persisted, so a match resumed via Continue still routes back
         // to the map at game over. Quick Play passes None (clearing any stale
@@ -798,7 +942,9 @@ impl App {
         self.screen = Screen::InGame {
             game_state: Box::new(GameState::with_opponent(
                 opponent,
-                player_deck_for(is_campaign, self.profile.deck()),
+                // One deal for both modes (spec 024): every match, campaign or
+                // Quick Play, is dealt from the deck the player built.
+                self.profile.deck().to_vec(),
             )),
             cursor: HandCursor::default(),
         };
@@ -993,6 +1139,14 @@ impl App {
             // The run-over notice takes all input while open (spec 021): only
             // Enter/Space get past it, and they reset the run.
             self.handle_run_over_input(key);
+        } else if matches!(self.modal, Some(Modal::Victory)) {
+            // The victory notice takes all input while open (spec 024): only
+            // Enter/Space/Esc get past it, and they dismiss it back to a live
+            // map. Nothing on the map underneath can be acted on meanwhile.
+            if notice_dismissed(key) {
+                self.modal = None;
+                self.audio.play(Sfx::MenuSelect);
+            }
         } else if matches!(self.modal, Some(Modal::Primer | Modal::FirstMatch)) {
             // The first-run pieces take all input while open (spec 023): only
             // Enter/Space/Esc get past them, and they dismiss. Nothing on the
@@ -1004,8 +1158,8 @@ impl App {
             self.handle_wager_input(key);
         } else if matches!(self.modal, Some(Modal::CampaignEntry { .. })) {
             self.handle_campaign_entry_input(key);
-        } else if matches!(self.modal, Some(Modal::ConfirmNewCampaign { .. })) {
-            self.handle_confirm_new_campaign_input(key);
+        } else if matches!(self.modal, Some(Modal::ConfirmReset { .. })) {
+            self.handle_confirm_reset_input(key);
         } else if matches!(self.modal, Some(Modal::ConfirmNewGame { .. })) {
             self.handle_confirm_input(key);
         } else {
@@ -1338,25 +1492,42 @@ impl App {
         }
     }
 
-    /// Route a key to the Continue / New Campaign choice: ←/→ (a/d) toggle,
-    /// Enter/Space commit (Continue resumes, New Campaign opens the wipe
-    /// confirm), Esc closes. Mirrors `handle_confirm_input`. (spec 014)
+    /// Route a key to the Continue / New Campaign / Reset Everything choice:
+    /// ←/→ (a/d) step the highlight, wrapping; Enter/Space commit — Continue
+    /// resumes, New Campaign opens the map-only confirm, Reset Everything the
+    /// full-wipe one — and Esc closes. Mirrors `handle_confirm_input`.
+    /// (spec 024, superseding spec 014's two-choice panel)
     fn handle_campaign_entry_input(&mut self, key: KeyCode) {
         match key {
             KeyCode::Left | KeyCode::Right | KeyCode::Char('a') | KeyCode::Char('d') => {
-                if let Some(Modal::CampaignEntry { on_new }) = self.modal.as_mut() {
-                    *on_new = !*on_new;
+                let forward = matches!(key, KeyCode::Right | KeyCode::Char('d'));
+                if let Some(Modal::CampaignEntry { choice }) = self.modal.as_mut() {
+                    *choice = choice.step(forward);
                 }
                 self.audio.play(Sfx::MenuMove);
             }
             KeyCode::Enter | KeyCode::Char(' ') => {
-                let on_new = matches!(self.modal, Some(Modal::CampaignEntry { on_new: true }));
+                let Some(Modal::CampaignEntry { choice }) = self.modal else {
+                    return;
+                };
                 self.modal = None;
                 self.audio.play(Sfx::MenuSelect);
-                if on_new {
-                    self.modal = Some(Modal::ConfirmNewCampaign { on_yes: false });
-                } else {
-                    self.enter_campaign_continue();
+                match choice {
+                    CampaignChoice::Continue => self.enter_campaign_continue(),
+                    // Both destructive choices go behind the same default-No
+                    // confirm, which the scope tells apart.
+                    CampaignChoice::NewCampaign => {
+                        self.modal = Some(Modal::ConfirmReset {
+                            on_yes: false,
+                            scope: ResetScope::MapOnly,
+                        });
+                    }
+                    CampaignChoice::ResetEverything => {
+                        self.modal = Some(Modal::ConfirmReset {
+                            on_yes: false,
+                            scope: ResetScope::Everything,
+                        });
+                    }
                 }
             }
             KeyCode::Esc => {
@@ -1367,24 +1538,27 @@ impl App {
         }
     }
 
-    /// Route a key to the New Campaign confirmation: ←/→ (a/d) toggle,
-    /// Enter/Space commit (Yes wipes to a starter profile and opens a fresh map;
-    /// No cancels), Esc cancels. Mirrors `handle_confirm_input`. (spec 014)
-    fn handle_confirm_new_campaign_input(&mut self, key: KeyCode) {
-        let on_yes = matches!(self.modal, Some(Modal::ConfirmNewCampaign { on_yes: true }));
+    /// Route a key to a reset confirmation: ←/→ (a/d) toggle, Enter/Space commit
+    /// (Yes performs the `scope`'s reset and opens a fresh map; No cancels), Esc
+    /// cancels. Mirrors `handle_confirm_input`. (spec 014, rescoped by spec 024)
+    fn handle_confirm_reset_input(&mut self, key: KeyCode) {
+        let on_yes = matches!(self.modal, Some(Modal::ConfirmReset { on_yes: true, .. }));
+        let Some(Modal::ConfirmReset { scope, .. }) = self.modal else {
+            return;
+        };
         match confirm_choice(on_yes, key) {
             ConfirmChoice::Toggle => {
-                if let Some(Modal::ConfirmNewCampaign { on_yes }) = self.modal.as_mut() {
+                if let Some(Modal::ConfirmReset { on_yes, .. }) = self.modal.as_mut() {
                     *on_yes = !*on_yes;
                 }
                 self.audio.play(Sfx::MenuMove);
             }
-            // The only path to the irreversible wipe — guarded by `confirm_choice`
-            // (Commit iff Enter/Space with Yes), which `confirm_choice_commits_
-            // only_on_enter_with_yes` pins.
+            // The only path to either irreversible reset — guarded by
+            // `confirm_choice` (Commit iff Enter/Space with Yes), which
+            // `confirm_choice_commits_only_on_enter_with_yes` pins.
             ConfirmChoice::Commit => {
                 self.modal = None;
-                self.start_new_campaign();
+                self.start_fresh_campaign(scope);
             }
             ConfirmChoice::Cancel => {
                 self.modal = None;
@@ -1437,10 +1611,14 @@ impl App {
                 }
             }
             MenuItem::StartCampaign => {
-                // With cleared progress, offer Continue vs New Campaign; on a
-                // fresh run enter directly (the choice would be a no-op).
-                if self.profile.campaign().has_progress() {
-                    self.modal = Some(Modal::CampaignEntry { on_new: false });
+                // Offer the choices whenever there is something they would
+                // affect — progress, or a pool that differs from the starter
+                // (spec 024); on a truly fresh profile enter directly, where
+                // every choice would be a no-op.
+                if self.profile.differs_from_starter() {
+                    self.modal = Some(Modal::CampaignEntry {
+                        choice: CampaignChoice::Continue,
+                    });
                 } else {
                     self.enter_campaign_continue();
                 }
@@ -1506,19 +1684,22 @@ impl App {
             self.save_game();
         }
 
-        // Settle and record the finished match exactly once, on the tick the
-        // phase enters GameOver — the one resolution seam (spec 021 folded the
-        // old every-tick campaign-win block into this edge, since a rematch
-        // makes `!is_opponent_beaten` useless as a once-guard; `GameOver` is
-        // only ever entered from `GameState::update()` here, and a saved match
-        // is never at `GameOver`). `settle_campaign_match` handles escrow,
-        // `mark_beaten`, and the once-only completion edge internally, so no
-        // ordering rule spans the two calls; `record_match` records lifetime
-        // and run-tally stats only. Quick Play has no `in_progress`, so it
-        // settles nothing and records to Quick Play; `in_progress` is cleared
-        // only on the player's acknowledgement (the InGame input arm).
-        // Abandoned matches never reach a GameOver tick, so they resolve
-        // nothing.
+        // Resolve the finished match exactly once, on the tick the phase
+        // enters GameOver — the one resolution seam (spec 021 folded the old
+        // every-tick campaign-win block into this edge, since a rematch makes
+        // `!is_opponent_beaten` useless as a once-guard; `GameOver` is only
+        // ever entered from `GameState::update()` here, and a saved match is
+        // never at `GameOver`). `Profile::resolve_match` owns the whole
+        // resolution: it writes the lifetime and run-tally statistics first
+        // and only then settles the stake, because the first-clear record is
+        // taken from the run tally on the completion edge and so must already
+        // count the completing match (spec 024) — an order the app used to get
+        // backwards, and which now lives in one unit-tested method instead of
+        // spanning two calls from here. It also picks the mode itself from the
+        // in-flight pointer. Quick Play has no pointer, so it settles nothing
+        // and records to Quick Play; the pointer is cleared only on the
+        // player's acknowledgement (the InGame input arm). Abandoned matches
+        // never reach a GameOver tick, so they resolve nothing.
         if phase_changed
             && let Screen::InGame { game_state, .. } = &self.screen
             && matches!(game_state.game_phase, GamePhase::GameOver { .. })
@@ -1528,17 +1709,15 @@ impl App {
             let opponent_id = game_state.opponent_profile.id;
             let player_rounds = game_state.player.rounds_won as u32;
             let opp_rounds = game_state.opponent.rounds_won as u32;
-            // Read before settlement only for clarity — settling never clears
-            // the in-progress pointer (the acknowledgement does).
-            let mode = if self.profile.campaign().in_progress().is_some() {
-                Mode::Campaign
-            } else {
-                Mode::QuickPlay
-            };
-            if let Some(outcome) = self.profile.settle_campaign_match(player_won) {
-                self.banner = Some(MapBanner::Settled(outcome));
+            if let Some(settlement) =
+                self.profile.resolve_match(opponent_id, player_won, player_rounds, opp_rounds)
+            {
+                self.banner = Some(MapBanner::Settled(settlement.outcome));
+                // The completion edge is a one-shot signal, not a saved flag
+                // (spec 024): it waits here until the acknowledgement opens the
+                // map, which is what raises the victory notice.
+                self.victory_due |= settlement.completed_run;
             }
-            self.profile.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
             self.profile.save();
         }
 
@@ -1586,7 +1765,16 @@ impl App {
                 self.draw_confirm_new_game(*on_yes, pulse, frame)
             }
             Some(Modal::Wager(state)) => state.draw(frame, &self.config, pulse),
-            Some(Modal::RunOver) => self.draw_run_over(frame),
+            Some(Modal::RunOver) => {
+                let lines =
+                    run_over_notice_lines(self.run_tally(), self.worlds_cleared(), PLANETS.len());
+                self.draw_notice(frame, &lines)
+            }
+            Some(Modal::Victory) => {
+                let lines =
+                    victory_notice_lines(self.run_tally(), self.worlds_cleared(), PLANETS.len());
+                self.draw_notice(frame, &lines)
+            }
             // The first-run primer and the first-match popup (spec 023): the same
             // bordered text box the other overlays use, rebuilt from its asset
             // every frame — so, like the play log, they need no resize arm.
@@ -1596,11 +1784,11 @@ impl App {
             Some(Modal::FirstMatch) => {
                 draw_text_overlay(self.config, &overlay_text(OverlayKind::FirstMatch), frame)
             }
-            Some(Modal::CampaignEntry { on_new }) => {
-                self.draw_campaign_entry(*on_new, pulse, frame)
+            Some(Modal::CampaignEntry { choice }) => {
+                self.draw_campaign_entry(*choice, pulse, frame)
             }
-            Some(Modal::ConfirmNewCampaign { on_yes }) => {
-                self.draw_confirm_new_campaign(*on_yes, pulse, frame)
+            Some(Modal::ConfirmReset { on_yes, scope }) => {
+                self.draw_confirm_reset(*on_yes, *scope, pulse, frame)
             }
             // The play log draws after this match (it writes back scroll state,
             // which would conflict with the shared borrow the match holds).
@@ -1641,98 +1829,104 @@ impl App {
         }
     }
 
-    /// Draw a two-choice confirmation as a bordered overlay over the menu,
-    /// matching How to Play / Settings: a title, two side-by-side choices (the
-    /// highlighted one marked with ▸ and breathing with the pulse; the other
-    /// keeps two leading spaces so the marker never shifts the text), and a hint.
-    /// Shared by the discard-a-save, campaign-entry, and new-campaign modals.
-    /// `note` is an optional second line (drawn Muted under the title) — used to
-    /// warn that confirming also forfeits an escrowed stake (spec 021).
-    fn draw_two_choice(
+    /// Draw a choice panel as a bordered overlay over the menu, matching How to
+    /// Play / Settings: a title, an optional Muted note under it, the `labels`
+    /// side by side on one row (the selected one marked with ▸ and breathing
+    /// with the pulse; the others keep two leading spaces so the marker never
+    /// shifts the text), and a hint. Shared by the discard-a-save confirm, the
+    /// campaign-entry panel and the reset confirms — two labels or three (spec
+    /// 024). `note` warns that confirming also forfeits an escrowed stake (spec
+    /// 021); the rows come from `choice_rows`, which keeps a blank row above and
+    /// below the acted-on choice row whether or not the note is showing.
+    fn draw_choice_panel(
         &self,
         frame: &mut Frame,
         title: &str,
         note: Option<&str>,
-        left_label: &str,
-        right_label: &str,
-        left_selected: bool,
+        labels: &[&str],
+        selected: usize,
         hint: &str,
         pulse: Emphasis,
     ) {
-        let left = format!("{} {}", if left_selected { "▸" } else { " " }, left_label);
-        let right = format!("{} {}", if left_selected { " " } else { "▸" }, right_label);
-        let block_w = left.chars().count() + 6 + right.chars().count();
+        let block_w = choice_row_width(labels);
+        let (note_row, choice_row, hint_row, height) = choice_rows(note.is_some());
 
         // The box widens to fit the widest of title, note, hint, and choice row.
-        let content_width = title
-            .chars()
-            .count()
-            .max(note.map_or(0, |n| n.chars().count()))
-            .max(hint.chars().count())
-            .max(block_w);
-        let layout = OverlayLayout::new(self.config, content_width, 5);
+        let content_width = choice_panel_width(title, note, hint, labels);
+        let layout = OverlayLayout::new(self.config, content_width, height);
 
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
         draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Normal);
         if let Some(note) = note {
-            draw_text_in(frame, layout.inner, 1, Align::Center, note, Emphasis::Muted);
+            draw_text_in(frame, layout.inner, note_row, Align::Center, note, Emphasis::Muted);
         }
 
         let inner = layout.inner;
-        let row_y = inner.y0 + 2;
-        let start_x = inner.x0 + inner.width().saturating_sub(block_w) / 2;
-        let right_x = start_x + left.chars().count() + 6;
+        let row_y = inner.y0 + choice_row;
+        let mut x = inner.x0 + inner.width().saturating_sub(block_w) / 2;
+        for (i, label) in labels.iter().enumerate() {
+            let text = format!("{} {}", if i == selected { "▸" } else { " " }, label);
+            let emphasis = if i == selected { pulse } else { Emphasis::Normal };
+            draw_text(frame, x, row_y, &text, emphasis);
+            x += text.chars().count() + CHOICE_GAP;
+        }
 
-        let left_emphasis = if left_selected { pulse } else { Emphasis::Normal };
-        let right_emphasis = if left_selected { Emphasis::Normal } else { pulse };
-        draw_text(frame, start_x, row_y, &left, left_emphasis);
-        draw_text(frame, right_x, row_y, &right, right_emphasis);
-
-        draw_text_in(frame, inner, 4, Align::Center, hint, Emphasis::Muted);
+        draw_text_in(frame, inner, hint_row, Align::Center, hint, Emphasis::Muted);
     }
 
     /// The discard-a-save confirmation (Yes left / No right, default No). When
     /// the saved match carries a stake, a note says confirming forfeits it.
     fn draw_confirm_new_game(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
         let note = self.stake_forfeit_note();
-        self.draw_two_choice(
+        self.draw_choice_panel(
             frame,
             "Discard your saved match?",
             note.as_deref(),
-            "Yes",
-            "No",
-            on_yes,
+            &["Yes", "No"],
+            if on_yes { 0 } else { 1 },
             "←/→ choose  ·  Enter confirm  ·  Esc cancel",
             pulse,
         );
     }
 
-    /// The Continue / New Campaign choice at campaign entry (default Continue).
-    fn draw_campaign_entry(&self, on_new: bool, pulse: Emphasis, frame: &mut Frame) {
-        self.draw_two_choice(
+    /// The Continue / New Campaign / Reset Everything choice at campaign entry
+    /// (default Continue, spec 024).
+    fn draw_campaign_entry(&self, choice: CampaignChoice, pulse: Emphasis, frame: &mut Frame) {
+        let labels: Vec<&str> = CampaignChoice::ALL.iter().map(|c| c.label()).collect();
+        let selected = CampaignChoice::ALL.iter().position(|c| *c == choice).unwrap_or(0);
+        self.draw_choice_panel(
             frame,
             "Campaign",
             None,
-            "Continue",
-            "New Campaign",
-            !on_new,
+            &labels,
+            selected,
             "←/→ choose  ·  Enter select  ·  Esc back",
             pulse,
         );
     }
 
-    /// The destructive New Campaign confirmation (Yes left / No right, default
-    /// No), noting an escrowed stake the wipe would forfeit.
-    fn draw_confirm_new_campaign(&self, on_yes: bool, pulse: Emphasis, frame: &mut Frame) {
+    /// The destructive reset confirmation (Yes left / No right, default No),
+    /// titled by what its `scope` takes (spec 024) and noting an escrowed stake
+    /// the reset would forfeit.
+    fn draw_confirm_reset(
+        &self,
+        on_yes: bool,
+        scope: ResetScope,
+        pulse: Emphasis,
+        frame: &mut Frame,
+    ) {
         let note = self.stake_forfeit_note();
-        self.draw_two_choice(
+        let title = match scope {
+            ResetScope::MapOnly => "New campaign? Resets the map; you keep your cards and credits.",
+            ResetScope::Everything => "Reset everything? Erases progress, credits & cards.",
+        };
+        self.draw_choice_panel(
             frame,
-            "New campaign? Erases progress, credits & cards.",
+            title,
             note.as_deref(),
-            "Yes",
-            "No",
-            on_yes,
+            &["Yes", "No"],
+            if on_yes { 0 } else { 1 },
             "←/→ choose  ·  Enter confirm  ·  Esc cancel",
             pulse,
         );
@@ -1748,26 +1942,38 @@ impl App {
             .map(|s| format!("…and forfeit your {s}-credit stake."))
     }
 
-    /// The run-over notice (spec 021): the balance can't cover any ante, so the
-    /// run ends here. Borrows `draw_two_choice`'s bordered-box shape without its
-    /// choices — there is only one way on, and Enter takes it.
-    fn draw_run_over(&self, frame: &mut Frame) {
-        let title = "You're broke — the run is over.";
-        let note = "Deck, collection, and progress reset to the starter; your records stay.";
-        let hint = "Enter  continue";
+    /// The run tally both notices report (spec 024).
+    fn run_tally(&self) -> &RunStats {
+        self.profile.campaign().run_stats()
+    }
 
-        let content_width = title
-            .chars()
-            .count()
-            .max(note.chars().count())
-            .max(hint.chars().count());
-        let layout = OverlayLayout::new(self.config, content_width, 5);
+    /// How many worlds this run has cleared — the summary's last figure.
+    fn worlds_cleared(&self) -> usize {
+        self.profile.campaign().worlds_cleared()
+    }
+
+    /// Draw a one-way notice — the run-over notice (spec 021) and the victory
+    /// notice (spec 024) — as a bordered box over whatever is underneath.
+    /// Borrows `draw_choice_panel`'s shape without its choices: the title row is
+    /// Strong, the dismiss line (always the last row) is Muted, everything
+    /// between is Normal, and every row is centred. The blank rows are part of
+    /// the content the caller built, so the breathing room is testable without a
+    /// terminal; the box pads itself evenly above and below (`OverlayLayout`).
+    fn draw_notice(&self, frame: &mut Frame, lines: &[String]) {
+        let content_width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+        let layout = OverlayLayout::new(self.config, content_width, lines.len());
 
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
-        draw_text_in(frame, layout.inner, 0, Align::Center, title, Emphasis::Strong);
-        draw_text_in(frame, layout.inner, 2, Align::Center, note, Emphasis::Normal);
-        draw_text_in(frame, layout.inner, 4, Align::Center, hint, Emphasis::Muted);
+        let last = lines.len().saturating_sub(1);
+        for (row, line) in lines.iter().enumerate() {
+            let emphasis = match row {
+                0 => Emphasis::Strong,
+                r if r == last => Emphasis::Muted,
+                _ => Emphasis::Normal,
+            };
+            draw_text_in(frame, layout.inner, row, Align::Center, line, emphasis);
+        }
     }
 }
 
@@ -1784,10 +1990,12 @@ mod tests {
     #[test]
     fn confirm_choice_commits_only_on_enter_with_yes() {
         use ConfirmChoice::*;
-        // The irreversible-wipe guard (spec 014): New Campaign commits iff
-        // Enter/Space is pressed with Yes highlighted — never on No, never on Esc,
-        // never on a toggle. A refactor that flipped a condition (wipe on No/Esc,
-        // or a default-Yes confirm) would be caught here rather than in play.
+        // The irreversible-reset guard (spec 014, now serving both scopes of
+        // spec 024's confirm — New Campaign's map reset and Reset Everything's
+        // wipe): a reset commits iff Enter/Space is pressed with Yes
+        // highlighted — never on No, never on Esc, never on a toggle. A
+        // refactor that flipped a condition (reset on No/Esc, or a default-Yes
+        // confirm) would be caught here rather than in play.
         assert_eq!(confirm_choice(true, KeyCode::Enter), Commit);
         assert_eq!(confirm_choice(true, KeyCode::Char(' ')), Commit);
         assert_eq!(confirm_choice(false, KeyCode::Enter), Cancel);
@@ -1799,6 +2007,90 @@ mod tests {
             assert_eq!(confirm_choice(false, k), Toggle);
         }
         assert_eq!(confirm_choice(true, KeyCode::Char('z')), Ignore);
+    }
+
+    #[test]
+    fn campaign_choice_steps_and_wraps_in_both_directions() {
+        use CampaignChoice::*;
+        // Spec 024: the entry panel's highlight moves with ←/→ and wraps at both
+        // ends — the two-choice toggle generalized to three. Continue is first,
+        // so the panel opens on the safe option, and the destructive choices are
+        // reached deliberately rather than by drifting off the end of the row.
+        assert_eq!(CampaignChoice::ALL, [Continue, NewCampaign, ResetEverything]);
+        assert_eq!(Continue.step(true), NewCampaign);
+        assert_eq!(NewCampaign.step(true), ResetEverything);
+        assert_eq!(ResetEverything.step(true), Continue);
+        assert_eq!(ResetEverything.step(false), NewCampaign);
+        assert_eq!(NewCampaign.step(false), Continue);
+        assert_eq!(Continue.step(false), ResetEverything);
+    }
+
+    #[test]
+    fn a_choice_panel_keeps_a_blank_row_around_the_choice_row() {
+        // Design brief §Density and breathing room (spec 024 tension §4): the
+        // choice row is the acted-on element, so nothing is drawn on the row
+        // above or below it. That makes a panel carrying a stake note one row
+        // taller rather than letting the note sit flush against the choices —
+        // which also corrects the spec-021 discard confirm, the other panel that
+        // passes a note.
+        assert_eq!(choice_rows(false), (1, 2, 4, 5));
+        assert_eq!(choice_rows(true), (1, 3, 5, 6));
+
+        for note_present in [false, true] {
+            let (note_row, choice_row, hint_row, height) = choice_rows(note_present);
+            let mut drawn = vec![0, choice_row, hint_row];
+            if note_present {
+                drawn.push(note_row);
+            }
+            assert!(
+                !drawn.contains(&(choice_row - 1)),
+                "note {note_present}: a row is drawn directly above the choices"
+            );
+            assert!(
+                !drawn.contains(&(choice_row + 1)),
+                "note {note_present}: a row is drawn directly below the choices"
+            );
+            assert!(hint_row < height, "the hint row is outside the content");
+        }
+    }
+
+    #[test]
+    fn the_campaign_entry_panel_fits_the_minimum_terminal() {
+        // Spec 024: three labels on one row at campaign entry, and the widest
+        // reset confirm (title plus a stake note, so the taller layout) — both
+        // measured through the same layout the draw uses, at 139x31, so neither
+        // box is ever clamped over the menu.
+        let labels: Vec<&str> = CampaignChoice::ALL.iter().map(|c| c.label()).collect();
+        assert_eq!(labels, ["Continue", "New Campaign", "Reset Everything"]);
+
+        let (cols, rows) = Config::min_size();
+        let config = Config { num_cols: cols, num_rows: rows };
+        let yes_no = ["Yes", "No"];
+
+        // Each panel's own strings, verbatim from its draw fn: the entry panel
+        // has no note and its own "select / back" hint, the confirm has a stake
+        // note and the "confirm / cancel" hint.
+        for (title, note, row_labels, hint) in [
+            (
+                "Campaign",
+                None,
+                labels.as_slice(),
+                "←/→ choose  ·  Enter select  ·  Esc back",
+            ),
+            (
+                "New campaign? Resets the map; you keep your cards and credits.",
+                Some("…and forfeit your 999-credit stake."),
+                yes_no.as_slice(),
+                "←/→ choose  ·  Enter confirm  ·  Esc cancel",
+            ),
+        ] {
+            let width = choice_panel_width(title, note, hint, row_labels);
+            let (_, _, _, height) = choice_rows(note.is_some());
+            let layout = OverlayLayout::new(config, width, height);
+            assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");
+            assert_eq!(layout.outer.height(), height + crate::V_PAD, "box height clamped");
+            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame");
+        }
     }
 
     #[test]
@@ -1814,37 +2106,6 @@ mod tests {
         for k in [KeyCode::Left, KeyCode::Right, KeyCode::Up, KeyCode::Char('g')] {
             assert!(!run_over_acknowledged(k));
         }
-    }
-
-    #[test]
-    fn quick_play_deals_the_standard_deck_and_campaign_deals_the_built_one() {
-        // Ruling C (spec 022): the built deck is a campaign reward, so Quick
-        // Play always deals the standard deck no matter what the builder holds.
-        // The built deck here shares no card with the standard one, so a
-        // regression that fell back to the profile's deck is unmistakable.
-        let built = vec![
-            Card::Plus(1),
-            Card::Plus(1),
-            Card::Plus(3),
-            Card::Plus(3),
-            Card::Minus(1),
-            Card::Minus(1),
-            Card::Minus(3),
-            Card::Minus(3),
-            Card::PlusMinus(2),
-            Card::PlusMinus(2),
-        ];
-        assert!(
-            built.iter().all(|c| !DEFAULT_SIDE_DECK.contains(c)),
-            "sanity: the built deck shares no card with the standard one"
-        );
-
-        assert_eq!(player_deck_for(true, &built), built, "a campaign match deals the built deck");
-        assert_eq!(
-            player_deck_for(false, &built),
-            DEFAULT_SIDE_DECK.to_vec(),
-            "Quick Play deals the standard deck regardless of the built deck"
-        );
     }
 
     #[test]
@@ -2174,13 +2435,15 @@ mod tests {
     }
 
     #[test]
-    fn onboarding_dismissed_on_enter_space_or_esc_only() {
-        // The first-run pieces (spec 023) are notices, not choices: Enter, Space
-        // and Esc all wave them away, and nothing else does — so a stray key
-        // over the map or the board can never mark them seen by accident.
-        assert!(onboarding_dismissed(KeyCode::Enter));
-        assert!(onboarding_dismissed(KeyCode::Char(' ')));
-        assert!(onboarding_dismissed(KeyCode::Esc));
+    fn notice_dismissed_on_enter_space_or_esc_only() {
+        // The first-run pieces (spec 023) and the victory notice (spec 024) are
+        // notices, not choices: Enter, Space and Esc all wave them away, and
+        // nothing else does — so a stray key over the map or the board can never
+        // mark a first-run piece seen, or wave off the victory notice, by
+        // accident.
+        assert!(notice_dismissed(KeyCode::Enter));
+        assert!(notice_dismissed(KeyCode::Char(' ')));
+        assert!(notice_dismissed(KeyCode::Esc));
         for k in [
             KeyCode::Char('x'),
             KeyCode::Char('d'),
@@ -2189,19 +2452,100 @@ mod tests {
             KeyCode::Up,
             KeyCode::Left,
         ] {
-            assert!(!onboarding_dismissed(k), "{k:?} must not dismiss");
+            assert!(!notice_dismissed(k), "{k:?} must not dismiss");
         }
     }
 
     #[test]
-    fn map_entry_modal_prefers_run_over_then_primer() {
-        // One modal at a time (spec 023): a broke map shows the run-over notice
-        // even when the primer is still due, and the primer waits for the next
-        // map open. An unbroke map shows the primer only while it is due.
-        assert!(matches!(map_entry_modal(true, true), Some(Modal::RunOver)));
-        assert!(matches!(map_entry_modal(true, false), Some(Modal::RunOver)));
-        assert!(matches!(map_entry_modal(false, true), Some(Modal::Primer)));
-        assert!(map_entry_modal(false, false).is_none());
+    fn map_entry_modal_prefers_run_over_then_victory_then_primer() {
+        // One modal at a time (specs 023 + 024): broke wins over everything, a
+        // completed run wins over the primer, and the primer shows only while it
+        // is due. The first two cases never actually arise together in play — a
+        // completing win can't leave the player broke, and the primer is
+        // menu-entry only — so the order is pinned here rather than left to
+        // drift.
+        assert!(matches!(map_entry_modal(true, true, true), Some(Modal::RunOver)));
+        assert!(matches!(map_entry_modal(true, false, false), Some(Modal::RunOver)));
+        assert!(matches!(map_entry_modal(false, true, true), Some(Modal::Victory)));
+        assert!(matches!(map_entry_modal(false, false, true), Some(Modal::Primer)));
+        assert!(map_entry_modal(false, false, false).is_none());
+    }
+
+    #[test]
+    fn both_notices_read_right_breathe_and_fit_the_minimum_terminal() {
+        // Spec 024: the two notices share one summary block, both end on the
+        // dismiss line with an empty row above it (the acted-on element gets its
+        // air — the box's own padding gives the row below), neither doubles a
+        // blank row, and both fit 139x31 unclamped so no row is ever eaten.
+        let mut run = RunStats::default();
+        for _ in 0..4 {
+            run.record_match(true, 3, 1);
+        }
+        for _ in 0..2 {
+            run.record_match(false, 1, 3);
+        }
+        run.record_credits_won(640);
+        run.record_credits_lost(210);
+
+        let summary = run_summary_lines(&run, 7, 8);
+        let victory = victory_notice_lines(&run, 7, 8);
+        let run_over = run_over_notice_lines(&run, 7, 8);
+
+        assert_eq!(victory[0], "Campaign complete — the house's best has lost.");
+        assert_eq!(run_over[0], "You're broke — the run is over.");
+
+        let (cols, rows) = Config::min_size();
+        let config = Config { num_cols: cols, num_rows: rows };
+
+        for lines in [&victory, &run_over] {
+            let summary_at = lines
+                .iter()
+                .position(|l| l == &summary[0])
+                .expect("the summary block is on the notice");
+            assert_eq!(
+                &lines[summary_at..summary_at + 3],
+                &summary[..],
+                "the three summary lines run in order"
+            );
+            assert_eq!(lines.last().unwrap(), "Enter  continue", "the dismiss line is last");
+            assert_eq!(
+                lines[lines.len() - 2],
+                "",
+                "the dismiss line needs an empty row above it"
+            );
+            assert!(
+                lines.windows(2).all(|w| !(w[0].is_empty() && w[1].is_empty())),
+                "no slab of empty rows: {lines:?}"
+            );
+
+            let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+            let layout = OverlayLayout::new(config, width, lines.len());
+            assert_eq!(
+                layout.outer.height(),
+                lines.len() + crate::V_PAD,
+                "box height clamped — the notice outgrew the minimum terminal"
+            );
+            assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");
+            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame");
+        }
+
+        // The victory notice's two spec'd lines sit above the summary...
+        let victory_at = victory.iter().position(|l| l == &summary[0]).unwrap();
+        assert_eq!(victory[2], "Your cards and credits are yours to keep.");
+        assert_eq!(
+            victory[3],
+            "Rematches stay open; New Campaign replays the map with your deck."
+        );
+        assert!(victory_at > 3, "the summary follows the victory text");
+
+        // ...and the run-over notice keeps its reset note *after* the summary.
+        let run_over_at = run_over.iter().position(|l| l == &summary[0]).unwrap();
+        let reset_note = "Deck, collection, and progress reset to the starter; your records stay.";
+        let note_at = run_over
+            .iter()
+            .position(|l| l == reset_note)
+            .expect("the run-over notice keeps its reset note");
+        assert!(note_at > run_over_at + 2, "the reset note follows the summary");
     }
 
     #[test]

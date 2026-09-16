@@ -67,9 +67,10 @@ balance immediately and stores the in-flight `NodeRef { planet, opponent, stake 
 The map header's `◈ N` is honest mid-match, and the stake rides beside the board
 in the presence panel ([`src/portrait.rs`](../src/portrait.rs)) for the whole
 match. Quick Play never touches any of this: no prompt, no stake, no payout —
-and since spec 022 (ruling C) it deals the player the **standard** side deck
-(`card::DEFAULT_SIDE_DECK`), not the built one, so the deck you build matters in
-campaign matches only.
+but since spec 024 (superseding spec 022's ruling C) it deals the player the
+deck they built, the same one a campaign match deals, so the deck you build
+matters everywhere; `card::DEFAULT_SIDE_DECK` keeps its remaining role as the
+opponents' baseline.
 
 ## Rematches
 
@@ -83,12 +84,24 @@ campaign completion is never re-counted (see below). Match and round records
 ## Settling — one seam, exactly once
 
 Settlement happens in `App::tick`, in the single resolution block on the
-`phase_changed` edge into `GamePhase::GameOver`: `settle_campaign_match` →
-`record_match` → `save`. Spec 012's every-tick "not yet beaten" guard is gone —
-rematches make it useless as a once-guard — and spec 020's separate record block
-folded into the same edge.
+`phase_changed` edge into `GamePhase::GameOver`: one `Profile::resolve_match`
+call → `save`. Spec 012's every-tick "not yet beaten" guard is gone — rematches
+make it useless as a once-guard — and spec 020's separate record block folded
+into the same edge.
 
-`Profile::settle_campaign_match(player_won)`:
+`Profile::resolve_match(opponent_id, player_won, player_rounds, opp_rounds)`
+owns the **order** (spec 024): it derives the `Mode` from the in-flight pointer,
+`record_match`es first, then settles, then moves the run's credit counters
+(`credits_won` by the net gain `win_payout(stake) - stake` on a win,
+`credits_lost` by the forfeited stake on a loss) from the returned outcome. It
+returns `Some(Settlement { outcome, completed_run })` for a campaign match —
+`completed_run` being the `!was_complete && run_complete()` edge the victory
+notice rides on — and `None` for a Quick Play match (recorded, nothing to
+settle). Recording first is what makes the first-clear record count the
+completing match. `settle_campaign_match` and `record_match` are private to
+`profile.rs`; `resolve_match` is the only caller of either.
+
+`settle_campaign_match(player_won)`, inside it:
 
 1. Reads the in-flight pointer; `None` (Quick Play) settles nothing.
 2. `CampaignRun::take_stake()` — returns the stake **and zeroes the escrow**.
@@ -128,9 +141,12 @@ can meet the notice after a win; that is the accepted migration path arriving on
 match later, not a separate rule.
 
 The run-over notice is modal and has no decline: Enter/Space acknowledge and run
-`start_new_campaign`, i.e. spec 014's `reset_to_starter` — starter deck and
-collection, no progress, the seed purse — then a fresh map. Settings (their own
-file) and lifetime records survive, exactly as for New Campaign.
+`reset_run` — `Profile::reset_to_starter` (starter deck and collection, no
+progress, the seed purse) plus the saved match cleared — and then, since the
+2026-09-13 chore, land on the **start menu**, not a fresh map. Settings (their
+own file) and lifetime records survive. That full wipe is **Reset Everything**'s
+operation since spec 024; **New Campaign** is now the map-only reset
+(`Profile::reset_campaign_run`), which keeps credits, collection and deck.
 
 Note for tuning: with rematches, Cinder's final opponent is always launchable, so
 `cheapest_floor` is **10 in every run state today**. The unlocked-planet filter is

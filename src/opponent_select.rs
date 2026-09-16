@@ -19,7 +19,7 @@ use crate::{
 /// The Quick Play note under the roster: what this screen deals, said once,
 /// so the campaign's side-deck rules aren't assumed here. Drawn `Muted` above
 /// the controls hint.
-const QUICK_PLAY_NOTE: &str = "Quick Play deals the standard deck.";
+const QUICK_PLAY_NOTE: &str = "Quick Play deals your deck. Nothing is staked.";
 
 /// The opponent-preview panel Rect: a snug bordered panel (border + name +
 /// portrait, no reserved rows) to the right of the centered roster list.
@@ -222,6 +222,6 @@ mod tests {
             "controls hint at row {hint_y} clips the {}-row minimum terminal",
             config.num_rows
         );
-        assert_eq!(QUICK_PLAY_NOTE, "Quick Play deals the standard deck.");
+        assert_eq!(QUICK_PLAY_NOTE, "Quick Play deals your deck. Nothing is staked.");
     }
 }

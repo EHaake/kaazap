@@ -244,10 +244,18 @@ impl CampaignRun {
         PLANETS.iter().all(|p| self.planet_cleared(p))
     }
 
+    /// How many planets are cleared — the map header's progress figure and the
+    /// run summary's "worlds cleared" (spec 024). Derived, never stored.
+    pub fn worlds_cleared(&self) -> usize {
+        PLANETS.iter().filter(|p| self.planet_cleared(p)).count()
+    }
+
     /// Whether the player has cleared any opponent yet — real progress worth
     /// preserving or wiping. False for a fresh run (and one where a first match
-    /// was started but never won); true once anything is `mark_beaten`. Drives the
-    /// Continue / New Campaign choice at campaign entry (spec 014). Checks for a
+    /// was started but never won); true once anything is `mark_beaten`. One
+    /// disjunct of `Profile::differs_from_starter`, which drives the Continue /
+    /// New Campaign / Reset Everything panel at campaign entry (spec 024,
+    /// superseding spec 014's two-choice gate on this alone). Checks for a
     /// non-empty opponent list rather than a non-empty map, so a stray empty entry
     /// never reads as progress.
     pub fn has_progress(&self) -> bool {
@@ -473,6 +481,31 @@ mod tests {
 
         // ...and the full sweep completes it.
         sweep(&mut run, None);
+        assert!(run.run_complete());
+    }
+
+    #[test]
+    fn worlds_cleared_counts_cleared_planets() {
+        let mut run = CampaignRun::default();
+        assert_eq!(run.worlds_cleared(), 0, "a fresh run has cleared nothing");
+
+        // Cinder's only opponent clears it.
+        run.mark_beaten("cinder", "greeb");
+        assert_eq!(run.worlds_cleared(), 1);
+
+        // A part-beaten planet doesn't count until every opponent is beaten.
+        run.mark_beaten("the-spindle", "rix");
+        assert_eq!(run.worlds_cleared(), 1, "one of two beaten is not a cleared world");
+        run.mark_beaten("the-spindle", "magistrate");
+        assert_eq!(run.worlds_cleared(), 2);
+
+        // A full sweep clears every world.
+        for p in PLANETS {
+            for o in p.opponents {
+                run.mark_beaten(p.id, o);
+            }
+        }
+        assert_eq!(run.worlds_cleared(), PLANETS.len());
         assert!(run.run_complete());
     }
 

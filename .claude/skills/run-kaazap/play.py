@@ -39,7 +39,7 @@ def main(steps):
             t = term.text()
             if "YOU WIN THE GAME" in t or "YOU LOST THE GAME" in t:
                 return True
-            if "won this round" in t or "won the round" in t or "You Tied" in t:
+            if "won this round" in t or "won the round" in t or "You tied" in t or "You Tied" in t:
                 send("n"); pump(1.0); continue
             m = re.search(r"Player:.*?Score:\s*(\d+)", t)
             if m:

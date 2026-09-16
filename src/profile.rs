@@ -39,6 +39,17 @@ pub struct CardEntry {
     pub in_deck: usize,
 }
 
+/// How a finished campaign match settled (spec 024).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Settlement {
+    pub outcome: StakeOutcome,
+    /// Whether this settlement was the win that **completed the run** — the
+    /// `!was_complete && run_complete()` edge, so a rematch is never one and a
+    /// replayed campaign's final win is. The once-per-completion signal the
+    /// victory notice rides on.
+    pub completed_run: bool,
+}
+
 /// The player's persistent profile: the collection and built deck, campaign
 /// progress, credits, lifetime stats, and the onboarding seen-marks. Every
 /// field carries a `#[serde(default)]` so a partial or older file still loads
@@ -158,13 +169,15 @@ impl Profile {
     }
 
     /// Reset to a brand-new starter profile: starter collection + deck, no
-    /// campaign progress, the seed purse — a full fresh start (spec 014's New
-    /// Campaign). Lifetime stats survive the reset (spec 020) — like Settings,
-    /// which live in a separate file and are also untouched — so a New Campaign
-    /// doesn't erase the player's cross-run record. The onboarding seen-marks
-    /// (spec 023) survive it for the same reason: a reset is a fresh run, not a
-    /// first launch. The caller persists (`save`) and clears any in-progress
-    /// match save.
+    /// campaign progress, the seed purse — the full wipe. Since spec 024 this
+    /// is **Reset Everything**'s operation and the run-over reset's, not New
+    /// Campaign's, which resets the map only
+    /// ([`Profile::reset_campaign_run`]). Lifetime stats survive the wipe (spec
+    /// 020) — like Settings, which live in a separate file and are also
+    /// untouched — so it doesn't erase the player's cross-run record. The
+    /// onboarding seen-marks (spec 023) survive it for the same reason: a reset
+    /// is a fresh run, not a first launch. The caller persists (`save`) and
+    /// clears any in-progress match save.
     pub fn reset_to_starter(&mut self) {
         let stats = std::mem::take(&mut self.stats);
         let primer_seen = std::mem::take(&mut self.primer_seen);
@@ -173,6 +186,17 @@ impl Profile {
         self.stats = stats;
         self.primer_seen = primer_seen;
         self.first_match_seen = first_match_seen;
+    }
+
+    /// Reset the campaign map only — spec 024's New Campaign: the beaten set,
+    /// the in-flight pointer (and its escrowed stake) and the run tally all go
+    /// with `CampaignRun::default()`; credits, collection, deck, lifetime stats
+    /// and the onboarding marks are untouched. Supersedes spec 014's "New
+    /// Campaign = full fresh start"; [`Profile::reset_to_starter`] is now
+    /// reached only by Reset Everything and the run-over acknowledgement. The
+    /// caller persists (`save`) and clears any in-progress match save.
+    pub fn reset_campaign_run(&mut self) {
+        self.campaign = CampaignRun::default();
     }
 
     /// Parse profile JSON, discarding a document whose version doesn't match
@@ -230,6 +254,42 @@ impl Profile {
         true
     }
 
+    /// Resolve a finished match: record it into lifetime + run statistics, then
+    /// settle any campaign stake. One method owns the **order** (spec 024): the
+    /// first-clear record is captured on the completion edge from the run tally,
+    /// so the completing match must already be recorded when settlement runs.
+    /// `Mode` is derived here from the in-flight pointer — settlement never
+    /// clears it, so reading it first or last is the same answer. Returns `None`
+    /// for a Quick Play match (recorded, nothing to settle). Callers pair this
+    /// with [`Profile::save`].
+    pub fn resolve_match(
+        &mut self,
+        opponent_id: &str,
+        player_won: bool,
+        player_rounds: u32,
+        opp_rounds: u32,
+    ) -> Option<Settlement> {
+        let mode = if self.campaign.in_progress().is_some() {
+            Mode::Campaign
+        } else {
+            Mode::QuickPlay
+        };
+        self.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
+        let was_complete = self.campaign.run_complete();
+        let outcome = self.settle_campaign_match(player_won)?;
+        let tally = self.campaign.run_stats_mut();
+        match outcome {
+            StakeOutcome::Won(stake) => {
+                tally.record_credits_won(economy::win_payout(stake).saturating_sub(stake))
+            }
+            StakeOutcome::Lost(stake) => tally.record_credits_lost(stake),
+        }
+        Some(Settlement {
+            outcome,
+            completed_run: !was_complete && self.campaign.run_complete(),
+        })
+    }
+
     /// Settle the campaign match in flight (spec 021): take the stake out of
     /// escrow, pay [`economy::win_payout`] on a win, mark the opponent beaten,
     /// and count a campaign completion on the `!was_complete && run_complete()`
@@ -241,7 +301,14 @@ impl Profile {
     /// [`CampaignRun::take_stake`] zeroes the escrow, so a second settlement
     /// pays `win_payout(0) == 0` and `mark_beaten` is idempotent. Callers pair
     /// this with [`Profile::save`].
-    pub fn settle_campaign_match(&mut self, player_won: bool) -> Option<StakeOutcome> {
+    ///
+    /// The completion edge hands the run tally's `matches_played()` to
+    /// [`LifetimeStats::record_campaign_completion`] as the first-clear record
+    /// (spec 024): the run's matches played *including* the completing match,
+    /// which holds because [`Profile::resolve_match`] records before it
+    /// settles. Private since spec 024 — callers go through `resolve_match`;
+    /// settling alone moves no run tally and no credit counter.
+    fn settle_campaign_match(&mut self, player_won: bool) -> Option<StakeOutcome> {
         let node = self.campaign.in_progress()?.clone();
         let stake = self.campaign.take_stake();
         if player_won {
@@ -249,7 +316,8 @@ impl Profile {
             let was_complete = self.campaign.run_complete();
             self.campaign.mark_beaten(&node.planet, &node.opponent);
             if !was_complete && self.campaign.run_complete() {
-                self.stats.record_campaign_completion();
+                let matches = self.campaign.run_stats().matches_played();
+                self.stats.record_campaign_completion(matches);
             }
             Some(StakeOutcome::Won(stake))
         } else {
@@ -262,6 +330,18 @@ impl Profile {
     /// cheapest ante on the map, evaluated at the app's two spec'd seams.
     pub fn is_broke(&self) -> bool {
         self.credits < economy::cheapest_floor(&self.campaign)
+    }
+
+    /// Whether anything the campaign-entry choices would affect exists (spec
+    /// 024): the run has progress, or the pool differs from the starter —
+    /// credits, collection or deck. A truly fresh profile opens the map
+    /// directly.
+    pub fn differs_from_starter(&self) -> bool {
+        let starter = Profile::default();
+        self.campaign.has_progress()
+            || self.credits != starter.credits
+            || self.collection != starter.collection
+            || self.deck != starter.deck
     }
 
     /// Whether `price` is spendable: it must leave the cheapest launchable ante
@@ -303,9 +383,9 @@ impl Profile {
     /// given mode; for a Campaign match it also updates the run tally. It does
     /// *not* count campaign completions — since spec 021 a beaten node can be
     /// replayed, so completion is the `mark_beaten` edge owned by
-    /// [`Profile::settle_campaign_match`]. Callers pair this with
-    /// [`Profile::save`].
-    pub fn record_match(
+    /// [`Profile::settle_campaign_match`]. Private since spec 024 — callers go
+    /// through [`Profile::resolve_match`], which pairs this with [`Profile::save`].
+    fn record_match(
         &mut self,
         mode: Mode,
         opponent_id: &str,
@@ -450,6 +530,34 @@ mod tests {
             opponent: opponent.to_string(),
             stake,
         }
+    }
+
+    /// Play a campaign match the way the app's seam does (spec 024): stake it,
+    /// then one [`Profile::resolve_match`] records it and settles the stake.
+    fn play_node(
+        p: &mut Profile,
+        planet: &str,
+        opponent: &str,
+        stake: u32,
+        player_won: bool,
+    ) -> Settlement {
+        assert!(p.stake_match(node(planet, opponent, stake)));
+        let (player_rounds, opp_rounds) = if player_won { (3, 1) } else { (1, 3) };
+        p.resolve_match(opponent, player_won, player_rounds, opp_rounds)
+            .expect("a staked campaign match settles")
+    }
+
+    /// Win every campaign node in map order through [`play_node`], returning
+    /// each settlement — a whole run driven through `resolve_match` only.
+    fn sweep_run(p: &mut Profile, stake: u32) -> Vec<Settlement> {
+        use crate::campaign::PLANETS;
+        let mut settled = Vec::new();
+        for planet in PLANETS {
+            for opp in planet.opponents {
+                settled.push(play_node(p, planet.id, opp, stake, true));
+            }
+        }
+        settled
     }
 
     #[test]
@@ -649,7 +757,10 @@ mod tests {
 
         // A rematch win against an already-beaten final node pays...
         assert!(p.stake_match(node("zenith", "sovereign", 50)));
-        assert_eq!(p.settle_campaign_match(true), Some(StakeOutcome::Won(50)));
+        assert_eq!(
+            p.resolve_match("sovereign", true, 3, 1),
+            Some(Settlement { outcome: StakeOutcome::Won(50), completed_run: false }),
+        );
         assert_eq!(p.credits(), 150);
         // ...but counts no completion and un-beats nothing.
         assert_eq!(p.stats().campaign_completions(), 0, "a rematch never completes the run");
@@ -657,7 +768,10 @@ mod tests {
 
         // A rematch loss costs the stake and likewise touches no progress.
         assert!(p.stake_match(node("zenith", "sovereign", 50)));
-        assert_eq!(p.settle_campaign_match(false), Some(StakeOutcome::Lost(50)));
+        assert_eq!(
+            p.resolve_match("sovereign", false, 1, 3),
+            Some(Settlement { outcome: StakeOutcome::Lost(50), completed_run: false }),
+        );
         assert_eq!(p.credits(), 100);
         assert_eq!(p.stats().campaign_completions(), 0);
         assert!(p.campaign().run_complete(), "a loss un-beats nothing");
@@ -722,13 +836,16 @@ mod tests {
     #[test]
     fn campaign_completion_counts_only_a_final_clearing_win_and_recounts_after_reset() {
         use crate::campaign::PLANETS;
-        // Clear a node the way the real seam does: stake it, record the match,
-        // settle the win. Settlement — not `record_match` — owns `mark_beaten`
-        // and the completion edge.
+        // Clear a node the way the real seam does: stake it, then resolve the
+        // match — `resolve_match` records it and settles the stake in that
+        // order (spec 024). Settlement — not `record_match` — owns
+        // `mark_beaten` and the completion edge.
         fn win_node(p: &mut Profile, planet: &str, opponent: &str) {
             assert!(p.stake_match(node(planet, opponent, 10)));
-            p.record_match(Mode::Campaign, opponent, true, 3, 0);
-            assert_eq!(p.settle_campaign_match(true), Some(StakeOutcome::Won(10)));
+            assert_eq!(
+                p.resolve_match(opponent, true, 3, 0).map(|s| s.outcome),
+                Some(StakeOutcome::Won(10)),
+            );
         }
 
         // Beat every campaign opponent except the final boss; none of these
@@ -767,6 +884,262 @@ mod tests {
         clear_all_but_last(&mut p);
         win_node(&mut p, "zenith", "sovereign");
         assert_eq!(p.stats().campaign_completions(), 2, "a second full run increments again");
+    }
+
+    #[test]
+    fn resolve_match_moves_the_run_credit_counters_and_nothing_else_does() {
+        let net = economy::win_payout(20) - 20;
+
+        // A staked win adds its net gain — the number the map banner shows.
+        let mut p = profile_with_credits(100);
+        assert_eq!(
+            play_node(&mut p, "cinder", "greeb", 20, true).outcome,
+            StakeOutcome::Won(20),
+        );
+        assert_eq!(p.campaign().run_stats().credits_won, net);
+        assert_eq!(p.campaign().run_stats().credits_lost, 0);
+
+        // Settling the same pointer again adds nothing — the escrow is empty.
+        assert_eq!(
+            p.resolve_match("greeb", true, 3, 1).map(|s| s.outcome),
+            Some(StakeOutcome::Won(0)),
+        );
+        assert_eq!(p.campaign().run_stats().credits_won, net, "an emptied escrow pays nothing");
+        assert_eq!(p.campaign().run_stats().credits_lost, 0);
+
+        // A loss adds the forfeited stake, and nothing to the win counter.
+        let mut q = profile_with_credits(100);
+        assert_eq!(
+            play_node(&mut q, "cinder", "greeb", 20, false).outcome,
+            StakeOutcome::Lost(20),
+        );
+        assert_eq!(q.campaign().run_stats().credits_lost, 20);
+        assert_eq!(q.campaign().run_stats().credits_won, 0);
+
+        // A stake forfeited by discarding a saved match settles nothing, so it
+        // counts toward neither counter.
+        let mut r = profile_with_credits(100);
+        assert!(r.stake_match(node("cinder", "greeb", 20)));
+        r.campaign_mut().set_in_progress(None);
+        assert_eq!(r.resolve_match("greeb", true, 3, 1), None, "nothing in flight settles");
+        assert_eq!(r.campaign().run_stats().credits_won, 0);
+        assert_eq!(r.campaign().run_stats().credits_lost, 0);
+
+        // Both resets zero them — the tally lives on the run.
+        p.reset_campaign_run();
+        assert_eq!(p.campaign().run_stats().credits_won, 0, "a map reset zeroes the counters");
+        assert_eq!(p.campaign().run_stats().credits_lost, 0);
+        q.reset_to_starter();
+        assert_eq!(q.campaign().run_stats().credits_won, 0, "a full reset zeroes them too");
+        assert_eq!(q.campaign().run_stats().credits_lost, 0);
+    }
+
+    #[test]
+    fn the_run_counters_and_first_clear_round_trip_and_default_for_older_profiles() {
+        // Dirty both counters, then round-trip the whole profile.
+        let mut p = profile_with_credits(100);
+        play_node(&mut p, "cinder", "greeb", 20, true);
+        play_node(&mut p, "scree", "dax", 30, false);
+        let json = serde_json::to_string(&p).unwrap();
+        let p2 = Profile::from_json(&json).expect("a valid profile loads");
+        assert_eq!(p2.campaign().run_stats().credits_won, economy::win_payout(20) - 20);
+        assert_eq!(p2.campaign().run_stats().credits_lost, 30);
+
+        // A pre-024 document loads with both counters zero and no record — the
+        // same additive-field discipline as `credits` / `campaign` / `stats`.
+        let older = r#"{"version":1,"collection":[],"deck":[]}"#;
+        let old = Profile::from_json(older).expect("an older profile still loads");
+        assert_eq!(old.campaign().run_stats().credits_won, 0);
+        assert_eq!(old.campaign().run_stats().credits_lost, 0);
+        assert_eq!(old.stats().first_clear_matches(), None);
+        assert_eq!(PROFILE_VERSION, 1, "the counters and the record are no shape change");
+
+        // The first-clear record is a lifetime number, so it round-trips on its
+        // own — a profile whose recording run is long gone still carries it.
+        let doc = r#"{"version":1,"collection":[],"deck":[],"stats":{"campaign_completions":2,"first_clear_matches":14}}"#;
+        let recorded = Profile::from_json(doc).expect("a recorded profile loads");
+        assert_eq!(recorded.stats().campaign_completions(), 2);
+        assert_eq!(recorded.stats().first_clear_matches(), Some(14));
+        let json = serde_json::to_string(&recorded).unwrap();
+        let again = Profile::from_json(&json).expect("a valid profile loads");
+        assert_eq!(again.stats().first_clear_matches(), Some(14));
+    }
+
+    #[test]
+    fn the_first_clear_counts_the_completing_match_and_survives_a_replay() {
+        let mut p = profile_with_credits(1000);
+        // A loss along the way still counts toward the run's matches played.
+        play_node(&mut p, "cinder", "greeb", 10, false);
+        sweep_run(&mut p, 10);
+        assert!(p.campaign().run_complete());
+
+        let played = p.campaign().run_stats().matches_played();
+        assert_eq!(played, 11, "ten campaign nodes plus the loss on the way");
+        assert_eq!(p.stats().campaign_completions(), 1);
+        assert_eq!(
+            p.stats().first_clear_matches(),
+            Some(played),
+            "the record includes the completing match",
+        );
+
+        // A rematch win afterwards leaves both unchanged.
+        play_node(&mut p, "zenith", "sovereign", 10, true);
+        assert_eq!(p.stats().campaign_completions(), 1);
+        assert_eq!(p.stats().first_clear_matches(), Some(played));
+
+        // A second full run completes again, but never re-sets the record.
+        p.reset_campaign_run();
+        sweep_run(&mut p, 10);
+        assert_eq!(p.stats().campaign_completions(), 2, "a replay completes again");
+        assert_eq!(
+            p.stats().first_clear_matches(),
+            Some(played),
+            "the record is the first clear only",
+        );
+    }
+
+    #[test]
+    fn resolve_match_reports_the_completion_edge_and_skips_quick_play() {
+        let mut p = profile_with_credits(1000);
+        let settled = sweep_run(&mut p, 10);
+        let (last, rest) = settled.split_last().expect("a run has nodes");
+        assert!(rest.iter().all(|s| !s.completed_run), "no earlier win completes the run");
+        assert!(last.completed_run, "the final clearing win does");
+
+        // A rematch win on the complete run is never a completion.
+        assert!(!play_node(&mut p, "zenith", "sovereign", 10, true).completed_run);
+
+        // No pointer means Quick Play: nothing settles, the lifetime stats
+        // record it, and the run tally doesn't move.
+        let played = p.campaign().run_stats().matches_played();
+        p.campaign_mut().set_in_progress(None);
+        assert_eq!(p.resolve_match("yuka", true, 3, 0), None, "a Quick Play match settles nothing");
+        assert_eq!(p.stats().quick_play().get("yuka").match_wins, 1);
+        assert_eq!(
+            p.campaign().run_stats().matches_played(),
+            played,
+            "the run tally is campaign-only",
+        );
+    }
+
+    #[test]
+    fn the_completion_edge_and_the_completions_counter_always_agree() {
+        use crate::campaign::PLANETS;
+        // The edge is evaluated twice — once inside settlement for the
+        // completions counter, once in `resolve_match` for the signal (plan
+        // tension §1). Across a whole run they must never disagree.
+        fn check(p: &mut Profile, planet: &str, opponent: &str, player_won: bool) {
+            let before = p.stats().campaign_completions();
+            let settled = play_node(p, planet, opponent, 10, player_won);
+            let after = p.stats().campaign_completions();
+            assert_eq!(
+                settled.completed_run,
+                after == before + 1,
+                "{planet}/{opponent}: the signal and the completions counter disagree",
+            );
+        }
+
+        let mut p = profile_with_credits(1000);
+        for planet in PLANETS {
+            for opp in planet.opponents {
+                check(&mut p, planet.id, opp, false); // a loss first...
+                check(&mut p, planet.id, opp, true); // ...then the win
+            }
+        }
+        assert!(p.campaign().run_complete());
+        assert_eq!(p.stats().campaign_completions(), 1);
+
+        // ...and a rematch afterwards: no signal, no count.
+        check(&mut p, "zenith", "sovereign", true);
+        assert_eq!(p.stats().campaign_completions(), 1);
+    }
+
+    #[test]
+    fn new_campaign_resets_the_map_and_keeps_the_pool() {
+        // Dirty everything a New Campaign has an opinion about: progress, an
+        // in-flight staked match, a bought card, an edited deck, credits,
+        // lifetime stats and both onboarding marks.
+        let mut p = profile_with_credits(200);
+        p.campaign_mut().mark_beaten("cinder", "greeb");
+        p.grant_card(Card::PlusMinus(6));
+        let first = p.deck()[0];
+        assert!(p.remove_from_deck(first));
+        p.record_match(Mode::Campaign, "greeb", true, 3, 1);
+        p.mark_primer_seen();
+        p.mark_first_match_seen();
+        assert!(p.stake_match(node("scree", "dax", 20)));
+        assert_eq!(p.campaign().stake_at_risk(), Some(20), "sanity: a stake is in escrow");
+        let credits = p.credits();
+        let collection = p.collection.clone();
+        let deck = p.deck().to_vec();
+
+        p.reset_campaign_run();
+
+        // The map, the in-flight match and its escrow, and the run tally go...
+        assert!(!p.campaign().has_progress(), "beaten opponents cleared");
+        assert!(p.campaign().in_progress().is_none(), "the in-flight match dropped");
+        assert_eq!(p.campaign().stake_at_risk(), None, "the escrowed stake goes with it");
+        assert_eq!(p.campaign().run_stats().matches_played(), 0, "the run tally zeroed");
+        // ...and everything the player earned stays.
+        assert_eq!(p.credits(), credits, "credits are kept (the escrow is not refunded)");
+        assert_eq!(p.collection, collection, "the collection is kept");
+        assert_eq!(p.deck(), deck.as_slice(), "the built deck is kept");
+        assert_eq!(p.stats().campaign().get("greeb").match_wins, 1, "lifetime stats are kept");
+        assert!(p.primer_seen(), "the primer mark is kept");
+        assert!(p.first_match_seen(), "the first-match mark is kept");
+    }
+
+    #[test]
+    fn the_entry_panel_shows_whenever_the_run_or_the_pool_differs_from_the_starter() {
+        assert!(
+            !Profile::default().differs_from_starter(),
+            "a truly fresh profile opens the map directly",
+        );
+
+        // ...and so does one loaded back from disk: a fresh profile writes its
+        // seed purse, so the round trip is still the starter. (A pre-economy
+        // document with no `credits` key loads with 0 instead — a pool that
+        // really does differ from the starter, so spec 021's migration path
+        // sees the entry panel, which is what the predicate specifies.)
+        let fresh = serde_json::to_string(&Profile::default()).unwrap();
+        assert!(
+            !Profile::from_json(&fresh)
+                .expect("a fresh profile reloads")
+                .differs_from_starter(),
+            "a reloaded fresh profile is still the starter",
+        );
+        assert!(
+            Profile::from_json(r#"{"version":1}"#)
+                .expect("a pre-economy document loads")
+                .differs_from_starter(),
+            "a document with no credits key loads with 0 credits, so its pool \
+             differs from the starter and the entry panel shows",
+        );
+
+        let mut beaten = Profile::default();
+        beaten.campaign_mut().mark_beaten("cinder", "greeb");
+        assert!(beaten.differs_from_starter(), "progress on the map");
+
+        let mut earned = Profile::default();
+        earned.earn_credits(1);
+        assert!(earned.differs_from_starter(), "a credit earned");
+
+        let mut spent = Profile::default();
+        spent.credits -= 1; // a shop buy, without the affordability dance
+        assert!(spent.differs_from_starter(), "a credit spent");
+
+        let mut granted = Profile::default();
+        granted.grant_card(Card::PlusMinus(6));
+        assert!(granted.differs_from_starter(), "a card in the collection");
+
+        let mut edited = Profile::default();
+        let first = edited.deck()[0];
+        assert!(edited.remove_from_deck(first));
+        assert!(edited.differs_from_starter(), "a deck the player edited");
+
+        let mut staked = Profile::default();
+        assert!(staked.stake_match(node("cinder", "greeb", 10)));
+        assert!(staked.differs_from_starter(), "a staked match in flight");
     }
 
     #[test]
@@ -823,7 +1196,8 @@ mod tests {
         assert_eq!(p.deck().len(), SIDE_DECK_SIZE);
         assert!(p.deck_is_valid());
         // The starter is its own deck now (spec 022), no longer the standard
-        // pool — that stays the opponent baseline and Quick Play's deck.
+        // pool — that stays the opponent baseline (since spec 024 every match,
+        // Quick Play included, deals the player's built deck).
         assert_eq!(p.deck(), &STARTER_SIDE_DECK);
         assert_ne!(p.deck(), &DEFAULT_SIDE_DECK);
 
