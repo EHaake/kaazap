@@ -303,7 +303,14 @@ pub fn view_body(view: RecordsView, stats: &LifetimeStats, run: &RunStats) -> Ve
                     lines.push(format!("Streak: {} (best {})", s.current, s.longest));
                 }
                 RecordsView::Campaign => {
-                    lines.push(format!("Campaign completions: {}", stats.campaign_completions()));
+                    // The first-clear record folds into this same row (spec 024)
+                    // rather than taking one of its own, so the table below keeps
+                    // its fixed offset; unset, the line reads as it did before.
+                    let mut line = format!("Campaign completions: {}", stats.campaign_completions());
+                    if let Some(matches) = stats.first_clear_matches() {
+                        line.push_str(&format!("  ·  first clear in {matches} matches"));
+                    }
+                    lines.push(line);
                 }
                 _ => lines.push(String::new()), // Quick Play: reserve the slot to anchor the table
             }
@@ -506,6 +513,31 @@ mod tests {
 
         let quick = view_body(RecordsView::QuickPlay, &stats, &run).join("\n");
         assert!(!quick.contains("Campaign completions"));
+    }
+
+    #[test]
+    fn the_campaign_view_folds_in_the_first_clear_record() {
+        // Unset: today's line, with no first-clear tail anywhere in the view.
+        let stats = LifetimeStats::default();
+        let run = RunStats::default();
+        let campaign = view_body(RecordsView::Campaign, &stats, &run).join("\n");
+        assert!(campaign.contains("Campaign completions: 0"), "body: {campaign}");
+        assert!(!campaign.contains("first clear"), "body: {campaign}");
+
+        // Set: the record folds into the same row, still exactly one line.
+        let mut stats = LifetimeStats::default();
+        stats.record_campaign_completion(14);
+        stats.record_campaign_completion(9);
+        let body = view_body(RecordsView::Campaign, &stats, &run);
+        assert!(
+            body.contains(&"Campaign completions: 2  ·  first clear in 14 matches".to_string()),
+            "body: {body:?}"
+        );
+        assert_eq!(
+            body.iter().filter(|l| l.contains("Campaign completions")).count(),
+            1,
+            "still exactly one completions line: {body:?}"
+        );
     }
 
     #[test]

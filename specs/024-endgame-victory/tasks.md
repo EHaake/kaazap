@@ -192,7 +192,7 @@ stopped at (the person's 2026-09-15 run-straight-through ruling). -->
   src/campaign_map.rs` has no hunk outside `draw_header`, the new fn and `mod
   tests`.*
 
-- [ ] **T006** — `src/records.rs`: the first-clear line. In `view_body`'s
+- [x] **T006** — `src/records.rs`: the first-clear line. In `view_body`'s
   `RecordsView::Campaign` arm build the fixed 5th row as `Campaign completions:
   N` plus `  ·  first clear in M matches` when
   `stats.first_clear_matches()` is `Some(M)` (plan §Design 6) — still exactly
@@ -413,3 +413,4 @@ policy as settled. -->
 | Phase 1 review (skeptical-reviewer) | opus | ~78K (measured return; reviewer's own count ~75K) | signed off, 0 blocking, 5 notes — N1 the net-gain formula lives in profile.rs and campaign_map.rs with nothing pinning them equal (economy.rs frozen, so a test not a refactor; fold into T004/T005 if free, else sweep), N2 the fresh-profile entry-panel case is tautological — `Profile::from_json(r#"{\"version\":1}"#).differs_from_starter() == false` is the assertion that would keep it sound (T007), N3 `run_counters_default_zero_round_trip_and_accumulate` never round-trips (name overstates; sweep), N4 run_complete refactor: leave it (no record change), N5 order-sensitive deck comparison stands |
 | T004 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~77K (measured return) | done first try; `draw_notice` replaces `draw_run_over` and serves both notices; victory 73×14 and run-over 78×13 boxes, unclamped at 139×31 (fit test); `victory_due` set with `|=`, taken at map entry; Phase 1 N1 (net-gain pin) not applicable in app.rs — `banner_line` is private to campaign_map.rs — carried to T005 |
 | T005 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~52K (measured return) | done first try; pure `axis_line(run_complete)`; Phase 1 N1 closed — `the_banner_and_the_run_tally_report_the_same_net_gain` pins the duplicated net-gain formula equal |
+| T006 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~51K (measured return) | done first try; one push keeps the 5th-row anchor; note: the widened Campaign line widens the Records box in every view (~55 chars, well inside 139) — eyeball at the driver |
