@@ -141,9 +141,12 @@ can meet the notice after a win; that is the accepted migration path arriving on
 match later, not a separate rule.
 
 The run-over notice is modal and has no decline: Enter/Space acknowledge and run
-`start_new_campaign`, i.e. spec 014's `reset_to_starter` — starter deck and
-collection, no progress, the seed purse — then a fresh map. Settings (their own
-file) and lifetime records survive, exactly as for New Campaign.
+`reset_run` — `Profile::reset_to_starter` (starter deck and collection, no
+progress, the seed purse) plus the saved match cleared — and then, since the
+2026-09-13 chore, land on the **start menu**, not a fresh map. Settings (their
+own file) and lifetime records survive. That full wipe is **Reset Everything**'s
+operation since spec 024; **New Campaign** is now the map-only reset
+(`Profile::reset_campaign_run`), which keeps credits, collection and deck.
 
 Note for tuning: with rematches, Cinder's final opponent is always launchable, so
 `cheapest_floor` is **10 in every run state today**. The unlocked-planet filter is

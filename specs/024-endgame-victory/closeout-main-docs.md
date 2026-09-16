@@ -12,7 +12,7 @@ each edit also quotes its anchor text, which is what to match on.
 
 ---
 
-## 1. `ROADMAP.md` — five edits
+## 1. `ROADMAP.md` — eight edits
 
 ### 1a. New entry at the end of the `## Shipped` list
 
@@ -62,7 +62,7 @@ change.", currently `ROADMAP.md` line ~330, just before `## Backlog`):
   a short *Replays* note: a replay starts premium, deliberately not retuned).
 ```
 
-### 1b. Inline annotation on the spec 014 entry (currently lines 173–175)
+### 1b. Inline annotation on the spec 014 entry (currently lines 173–176)
 
 The **New Campaign / start over (spec 014)** entry describes New Campaign as a
 full fresh start in the present tense. Using the repo's inline-supersession
@@ -88,6 +88,24 @@ with:
   starter". The default-No confirm and its `confirm_choice` seam are unchanged.
 ```
 
+The sentence immediately after the replaced text (lines 176–178) also dates — the
+two-choice helper is now an N-label one. Replace:
+
+```markdown
+  or save-format change; rendering DRYed into a shared two-choice overlay helper,
+  and the irreversible wipe guarded by a mutation-checked `confirm_choice` seam.
+```
+
+with:
+
+```markdown
+  or save-format change; rendering DRYed into a shared two-choice overlay helper
+  — **generalized by spec 024** to `draw_choice_panel`, which takes any number of
+  labels and serves the three-choice entry panel too — and the irreversible wipe
+  guarded by a mutation-checked `confirm_choice` seam, which still guards both of
+  spec 024's reset scopes.
+```
+
 ### 1c. Inline annotation on the spec 022 entry (currently lines 284–285)
 
 In the **Difficulty & economy balance pass (spec 022)** entry, replace:
@@ -106,9 +124,32 @@ with:
   opponent-baseline role is unchanged — the roster was retuned
 ```
 
-### 1d. Inline annotation on the spec 023 entry (currently line 489)
+### 1d. Inline annotations on the two spec 023 mentions of the old line
 
-In the **First-run onboarding & controls refinement (spec 023)** entry, replace:
+The spec 023 entry's "Quick Play deals the standard deck." claim appears in
+**two places with different wording**, so each needs its own anchor. (An earlier
+draft of this file said the sentence appeared twice identically; it does not.)
+
+**1d-i — the Shipped entry** (currently lines 327–329), replace:
+
+```markdown
+  re-synced, and the opponent select screen finally says **"Quick Play deals the
+  standard deck."** (spec 022's deferred line). No rules, AI, economy, wager or
+  settlement change.
+```
+
+with:
+
+```markdown
+  re-synced, and the opponent select screen finally said **"Quick Play deals the
+  standard deck."** (spec 022's deferred line) — **superseded by spec 024**,
+  which made Quick Play deal the built deck and rewrote that line as **"Quick
+  Play deals your deck. Nothing is staked."** No rules, AI, economy, wager or
+  settlement change.
+```
+
+**1d-ii — the backlog's shipped-marked *First-run onboarding* bullet**
+(currently lines 488–489), replace:
 
 ```markdown
   section; the cheap extra shipped too ("Quick Play deals the standard deck." on
@@ -124,11 +165,47 @@ with:
   Nothing is staked.").
 ```
 
-Note: the same sentence appears twice in the file — once in the Shipped entry
-(~line 329) and once in the backlog's shipped-marked *First-run onboarding*
-bullet (line 489). Annotate **both**, with the same replacement text.
+### 1e. Inline annotation on the spec 008 deck-builder entry (currently lines 87–88)
 
-### 1e. Replace the two backlog bullets this spec shipped
+The **side-deck customization (spec 008)** entry still restricts the built deck
+to campaign matches in the present tense. Replace:
+
+```markdown
+  owned counts. Matches deal the player's hand from the built deck (campaign
+  matches, since spec 022) — the player deck moved from the `DEFAULT_SIDE_DECK`
+```
+
+with:
+
+```markdown
+  owned counts. Matches deal the player's hand from the built deck (campaign
+  matches only, between spec 022 and spec 024 — **superseded by spec 024**,
+  which gives **every** match, Quick Play included, the built deck) — the player
+  deck moved from the `DEFAULT_SIDE_DECK`
+```
+
+### 1f. Inline annotation on that entry's spec-022 supersession note (currently lines 95–97)
+
+The existing "**superseded by spec 022**" annotation a few lines below ends by
+naming the standard deck as Quick Play's deal. Replace:
+
+```markdown
+  **superseded by spec 022**, which gave a fresh profile its own Outer-tier
+  `profile::STARTER_SIDE_DECK` plus lateral spares and left
+  `card::DEFAULT_SIDE_DECK` as the opponent baseline and Quick Play's deal. A
+```
+
+with:
+
+```markdown
+  **superseded by spec 022**, which gave a fresh profile its own Outer-tier
+  `profile::STARTER_SIDE_DECK` plus lateral spares and left
+  `card::DEFAULT_SIDE_DECK` as the opponent baseline and Quick Play's deal — the
+  Quick Play half **superseded in turn by spec 024**, which leaves
+  `DEFAULT_SIDE_DECK` the opponent baseline *only*. A
+```
+
+### 1g. Replace the two backlog bullets this spec shipped
 
 Under "### Onboarding, endgame & release readiness (suggested 2026-09-13, after
 spec 022)", replace the whole **endgame / victory award** bullet (currently
@@ -156,7 +233,7 @@ notice.**") — the two ship together — with:
 
 ---
 
-## 2. `DECISIONS.md` — three edits
+## 2. `DECISIONS.md` — five edits, plus the three small ones in §2f
 
 ### 2a. The spec 014 "full fresh start" bullet is superseded (currently lines 315–320)
 
@@ -215,7 +292,55 @@ with:
   player has shopped. See *Endgame, victory & what you keep (spec 024)* below.
 ```
 
-### 2c. Append a new section at the end of the file
+### 2c. The spec 022 deck-validity-divert bullet is doubly wrong now (currently lines 854–858)
+
+In the same spec 022 section, the divert bullet's reasoning has inverted — Quick
+Play *does* use the built deck now, so the divert is no longer a "consistency
+nudge" but a genuine precondition. Replace:
+
+```markdown
+- **Quick Play keeps today's deck-validity divert.** `open_opponent_select`
+  still sends an under-filled built deck to the builder before Quick Play even
+  though Quick Play no longer *uses* that deck; the spec is silent, so the plan
+  kept the behavior as a consistency nudge rather than adding a behavior change.
+  Dropping it is a two-line change if it ever annoys.
+```
+
+with:
+
+```markdown
+- **Quick Play keeps today's deck-validity divert.** `open_opponent_select`
+  still sends an under-filled built deck to the builder before Quick Play even
+  though Quick Play no longer *uses* that deck; the spec is silent, so the plan
+  kept the behavior as a consistency nudge rather than adding a behavior change.
+  Dropping it is a two-line change if it ever annoys. **Both halves superseded
+  by spec 024**: Quick Play deals the built deck, so the divert is no longer a
+  nudge but the thing that upholds `start_match`'s deck-valid precondition for a
+  deck that *is* dealt — and dropping it would now be a bug, not a two-line
+  tidy.
+```
+
+### 2d. The spec 022 closing paragraph names Quick Play's deal (currently lines 865–866)
+
+At the end of the spec 022 section's **Supersedes the spec 008 bullet above**
+paragraph, replace:
+
+```markdown
+already hold), so the measured starter rates describe the deck a fresh player
+actually fields, and `card::DEFAULT_SIDE_DECK` is the opponent baseline and
+Quick Play's deal. The "exact list is tunable balance data" part of that bullet
+```
+
+with:
+
+```markdown
+already hold), so the measured starter rates describe the deck a fresh player
+actually fields, and `card::DEFAULT_SIDE_DECK` is the opponent baseline and
+Quick Play's deal — the latter **superseded by spec 024**, which leaves it the
+opponent baseline only. The "exact list is tunable balance data" part of that bullet
+```
+
+### 2e. Append a new section at the end of the file
 
 Append after the "## First-run onboarding & controls refinement (spec 023)"
 section's last paragraph ("…`PROFILE_VERSION` and `SAVE_VERSION` both stay 1.
@@ -322,7 +447,8 @@ Design tensions resolved during planning:
   the profile and the save and no App test may touch disk. It is pinned
   **structurally** instead — `app.rs` no longer names `DEFAULT_SIDE_DECK` at
   all, so it *cannot* deal the standard deck — plus a driver run with a
-  deliberately non-standard built deck (a ten-card ±1 deck dealt `-1 +1 +1 -1`).
+  deliberately non-standard built deck (a ten-card +1/−1 deck dealt
+  `-1 +1 +1 -1`).
 - **The Reset Everything confirm was retitled.** `spec.md` quoted only the tail
   (`… Erases progress, credits & cards.`); under the three-choice panel the old
   head ("New campaign?") would have named the wrong choice, so the title is
@@ -352,6 +478,64 @@ both stay 1, so a pre-024 profile loads with zero counters and no record.
 Monochrome by construction.
 ```
 
+### 2f. Three small present-tense corrections (sweep note N8)
+
+Cheap, same convention, same paste:
+
+**2f-i — `DECISIONS.md` lines 312–314**, the spec 014 panel-trigger bullet. replace:
+
+```markdown
+- **Offer the choice at Campaign entry** — when cleared progress exists, a
+  Continue / New Campaign panel (a `Modal` over the menu), not a separate top-level
+  menu item. With no progress the map opens directly (the choice would be a no-op).
+```
+
+with:
+
+```markdown
+- **Offer the choice at Campaign entry** — when cleared progress exists, a
+  Continue / New Campaign panel (a `Modal` over the menu), not a separate top-level
+  menu item. With no progress the map opens directly (the choice would be a no-op).
+  **Spec 024 widened both**: the panel is three choices (Continue / New Campaign /
+  Reset Everything) and shows whenever the run has progress *or* the pool differs
+  from the starter, so only a truly fresh profile opens the map directly.
+```
+
+**2f-ii — `DECISIONS.md` lines 977–979**, the spec 023 primer tension, where the
+confirm variant was renamed. replace:
+
+```markdown
+  New Campaign is **menu-only** (no `MapOutcome` variant; `ConfirmNewCampaign`
+  is raised only from `CampaignEntry`), so no origin flag beyond `from_menu` is
+  needed.
+```
+
+with:
+
+```markdown
+  New Campaign is **menu-only** (no `MapOutcome` variant; the confirm —
+  `ConfirmNewCampaign`, renamed `ConfirmReset` and given a scope by spec 024 —
+  is raised only from `CampaignEntry`), so no origin flag beyond `from_menu` is
+  needed.
+```
+
+**2f-iii — `ROADMAP.md` lines 506–507**, the *Archive the last run at reset*
+backlog bullet. This one is in `ROADMAP.md`, not `DECISIONS.md`; replace:
+
+```markdown
+- **Archive the last run at reset.** Before the run-over (or New Campaign)
+  reset wipes the profile, write the outgoing `profile.json` to a dated
+```
+
+with:
+
+```markdown
+- **Archive the last run at reset.** Before the run-over (or **Reset
+  Everything**) reset wipes the profile — since spec 024 New Campaign keeps the
+  pool and wipes nothing worth archiving but the run tally — write the outgoing
+  `profile.json` to a dated
+```
+
 ---
 
 ## 3. Not drafted here (deliberately)
@@ -359,7 +543,14 @@ Monochrome by construction.
 - **`Readme.md`, `docs/economy.md` and `docs/balance.md` are spec files on the
   branch** — the Quick Play sentence, the Start Campaign panel's trigger and
   choices, the settling seam and the new *Replays* subsection all ride into
-  `main` with the merge and need no close-out edit. (The README is tracked as
+  `main` with the merge and need no close-out edit. `docs/economy.md` was also
+  **re-synced on the run-over reset** at the sweep: its *Going broke* section had
+  said Enter runs `start_new_campaign` — `reset_to_starter` "then a fresh map …
+  exactly as for New Campaign" — which is wrong on all three counts now. It now
+  says the acknowledgement runs `reset_run` (the `reset_to_starter` wipe plus the
+  saved match cleared — **Reset Everything**'s operation since spec 024) and
+  lands on the **start menu** per the 2026-09-13 chore, while New Campaign is the
+  map-only reset that keeps the pool. (The README is tracked as
   `Readme.md`; a case-insensitive filesystem hides it from `git diff --
   README.md`.)
 - **`docs/opponents.md` is untouched** — its "standard deck" references are the
