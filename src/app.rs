@@ -367,10 +367,11 @@ enum ResetScope {
 }
 
 /// The effect of a key on a two-choice Yes/No confirmation — a pure mapping, so
-/// the *irreversible* choice (New Campaign's wipe) is unit-testable without
-/// constructing an `App` (the `cursor_confirm` pattern: a tested decision pulled
-/// out of a handler). `Commit` is returned **only** for Enter/Space with Yes
-/// highlighted; No and Esc `Cancel`, arrows `Toggle`, anything else is `Ignore`.
+/// the *irreversible* choice (Reset Everything's wipe, and New Campaign's map
+/// reset — spec 024) is unit-testable without constructing an `App` (the
+/// `cursor_confirm` pattern: a tested decision pulled out of a handler).
+/// `Commit` is returned **only** for Enter/Space with Yes highlighted; No and
+/// Esc `Cancel`, arrows `Toggle`, anything else is `Ignore`.
 #[derive(Debug, PartialEq, Eq)]
 enum ConfirmChoice {
     Toggle,
@@ -480,6 +481,18 @@ const CHOICE_GAP: usize = 6;
 fn choice_row_width(labels: &[&str]) -> usize {
     let text: usize = labels.iter().map(|l| l.chars().count() + 2).sum();
     text + CHOICE_GAP * labels.len().saturating_sub(1)
+}
+
+/// How wide a choice panel's content is: the widest of its title, its note, its
+/// hint and its choice row. Pure, so a panel's fit is measured by the test
+/// through the same expression the draw uses (spec 024).
+fn choice_panel_width(title: &str, note: Option<&str>, hint: &str, labels: &[&str]) -> usize {
+    title
+        .chars()
+        .count()
+        .max(note.map_or(0, |n| n.chars().count()))
+        .max(hint.chars().count())
+        .max(choice_row_width(labels))
 }
 
 /// Where a choice panel's rows sit, and how tall its content is (spec 024,
@@ -1839,12 +1852,7 @@ impl App {
         let (note_row, choice_row, hint_row, height) = choice_rows(note.is_some());
 
         // The box widens to fit the widest of title, note, hint, and choice row.
-        let content_width = title
-            .chars()
-            .count()
-            .max(note.map_or(0, |n| n.chars().count()))
-            .max(hint.chars().count())
-            .max(block_w);
+        let content_width = choice_panel_width(title, note, hint, labels);
         let layout = OverlayLayout::new(self.config, content_width, height);
 
         clear_rect(frame, layout.outer);
@@ -1982,10 +1990,12 @@ mod tests {
     #[test]
     fn confirm_choice_commits_only_on_enter_with_yes() {
         use ConfirmChoice::*;
-        // The irreversible-wipe guard (spec 014): New Campaign commits iff
-        // Enter/Space is pressed with Yes highlighted — never on No, never on Esc,
-        // never on a toggle. A refactor that flipped a condition (wipe on No/Esc,
-        // or a default-Yes confirm) would be caught here rather than in play.
+        // The irreversible-reset guard (spec 014, now serving both scopes of
+        // spec 024's confirm — New Campaign's map reset and Reset Everything's
+        // wipe): a reset commits iff Enter/Space is pressed with Yes
+        // highlighted — never on No, never on Esc, never on a toggle. A
+        // refactor that flipped a condition (reset on No/Esc, or a default-Yes
+        // confirm) would be caught here rather than in play.
         assert_eq!(confirm_choice(true, KeyCode::Enter), Commit);
         assert_eq!(confirm_choice(true, KeyCode::Char(' ')), Commit);
         assert_eq!(confirm_choice(false, KeyCode::Enter), Cancel);
@@ -2056,22 +2066,25 @@ mod tests {
         let (cols, rows) = Config::min_size();
         let config = Config { num_cols: cols, num_rows: rows };
         let yes_no = ["Yes", "No"];
-        let hint = "←/→ choose  ·  Enter confirm  ·  Esc cancel";
 
-        for (title, note, row_labels) in [
-            ("Campaign", None, labels.as_slice()),
+        // Each panel's own strings, verbatim from its draw fn: the entry panel
+        // has no note and its own "select / back" hint, the confirm has a stake
+        // note and the "confirm / cancel" hint.
+        for (title, note, row_labels, hint) in [
+            (
+                "Campaign",
+                None,
+                labels.as_slice(),
+                "←/→ choose  ·  Enter select  ·  Esc back",
+            ),
             (
                 "New campaign? Resets the map; you keep your cards and credits.",
                 Some("…and forfeit your 999-credit stake."),
                 yes_no.as_slice(),
+                "←/→ choose  ·  Enter confirm  ·  Esc cancel",
             ),
         ] {
-            let width = title
-                .chars()
-                .count()
-                .max(note.map_or(0, |n: &str| n.chars().count()))
-                .max(hint.chars().count())
-                .max(choice_row_width(row_labels));
+            let width = choice_panel_width(title, note, hint, row_labels);
             let (_, _, _, height) = choice_rows(note.is_some());
             let layout = OverlayLayout::new(config, width, height);
             assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");

@@ -84,12 +84,24 @@ campaign completion is never re-counted (see below). Match and round records
 ## Settling — one seam, exactly once
 
 Settlement happens in `App::tick`, in the single resolution block on the
-`phase_changed` edge into `GamePhase::GameOver`: `settle_campaign_match` →
-`record_match` → `save`. Spec 012's every-tick "not yet beaten" guard is gone —
-rematches make it useless as a once-guard — and spec 020's separate record block
-folded into the same edge.
+`phase_changed` edge into `GamePhase::GameOver`: one `Profile::resolve_match`
+call → `save`. Spec 012's every-tick "not yet beaten" guard is gone — rematches
+make it useless as a once-guard — and spec 020's separate record block folded
+into the same edge.
 
-`Profile::settle_campaign_match(player_won)`:
+`Profile::resolve_match(opponent_id, player_won, player_rounds, opp_rounds)`
+owns the **order** (spec 024): it derives the `Mode` from the in-flight pointer,
+`record_match`es first, then settles, then moves the run's credit counters
+(`credits_won` by the net gain `win_payout(stake) - stake` on a win,
+`credits_lost` by the forfeited stake on a loss) from the returned outcome. It
+returns `Some(Settlement { outcome, completed_run })` for a campaign match —
+`completed_run` being the `!was_complete && run_complete()` edge the victory
+notice rides on — and `None` for a Quick Play match (recorded, nothing to
+settle). Recording first is what makes the first-clear record count the
+completing match. `settle_campaign_match` and `record_match` are private to
+`profile.rs`; `resolve_match` is the only caller of either.
+
+`settle_campaign_match(player_won)`, inside it:
 
 1. Reads the in-flight pointer; `None` (Quick Play) settles nothing.
 2. `CampaignRun::take_stake()` — returns the stake **and zeroes the escrow**.

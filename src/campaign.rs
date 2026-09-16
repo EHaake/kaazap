@@ -252,8 +252,10 @@ impl CampaignRun {
 
     /// Whether the player has cleared any opponent yet — real progress worth
     /// preserving or wiping. False for a fresh run (and one where a first match
-    /// was started but never won); true once anything is `mark_beaten`. Drives the
-    /// Continue / New Campaign choice at campaign entry (spec 014). Checks for a
+    /// was started but never won); true once anything is `mark_beaten`. One
+    /// disjunct of `Profile::differs_from_starter`, which drives the Continue /
+    /// New Campaign / Reset Everything panel at campaign entry (spec 024,
+    /// superseding spec 014's two-choice gate on this alone). Checks for a
     /// non-empty opponent list rather than a non-empty map, so a stray empty entry
     /// never reads as progress.
     pub fn has_progress(&self) -> bool {

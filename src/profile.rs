@@ -169,13 +169,15 @@ impl Profile {
     }
 
     /// Reset to a brand-new starter profile: starter collection + deck, no
-    /// campaign progress, the seed purse — a full fresh start (spec 014's New
-    /// Campaign). Lifetime stats survive the reset (spec 020) — like Settings,
-    /// which live in a separate file and are also untouched — so a New Campaign
-    /// doesn't erase the player's cross-run record. The onboarding seen-marks
-    /// (spec 023) survive it for the same reason: a reset is a fresh run, not a
-    /// first launch. The caller persists (`save`) and clears any in-progress
-    /// match save.
+    /// campaign progress, the seed purse — the full wipe. Since spec 024 this
+    /// is **Reset Everything**'s operation and the run-over reset's, not New
+    /// Campaign's, which resets the map only
+    /// ([`Profile::reset_campaign_run`]). Lifetime stats survive the wipe (spec
+    /// 020) — like Settings, which live in a separate file and are also
+    /// untouched — so it doesn't erase the player's cross-run record. The
+    /// onboarding seen-marks (spec 023) survive it for the same reason: a reset
+    /// is a fresh run, not a first launch. The caller persists (`save`) and
+    /// clears any in-progress match save.
     pub fn reset_to_starter(&mut self) {
         let stats = std::mem::take(&mut self.stats);
         let primer_seen = std::mem::take(&mut self.primer_seen);
@@ -1105,6 +1107,13 @@ mod tests {
                 .expect("a fresh profile reloads")
                 .differs_from_starter(),
             "a reloaded fresh profile is still the starter",
+        );
+        assert!(
+            Profile::from_json(r#"{"version":1}"#)
+                .expect("a pre-economy document loads")
+                .differs_from_starter(),
+            "a document with no credits key loads with 0 credits, so its pool \
+             differs from the starter and the entry panel shows",
         );
 
         let mut beaten = Profile::default();

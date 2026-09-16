@@ -216,7 +216,7 @@ the bounds all begin from `SEED_PURSE` **50** and the ten starter cards. Since
 spec 024 a **New Campaign** resets the map only — the cards and credits stay —
 so a replay starts premium and is *easier* than the curve assumes: the win rate
 the EVs are computed from is a bought deck's, not the starter's, and B1–B4's
-"can it be afforded yet" arithmetic is already answered before the first match.
+"can it be afforded yet" arithmetic is already answered for the cards you kept.
 That is opt-in and deliberate, not a miss. Nothing here was retuned for it and
 **no constant moved**; **Reset Everything** is what returns a profile to the run
 these numbers describe.

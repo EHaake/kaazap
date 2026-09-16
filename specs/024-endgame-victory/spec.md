@@ -265,48 +265,162 @@ fields only; `PROFILE_VERSION` stays 1.
 
 ## Acceptance criteria
 
-- [ ] Beating the final opponent for the first time in a run, then
+- [x] Beating the final opponent for the first time in a run, then
       acknowledging the game-over popup, lands on the map with the victory
       notice over it showing the run's numbers; Enter, Space or Esc
       dismisses it; no map key acts while it is up; the completed marker is
       on the header afterward.
-- [ ] A rematch win (or loss) on a completed run raises no victory notice
+      *Evidence: `map_entry_modal_prefers_run_over_then_victory_then_primer`
+      (the acknowledgement's `enter_campaign_map` takes `victory_due` and
+      raises `Modal::Victory`), `notice_dismissed_on_enter_space_or_esc_only`,
+      `both_notices_read_right_breathe_and_fit_the_minimum_terminal`,
+      `the_header_axis_gives_way_to_the_completed_marker`; **Phase 2 driver
+      walkthrough** (tier log) — the completing win landed on the map with the
+      notice reading `Matches played 13 · won 10 · lost 3` /
+      `Credits won 430 · lost 150` / `Best streak 5 · Worlds cleared 8/8`,
+      ↓ and `b` swallowed under it, Enter dismissed, and the header then read
+      `★ Campaign complete`.*
+- [x] A rematch win (or loss) on a completed run raises no victory notice
       and behaves as before; completing a replayed campaign (after New
       Campaign) raises it again and increments completions again.
-- [ ] The run-over notice shows the same summary block between its title and
+      *Evidence: `resolve_match_reports_the_completion_edge_and_skips_quick_play`
+      (a rematch win on a complete run returns `completed_run: false`),
+      `the_completion_edge_and_the_completions_counter_always_agree`,
+      `the_first_clear_counts_the_completing_match_and_survives_a_replay`
+      (a second full run after `reset_campaign_run` gives completions 2),
+      `campaign_completion_counts_only_a_final_clearing_win_and_recounts_after_reset`;
+      **Phase 2 driver** — a rematch (lost) raised no notice, banner read
+      `Lost 10 credits`, marker intact.*
+- [x] The run-over notice shows the same summary block between its title and
       its reset note; Esc is still ignored; Enter or Space still resets.
-- [ ] Credits won and lost this run count settled wins (net gain) and settled
+      *Evidence: `both_notices_read_right_breathe_and_fit_the_minimum_terminal`
+      (the three summary lines appear in order between the title and the reset
+      note, from the shared `run_summary_lines`),
+      `run_over_acknowledged_only_on_enter_or_space`; **Phase 2 driver** — a
+      broke profile (8 credits, 2/8) showed `Matches played 9 · won 3 · lost 6`
+      / `Credits won 80 · lost 130` / `Best streak 2 · Worlds cleared 2/8`
+      between title and reset note; Esc ignored, Enter reset.*
+- [x] Credits won and lost this run count settled wins (net gain) and settled
       losses (forfeited stake) only; a stake forfeited by discarding a saved
       match counts toward neither; both zero with the run; both round-trip
       through `profile.json` and default to zero for a pre-024 document.
-- [ ] The first-clear record is set only on the profile's first completion,
+      *Evidence: `resolve_match_moves_the_run_credit_counters_and_nothing_else_does`
+      (net gain on a win, stake on a loss, 0 on a re-settled empty escrow, 0 for
+      a staked pointer cleared without settling, and both zeroed by
+      `reset_campaign_run` and `reset_to_starter`),
+      `run_counters_default_zero_round_trip_and_accumulate`,
+      `the_run_counters_and_first_clear_round_trip_and_default_for_older_profiles`,
+      `the_banner_and_the_run_tally_report_the_same_net_gain`; **Phase 2
+      driver** — `profile.json` read back `credits_won: 430` after a run whose
+      banners summed to it.*
+- [x] The first-clear record is set only on the profile's first completion,
       to that run's matches played; a second completion leaves it unchanged;
       it round-trips and defaults to unset; the Records Campaign view shows
       it folded into the completions line and shows today's line when unset.
-- [ ] The Records breakdown table starts at the same row in every view, as
+      *Evidence: `the_first_completion_sets_the_record_and_later_ones_never_do`
+      (including a profile deserialized with `campaign_completions: 3` that
+      never gains one),
+      `the_first_clear_counts_the_completing_match_and_survives_a_replay`,
+      `the_run_counters_and_first_clear_round_trip_and_default_for_older_profiles`,
+      `the_campaign_view_folds_in_the_first_clear_record`; **Phase 2/3 driver**
+      — `first_clear_matches: 13` in `profile.json`, and the Records Campaign
+      view read `Campaign completions: 1  ·  first clear in 13 matches`.*
+- [x] The Records breakdown table starts at the same row in every view, as
       it does today.
-- [ ] Quick Play deals the built deck: a Quick Play match's hand comes from
+      *Evidence: `by_opponent_table_is_anchored_across_breakdown_views`, passing
+      unchanged — the record is folded **into** the existing 5th summary row, so
+      exactly one line is still pushed per breakdown view;
+      `campaign_has_completions_line_others_do_not` also unchanged.*
+- [x] Quick Play deals the built deck: a Quick Play match's hand comes from
       the profile's deck (a test with a non-standard built deck); the
       opponent select line and the README no longer say the standard deck is
       dealt; an incomplete deck still diverts to the builder.
-- [ ] Start Campaign shows Continue / New Campaign / Reset Everything whenever
+      *Evidence: **structural** — `grep -n "DEFAULT_SIDE_DECK\|player_deck_for"
+      src/app.rs` is empty, so `app.rs` cannot name the standard deck, and
+      `start_match` has one deal, `self.profile.deck().to_vec()`, for both modes
+      (plan tension §5: `start_match` writes the profile and the save, so no
+      disk-free App test can assert the deal);
+      `the_full_roster_and_footer_fit_the_minimum_terminal` pins
+      `QUICK_PLAY_NOTE == "Quick Play deals your deck. Nothing is staked."`;
+      `Readme.md` line ~90 and `docs/economy.md:69-70` corrected (T009); the
+      incomplete-deck divert in `open_opponent_select` is untouched. **Phase 3
+      driver** — Quick Play on a ten-card +1/−1 deck dealt the hand
+      `-1 +1 +1 -1`, the built deck, not the standard one.*
+- [x] Start Campaign shows Continue / New Campaign / Reset Everything whenever
       the run has progress or the pool differs from the starter, and opens
       the map directly for a fresh profile.
-- [ ] New Campaign (confirmed) clears beaten opponents, the in-flight pointer
+      *Evidence:
+      `the_entry_panel_shows_whenever_the_run_or_the_pool_differs_from_the_starter`
+      (`Profile::default()` and a reloaded fresh profile → false; a beaten node,
+      a credit earned, a credit spent, a granted card, an edited deck and a
+      staked match in flight → true; a pre-economy document with no `credits`
+      key → true, plan §Open questions 5),
+      `the_campaign_entry_panel_fits_the_minimum_terminal` (the three labels are
+      exactly `["Continue", "New Campaign", "Reset Everything"]`),
+      `campaign_choice_steps_and_wraps_in_both_directions`; **Phase 3 driver**
+      — Start Campaign showed `▸ Continue  New Campaign  Reset Everything`.*
+- [x] New Campaign (confirmed) clears beaten opponents, the in-flight pointer
       and stake, the run tally, the saved match and the banner, and keeps
       credits, collection, deck, lifetime stats and onboarding marks; the
       confirm's No and Esc change nothing; the stake note appears when a
       match is in flight.
-- [ ] Reset Everything (confirmed) resets to the starter exactly as New
+      *Evidence: `new_campaign_resets_the_map_and_keeps_the_pool` (on a dirtied
+      profile: progress, pointer, stake and run tally gone; credits, collection,
+      deck, lifetime stats and both onboarding marks unchanged),
+      `confirm_choice_commits_only_on_enter_with_yes` (No and Esc `Cancel`, so
+      nothing is called), the app-side tail `discard_match_and_banner` (save
+      cleared, `has_save = false`, banner `None`) shared with `reset_run`, and
+      `a_choice_panel_keeps_a_blank_row_around_the_choice_row` for the
+      stake-note layout; **Phase 3 driver** — the confirm read `New campaign?
+      Resets the map; you keep your cards and credits.` default No; Esc left the
+      profile unchanged; Yes gave `0/8 cleared ◈ 600` with the builder still
+      holding ±1 ±2 ±3 ±6 2&4 3&6 ±1T and `beaten` empty in `profile.json`.*
+- [x] Reset Everything (confirmed) resets to the starter exactly as New
       Campaign did before this spec; its confirm's No and Esc change nothing.
-- [ ] After New Campaign with a balance below the fresh map's cheapest ante,
+      *Evidence:
+      `reset_to_starter_wipes_the_run_but_preserves_lifetime_stats_and_onboarding_marks`
+      passing unchanged — `ResetScope::Everything` routes to the same
+      `Profile::reset_to_starter` spec 014's New Campaign called — plus
+      `confirm_choice_commits_only_on_enter_with_yes`; **Phase 3 driver** — the
+      confirm read `Reset everything? Erases progress, credits & cards.` default
+      No; Yes gave `◈ 50` and the starter deck.*
+- [x] After New Campaign with a balance below the fresh map's cheapest ante,
       the run-over notice shows.
-- [ ] Both notices and the three-choice panel fit 139×31 over their screens,
+      *Evidence: `start_fresh_campaign` calls `enter_campaign_map(true)` for
+      both scopes, so the broke check is the existing one
+      (`map_entry_modal_prefers_run_over_then_victory_then_primer` puts
+      `Modal::RunOver` first); **Phase 3 driver** — a completed profile with 8
+      credits: New Campaign → Yes landed on the run-over notice, and Enter left
+      50 credits and the starter deck.*
+- [x] Both notices and the three-choice panel fit 139×31 over their screens,
       follow the breathing-room rule, and are monochrome.
-- [ ] No code change in `src/game.rs`, `src/player.rs`, `src/card.rs`,
+      *Evidence: `both_notices_read_right_breathe_and_fit_the_minimum_terminal`
+      (73×14 and 78×13 boxes, unclamped at `Config::min_size()`; the row above
+      the dismiss line is blank and no two blank rows are adjacent),
+      `the_campaign_entry_panel_fits_the_minimum_terminal` (each panel measured
+      through `choice_panel_width` with its own title, note, hint and labels —
+      the same expression `draw_choice_panel` uses),
+      `a_choice_panel_keeps_a_blank_row_around_the_choice_row`
+      (`choice_rows(false) == (1, 2, 4, 5)`, `choice_rows(true) == (1, 3, 5, 6)`,
+      so the acted-on row has air on both sides either way). Monochrome by
+      construction: every new draw call passes `Emphasis::{Normal, Muted,
+      Strong}` or the pulse — no colour API exists in `frame.rs`. **Phase 2/3
+      driver** at 139×31 on both notices and all three panels.*
+- [x] No code change in `src/game.rs`, `src/player.rs`, `src/card.rs`,
       `src/save.rs`, `src/economy.rs` or the AI — a doc comment that still
       says Quick Play deals the standard deck may be corrected, nothing else;
       `PROFILE_VERSION` and `SAVE_VERSION` are 1; `cargo test` is green.
+      *Evidence: `git diff main --stat` lists no `src/game.rs`,
+      `src/player.rs`, `src/save.rs`, `src/economy.rs`, `src/wager.rs`,
+      `src/opponent.rs`, `tests/balance.rs`, `Cargo.toml` or `Cargo.lock`;
+      `git diff main -- src/card.rs` is three hunks in which **every** changed
+      line is a comment line (`///` or `//`) — checked by filtering the diff;
+      `grep -n "PROFILE_VERSION: u32" src/profile.rs` → `31:const
+      PROFILE_VERSION: u32 = 1;` and `grep -n "SAVE_VERSION" src/save.rs` →
+      `31:const SAVE_VERSION: u32 = 1;`; `cargo build --all-targets` emits 0
+      warnings, equal to `main`'s 0 (measured in a clean worktree at `main`);
+      `cargo test -q` green three consecutive times, 403 unit + 6 integration
+      passing, 0 failed (T010 verification).*
 
 ## Resolved decisions
 
