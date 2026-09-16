@@ -77,7 +77,7 @@ is nothing new to see on screen yet. -->
   `src/stats.rs`, `src/profile.rs` and `src/records.rs`, and the `profile.rs`
   hunk is only the `record_campaign_completion` call site and its doc.*
 
-- [ ] **T002 (foundational, `review: per-task`)** — `src/profile.rs` +
+- [x] **T002 (foundational, `review: per-task`)** — `src/profile.rs` +
   `src/campaign.rs`: the resolution seam, the map-only reset, and the entry
   predicate. In `campaign.rs` add `pub fn worlds_cleared(&self) -> usize` (plan
   §Design 2). In `profile.rs` add `#[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -407,3 +407,5 @@ policy as settled. -->
 | plan + tasks sign-off (skeptical-reviewer) | opus (override dropped) | ~153K (measured return; reviewer's own estimate ~68K) | 2 blocking (T001 and T002 could not build green as scoped) + 8 notes; S2.1 exposed a spec-internal conflict (goal 5 vs the card.rs freeze) — orchestrator amended spec.md (three hunks) |
 | sign-off re-review (skeptical-reviewer) | opus | ~32K (measured delta; reviewer's own estimate ~23K) | B1, B2 fixed; new B3: the spec.md amendments need the person's ratification — amendment note added under the spec's Status, ratification requested, Phase 1 dispatched meanwhile (nothing in it depends on the amended lines); N1 (test rename), N2 (profile.rs comment-only check), N3 (grep is read-and-judge), N5 (settle_campaign_match doc line) applied by the orchestrator |
 | T001 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~62K (measured return) | done first try; `run_summary_lines` signature on one line (rustfmt-wrapping avoided); note for T002: the "completions > 0, no record" case needs a `LifetimeStats` JSON round-trip, `first_clear_matches` has no setter |
+| T002 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~99K (measured return) | done first try; resolve_match body verbatim from plan §Design 3; settle_campaign_match untouched; orchestrator re-ran verification: 397 unit + 6 integration passing, diff = campaign.rs + profile.rs |
+| T002 per-task review (skeptical-reviewer) | opus | ~65K (measured return; reviewer's own count ~46K in / 3K out) | signed off, 0 blocking, 5 notes — N1 run_complete could be `worlds_cleared() == PLANETS.len()` (simplicity; carry to the Phase 1 review or T003), N2 differs_from_starter is order-sensitive on the deck (safe direction; know it before the Phase 3 driver), N3 the default() case of the entry-panel test is tautological (reviewer verified Profile::default() is the starter), N4 the staked case is pinned via credits not the pointer, N5 the Mode derivation is duplicated until T003 — T003's `Mode::` grep must actually run |
