@@ -125,7 +125,7 @@ with:
   (T008b). (Spec 006 made Space "play the selected card" rather than
   draw, so for a while `d`/`s` were the bust-accepting keys and Space wasn't;
   **spec 023 gave Space back to drawing**, so Space, `d` and `s` all accept the
-  bust now — the board says "Over 20: Space, D or S accepts the bust.")
+  bust now — the in-game controls overlay says "Over 20: Space, D or S accepts the bust." and the board's alert reads "OVER 20!  (Space/D/S: bust)")
 ```
 
 ### 2b. Append a new section at the end of the file
@@ -226,6 +226,22 @@ construction.
 
 ---
 
+### 2c. Two more lines for the spec 023 section (append after the tension bullets)
+
+```markdown
+- **Invariant, recorded at the sweep:** `enter_campaign_map` and `start_match`
+  now *assign* the modal (`map_entry_modal(...)` / `Modal::FirstMatch`), so
+  every caller clears its own modal *before* entering the map or starting a
+  match — the wager Commit, the discard-and-enter confirm, the campaign-entry
+  panel and the New Campaign confirm all do. A future caller that raises a
+  modal first would lose it silently; the invariant is verified by reading and
+  by the driver, not by a test (plan tension §4: App tests never touch disk).
+- **Process note:** the experiment-2 amendment to `CLAUDE.md` (commit
+  `d0eb6e8`) landed on the 023 branch by the person's one-commit ruling of
+  2026-09-14 and rode into `main` at the merge; never force-pushing outranked
+  the commit-straight-to-`main` convention for repo-wide files.
+```
+
 ## 3. Not drafted here (deliberately)
 
 - **`README.md` and `docs/` name no in-match keys** — grepped; nothing there
@@ -236,6 +252,11 @@ construction.
   already on the branch and will ride in at the merge; flagged here rather than
   rewritten, since never force-pushing and keeping history is the stronger rule.
   Nothing about it is spec-023 content.
+- **`.claude/skills/run-kaazap/SKILL.md` moved on the branch** although
+  `plan.md` §Files does not list it: its key-reference table asserted "1–4
+  play a hand card" and "Space no longer draws", both false after this spec,
+  so it was corrected under T009 as a carried review note. A documentation
+  correction the shipped change made necessary, not new scope.
 - **The in-game `?` overlay and How to Play texts are assets on the branch**
   (`assets/game_overlay_text.txt`, `assets/how_to_play_text.txt`), so they merge
   with the spec and need no close-out edit.
