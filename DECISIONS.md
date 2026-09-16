@@ -38,7 +38,9 @@ enterprise-grade process for a solo effort.
   `d` draws nothing and instead stands into the bust, same as `s`, so
   the draw key keeps a meaning in that state. Human-ruled during spec 001
   (T008b). (Spec 006 made Space "play the selected card" rather than
-  draw, so `d`/`s` are the bust-accepting keys now — Space isn't.)
+  draw, so for a while `d`/`s` were the bust-accepting keys and Space wasn't;
+  **spec 023 gave Space back to drawing**, so Space, `d` and `s` all accept the
+  bust now — the in-game controls overlay says "Over 20: Space, D or S accepts the bust." and the board's alert reads "OVER 20!  (Space/D/S: bust)")
 - **Flip/bust edge rulings** (canon sources are thin here, spec 001):
   a *standing* player pushed over 20 by a flip card busts immediately;
   a *live* player pushed over gets their recovery window; any side
@@ -912,3 +914,102 @@ The human's correction to the wager-prompt spacing above (PR #27; branch kept).
   one empty row, content, one empty row, border — for the wager, run-over,
   confirm, settings and help overlays alike. `V_PAD` now means the total
   vertical padding; `H_PAD` is still per side.
+
+## First-run onboarding & controls refinement (spec 023)
+
+A new player is now told the two things the loop never told them — what a stake
+costs and what the keys do — each once per profile, in the fewest possible
+words. Ruled with the human on 2026-09-13, on the recommendations as proposed.
+
+- **A — The seen marks survive resets.** A run-over and New Campaign wipe the
+  run but keep the marks, as they keep lifetime stats; a player who has read the
+  rules is not re-taught on the way back in.
+- **B — The first match of either mode** shows the popup: the mechanics and
+  controls are identical in Quick Play and campaign, so whichever comes first
+  gets it.
+- **C — Existing profiles see both pieces once.** The profile format could have
+  treated a missing mark as seen; the human chose to show them, so an existing
+  profile can try them without a wipe, at the cost of one key each.
+- **D — The Quick Play line lives on the opponent select screen**, where Quick
+  Play is chosen, not in How to Play.
+- **E — How to Play gains a short campaign section**, so it is genuinely the
+  full reference once the primer is gone.
+- **Timing (the human's words).** The primer shows the first time through the
+  campaign, on first entering the galaxy screen; the gameplay popup once the
+  first game actually starts.
+- **F — The controls refinement rides in this spec**, not a separate one or a
+  chore: the popup's key list depends on it, and retiring the ± prompt touches
+  the engine's phase list, which the chore lane excludes. **Spec 006's goal 2 is
+  superseded** — the most common in-play input is drawing and moving on, so that
+  is what the spacebar does.
+- **G — P is the secondary play key.** Free on the player's turn, mnemonic, and
+  away from the draw/stand hand (D, S, Space). Enter stays primary.
+- **H — The ± prompt is retired outright** rather than kept for the direct keys:
+  with 1–4 selecting, every play goes through the cursor, whose ↑/↓ sign is
+  already the answer; a second way to answer the same question would be the
+  indirection the constitution tells us to cut.
+
+Design tensions resolved during planning:
+
+- **The engine keeps the sign-choice pass-through; only the player-facing prompt
+  goes.** `GameAction::{PlayHand, ChooseSign, CancelSignChoice}`,
+  `GamePhase::AwaitingSignChoice`, `play_card`, `commit_sign_choice` and every
+  `sign_*` engine test are unchanged; what was removed is the
+  `AwaitingSignChoice` branch of `game_action_from_key` (h/l/+/−/1/2/c), the
+  `'1'..'4' → PlayHand` arm, and the board's sign prompt. Reasons: the spec
+  requires the engine's card tests unchanged and `save.rs` untouched, and
+  `SavedPhase::AwaitingSignChoice` exists on disk; `tests/balance.rs` and the
+  two headless loops are written against it; and after this spec the only
+  producer of `PlayHand` in the binary is `cursor_confirm`, which answers the
+  phase inside the same key event, so the phase is unobservable — no key maps
+  into it, `update()` leaves it alone, `status_message` returns `None` for it.
+  The cost is one transient phase the player can never see; the alternative (a
+  signed `PlayHand`) would rewrite `cursor_confirm`, nine tests, the simulator
+  and the save format for no visible gain.
+- **Where the primer is raised: the three menu-entry sites, not the game-over
+  path.** `enter_campaign_map` gained a `from_menu: bool`, and
+  `map_entry_modal(broke, primer_due)` is the pure precedence seam — run-over
+  first, then the primer, else nothing. The menu-entry callers pass `true`:
+  `enter_campaign_continue` (both the no-progress path and `CampaignEntry`'s
+  Continue), the `PendingStart::Campaign` confirm arm, and `start_new_campaign`
+  — which switched from `open_campaign_map()` to `enter_campaign_map(true)`,
+  and is never broke at that moment because the reset just left the seed purse.
+  New Campaign is **menu-only** (no `MapOutcome` variant; `ConfirmNewCampaign`
+  is raised only from `CampaignEntry`), so no origin flag beyond `from_menu` is
+  needed. The game-over acknowledgement passes `false` — the spec says the
+  primer is not raised from a match's game-over path, which is reachable with
+  the primer unseen only by a pre-023 profile resuming a saved campaign match.
+  The shop and deck-builder Backs keep plain `open_campaign_map` and never raise
+  it: they return to a map already seen.
+- **A pre-023 mid-match save can be sitting in `AwaitingSignChoice`.** Pressing
+  `1` on a ± card used to save the game in that phase (`save_game` fires on every
+  `game_changed`), and after this spec no key maps to `ChooseSign`, so such a
+  save would resume soft-locked. Continue therefore applies
+  `GameAction::CancelSignChoice` immediately after `save::load()` — a no-op in
+  every other phase, and in that one it returns the card to hand at `PlayerTurn`
+  by the engine's existing cancel semantics
+  (`sign_cancel_restores_turn_with_card_unspent`). `save.rs` is untouched;
+  `CancelSignChoice` stays for exactly this.
+- **Invariant, recorded at the sweep:** `enter_campaign_map` and `start_match`
+  now *assign* the modal (`map_entry_modal(...)` / `Modal::FirstMatch`), so
+  every caller clears its own modal *before* entering the map or starting a
+  match — the wager Commit, the discard-and-enter confirm, the campaign-entry
+  panel and the New Campaign confirm all do. A future caller that raises a
+  modal first would lose it silently; the invariant is verified by reading and
+  by the driver, not by a test (plan tension §4: App tests never touch disk).
+- **Process note:** the experiment-2 amendment to `CLAUDE.md` (commit
+  `d0eb6e8`) landed on the 023 branch by the person's one-commit ruling of
+  2026-09-14 and rode into `main` at the merge; never force-pushing outranked
+  the commit-straight-to-`main` convention for repo-wide files.
+
+**Supersedes spec 006's goal 2** ("Space plays the selected card", `ROADMAP.md`
+under *Control & input polish*): Space draws on the player's turn again. Its
+round-end, game-over, menu, prompt and notice roles are unchanged, and the
+parenthetical on the spec 001 draw-key bullet above was corrected to match.
+
+No `game.rs` rules change (card effects, scoring, resolution), no AI, economy,
+wager-prompt or settlement change, and no `save.rs` change; `game.rs` moved only
+at `game_action_from_key`, a new `restart_opponent_pause` (so the opponent's
+thinking pause runs from the popup's dismissal rather than through it), and its
+own tests. `PROFILE_VERSION` and `SAVE_VERSION` both stay 1. Monochrome by
+construction.

@@ -53,10 +53,13 @@ of, not guessed at here in advance.
   and the engine stays untouched but for serde derives. Scope was the match
   only — campaign-level persistence waits for the campaign (see backlog).
 - **Control & input polish** (spec 006) — three input quality-of-life
-  changes that make **Space** the single "confirm / proceed" key: it plays
+  changes that made **Space** the single "confirm / proceed" key: it played
   the highlighted hand card on your turn (like Enter), advances at the
   round-end pause (like `n`), and starts a new game at game over (like `g`).
-  Drawing moved to its own dedicated key, `D` (Space no longer draws).
+  Drawing moved to its own dedicated key, `D`. **The in-play half is superseded
+  by spec 023**: on the player's turn Space now *draws* (D still does too),
+  Enter or P plays the selected card, and 1–4 select rather than play. The
+  round-end and game-over roles are unchanged.
   **Emacs nav keys** `Ctrl+P/N/B/F` mirror Up/Down/Left/Right everywhere the
   arrows navigate (start menu, settings, in-game hand cursor, discard-
   confirm), via a pure `resolve_key` translation at the input boundary in
@@ -295,6 +298,36 @@ of, not guessed at here in advance.
   existing profiles keep their cards and credits. Method, measurements and
   re-run instructions in `docs/balance.md`; `docs/opponents.md` and
   `docs/economy.md` re-synced.
+- **First-run onboarding & controls refinement** (spec 023) — the two ends of
+  onboarding, plus the control pass the second one depends on. **A first-campaign
+  primer** (`assets/primer_text.txt`) is raised over the galaxy map the first
+  time a profile enters it *from the menu* — Start Campaign, Continue, the
+  discard-and-enter confirm, or a confirmed New Campaign — and says only what a
+  new player must know: every match is staked, a loss forfeits it, going broke
+  resets the run, the Outfitter (`b`) sells the cards that get you past the Mid
+  Rim. **A first-match popup** (`assets/first_match_text.txt`) is raised over the
+  dealt board the moment a profile's first match *starts* — Quick Play or
+  campaign, whichever comes first, never on a resume — and names the rules and
+  the keys, holding the match (including an opponent-first deal) until it is
+  dismissed. Both are `Modal` variants drawn through the existing overlay seam,
+  shown **once per profile**, dismissed with Enter, Space or Esc, and blocking
+  every key underneath. The marks are two serde-defaulted `bool`s in
+  `profile.json` (`primer_seen` / `first_match_seen`) that **survive a run-over
+  reset and New Campaign** like the lifetime stats — `PROFILE_VERSION` stays 1
+  and `save.rs` is untouched, so existing profiles load unset and see each piece
+  once. **Controls refinement** (supersedes spec 006's goal 2): **1–4 now
+  *select* a hand card** like ←/→ instead of playing it, **Enter or P plays**
+  the selected card at the sign shown on it, and **Space draws** on the player's
+  turn (accepting the bust while over 20, like D) while keeping every other
+  "proceed" role it had. The separate "+ or −?" prompt 1–4 used to open on a ±
+  card is **retired** — ↑/↓ on the card is the only answer — though the engine's
+  `AwaitingSignChoice` phase and its actions stay as an unobservable transient
+  so `save.rs`, `tests/balance.rs` and every `sign_*` engine test are unchanged.
+  How to Play gained a short **campaign section** so the primer's content is
+  findable afterward, the in-game `?` overlay and the board's turn hint were
+  re-synced, and the opponent select screen finally says **"Quick Play deals the
+  standard deck."** (spec 022's deferred line). No rules, AI, economy, wager or
+  settlement change.
 
 ## Backlog
 
@@ -445,25 +478,18 @@ player is told at the start, and what a finished player gets at the end — and
 the project is not yet presentable to strangers. Items are independent; the
 human's stated priority is the first-run onboarding.
 
-- **First-run onboarding (human-prioritized).** Two pieces, both shown once
-  per profile and dismissable, both **in the fewest possible words**:
-  1. **A first-campaign primer.** When a fresh profile opens the campaign map
-     for the first time, a short overlay says what to pay attention to and
-     nothing else: you stake credits on every match and a loss forfeits them;
-     going broke ends the run and resets you; the shop sells the cards that get
-     you past the Mid Rim, and the ante rises as you go deeper. A simplified
-     "How to Play" for the campaign layer — the existing How to Play overlay
-     stays as the full reference.
-  2. **A first-match popup.** In a fresh profile's first match, a popup
-     explains the mechanics and the basic controls: draw toward 20 without
-     going over, stand to lock your total, play a side card from your hand of
-     four to adjust it, first to three rounds wins; the keys for hit, stand,
-     play/select a card and flip a ± sign. Dismissed with one key, never shown
-     again for that profile (a serde-defaulted profile flag, no version bump).
-  Also here, cheap: **Quick Play says it deals the standard deck** (spec 022's
-  named non-goal — one line in the opponent-select hint or How to Play). Uses
-  the overlay convention (one modal at a time, neutral default) and the
-  design brief's density rule (the acted-on line gets air; the rest compact).
+- **First-run onboarding (human-prioritized).** — ✅ **Shipped (spec 023** — see
+  Shipped above). Both pieces landed as specified: the first-campaign primer on
+  a fresh profile's first menu entry to the galaxy map, and the first-match
+  popup the moment its first match starts, each shown once per profile, each
+  dismissed with one key, each holding everything underneath while it is up. The
+  marks are serde-defaulted profile flags with no version bump, and they survive
+  a reset — a player who has read the rules is not re-taught on the way back in.
+  How to Play kept its role as the full reference and gained the campaign
+  section; the cheap extra shipped too ("Quick Play deals the standard deck." on
+  the opponent select screen). The spec also carried the **controls refinement**
+  the popup's key list depends on (1–4 select, Enter/P play, Space draws, the ±
+  prompt retired), which the backlog had not anticipated.
 - **The endgame / victory award** — what beating the Sovereign gives. Today
   the map shows one line ("Campaign complete — rematches stay open") and
   nothing else, while losing has a full reset behind it. Decide what the win
