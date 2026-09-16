@@ -303,10 +303,10 @@ impl Profile {
     /// The completion edge hands the run tally's `matches_played()` to
     /// [`LifetimeStats::record_campaign_completion`] as the first-clear record
     /// (spec 024): the run's matches played *including* the completing match,
-    /// which holds once the match-resolution seam records before it settles.
-    /// Until that seam lands the app still settles first, so a completion
-    /// reached in that window records one short; nothing reads the record yet.
-    pub fn settle_campaign_match(&mut self, player_won: bool) -> Option<StakeOutcome> {
+    /// which holds because [`Profile::resolve_match`] records before it
+    /// settles. Private since spec 024 — callers go through `resolve_match`;
+    /// settling alone moves no run tally and no credit counter.
+    fn settle_campaign_match(&mut self, player_won: bool) -> Option<StakeOutcome> {
         let node = self.campaign.in_progress()?.clone();
         let stake = self.campaign.take_stake();
         if player_won {
@@ -381,9 +381,9 @@ impl Profile {
     /// given mode; for a Campaign match it also updates the run tally. It does
     /// *not* count campaign completions — since spec 021 a beaten node can be
     /// replayed, so completion is the `mark_beaten` edge owned by
-    /// [`Profile::settle_campaign_match`]. Callers pair this with
-    /// [`Profile::save`].
-    pub fn record_match(
+    /// [`Profile::settle_campaign_match`]. Private since spec 024 — callers go
+    /// through [`Profile::resolve_match`], which pairs this with [`Profile::save`].
+    fn record_match(
         &mut self,
         mode: Mode,
         opponent_id: &str,

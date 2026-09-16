@@ -122,7 +122,7 @@ is nothing new to see on screen yet. -->
   lines verbatim. Orchestrator re-runs the verification command itself before
   committing (per-task review).*
 
-- [ ] **T003 (foundational)** — `src/app.rs` (+ two `pub` removals in
+- [x] **T003 (foundational)** — `src/app.rs` (+ two `pub` removals in
   `src/profile.rs`): the match-resolution block. Replace the `settle_campaign_match`
   → `record_match` pair in `tick`'s `GameOver` block with the single
   `resolve_match` call in plan §Design 4 (banner from `settlement.outcome`;
@@ -409,3 +409,4 @@ policy as settled. -->
 | T001 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~62K (measured return) | done first try; `run_summary_lines` signature on one line (rustfmt-wrapping avoided); note for T002: the "completions > 0, no record" case needs a `LifetimeStats` JSON round-trip, `first_clear_matches` has no setter |
 | T002 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~99K (measured return) | done first try; resolve_match body verbatim from plan §Design 3; settle_campaign_match untouched; orchestrator re-ran verification: 397 unit + 6 integration passing, diff = campaign.rs + profile.rs |
 | T002 per-task review (skeptical-reviewer) | opus | ~65K (measured return; reviewer's own count ~46K in / 3K out) | signed off, 0 blocking, 5 notes — N1 run_complete could be `worlds_cleared() == PLANETS.len()` (simplicity; carry to the Phase 1 review or T003), N2 differs_from_starter is order-sensitive on the deck (safe direction; know it before the Phase 3 driver), N3 the default() case of the entry-panel test is tautological (reviewer verified Profile::default() is the starter), N4 the staked case is pinned via credits not the pointer, N5 the Mode derivation is duplicated until T003 — T003's `Mode::` grep must actually run |
+| T003 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~46K (measured return) | done first try; grep for the three identifiers in app.rs empty; stale settle_campaign_match doc paragraph corrected (comment-only); `stats::Mode` import already gone (T008 removes only DEFAULT_SIDE_DECK); T002 review N1 (run_complete via worlds_cleared) not applied — outside the diff allowlist, carried to the Phase 1 review |

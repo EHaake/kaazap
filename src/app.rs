@@ -32,7 +32,6 @@ use crate::{
     screen::Screen,
     settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
-    stats::Mode,
     wager::{WagerOutcome, WagerState},
 };
 
@@ -1506,19 +1505,22 @@ impl App {
             self.save_game();
         }
 
-        // Settle and record the finished match exactly once, on the tick the
-        // phase enters GameOver — the one resolution seam (spec 021 folded the
-        // old every-tick campaign-win block into this edge, since a rematch
-        // makes `!is_opponent_beaten` useless as a once-guard; `GameOver` is
-        // only ever entered from `GameState::update()` here, and a saved match
-        // is never at `GameOver`). `settle_campaign_match` handles escrow,
-        // `mark_beaten`, and the once-only completion edge internally, so no
-        // ordering rule spans the two calls; `record_match` records lifetime
-        // and run-tally stats only. Quick Play has no `in_progress`, so it
-        // settles nothing and records to Quick Play; `in_progress` is cleared
-        // only on the player's acknowledgement (the InGame input arm).
-        // Abandoned matches never reach a GameOver tick, so they resolve
-        // nothing.
+        // Resolve the finished match exactly once, on the tick the phase
+        // enters GameOver — the one resolution seam (spec 021 folded the old
+        // every-tick campaign-win block into this edge, since a rematch makes
+        // `!is_opponent_beaten` useless as a once-guard; `GameOver` is only
+        // ever entered from `GameState::update()` here, and a saved match is
+        // never at `GameOver`). `Profile::resolve_match` owns the whole
+        // resolution: it writes the lifetime and run-tally statistics first
+        // and only then settles the stake, because the first-clear record is
+        // taken from the run tally on the completion edge and so must already
+        // count the completing match (spec 024) — an order the app used to get
+        // backwards, and which now lives in one unit-tested method instead of
+        // spanning two calls from here. It also picks the mode itself from the
+        // in-flight pointer. Quick Play has no pointer, so it settles nothing
+        // and records to Quick Play; the pointer is cleared only on the
+        // player's acknowledgement (the InGame input arm). Abandoned matches
+        // never reach a GameOver tick, so they resolve nothing.
         if phase_changed
             && let Screen::InGame { game_state, .. } = &self.screen
             && matches!(game_state.game_phase, GamePhase::GameOver { .. })
@@ -1528,17 +1530,11 @@ impl App {
             let opponent_id = game_state.opponent_profile.id;
             let player_rounds = game_state.player.rounds_won as u32;
             let opp_rounds = game_state.opponent.rounds_won as u32;
-            // Read before settlement only for clarity — settling never clears
-            // the in-progress pointer (the acknowledgement does).
-            let mode = if self.profile.campaign().in_progress().is_some() {
-                Mode::Campaign
-            } else {
-                Mode::QuickPlay
-            };
-            if let Some(outcome) = self.profile.settle_campaign_match(player_won) {
-                self.banner = Some(MapBanner::Settled(outcome));
+            if let Some(settlement) =
+                self.profile.resolve_match(opponent_id, player_won, player_rounds, opp_rounds)
+            {
+                self.banner = Some(MapBanner::Settled(settlement.outcome));
             }
-            self.profile.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
             self.profile.save();
         }
 
