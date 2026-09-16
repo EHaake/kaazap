@@ -67,9 +67,10 @@ balance immediately and stores the in-flight `NodeRef { planet, opponent, stake 
 The map header's `◈ N` is honest mid-match, and the stake rides beside the board
 in the presence panel ([`src/portrait.rs`](../src/portrait.rs)) for the whole
 match. Quick Play never touches any of this: no prompt, no stake, no payout —
-and since spec 022 (ruling C) it deals the player the **standard** side deck
-(`card::DEFAULT_SIDE_DECK`), not the built one, so the deck you build matters in
-campaign matches only.
+but since spec 024 (superseding spec 022's ruling C) it deals the player the
+deck they built, the same one a campaign match deals, so the deck you build
+matters everywhere; `card::DEFAULT_SIDE_DECK` keeps its remaining role as the
+opponents' baseline.
 
 ## Rematches
 

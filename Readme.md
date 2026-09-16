@@ -68,7 +68,7 @@ cards with a copy count, the rest — those absent from that panel — as faint
 placeholders. Move the
 selection with the arrows (or `w`/`a`/`s`/`d`), **Tab** to switch panels, and
 **Enter** to move a copy across — adding one from the Collection or returning one
-from the Deck. Your side deck (the 10 cards your hand is dealt from each campaign match)
+from the Deck. Your side deck (the 10 cards your hand is dealt from in every match)
 must be a full 10 to start a match.
 
 From the start menu, **Start Campaign** opens a full-screen star map: travel
@@ -79,13 +79,15 @@ prompt** — pick your stake (arrows) above the opponent's minimum ante and
 you've already cleared stays open for **rematches** against its final opponent,
 so you can grind small, safe bets to fund a card. If your credits ever drop
 below the cheapest ante on the map, the **run is over**: a full reset to the
-starter deck and a fresh purse. Once you've cleared any world, Start
-Campaign first asks whether to **Continue** your run or begin a **New Campaign** —
-a fresh start that resets your progress, credits, and collection (your settings
-are kept). **Quick Play** instead lets you pick
-any opponent from the roster directly (each has its own difficulty, side
+starter deck and a fresh purse. Once there is anything to affect — a world
+cleared, or a pool that has drifted from the starter's cards and purse — Start
+Campaign first offers three choices: **Continue** your run, begin a **New
+Campaign** — which resets the map while your cards and credits stay yours — or
+**Reset Everything**, the full wipe back to the starter deck and a fresh purse
+(your records and settings are kept either way). **Quick Play** instead lets you
+pick any opponent from the roster directly (each has its own difficulty, side
 deck, and play style; see `docs/opponents.md` for how difficulty is tuned), and
-deals you the **standard** side deck — campaign matches deal the one you built.
+deals the deck you built, with nothing staked.
 The **Records** menu item
 opens a read-only popup of your play history — matches and rounds won/lost per
 opponent, your win streak, campaign completions, and collection progress —
