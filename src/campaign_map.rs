@@ -250,7 +250,7 @@ impl CampaignMapState {
         credits: u32,
         banner: Option<&MapBanner>,
     ) {
-        let cleared = PLANETS.iter().filter(|p| run.planet_cleared(p)).count();
+        let cleared = run.worlds_cleared();
         draw_text(frame, layout.header.x0 + 2, layout.header.y0, "CAMPAIGN", Emphasis::Strong);
 
         // Progress and the live credit balance, right-aligned on the top row.
@@ -268,8 +268,8 @@ impl CampaignMapState {
                 draw_text_centered(frame, cx, layout.header.y0 + 1, &text, emphasis);
             }
             None => {
-                const AXIS: &str = "Outer Rim  →  The Core";
-                draw_text_centered(frame, cx, layout.header.y0 + 1, AXIS, Emphasis::Muted);
+                let (text, emphasis) = axis_line(run.run_complete());
+                draw_text_centered(frame, cx, layout.header.y0 + 1, text, emphasis);
             }
         }
     }
@@ -318,6 +318,17 @@ fn banner_line(banner: &MapBanner) -> (String, Emphasis) {
         MapBanner::CantCover { floor } => {
             (format!("Can't cover the {floor}-credit ante"), Emphasis::Normal)
         }
+    }
+}
+
+/// The header's second row when no banner is showing: the rim→core axis, or —
+/// once the run is complete (spec 024) — a marker that stays until the map is
+/// reset. Pure, so both the wording and the switch are testable.
+fn axis_line(run_complete: bool) -> (&'static str, Emphasis) {
+    if run_complete {
+        ("★  Campaign complete", Emphasis::Strong)
+    } else {
+        ("Outer Rim  →  The Core", Emphasis::Muted)
     }
 }
 
@@ -381,6 +392,7 @@ fn draw_route(frame: &mut Frame, (x0, y0): (usize, usize), (x1, y1): (usize, usi
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::campaign::NodeRef;
     use crate::profile::Profile;
 
     #[test]
@@ -461,5 +473,33 @@ mod tests {
     #[test]
     fn controls_hint_advertises_the_deck_builder() {
         assert!(HINT.contains("deck"), "controls hint must advertise the deck-builder launch key");
+    }
+
+    #[test]
+    fn the_header_axis_gives_way_to_the_completed_marker() {
+        // Mid-run the second row is the rim→core axis label, quiet under the
+        // map; once the run is complete it becomes the marker (spec 024).
+        assert_eq!(axis_line(false), ("Outer Rim  →  The Core", Emphasis::Muted));
+        assert_eq!(axis_line(true), ("★  Campaign complete", Emphasis::Strong));
+    }
+
+    #[test]
+    fn the_banner_and_the_run_tally_report_the_same_net_gain() {
+        // The net-gain formula lives twice — here in `banner_line` and in
+        // `Profile::resolve_match`'s `credits_won` bump — with `economy.rs`
+        // frozen between them. Pin them equal: what the banner prints after a
+        // staked win is exactly what the run tally gained.
+        let mut p = Profile::default();
+        let stake = 40;
+        let node = NodeRef { planet: "cinder".to_string(), opponent: "greeb".to_string(), stake };
+        assert!(p.stake_match(node), "the seed purse covers a {stake}-credit stake");
+
+        let before = p.campaign().run_stats().credits_won;
+        let settled = p.resolve_match("greeb", true, 3, 1).expect("a staked campaign match settles");
+        let gained = p.campaign().run_stats().credits_won - before;
+        assert!(gained > 0, "a won stake pays a net gain");
+
+        let (text, _) = banner_line(&MapBanner::Settled(settled.outcome));
+        assert_eq!(text, format!("★  Won {gained} credits"));
     }
 }

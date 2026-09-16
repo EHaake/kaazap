@@ -178,7 +178,7 @@ stopped at (the person's 2026-09-15 run-straight-through ruling). -->
   `src/app.rs`; the implementer's report quotes the `enter_campaign_map` body
   (showing the `mem::take`) and the `Modal::Victory` chain branch.*
 
-- [ ] **T005** — `src/campaign_map.rs`: the completed marker. Add the pure `fn
+- [x] **T005** — `src/campaign_map.rs`: the completed marker. Add the pure `fn
   axis_line(run_complete: bool) -> (&'static str, Emphasis)` (plan §Design 5 —
   `"★  Campaign complete"` Strong when complete, the existing
   `"Outer Rim  →  The Core"` Muted otherwise) and call it from `draw_header`'s
@@ -412,3 +412,4 @@ policy as settled. -->
 | T003 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~46K (measured return) | done first try; grep for the three identifiers in app.rs empty; stale settle_campaign_match doc paragraph corrected (comment-only); `stats::Mode` import already gone (T008 removes only DEFAULT_SIDE_DECK); T002 review N1 (run_complete via worlds_cleared) not applied — outside the diff allowlist, carried to the Phase 1 review |
 | Phase 1 review (skeptical-reviewer) | opus | ~78K (measured return; reviewer's own count ~75K) | signed off, 0 blocking, 5 notes — N1 the net-gain formula lives in profile.rs and campaign_map.rs with nothing pinning them equal (economy.rs frozen, so a test not a refactor; fold into T004/T005 if free, else sweep), N2 the fresh-profile entry-panel case is tautological — `Profile::from_json(r#"{\"version\":1}"#).differs_from_starter() == false` is the assertion that would keep it sound (T007), N3 `run_counters_default_zero_round_trip_and_accumulate` never round-trips (name overstates; sweep), N4 run_complete refactor: leave it (no record change), N5 order-sensitive deck comparison stands |
 | T004 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~77K (measured return) | done first try; `draw_notice` replaces `draw_run_over` and serves both notices; victory 73×14 and run-over 78×13 boxes, unclamped at 139×31 (fit test); `victory_due` set with `|=`, taken at map entry; Phase 1 N1 (net-gain pin) not applicable in app.rs — `banner_line` is private to campaign_map.rs — carried to T005 |
+| T005 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~52K (measured return) | done first try; pure `axis_line(run_complete)`; Phase 1 N1 closed — `the_banner_and_the_run_tally_report_the_same_net_gain` pins the duplicated net-gain formula equal |
