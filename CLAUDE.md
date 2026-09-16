@@ -131,7 +131,10 @@ further, and whenever something unexpected bears on spec adherence.
 
 ## Model policy
 
-- **Tiers by name**: top tier `fable`; implementation tier `opus`;
+- **Tiers by name**: top tier `fable`; implementation tier `opus` for
+  the reviewer; the implementer is dispatched as `sdd-implementer-fable`
+  (Fable 5.1 at medium) under experiment 2, with the plain
+  `sdd-implementer` (opus, high) as the fallback dispatch;
   session tier `fable` at medium effort (experiment 1 — the top and
   session tiers are the same model at different effort; the fallback
   session model is `claude-opus-4-8`, the full ID, since a
@@ -140,7 +143,9 @@ further, and whenever something unexpected bears on spec adherence.
   roles.
 - **The session runs at the session tier, at medium effort**, set in
   this repo's `.claude/settings.json` — written at project setup from
-  the skill's `assets/settings-template.json` (`"model":
+  the profile's settings file in the skill's `project/.claude/`
+  (`settings.json` for the standard profile, `settings.economy.json`
+  for economy) (`"model":
   "claude-fable-5-1"`, `"effortLevel": "medium"`, and a level under
   `"modelSettings"` for each tier's full model ID). If that file is missing or lacks these
   keys, recreate it from the template and commit it before dispatching
@@ -218,9 +223,10 @@ further, and whenever something unexpected bears on spec adherence.
   means it would fail an acceptance criterion or a test, or contradicts
   `plan.md` or `CLAUDE.md`; nothing else blocks. Anything open after
   the re-review goes to the tier log and the sweep.
-- **Implementation runs at the implementation tier**, in the
-  `sdd-implementer` subagent (its definition says `opus`), one task
-  per dispatch, sequentially. The orchestrating
+- **Implementation runs at the implementation tier**, dispatched to the
+  `sdd-implementer-fable` subagent (Fable 5.1 at medium, experiment 2),
+  with the plain `sdd-implementer` (its definition says `opus`) as the
+  fallback dispatch, one task per dispatch, sequentially. The orchestrating
   session triages each task, dispatches routine ones on a task bundle
   assembled with shell (task line, plan section, acceptance criteria,
   files, the pattern file to copy), and on return verifies with the
@@ -254,6 +260,8 @@ further, and whenever something unexpected bears on spec adherence.
   window (drop the override; both definitions default to `opus`), and
   switch the session itself to `claude-opus-4-8` mid-session
   (`/model claude-opus-4-8` — one cache re-write, then continue).
+  The implementer falls back to `sdd-implementer` when Fable's
+  allowance runs out; needing that fallback is itself a result.
   Nothing else changes; the tier log records what ran and when the
   switch happened, which is a result of experiment 1 in itself.
 - **Escape hatch**: two failed verifications on one task, or a "stopped

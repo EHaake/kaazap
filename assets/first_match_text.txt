@@ -1,0 +1,12 @@
+=====  How a match works  =====
+
+Draw toward 20 without going over.
+Stand to lock in your total.
+Play a side card from your hand of four to adjust it.
+First to 3 rounds wins the match.
+
+ Space  draw          S  stand
+ 1-4 or ←/→  pick a card    Enter  play it
+ ↑/↓  flip a ± card's sign
+
+                   Enter to begin

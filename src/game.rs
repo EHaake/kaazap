@@ -120,30 +120,23 @@ impl GameState {
     /// Convert a key pressed into an Action
     ///
     pub fn game_action_from_key(&self, key: char) -> Option<GameAction> {
-        // While a sign choice is pending, the only meaningful keys are
-        // the choice itself and cancel — everything else is ignored.
-        // h/l (higher/lower) are the home-row pair the prompt shows;
-        // +/- and 1/2 work as synonyms.
+        // spec 023: the sign prompt is gone. The phase is now a transient the
+        // cursor path (app.rs) answers inside one key event, so no key means
+        // anything while it is up.
         if matches!(self.game_phase, GamePhase::AwaitingSignChoice { .. }) {
-            return match key {
-                'h' | '+' | '1' => Some(GameAction::ChooseSign { positive: true }),
-                'l' | '-' | '2' => Some(GameAction::ChooseSign { positive: false }),
-                'c' => Some(GameAction::CancelSignChoice),
-                _ => None,
-            };
+            return None;
         }
 
         match key {
-            '1' | '2' | '3' | '4' => Some(GameAction::PlayHand {
-                index: key.to_digit(10)? as usize - 1,
-            }),
             'd' => Some(GameAction::Hit),
-            // Space is the "proceed" key at the between-round pauses only:
-            // advance the round at round-end, start a new game at game over.
-            // On the player's turn, Space plays the highlighted card via the
-            // cursor model in app.rs and never reaches here; drawing has its
-            // own dedicated key (D).
+            // Space draws on the player's turn and is the "proceed" key at the
+            // between-round pauses: advance the round at round-end, start a new
+            // game at game over. Selecting and playing a card belongs to the
+            // cursor model in app.rs, which never routes those keys here.
             ' ' => match self.game_phase {
+                // spec 023: Space draws; over 20 the Hit arm already accepts
+                // the bust like D
+                GamePhase::PlayerTurn => Some(GameAction::Hit),
                 GamePhase::AwaitingNextRound => Some(GameAction::NextRound),
                 GamePhase::GameOver { .. } => Some(GameAction::NextGame),
                 _ => None,
@@ -152,6 +145,18 @@ impl GameState {
             'n' => Some(GameAction::NextRound),
             'g' => Some(GameAction::NextGame),
             _ => None,
+        }
+    }
+
+    /// Re-arm the opponent's thinking pause from now, if one is running (spec
+    /// 023: the first-match popup holds the match; on dismissal the usual pause
+    /// runs from then). No-op in every other phase.
+    ///
+    pub fn restart_opponent_pause(&mut self) {
+        if matches!(self.game_phase, GamePhase::OpponentThinking { .. }) {
+            self.game_phase = GamePhase::OpponentThinking {
+                until: Instant::now() + Duration::from_millis(OPPONENT_THINKING_TIME_MS),
+            };
         }
     }
 
@@ -2110,12 +2115,12 @@ mod tests {
     }
 
     #[test]
-    fn space_advances_at_pauses_and_never_draws() {
+    fn space_draws_on_the_players_turn_and_advances_at_the_pauses() {
         let mut gs = GameState::new(); // starts at PlayerTurn
-        // On the player's turn Space is not a draw: it plays the highlighted
-        // card, which is the cursor model's job (app.rs) — so the engine's
-        // key map returns None here. Draw keeps its own dedicated key, D.
-        assert_eq!(gs.game_action_from_key(' '), None);
+        // spec 023: on the player's turn Space draws, alongside D. Selecting
+        // and playing a card is the cursor model's job (app.rs) and never
+        // reaches the engine's key map.
+        assert_eq!(gs.game_action_from_key(' '), Some(GameAction::Hit));
         assert_eq!(gs.game_action_from_key('d'), Some(GameAction::Hit)); // D still draws
 
         gs.game_phase = GamePhase::AwaitingNextRound;
@@ -2125,63 +2130,91 @@ mod tests {
         gs.game_phase = GamePhase::GameOver { winner: Player::Player };
         assert_eq!(gs.game_action_from_key(' '), Some(GameAction::NextGame));
         assert_eq!(gs.game_action_from_key('g'), Some(GameAction::NextGame)); // g unchanged
+
+        // Off the player's turn and the pauses, Space does nothing
+        gs.game_phase = GamePhase::OpponentThinking {
+            until: Instant::now(),
+        };
+        assert_eq!(gs.game_action_from_key(' '), None);
+
+        gs.game_phase = GamePhase::AwaitingSignChoice { hand_index: 0 };
+        assert_eq!(gs.game_action_from_key(' '), None);
     }
 
     #[test]
-    fn sign_phase_maps_only_choice_and_cancel_keys() {
+    fn space_over_twenty_accepts_the_bust_like_d() {
+        let mut from_space = player_over_at_23(vec![None, None, None, None]);
+        let action = from_space.game_action_from_key(' ').unwrap();
+        from_space.apply_game_action(action);
+
+        let mut from_d = player_over_at_23(vec![None, None, None, None]);
+        let action = from_d.game_action_from_key('d').unwrap();
+        from_d.apply_game_action(action);
+
+        assert_eq!(from_space.player.stood, from_d.player.stood);
+        assert_eq!(from_space.player.bust, from_d.player.bust);
+        assert!(from_space.player.stood);
+        assert!(from_space.player.bust);
+        assert!(matches!(from_space.game_phase, GamePhase::RoundEnd));
+    }
+
+    #[test]
+    fn sign_phase_maps_no_keys() {
+        // spec 023: the sign prompt is gone, so the transient phase answers
+        // no key at all — the cursor path commits the sign in one key event.
         let mut gs = GameState::new();
         gs.player.hand[0] = Some(Card::PlusMinus(3));
         gs.apply_game_action(GameAction::PlayHand { index: 0 });
 
-        assert_eq!(
-            gs.game_action_from_key('+'),
-            Some(GameAction::ChooseSign { positive: true })
-        );
-        assert_eq!(
-            gs.game_action_from_key('1'),
-            Some(GameAction::ChooseSign { positive: true })
-        );
-        assert_eq!(
-            gs.game_action_from_key('-'),
-            Some(GameAction::ChooseSign { positive: false })
-        );
-        assert_eq!(
-            gs.game_action_from_key('2'),
-            Some(GameAction::ChooseSign { positive: false })
-        );
-        // Home-row pair: h = higher (+), l = lower (-)
-        assert_eq!(
-            gs.game_action_from_key('h'),
-            Some(GameAction::ChooseSign { positive: true })
-        );
-        assert_eq!(
-            gs.game_action_from_key('l'),
-            Some(GameAction::ChooseSign { positive: false })
-        );
-        assert_eq!(
-            gs.game_action_from_key('c'),
-            Some(GameAction::CancelSignChoice)
-        );
-        // Hit/Stand/other play keys are ignored while the prompt is up
-        assert_eq!(gs.game_action_from_key('d'), None);
-        assert_eq!(gs.game_action_from_key('s'), None);
-        assert_eq!(gs.game_action_from_key('3'), None);
+        for key in ['h', 'l', '+', '-', '1', '2', 'c', 'd', 's', ' '] {
+            assert_eq!(gs.game_action_from_key(key), None, "key {key:?}");
+        }
     }
 
     #[test]
-    fn sign_normal_phase_key_mapping_unchanged() {
+    fn number_and_sign_keys_map_to_nothing_on_the_players_turn() {
+        // spec 023: 1-4 move the cursor (app.rs) rather than playing a card,
+        // and no key opens a + / - prompt
         let gs = GameState::new();
 
-        assert_eq!(
-            gs.game_action_from_key('1'),
-            Some(GameAction::PlayHand { index: 0 })
-        );
+        for key in ['1', '2', '3', '4', 'h', 'l', '+', '-', 'c'] {
+            assert_eq!(gs.game_action_from_key(key), None, "key {key:?}");
+        }
         assert_eq!(gs.game_action_from_key('d'), Some(GameAction::Hit));
         assert_eq!(gs.game_action_from_key('s'), Some(GameAction::Stand));
-        assert_eq!(gs.game_action_from_key('+'), None);
-        assert_eq!(gs.game_action_from_key('c'), None);
-        assert_eq!(gs.game_action_from_key('h'), None);
-        assert_eq!(gs.game_action_from_key('l'), None);
+    }
+
+    #[test]
+    fn cancel_sign_choice_outside_the_phase_is_a_noop() {
+        let mut gs = GameState::new();
+        gs.player.hand[1] = Some(Card::PlusMinus(6));
+
+        gs.apply_game_action(GameAction::CancelSignChoice);
+
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
+        assert_eq!(gs.player.hand[1], Some(Card::PlusMinus(6)));
+        assert!(gs.player.played_row.is_empty());
+    }
+
+    #[test]
+    fn restart_opponent_pause_re_arms_only_a_running_pause() {
+        let now = Instant::now();
+        let mut gs = GameState::new();
+        gs.game_phase = GamePhase::OpponentThinking { until: now };
+
+        gs.restart_opponent_pause();
+
+        match gs.game_phase {
+            GamePhase::OpponentThinking { until } => {
+                assert!(until > now, "a running pause re-arms from now")
+            }
+            other => panic!("expected OpponentThinking, got {other:?}"),
+        }
+
+        // Every other phase is left alone
+        gs.game_phase = GamePhase::PlayerTurn;
+        gs.restart_opponent_pause();
+        assert!(matches!(gs.game_phase, GamePhase::PlayerTurn));
     }
 
     #[test]

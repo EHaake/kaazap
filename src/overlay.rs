@@ -5,6 +5,8 @@ pub enum OverlayKind {
     GameHelp,
     MenuHelp,
     HowToPlay,
+    Primer,
+    FirstMatch,
 }
 
 #[derive(Debug)]
@@ -26,25 +28,6 @@ impl Overlay {
         self.overlay_kind
     }
 
-    /// Open a text file and read it into a Vec<String> based on OverlayKind
-    ///
-    fn read_text_from_file(&self) -> Vec<String> {
-        match self.overlay_kind {
-            OverlayKind::GameHelp => {
-                let s: &'static str = include_str!("../assets/game_overlay_text.txt");
-                s.lines().map(|line| line.to_string()).collect()
-            }
-            OverlayKind::MenuHelp => {
-                let s: &'static str = include_str!("../assets/menu_overlay_text.txt");
-                s.lines().map(|line| line.to_string()).collect()
-            }
-            OverlayKind::HowToPlay => {
-                let s: &'static str = include_str!("../assets/how_to_play_text.txt");
-                s.lines().map(|line| line.to_string()).collect()
-            }
-        }
-    }
-
     /// Size the box to the content, then draw box and text
     ///
     fn draw_overlay(&self, content: &[String], frame: &mut Frame) {
@@ -54,8 +37,38 @@ impl Overlay {
     pub fn draw(&self, frame: &mut Frame) {
         // The box sizes itself to whatever text the overlay carries — no
         // per-kind width/height constants to keep in sync with the files
-        let content = self.read_text_from_file();
+        let content = overlay_text(self.overlay_kind);
         self.draw_overlay(&content, frame);
+    }
+}
+
+/// The shipped text for an OverlayKind, as a Vec<String>. The files are
+/// compiled in with `include_str!`, so this splits a &'static str into lines
+/// rather than reading from disk.
+/// A free function so a modal that carries no `Overlay` (the onboarding
+/// pieces) draws the same shipped text through `draw_text_overlay`.
+pub fn overlay_text(kind: OverlayKind) -> Vec<String> {
+    match kind {
+        OverlayKind::GameHelp => {
+            let s: &'static str = include_str!("../assets/game_overlay_text.txt");
+            s.lines().map(|line| line.to_string()).collect()
+        }
+        OverlayKind::MenuHelp => {
+            let s: &'static str = include_str!("../assets/menu_overlay_text.txt");
+            s.lines().map(|line| line.to_string()).collect()
+        }
+        OverlayKind::HowToPlay => {
+            let s: &'static str = include_str!("../assets/how_to_play_text.txt");
+            s.lines().map(|line| line.to_string()).collect()
+        }
+        OverlayKind::Primer => {
+            let s: &'static str = include_str!("../assets/primer_text.txt");
+            s.lines().map(|line| line.to_string()).collect()
+        }
+        OverlayKind::FirstMatch => {
+            let s: &'static str = include_str!("../assets/first_match_text.txt");
+            s.lines().map(|line| line.to_string()).collect()
+        }
     }
 }
 
@@ -223,5 +236,142 @@ mod tests {
         let top = draw_scrollable_overlay(config, "Play Log", &body, 0, &mut frame);
         assert!(top.at_top);
         assert_eq!(top.scroll, 0);
+    }
+
+    #[test]
+    fn help_texts_name_the_new_keys_and_nothing_old() {
+        let game = overlay_text(OverlayKind::GameHelp);
+        let has = |rows: &[String], a: &str, b: &str| {
+            rows.iter().any(|l| l.contains(a) && l.contains(b))
+        };
+        assert!(has(&game, "Space / D", "Draw"), "no Space/D draw row: {game:?}");
+        assert!(has(&game, "Enter / P", "Play"), "no Enter/P play row: {game:?}");
+        assert!(has(&game, "1 2 3 4", "Select"), "no 1-4 select row: {game:?}");
+        assert!(
+            !game.iter().any(|l| l.contains("Enter / Space")),
+            "the game overlay still pairs Enter with Space: {game:?}"
+        );
+        assert!(
+            !has(&game, "1 2 3 4", "Play"),
+            "the game overlay still says 1-4 play a card: {game:?}"
+        );
+
+        let how = overlay_text(OverlayKind::HowToPlay);
+        assert!(
+            how.iter().any(|l| l.contains("Campaign:")),
+            "How to Play has no campaign section: {how:?}"
+        );
+        assert!(
+            how.iter().any(|l| l.contains("Space draws")),
+            "How to Play does not name Space as draw: {how:?}"
+        );
+        assert!(
+            how.iter().any(|l| l.contains("Enter plays it")),
+            "How to Play does not name Enter as play: {how:?}"
+        );
+        assert!(
+            !how.iter().any(|l| l.contains("Enter/Space")),
+            "How to Play still pairs Enter with Space: {how:?}"
+        );
+    }
+
+    #[test]
+    fn help_texts_fit_the_minimum_terminal_unclamped() {
+        // The boxes must still fit 139×31 with margin — if either outgrows the
+        // frame, OverlayLayout clamps and the rows get eaten.
+        let (cols, rows) = Config::min_size();
+        let config = Config { num_cols: cols, num_rows: rows };
+        for kind in [
+            OverlayKind::GameHelp,
+            OverlayKind::MenuHelp,
+            OverlayKind::HowToPlay,
+            OverlayKind::Primer,
+            OverlayKind::FirstMatch,
+        ] {
+            let lines = overlay_text(kind);
+            let (width, height) = measure(&lines);
+            let layout = OverlayLayout::new(config, width, height);
+            assert_eq!(
+                layout.outer.height(),
+                height + crate::V_PAD,
+                "box height clamped — {kind:?} outgrew the minimum terminal"
+            );
+            assert_eq!(
+                layout.outer.width(),
+                width + 2 * crate::H_PAD,
+                "box width clamped — {kind:?}"
+            );
+            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame: {kind:?}");
+        }
+    }
+
+    #[test]
+    fn onboarding_texts_are_the_spec_text_and_fit() {
+        // The two onboarding pieces ship the spec's text exactly, and their
+        // boxes fit the minimum terminal unclamped over the map or board.
+        let (cols, rows) = Config::min_size();
+        let config = Config { num_cols: cols, num_rows: rows };
+        for (kind, line_count, title, dismiss) in [
+            (
+                OverlayKind::Primer,
+                10,
+                "=====  Your first campaign  =====",
+                "Enter to continue",
+            ),
+            (
+                OverlayKind::FirstMatch,
+                12,
+                "=====  How a match works  =====",
+                "Enter to begin",
+            ),
+        ] {
+            let lines = overlay_text(kind);
+            assert_eq!(lines.len(), line_count, "{kind:?} is not the spec's text: {lines:?}");
+            assert_eq!(lines[0], title, "{kind:?} title row: {lines:?}");
+            assert_eq!(
+                lines[lines.len() - 1].trim(),
+                dismiss,
+                "{kind:?} dismiss line: {lines:?}"
+            );
+
+            let (width, height) = measure(&lines);
+            let layout = OverlayLayout::new(config, width, height);
+            assert_eq!(
+                layout.outer.height(),
+                height + crate::V_PAD,
+                "box height clamped — {kind:?} outgrew the minimum terminal"
+            );
+            assert_eq!(
+                layout.outer.width(),
+                width + 2 * crate::H_PAD,
+                "box width clamped — {kind:?}"
+            );
+            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame: {kind:?}");
+        }
+    }
+
+    #[test]
+    fn onboarding_texts_breathe_only_around_the_dismiss_line() {
+        // The dismiss line is the acted-on element: a blank row above it, and
+        // the box's own bottom padding row below — so the text itself must not
+        // end on a blank line, nor double up blanks anywhere else.
+        for kind in [OverlayKind::Primer, OverlayKind::FirstMatch] {
+            let lines = overlay_text(kind);
+            let last = lines.len() - 1;
+            assert!(
+                !lines[last].trim().is_empty(),
+                "{kind:?} ends on a blank line — the box already pads below: {lines:?}"
+            );
+            assert!(
+                lines[last - 1].trim().is_empty(),
+                "{kind:?} has no blank row above the dismiss line: {lines:?}"
+            );
+            for pair in lines.windows(2) {
+                assert!(
+                    !(pair[0].trim().is_empty() && pair[1].trim().is_empty()),
+                    "{kind:?} has two consecutive blank lines: {lines:?}"
+                );
+            }
+        }
     }
 }

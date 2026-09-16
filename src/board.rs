@@ -300,28 +300,14 @@ struct Selection {
 /// The single status message for the current game state, with its
 /// emphasis. `selected` / `positive` describe the cursor's current hand
 /// card so a sign-choice card's pending sign shows here (keeping the
-/// card's own face as its ± label). Precedence: over-20 alert > awaiting
-/// sign prompt (number-key path) > selected-± pending sign > cursor hint
-/// > opponent turn. Pure, so precedence is unit-testable.
+/// card's own face as its ± label). Precedence: over-20 alert (a
+/// separate line) > the player's turn prompt > opponent turn. Pure, so
+/// precedence is unit-testable.
 pub fn status_message(
     state: &GameState,
     selected: Option<Card>,
     positive: bool,
 ) -> Option<(String, Emphasis)> {
-    // Sign prompt while a plus-or-minus / tiebreaker card waits to commit
-    // (this is the direct number-key play path, answered with h/l)
-    if let GamePhase::AwaitingSignChoice { hand_index } = state.game_phase {
-        if let Some(Some(card)) = state.player.hand.get(hand_index)
-            && let Some(magnitude) = card.sign_choice_magnitude()
-        {
-            return Some((
-                format!("+{magnitude} (h) or -{magnitude} (l)? (c cancels)"),
-                Emphasis::Strong,
-            ));
-        }
-        return None;
-    }
-
     if matches!(state.game_phase, GamePhase::PlayerTurn) {
         return Some((play_prompt_line(selected, positive), Emphasis::Strong));
     }
@@ -334,21 +320,26 @@ pub fn status_message(
     }
 }
 
-/// The player's turn prompt: navigation is always shown, and the
-/// selected card gets a consistent "Play <face>?" with card-appropriate
-/// controls (sign-choice cards add the flip hint; others just Enter).
+/// The player's turn prompt: every key the turn accepts, in one row —
+/// selection, play, draw, stand — with the flip hint only on
+/// sign-choice cards and only selection-free keys when the hand is empty.
 fn play_prompt_line(selected: Option<Card>, positive: bool) -> String {
     let Some(card) = selected else {
-        // Empty hand — only hit/stand remain
-        return "←/→ card · d: draw · s: stand".to_string();
+        // Empty hand — nothing to pick or play, so only draw/stand remain
+        return "Space draw · S stand".to_string();
     };
 
     match card.sign_choice_magnitude() {
         Some(magnitude) => {
             let value = if positive { magnitude } else { -magnitude };
-            format!("←/→ card · Play {value:+}? · ↑/↓ flip · Enter")
+            format!(
+                "1-4/←/→ pick · ↑/↓ flip · Enter/P play {value:+} · Space draw · S stand"
+            )
         }
-        None => format!("←/→ card · Play {}? · Enter", card.label()),
+        None => format!(
+            "1-4/←/→ pick · Enter/P play {} · Space draw · S stand",
+            card.label()
+        ),
     }
 }
 
@@ -358,7 +349,7 @@ fn play_prompt_line(selected: Option<Card>, positive: bool) -> String {
 /// it never replaces the prompt.
 pub fn over_twenty_alert(state: &GameState) -> Option<(String, Emphasis)> {
     if matches!(state.game_phase, GamePhase::PlayerTurn) && state.player.score() > 20 {
-        Some(("OVER 20!  (d/s: bust)".to_string(), Emphasis::Alert))
+        Some(("OVER 20!  (Space/D/S: bust)".to_string(), Emphasis::Alert))
     } else {
         None
     }
@@ -376,13 +367,12 @@ mod tests {
     }
 
     #[test]
-    fn status_player_turn_shows_nav_and_play_prompt_strong() {
+    fn status_player_turn_with_no_selection_shows_draw_and_stand_strong() {
         let gs = GameState::new(); // starts in PlayerTurn
+        // msg() passes no selection → the empty-hand shape: only the
+        // keys that still do something.
         let (text, emphasis) = msg(&gs).unwrap();
-        // Nav is always present; with a fixed card selected there's no
-        // flip hint (msg() passes None → empty-hand hint, so check a
-        // selected fixed card explicitly below); here just the nav.
-        assert!(text.starts_with("←/→ card"));
+        assert_eq!(text, "Space draw · S stand");
         assert_eq!(emphasis, Emphasis::Strong);
     }
 
@@ -392,27 +382,42 @@ mod tests {
         let card = Some(Card::PlusMinus(3));
 
         let (pos, _) = status_message(&gs, card, true).unwrap();
-        assert_eq!(pos, "←/→ card · Play +3? · ↑/↓ flip · Enter");
+        assert_eq!(
+            pos,
+            "1-4/←/→ pick · ↑/↓ flip · Enter/P play +3 · Space draw · S stand"
+        );
 
         let (neg, _) = status_message(&gs, card, false).unwrap();
-        assert_eq!(neg, "←/→ card · Play -3? · ↑/↓ flip · Enter");
+        assert_eq!(
+            neg,
+            "1-4/←/→ pick · ↑/↓ flip · Enter/P play -3 · Space draw · S stand"
+        );
 
         // The tiebreaker (magnitude 1) works the same way
         let (tb, _) = status_message(&gs, Some(Card::Tiebreaker), false).unwrap();
-        assert_eq!(tb, "←/→ card · Play -1? · ↑/↓ flip · Enter");
+        assert_eq!(
+            tb,
+            "1-4/←/→ pick · ↑/↓ flip · Enter/P play -1 · Space draw · S stand"
+        );
     }
 
     #[test]
     fn status_selected_fixed_card_shows_play_with_no_flip_hint() {
         let gs = GameState::new();
         let (text, _) = status_message(&gs, Some(Card::Plus(4)), true).unwrap();
-        assert_eq!(text, "←/→ card · Play +4? · Enter");
+        assert_eq!(
+            text,
+            "1-4/←/→ pick · Enter/P play +4 · Space draw · S stand"
+        );
         assert!(!text.contains("flip")); // nothing to flip on a fixed card
 
         // Flip cards read the same consistent way
         let (flip, _) =
             status_message(&gs, Some(Card::Flip(crate::card::FlipKind::TwoFour)), true).unwrap();
-        assert_eq!(flip, "←/→ card · Play 2&4? · Enter");
+        assert_eq!(
+            flip,
+            "1-4/←/→ pick · Enter/P play 2&4 · Space draw · S stand"
+        );
     }
 
     fn over_20_game() -> GameState {
@@ -430,7 +435,7 @@ mod tests {
     fn status_over_twenty_alert_is_its_own_line() {
         let gs = over_20_game();
         let (text, emphasis) = over_twenty_alert(&gs).unwrap();
-        assert!(text.starts_with("OVER 20"));
+        assert_eq!(text, "OVER 20!  (Space/D/S: bust)");
         assert_eq!(emphasis, Emphasis::Alert);
     }
 
@@ -440,11 +445,14 @@ mod tests {
         // still shows (on the row below the alert)
         let gs = over_20_game();
         let (text, _) = status_message(&gs, Some(Card::PlusMinus(3)), false).unwrap();
-        assert_eq!(text, "←/→ card · Play -3? · ↑/↓ flip · Enter");
+        assert_eq!(
+            text,
+            "1-4/←/→ pick · ↑/↓ flip · Enter/P play -3 · Space draw · S stand"
+        );
 
         // and the base prompt still renders (the alert is a separate line)
         let (hint, _) = status_message(&gs, None, true).unwrap();
-        assert!(hint.starts_with("←/→ card"));
+        assert_eq!(hint, "Space draw · S stand");
     }
 
     #[test]
@@ -454,13 +462,45 @@ mod tests {
     }
 
     #[test]
-    fn status_sign_prompt_shows_the_cards_magnitude() {
+    fn status_never_shows_a_sign_prompt() {
+        // No key reaches AwaitingSignChoice any more — the sign is chosen
+        // in the hand with ↑/↓ before Enter/P, so the phase has no hint.
         let mut gs = GameState::new();
         gs.player.hand[0] = Some(Card::PlusMinus(3));
         gs.game_phase = GamePhase::AwaitingSignChoice { hand_index: 0 };
-        let (text, emphasis) = msg(&gs).unwrap();
-        assert_eq!(text, "+3 (h) or -3 (l)? (c cancels)");
-        assert_eq!(emphasis, Emphasis::Strong);
+        assert_eq!(msg(&gs), None);
+        assert_eq!(status_message(&gs, Some(Card::PlusMinus(3)), true), None);
+    }
+
+    #[test]
+    fn turn_hints_fit_the_status_band() {
+        let (num_cols, num_rows) = Config::min_size();
+        let band = BoardLayout::new(Config { num_cols, num_rows }).status.width();
+        let gs = GameState::new(); // PlayerTurn
+
+        // Every prompt shape, each with its widest label: empty hand,
+        // fixed, flip (2&4 / 3&6 — the widest face a hand can hold), and
+        // the ± / tiebreaker line with its extra flip hint.
+        let shapes = [
+            None,
+            Some(Card::Plus(6)),
+            Some(Card::Flip(crate::card::FlipKind::ThreeSix)),
+            Some(Card::PlusMinus(6)),
+            Some(Card::Tiebreaker),
+        ];
+        for selected in shapes {
+            for positive in [true, false] {
+                let (text, _) = status_message(&gs, selected, positive).unwrap();
+                assert!(
+                    text.chars().count() <= band,
+                    "hint {text:?} is {} chars, band is {band}",
+                    text.chars().count()
+                );
+            }
+        }
+
+        let (alert, _) = over_twenty_alert(&over_20_game()).unwrap();
+        assert!(alert.chars().count() <= band);
     }
 
     #[test]

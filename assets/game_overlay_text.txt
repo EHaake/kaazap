@@ -1,10 +1,9 @@
 === Controls ===
 
-  ← / →          Select a hand card
+  1 2 3 4 / ← →  Select a hand card
   ↑ / ↓          Flip a ± card's sign
-  Enter / Space  Play the selected card
-  1 2 3 4        Play a hand card
-  D              Draw a card (ends turn)
+  Enter / P      Play the selected card
+  Space / D      Draw a card (ends turn)
   S              Stand (ends turn)
   N / Space      Next round
   G / Space      New game
@@ -13,4 +12,4 @@
   ?              Close this overlay
 
   Ctrl-P/N/B/F mirror the arrow keys.
-  Over 20: D or S accepts the bust.
+  Over 20: Space, D or S accepts the bust.

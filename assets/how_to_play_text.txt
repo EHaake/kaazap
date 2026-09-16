@@ -15,4 +15,10 @@ holds 12 cards; filling it stands you.
 Over 20 isn't bust - recover with a minus
 card, or press d/s to bust.
 
-Play with 1-4 or arrows + Enter/Space. ? closes.
+Campaign: every match is staked. Win and it
+comes back doubled; lose and it's gone. Go
+broke and the run resets. The Outfitter sells
+cards; the ante rises as you go deeper.
+
+1-4 or ←/→ pick a card, Enter plays it,
+Space draws, S stands. ? closes.
