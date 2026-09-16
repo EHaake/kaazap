@@ -108,6 +108,21 @@ silently wrong under the tests'), and keeping two app-level calls plus a third
 `record_first_clear` (an ordering rule spanning three calls, unverifiable
 without an App that writes to disk).
 
+**`settle_campaign_match` keeps its `Option<StakeOutcome>` signature**, and
+`resolve_match` — not settlement — owns the two new outputs: it captures
+`was_complete` before settling, computes `completed_run = !was_complete &&
+run_complete()` after, and derives both credit-counter bumps from the returned
+`StakeOutcome::{Won, Lost}(stake)`. Reason (sign-off B2): flipping settlement's
+return type would break `app.rs:1538`'s call site and nine `assert_eq!`s in
+`profile.rs`'s settling tests in the *same* task that adds the new method, so
+the data-model task could not build or test green on its own. The cost is that
+the completion edge is evaluated twice — once inside settlement for the
+completions counter, once in `resolve_match` for the signal — pinned by a test
+asserting the two always agree (`completions` increments **iff**
+`completed_run`). The only existing test that becomes vacuous,
+`a_rematch_settles_for_credits_but_changes_no_progress_or_completions`, is
+re-pointed at `resolve_match`. Worth a `DECISIONS.md` line at close-out.
+
 ### 2. The completion signal reaches the notice as a one-shot App flag
 
 The notice is raised on the **acknowledgement** of the game-over popup, one key
@@ -144,6 +159,11 @@ row 1 and the choices move to row 3, hint row 5, height 6 — otherwise the note
 would sit flush against the acted-on row, which the design brief forbids and
 which this spec's own New Campaign confirm would show whenever a stake is in
 flight. This is a correction inside a screen this spec changes, not new scope.
+It also changes the **spec-021 discard-a-save confirm** (`draw_confirm_new_game`,
+which passes the same `stake_forfeit_note`) — the only other note-carrying
+panel, and the same rule applies to it. The row placement is a pure
+`choice_rows(note_present) -> (note_row, choice_row, hint_row, height)` so both
+cases are pinned by a test rather than by reading the draw fn.
 
 ### 5. `player_deck_for` is deleted rather than kept with one branch
 
@@ -244,6 +264,10 @@ Credits won {won}  ·  lost {lost}
 Best streak {longest}  ·  Worlds cleared {cleared}/{total}
 ```
 
+`{total}` is `PLANETS.len()`, which is **8** — the spec's example lines (`7/7`,
+`2/7`, and its match/credit figures) are illustrative, not values to hard-code;
+the orchestrator has corrected them to `8`. Nothing here is a constant.
+
 ### 2. `src/campaign.rs` — one derived count
 
 ```rust
@@ -259,6 +283,7 @@ this. Nothing else in `campaign.rs` changes.
 
 ```rust
 /// How a finished campaign match settled (spec 024).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)] // StakeOutcome is already Copy
 pub struct Settlement {
     pub outcome: StakeOutcome,
     /// Whether this settlement was the win that **completed the run** — the
@@ -282,7 +307,27 @@ pub fn resolve_match(
     player_won: bool,
     player_rounds: u32,
     opp_rounds: u32,
-) -> Option<Settlement>
+) -> Option<Settlement> {
+    let mode = if self.campaign.in_progress().is_some() {
+        Mode::Campaign
+    } else {
+        Mode::QuickPlay
+    };
+    self.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
+    let was_complete = self.campaign.run_complete();
+    let outcome = self.settle_campaign_match(player_won)?;
+    let tally = self.campaign.run_stats_mut();
+    match outcome {
+        StakeOutcome::Won(stake) => {
+            tally.record_credits_won(economy::win_payout(stake).saturating_sub(stake))
+        }
+        StakeOutcome::Lost(stake) => tally.record_credits_lost(stake),
+    }
+    Some(Settlement {
+        outcome,
+        completed_run: !was_complete && self.campaign.run_complete(),
+    })
+}
 
 /// Reset the campaign map only — spec 024's New Campaign: the beaten set, the
 /// in-flight pointer (and its escrowed stake) and the run tally all go with
@@ -300,14 +345,23 @@ pub fn differs_from_starter(&self) -> bool
 ```
 
 `record_match` and `settle_campaign_match` lose their `pub` (T003, once
-`app.rs` no longer calls them). Inside `settle_campaign_match`:
+`app.rs` no longer calls them); their **signatures and bodies are otherwise
+untouched** (tension §1), with one exception: the completion edge inside
+`settle_campaign_match` now passes the run tally's `matches_played()` to
+`record_campaign_completion` —
 
-- a win adds `win_payout(stake).saturating_sub(stake)` to
-  `run_stats.credits_won`; a loss adds `stake` to `credits_lost` — both before
-  the win/loss branch returns, both zero-safe for a stake-0 pointer;
-- the completion edge passes `self.campaign.run_stats().matches_played()` to
-  `record_campaign_completion` and the method returns
-  `Settlement { outcome, completed_run }`.
+```rust
+let matches = self.campaign.run_stats().matches_played();
+self.stats.record_campaign_completion(matches);
+```
+
+— which lands in **T001** with the signature change, since the crate must
+compile at the end of every task (sign-off B1). Between T001 and T003 the app
+still settles before recording, so a completion reached in that window would
+record a number one short; nothing reads `first_clear_matches` until T006, and
+T003 puts the order right, so it is invisible. The credit counters are bumped
+by `resolve_match` from the returned `StakeOutcome`, never inside settlement,
+so a stake-0 pointer adds zero to both.
 
 ### 4. `src/app.rs` — the victory notice, the three-choice entry, the deal
 
@@ -361,6 +415,11 @@ fn victory_notice_lines(run: &RunStats, cleared: usize, total: usize) -> Vec<Str
 fn run_over_notice_lines(run: &RunStats, cleared: usize, total: usize) -> Vec<String>
 /// The width of a choice row: the labels, their markers, and the gaps between.
 fn choice_row_width(labels: &[&str]) -> usize
+/// Where a choice panel's rows sit, and how tall its content is (spec 024,
+/// design brief §Density and breathing room): the acted-on choice row keeps a
+/// blank row above and below it, so a panel carrying a note is one row taller.
+/// Returns `(note_row, choice_row, hint_row, height)`.
+fn choice_rows(note_present: bool) -> (usize, usize, usize, usize)
 ```
 
 Contents, in order (blank strings are blank rows):
@@ -392,7 +451,10 @@ Wiring:
   `if let Some(s) = self.profile.resolve_match(opponent_id, player_won,
   player_rounds, opp_rounds) { self.banner = Some(MapBanner::Settled(s.outcome));
   self.victory_due |= s.completed_run; }` followed by the existing
-  `self.profile.save()`. The block's comment is rewritten; `mode` and the
+  `self.profile.save()`. The block's comment is rewritten to describe
+  `resolve_match` and the record-then-settle order **without naming
+  `settle_campaign_match`, `record_match` or `Mode`** (those identifiers must
+  be absent from `app.rs` afterwards, which is T003's check); `mode` and the
   `stats::Mode` import go.
 - **`enter_campaign_map`** takes `victory_due` from the flag and passes it:
   `let victory_due = std::mem::take(&mut self.victory_due);` then
@@ -431,7 +493,8 @@ Wiring:
   fn's doc drops the "Quick Play deals the standard deck" paragraph and keeps
   the deck-valid precondition (which now binds Quick Play again, via the
   existing `open_opponent_select` divert).
-- **`draw_choice_panel`** (tension §4) replaces `draw_two_choice`;
+- **`draw_choice_panel`** (tension §4) replaces `draw_two_choice` and places its
+  rows with `choice_rows(note.is_some())`;
   `draw_confirm_new_game` passes `["Yes", "No"]`, `draw_confirm_reset` passes
   the scope's title (`"New campaign? Resets the map; you keep your cards and
   credits."` / `"Reset everything? Erases progress, credits & cards."`) with
@@ -466,16 +529,30 @@ and today's `Campaign completions: N` when unset. Still exactly one line, so
 `by_opponent_table_is_anchored_across_breakdown_views` keeps holding; the box
 widens by content measurement as it already does for every view.
 
-### 7. `src/opponent_select.rs`, `README.md`, `docs/balance.md`
+### 7. The texts that describe the old rules
 
-- `QUICK_PLAY_NOTE` becomes `"Quick Play deals your deck. Nothing is staked."`
-  (rows and footer reserve unchanged — the note is still one Muted line at
-  `y + 4`).
-- `README.md` lines 82–88: New Campaign is described as resetting the map while
-  keeping cards and credits, with Reset Everything named as the full wipe; the
-  Quick Play sentence drops "and deals you the **standard** side deck — campaign
-  matches deal the one you built" for a statement that every match deals the
-  deck you built.
+The spec's last acceptance criterion was amended by the orchestrator to allow
+**doc-comment corrections** in the otherwise-frozen engine files: "No code
+change in `game.rs` / `player.rs` / `card.rs` / `save.rs` / `economy.rs` or the
+AI — a doc comment that still says Quick Play deals the standard deck may be
+corrected, nothing else."
+
+- `src/opponent_select.rs`: `QUICK_PLAY_NOTE` becomes `"Quick Play deals your
+  deck. Nothing is staked."` (rows and footer reserve unchanged — the note is
+  still one Muted line at `y + 4`).
+- **Comment-only corrections** (no code): `src/card.rs:106-108`
+  (`DEFAULT_SIDE_DECK`'s doc), `:147-148` (`deal_hand`'s doc), `:433` (a test
+  comment), and `src/profile.rs:13` and `:826-827` ("the standard pool … and
+  Quick Play's deck"). Each keeps the standard deck's real remaining role —
+  the opponents' baseline — and drops the claim that Quick Play deals it.
+- `README.md`: line 71 ("the 10 cards your hand is dealt from each **campaign**
+  match" — now every match), lines 82–83 (the Start Campaign panel's trigger is
+  now progress *or* a pool that differs from the starter, and its choices are
+  three), and lines 85–88 (New Campaign resets the map while cards and credits
+  stay; Reset Everything is the full wipe; Quick Play deals the deck you built —
+  dropping "deals you the **standard** side deck — campaign matches deal the one
+  you built").
+- `docs/economy.md:69-70`: the same Quick Play correction.
 - `docs/balance.md` gains a short **### Replays** subsection after *### The
   economy bounds*: the measured curve describes a starter-deck run; since spec
   024 a New Campaign keeps the pool, so a replay starts premium and is easier
@@ -485,14 +562,23 @@ widens by content measurement as it already does for every view.
 
 `specs/024-endgame-victory/closeout-main-docs.md` (023's shape): **ROADMAP** —
 the endgame/victory item and the "run summary on the run-over notice" backlog
-item ship together. **DECISIONS** — spec 024's six resolved decisions; the
+item ship together, **plus inline "superseded by spec 024, which …"
+annotations** (the repo's convention, ROADMAP lines 95–98) on the shipped
+entries that now describe superseded behavior in the present tense: lines
+173–175 (New Campaign as a full fresh start), 284–285 (the standard deck as
+what Quick Play deals) and 489 (spec 023 shipping the "Quick Play deals the
+standard deck." line). **DECISIONS** — spec 024's six resolved decisions; the
 reversal of spec 022's "Quick Play deals the standard (premium) deck" and of
 spec 014's "New Campaign = full fresh start" (both quoted as superseded, with
 the reason: since spec 021 every match is even money, so a replay earns no
 more than rematches already can, and going broke becomes the only thing that
 takes the pool — which also answers spec 021's casual-versus-roguelike
 question in the casual direction); tension §1 (one `resolve_match` owns the
-record-then-settle order), §2 (the victory flag is transient App state), §5
+record-then-settle order **and** the completion signal, leaving
+`settle_campaign_match`'s signature alone so each task builds green — the edge
+is evaluated twice, pinned by a test that the two always agree), §2 (the
+victory flag is transient App state), §4 (the choice panel's note-aware
+breathing room, which also corrects the spec-021 discard confirm), §5
 (`player_deck_for` deleted), §7 (the Reset Everything title).
 
 ## Files
@@ -513,13 +599,14 @@ record-then-settle order), §2 (the victory flag is transient App state), §5
 - `src/campaign_map.rs` — `axis_line`, `draw_header`; test.
 - `src/records.rs` — the Campaign completions line; tests.
 - `src/opponent_select.rs` — `QUICK_PLAY_NOTE`; test.
-- `README.md`, `docs/balance.md`.
+- `src/card.rs` — **doc comments only** (three sites, §Design 7).
+- `README.md`, `docs/economy.md`, `docs/balance.md`.
 - `specs/024-endgame-victory/closeout-main-docs.md` (T010).
-- **No change**: `game.rs`, `player.rs`, `card.rs`, `save.rs`, `economy.rs`,
+- **No change**: `game.rs`, `player.rs`, `save.rs`, `economy.rs`,
   `wager.rs`, `shop.rs`, `deck_builder.rs`, `menu.rs`, `layout.rs`, `frame.rs`,
   `render.rs`, `audio.rs`, `banter.rs`, `play_log.rs`, `overlay.rs`,
   `board.rs`, `opponent.rs`, `settings.rs`, `assets/*`, `tests/balance.rs`,
-  `docs/economy.md`, `docs/opponents.md`, `Cargo.toml`, `Cargo.lock`.
+  `docs/opponents.md`, `Cargo.toml`, `Cargo.lock`.
 
 ## Tests
 
@@ -560,6 +647,10 @@ Each claim names the task that owns its check. Driver items are marked.
   rematch win on the complete run → `completed_run: false`; a match with no
   pointer → `None`, and it still recorded to Quick Play lifetime stats (not to
   the run tally).
+- **The two evaluations of the completion edge agree** (T002, tension §1):
+  across a whole run driven through `resolve_match` — every win, every loss,
+  and a rematch afterwards — `campaign_completions` increases on exactly the
+  resolutions that return `completed_run: true`, and on no others.
 - **The map-only reset keeps the pool, the full reset doesn't** (T002): on a
   dirtied profile (progress, in-flight staked pointer, bought card, edited
   deck, credits, lifetime stats, both onboarding marks),
@@ -584,10 +675,16 @@ Each claim names the task that owns its check. Driver items are marked.
   in order between the spec'd blocks, the run-over notice still contains its
   reset note *after* the summary; `OverlayLayout::new(min_config, widest,
   lines.len())` is unclamped (box width < 139, height < 31) for both.
-- **The choice row fits** (T004 or T007 — T007): `choice_row_width(["Continue",
+- **The choice row fits** (T007): `choice_row_width(["Continue",
   "New Campaign", "Reset Everything"])` plus the widest title measured through
   `OverlayLayout` at 139×31 is unclamped; the three labels are exactly the
   spec's.
+- **The choice row breathes, note or no note** (T007, tension §4):
+  `choice_rows(false)` → `(1, 2, 4, 5)` (the note row is unused) and
+  `choice_rows(true)` → `(1, 3, 5, 6)` — so in both cases `choice_row − 1` and
+  `choice_row + 1` are rows nothing is drawn on, and with a note the note row
+  is not the row above the choices. Covers the spec-021 discard confirm, which
+  passes the same note.
 - **The highlight steps and wraps** (T007): `CampaignChoice::step` forward from
   Continue → NewCampaign → ResetEverything → Continue, and backward the
   reverse; `confirm_choice` still commits only on Enter/Space with Yes (the
@@ -602,8 +699,9 @@ Each claim names the task that owns its check. Driver items are marked.
   in 14 matches`; the existing anchored-table and completions-line tests pass
   unchanged.
 - **Quick Play deals the built deck** (T008): *structural + driver* — `grep -n
-  "DEFAULT_SIDE_DECK\|Mode::" src/app.rs` is empty (so the standard deck is not
-  nameable there) and `start_match` has one deal expression; the existing
+  "DEFAULT_SIDE_DECK\|player_deck_for" src/app.rs` is empty (so the standard
+  deck is not nameable there) and `start_match` has one deal expression; the
+  existing
   `quick_play_deals_the_standard_deck_and_campaign_deals_the_built_one` test is
   deleted with `player_deck_for`. The behavioral check is the Phase 3 driver
   run with a non-standard built deck (tension §5, §Open questions 1).
@@ -611,7 +709,7 @@ Each claim names the task that owns its check. Driver items are marked.
   your deck. Nothing is staked."`, and the existing
   `the_full_roster_and_footer_fit_the_minimum_terminal` still passes with the
   note and hint rows on-frame.
-- **The victory notice's once-only edge, in play** — *driver* (Phase 2 pause,
+- **The victory notice's once-only edge, in play** — *driver* (after Phase 2,
   profile + saves backed up and checksum-restored): a scratch profile driven to
   the final node → the completing win's acknowledgement lands on the map with
   the notice; map keys do nothing under it; Enter dismisses and the settled
@@ -620,18 +718,26 @@ Each claim names the task that owns its check. Driver items are marked.
   no notice but the completion still counted; the Records Campaign view shows
   the first-clear line.
 - **No engine / AI / economy / save change** (T010 sweep): `git diff main
-  --stat` lists no `game.rs`, `player.rs`, `card.rs`, `save.rs`, `economy.rs`,
-  `wager.rs`, `tests/balance.rs`, `Cargo.toml`, `Cargo.lock`;
-  `PROFILE_VERSION == 1`, `SAVE_VERSION == 1`; warning count equals `main`'s.
+  --stat` lists no `game.rs`, `player.rs`, `save.rs`, `economy.rs`,
+  `wager.rs`, `tests/balance.rs`, `Cargo.toml`, `Cargo.lock`, and
+  `git diff main -- src/card.rs` contains only comment lines (the amended
+  acceptance criterion, §Design 7); `PROFILE_VERSION == 1`, `SAVE_VERSION == 1`;
+  warning count equals `main`'s; `grep -rn "standard deck\|standard pool\|\*\*standard\*\*"
+  src README.md docs` shows no line saying Quick Play is dealt one (the README's
+  old claim is line-broken across `**standard**` and `side deck`, so all three
+  patterns are searched).
 
 ## Verification
 
 - `cargo build --all-targets 2>&1 | tail -n 20 && cargo test -q 2>&1 | tail -n 25`
   — no new warnings, reported verbatim per the constitution.
 - **Driver / person attestation** (back up + checksum-restore the real profile
-  and saves first, and drive a scratch profile): **Phase 2 pause** — the
+  and saves first, and drive a scratch profile). Under the person's 2026-09-15
+  ruling implementation runs straight through, so these are driven by the
+  orchestrator and **reported** at each phase rather than stopped at:
+  **after Phase 2** — the
   victory notice on a completed run, the completed marker, the run-over notice
-  with its summary (drive a profile broke), both at 139×31; **Phase 3 pause** —
+  with its summary (drive a profile broke), both at 139×31; **after Phase 3** —
   Start Campaign's three choices on a profile with a pool, New Campaign keeping
   cards and credits while clearing the map, Reset Everything wiping, Esc and No
   changing nothing, New Campaign on a near-empty balance meeting the run-over
@@ -660,4 +766,10 @@ design and flagged for the sign-off and the person:
    spec quotes only the tail.
 3. **The confirm panels gain a blank row above the choice row when a note is
    showing** (tension §4), correcting a standing breathing-room miss on a
-   screen this spec already changes.
+   screen this spec already changes — including the spec-021 discard-a-save
+   confirm, the other panel that carries a note.
+4. **The Records *This Run* view is not extended.** It keeps today's lines (the
+   run's matches, won/lost, win rate and streak); the new credit counters and
+   the worlds-cleared figure appear on the two notices only. The spec was
+   corrected to say so — read no promise of a wider This Run view into
+   "the summary numbers stay readable on the Records screen".

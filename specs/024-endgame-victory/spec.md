@@ -132,7 +132,7 @@ fields only; `PROFILE_VERSION` stays 1.
 
   Matches played 14  ·  won 11  ·  lost 3
   Credits won 640  ·  lost 210
-  Best streak 6  ·  Worlds cleared 7/7
+  Best streak 6  ·  Worlds cleared 8/8
 
                     Enter  continue
   ```
@@ -143,8 +143,9 @@ fields only; `PROFILE_VERSION` stays 1.
   banner for the completing win shows in the header until the first
   navigation, as any settled banner does.
 - Quitting with the notice up loses the notice. The completion is already
-  counted and paid at settlement; the summary numbers stay readable on the
-  Records screen's This Run view.
+  counted and paid at settlement; the run's matches and streak stay readable
+  on the Records screen's This Run view (the credit counters and worlds
+  cleared are shown on the notices only).
 
 ### The run summary on the run-over notice
 
@@ -158,7 +159,7 @@ fields only; `PROFILE_VERSION` stays 1.
 
   Matches played 9  ·  won 3  ·  lost 6
   Credits won 80  ·  lost 130
-  Best streak 2  ·  Worlds cleared 2/7
+  Best streak 2  ·  Worlds cleared 2/8
 
   Deck, collection, and progress reset to the starter; your records stay.
 
@@ -295,8 +296,9 @@ fields only; `PROFILE_VERSION` stays 1.
       the run-over notice shows.
 - [ ] Both notices and the three-choice panel fit 139×31 over their screens,
       follow the breathing-room rule, and are monochrome.
-- [ ] `git diff main --stat` shows no `src/game.rs`, `src/player.rs`,
-      `src/card.rs`, `src/save.rs`, `src/economy.rs` or AI change;
+- [ ] No code change in `src/game.rs`, `src/player.rs`, `src/card.rs`,
+      `src/save.rs`, `src/economy.rs` or the AI — a doc comment that still
+      says Quick Play deals the standard deck may be corrected, nothing else;
       `PROFILE_VERSION` and `SAVE_VERSION` are 1; `cargo test` is green.
 
 ## Resolved decisions

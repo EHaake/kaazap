@@ -50,11 +50,21 @@ is nothing new to see on screen yet. -->
   saturating). Add `#[serde(default)] first_clear_matches: Option<u32>` to
   `LifetimeStats` with its accessor, and give `record_campaign_completion` a
   `matches_played: u32` parameter that sets the record **only when
-  `campaign_completions == 0`** (plan §Design 1, exact body) — update its one
-  production caller's signature expectation in T002, and the `records.rs` test
-  that calls it (`campaign_has_completions_line_others_do_not`) to pass a
-  number. Add `pub fn run_summary_lines(run, worlds_cleared, worlds_total) ->
-  [String; 3]` with the three exact format strings in plan §Design 1. Tests:
+  `campaign_completions == 0`** (plan §Design 1, exact body). Update both
+  callers in this task, so the crate builds green at its end (sign-off B1):
+  `src/profile.rs:252` becomes
+  `let matches = self.campaign.run_stats().matches_played();` then
+  `self.stats.record_campaign_completion(matches);` (disjoint field borrows),
+  and the `records.rs` test that calls it
+  (`campaign_has_completions_line_others_do_not`) passes a number. Note in the
+  `settle_campaign_match` doc that the number is the run's matches played
+  *including* the completing match once `resolve_match` (T003) owns the order —
+  until then the app still settles before recording, so a completion reached
+  between T001 and T003 would record one short; nothing reads the record until
+  T006, so it is invisible. Add `pub fn run_summary_lines(run, worlds_cleared,
+  worlds_total) -> [String; 3]` with the three exact format strings in plan
+  §Design 1 (`worlds_total` is `PLANETS.len()` = 8 at the call sites; the
+  spec's example figures are illustrative). Tests:
   `run_counters_default_zero_round_trip_and_accumulate`,
   `the_first_completion_sets_the_record_and_later_ones_never_do` (including the
   deserialized-with-completions case — plan §Tests bullet 2), and
@@ -62,33 +72,40 @@ is nothing new to see on screen yet. -->
   `RunStats::record_match` field + method shape and the `win_rate_*` test shape
   in the same file.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
-  (reported verbatim) with the three tests named passing; `git diff --stat`
-  shows only `src/stats.rs` and `src/records.rs`.*
+  (reported verbatim) with the three tests named passing and every existing
+  `profile.rs` test passing unchanged; `git diff --stat` shows only
+  `src/stats.rs`, `src/profile.rs` and `src/records.rs`, and the `profile.rs`
+  hunk is only the `record_campaign_completion` call site and its doc.*
 
 - [ ] **T002 (foundational, `review: per-task`)** — `src/profile.rs` +
   `src/campaign.rs`: the resolution seam, the map-only reset, and the entry
   predicate. In `campaign.rs` add `pub fn worlds_cleared(&self) -> usize` (plan
-  §Design 2). In `profile.rs` add `pub struct Settlement { pub outcome:
-  StakeOutcome, pub completed_run: bool }` and `pub fn resolve_match(&mut self,
-  opponent_id, player_won, player_rounds, opp_rounds) -> Option<Settlement>`
-  exactly as plan §Design 3 (doc included — it records **then** settles, and
-  derives `Mode` from the in-flight pointer); inside `settle_campaign_match`,
-  bump `credits_won` by `win_payout(stake).saturating_sub(stake)` on a win and
-  `credits_lost` by the stake on a loss, pass
-  `run_stats().matches_played()` to `record_campaign_completion`, and return the
-  `Settlement` with `completed_run` set from the existing `!was_complete &&
-  run_complete()` edge. Add `pub fn reset_campaign_run(&mut self)` (`self.campaign
-  = CampaignRun::default()`, doc per plan) and `pub fn differs_from_starter(&self)
-  -> bool` (progress, or credits / collection / deck differing from the
-  starter). `record_match` and `settle_campaign_match` stay `pub` **in this
-  task** (T003 privatizes them once `app.rs` stops calling them);
-  `reset_to_starter` is unchanged. Tests (plan §Tests bullets 4–10): rewrite
+  §Design 2). In `profile.rs` add `#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+  pub struct Settlement { pub outcome: StakeOutcome, pub completed_run: bool }`
+  and `pub fn resolve_match(&mut self, opponent_id, player_won, player_rounds,
+  opp_rounds) -> Option<Settlement>` exactly as plan §Design 3 (doc and body
+  included — it records, captures `was_complete`, settles, bumps the two credit
+  counters from the returned `StakeOutcome`, and reports the edge).
+  **`settle_campaign_match` is not touched in this task** — its signature and
+  body stay as T001 left them, so `app.rs`'s call site and every existing
+  settling test still compile (sign-off B2, plan tension §1). Add `pub fn
+  reset_campaign_run(&mut self)` (`self.campaign = CampaignRun::default()`, doc
+  per plan) and `pub fn differs_from_starter(&self) -> bool` (progress, or
+  credits / collection / deck differing from the starter). `record_match` and
+  `settle_campaign_match` stay `pub` **in this task** (T003 privatizes them once
+  `app.rs` stops calling them); `reset_to_starter` is unchanged. Tests (plan
+  §Tests bullets 4–11): re-point
   `campaign_completion_counts_only_a_final_clearing_win_and_recounts_after_reset`'s
-  `win_node` helper to drive `resolve_match`, and add
+  `win_node` helper and
+  `a_rematch_settles_for_credits_but_changes_no_progress_or_completions` at
+  `resolve_match` (the latter would otherwise be vacuous — it calls settlement
+  directly, which no longer carries the new outputs), and add
   `settlement_moves_the_run_credit_counters_and_nothing_else_does`,
   `the_run_counters_and_first_clear_round_trip_and_default_for_older_profiles`,
   `the_first_clear_counts_the_completing_match_and_survives_a_replay`,
   `resolve_match_reports_the_completion_edge_and_skips_quick_play`,
+  `the_completion_edge_and_the_completions_counter_always_agree` (bullet 8 —
+  the two evaluations of `!was_complete && run_complete()`),
   `new_campaign_resets_the_map_and_keeps_the_pool`,
   `the_entry_panel_shows_whenever_the_run_or_the_pool_differs_from_the_starter`,
   and in `campaign.rs` `worlds_cleared_counts_cleared_planets`. The private
@@ -97,8 +114,9 @@ is nothing new to see on screen yet. -->
   shape, the `reset_to_starter_wipes_the_run_but_preserves_lifetime_stats_and_onboarding_marks`
   test, and `is_broke`'s pure-predicate shape.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
-  verbatim with the seven tests named passing and every existing `settling_*` /
-  `staking_*` / `a_rematch_settles_*` / `is_broke_*` test passing unchanged;
+  verbatim with the eight tests named passing and every existing `settling_*` /
+  `staking_*` / `is_broke_*` test passing **unchanged** (they assert on
+  `Option<StakeOutcome>`, which this task leaves alone);
   `git diff --stat` shows only `src/profile.rs` and `src/campaign.rs`; the
   implementer's report quotes the `resolve_match` body and the completion-edge
   lines verbatim. Orchestrator re-runs the verification command itself before
@@ -111,7 +129,9 @@ is nothing new to see on screen yet. -->
   the `completed_run` flag is consumed in T004, so **ignore it here** — do not
   add an unread field), delete the local `mode` computation and the `stats::Mode`
   import, and rewrite the block's comment to say that one method now owns
-  record-then-settle and why the order matters (plan tension §1). Then make
+  record-then-settle and why the order matters (plan tension §1) — the comment
+  must **not** name `settle_campaign_match`, `record_match` or `Mode`, since the
+  Verify below greps for those identifiers. Then make
   `Profile::record_match` and `Profile::settle_campaign_match` private (drop
   `pub`); their `profile.rs` tests are in the same module and keep working.
   No behavior change is expected in this task. (Copies nothing new — it is a
@@ -125,7 +145,8 @@ is nothing new to see on screen yet. -->
 
 <!-- The notices first (T004, which also introduces the victory flag the tick
 block set up), then the map marker (T005) and the Records line (T006). Phase
-ends with a pause: the person sees a completed run. -->
+ends with a review and a driver walkthrough of a completed run — reported, not
+stopped at (the person's 2026-09-15 run-straight-through ruling). -->
 
 - [ ] **T004** — `src/app.rs`: the victory notice and the run summary on both
   notices. Add `Modal::Victory` (unit-like, doc-commented like `RunOver`) and
@@ -145,9 +166,9 @@ ends with a pause: the person sees a completed run. -->
   everything else swallowed) and the two `draw` arms. Both builders read
   `profile.campaign().run_stats()`, `…worlds_cleared()` and `PLANETS.len()`.
   Tests: `map_entry_modal_prefers_run_over_then_victory_then_primer` (plan
-  §Tests bullet 11), `notice_dismissed_on_enter_space_or_esc_only` (renamed),
+  §Tests bullet 12), `notice_dismissed_on_enter_space_or_esc_only` (renamed),
   and `both_notices_read_right_breathe_and_fit_the_minimum_terminal` (bullet
-  13 — exact first/last lines, the blank row above the dismiss line, no two
+  14 — exact first/last lines, the blank row above the dismiss line, no two
   consecutive blanks, the summary block between the spec'd blocks, the run-over
   reset note after the summary, `OverlayLayout` unclamped at 139×31). (Copies
   `Modal::RunOver` + `handle_run_over_input` + `draw_run_over`, and
@@ -183,7 +204,9 @@ ends with a pause: the person sees a completed run. -->
   view-body tests.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim with the anchored-table test passing unchanged; `git diff --stat`
-  shows only `src/records.rs`. **PAUSE for the person** (profile/saves backed up
+  shows only `src/records.rs`. **PAUSE for the person — advisory** (the person's
+  2026-09-15 ruling: run straight through; drive this and report it rather than
+  stopping, unless something is wrong) (profile/saves backed up
   and checksum-restored; driven on a scratch profile): finish a run — the
   acknowledgement of the completing win lands on the map with the victory
   notice, showing this run's matches, credits won and lost, best streak and
@@ -197,7 +220,9 @@ ends with a pause: the person sees a completed run. -->
 ## Phase 3 — What you keep
 
 <!-- The campaign-entry panel (T007), then the deal and its text (T008), then
-the docs (T009). Phase ends with the person's attestation on their own profile. -->
+the docs (T009). Phase ends with a review and a driver walkthrough; the
+person's own attestation comes at the end of the spec under the 2026-09-15
+run-straight-through ruling. -->
 
 - [ ] **T007** — `src/app.rs`: New Campaign, Reset Everything, and the
   three-choice panel. Add `enum CampaignChoice` (with `ALL`, `label`, wrapping
@@ -214,18 +239,23 @@ the docs (T009). Phase ends with the person's attestation on their own profile. 
   `start_new_campaign` with `start_fresh_campaign(scope)` (reset, `Sfx::MenuSelect`,
   `enter_campaign_map(true)`). Generalize `draw_two_choice` into
   `draw_choice_panel(frame, title, note, labels, selected, hint, pulse)` with
-  the pure `choice_row_width(labels)` and the note-aware row placement in plan
-  tension §4; `draw_campaign_entry` passes the three labels,
+  the pure `choice_row_width(labels)` and the pure
+  `choice_rows(note_present) -> (note_row, choice_row, hint_row, height)` in
+  plan tension §4 — note absent `(1, 2, 4, 5)`, note present `(1, 3, 5, 6)`, so
+  the acted-on choice row always has a blank row above and below it. This also
+  changes the spec-021 discard-a-save confirm, which passes the same note;
+  `draw_campaign_entry` passes the three labels,
   `draw_confirm_reset` passes the scope's title (`"New campaign? Resets the map;
   you keep your cards and credits."` / `"Reset everything? Erases progress,
   credits & cards."`) with `stake_forfeit_note()` unchanged. Tests:
-  `campaign_choice_steps_and_wraps_in_both_directions` and
-  `the_campaign_entry_panel_fits_the_minimum_terminal` (plan §Tests bullets
-  14–15); the existing `confirm_choice_commits_only_on_enter_with_yes` stays
+  `campaign_choice_steps_and_wraps_in_both_directions`,
+  `the_campaign_entry_panel_fits_the_minimum_terminal` and
+  `a_choice_panel_keeps_a_blank_row_around_the_choice_row` (plan §Tests bullets
+  15–17); the existing `confirm_choice_commits_only_on_enter_with_yes` stays
   unchanged. (Copies `draw_two_choice` itself, `handle_confirm_new_campaign_input`,
   and `back_destination`'s pure-enum + test shape.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
-  verbatim with the two new tests passing and the spec-014 confirm test
+  verbatim with the three new tests passing and the spec-014 confirm test
   unchanged; `git diff --stat` shows only `src/app.rs`; the implementer's report
   quotes `handle_campaign_entry_input`'s commit arm and both reset fns.*
 
@@ -240,16 +270,29 @@ the docs (T009). Phase ends with the person's attestation on their own profile. 
   `QUICK_PLAY_NOTE =
   "Quick Play deals your deck. Nothing is staked."` and update its assertion in
   `the_full_roster_and_footer_fit_the_minimum_terminal`; the rows and the
-  footer reserve are unchanged. (Copies nothing new.)
+  footer reserve are unchanged. Then the **comment-only** corrections the
+  amended acceptance criterion allows (plan §Design 7): `src/card.rs:106-108`
+  (`DEFAULT_SIDE_DECK`'s doc), `:147-148` (`deal_hand`'s doc) and `:433` (a test
+  comment), plus `src/profile.rs:13` and `:826-827` ("the standard pool … and
+  Quick Play's deck") — each keeps the standard deck's remaining role, the
+  opponents' baseline, and drops the claim that Quick Play deals it. No code
+  line in `card.rs` changes. (Copies nothing new.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim; `grep -n "DEFAULT_SIDE_DECK\|player_deck_for" src/app.rs` is empty;
-  `git diff --stat` shows only `src/app.rs` and `src/opponent_select.rs`.*
+  `git diff -- src/card.rs` shows only comment / doc-comment lines; `git diff
+  --stat` shows only `src/app.rs`, `src/opponent_select.rs`, `src/card.rs` and
+  `src/profile.rs`.*
 
-- [ ] **T009** — `README.md` + `docs/balance.md`: the texts that described the
-  old rules. In the README (lines ~82–88) say that New Campaign resets the map
-  while your cards and credits stay, that Reset Everything is the full wipe, and
-  that Quick Play deals the deck you built with nothing staked — dropping "deals
-  you the **standard** side deck — campaign matches deal the one you built".
+- [ ] **T009** — `README.md`, `docs/economy.md` + `docs/balance.md`: the texts
+  that described the old rules (plan §Design 7). In the README: line ~71 ("the
+  10 cards your hand is dealt from each **campaign** match" — now every match);
+  lines ~82–83 (Start Campaign asks once there is anything to affect — cleared
+  progress *or* a pool that differs from the starter — and offers three
+  choices); lines ~85–88 (New Campaign resets the map while your cards and
+  credits stay, Reset Everything is the full wipe, and Quick Play deals the deck
+  you built with nothing staked — dropping "deals you the **standard** side
+  deck — campaign matches deal the one you built", which is line-broken in the
+  source). In `docs/economy.md:69-70`, the same Quick Play correction.
   In `docs/balance.md` add the short **### Replays** subsection after *### The
   economy bounds* (plan §Design 7): the measured curve describes a starter-deck
   run, a replay since spec 024 keeps the pool and so starts premium and easier,
@@ -257,10 +300,12 @@ the docs (T009). Phase ends with the person's attestation on their own profile. 
   neighbouring prose voice in each file.)
   *Verify: `cargo build --all-targets` + `cargo test -q` green verbatim
   (docs-only, but the constitution's command still runs); `grep -rn "standard
-  side deck\|standard deck" README.md docs/balance.md` shows no line claiming
-  Quick Play deals it; `git diff --stat` shows only `README.md` and
-  `docs/balance.md`. **PAUSE for the person** (profile/saves backed up and
-  checksum-restored): on a profile with a built pool, Start Campaign shows
+  deck\|standard pool\|\*\*standard\*\*" README.md docs` shows no line claiming
+  Quick Play deals it; `git diff --stat` shows only `README.md`,
+  `docs/economy.md` and `docs/balance.md`. **PAUSE for the person — advisory**
+  (the person's 2026-09-15 ruling: run straight through; drive this and report
+  it rather than stopping, unless something is wrong) (profile/saves backed up
+  and checksum-restored): on a profile with a built pool, Start Campaign shows
   Continue / New Campaign / Reset Everything; New Campaign (confirmed) clears
   the map and keeps cards, credits and records; its No and Esc change nothing;
   the stake note appears when a match is in flight; Reset Everything wipes to
@@ -274,17 +319,23 @@ the docs (T009). Phase ends with the person's attestation on their own profile. 
 - [ ] **T010** — Close-out. Draft
   `specs/024-endgame-victory/closeout-main-docs.md` (plan §Design 8, in 021–023's
   shape): **ROADMAP** — the endgame/victory item and the "run summary on the
-  run-over notice" backlog item shipped; **DECISIONS** — spec 024's six resolved
-  decisions, the explicit reversal of spec 022's "Quick Play deals the standard
-  (premium) deck" and spec 014's "New Campaign = full fresh start" (each quoted
-  as superseded, with the reason), and plan tensions §1, §2, §5, §7 — to apply
-  on `main` after the merge, never on the branch. Run `cargo test -q` **three
-  consecutive times** and paste the tails. Mechanical checks: `git diff main
-  --stat` shows no `src/game.rs`, `src/player.rs`, `src/card.rs`, `src/save.rs`,
-  `src/economy.rs`, `src/wager.rs`, `tests/balance.rs`, `Cargo.toml`,
-  `Cargo.lock`; `grep -n "PROFILE_VERSION: u32" src/profile.rs` and the
-  `SAVE_VERSION` line both read 1; `cargo build --all-targets` warning count
-  equals `main`'s; `grep -rn "standard deck" src README.md docs` shows no line
+  run-over notice" backlog item shipped, **plus inline "superseded by spec 024,
+  which …" annotations** (the convention at ROADMAP lines 95–98) on lines
+  173–175, 284–285 and 489, which still describe the old New Campaign and the
+  old Quick Play deck in the present tense; **DECISIONS** — spec 024's six
+  resolved decisions, the explicit reversal of spec 022's "Quick Play deals the
+  standard (premium) deck" and spec 014's "New Campaign = full fresh start"
+  (each quoted as superseded, with the reason), and plan tensions §1 (including
+  why settlement's signature stayed put and the edge is evaluated twice), §2,
+  §4, §5, §7 — to apply on `main` after the merge, never on the branch. Run
+  `cargo test -q` **three consecutive times** and paste the tails. Mechanical
+  checks: `git diff main --stat` shows no `src/game.rs`, `src/player.rs`,
+  `src/save.rs`, `src/economy.rs`, `src/wager.rs`, `tests/balance.rs`,
+  `Cargo.toml`, `Cargo.lock`, and `git diff main -- src/card.rs` contains only
+  comment lines (the amended acceptance criterion); `grep -n "PROFILE_VERSION:
+  u32" src/profile.rs` and the `SAVE_VERSION` line both read 1; `cargo build
+  --all-targets` warning count equals `main`'s; `grep -rn "standard
+  deck\|standard pool\|\*\*standard\*\*" src README.md docs` shows no line
   saying Quick Play is dealt one; `grep -rn "Erases progress" src` appears only
   under the Reset Everything title. Check off `spec.md`'s acceptance criteria
   with evidence (the verbatim lines). Request the pre-merge whole-spec sweep;
@@ -306,11 +357,17 @@ build and tests yourself, then commit. **T002 is marked `review: per-task`**
 reviewed at the end of its phase (Phase 1 after T003, Phase 2 after T006,
 Phase 3 after T009) with a shell-assembled bundle — the phase diff, the task
 lines, the plan sections they cite, the acceptance criteria — one review plus
-at most one re-review. Pause for the person after each phase and whenever
-something unexpected bears on spec adherence; Phase 1 has no person pause (no
-visible change), so its review is its gate. The **Phase 2 pause** is the
-victory notice and the run-over summary on a driven scratch profile; the
-**Phase 3 pause** is New Campaign / Reset Everything and the Quick Play deal.
+at most one re-review. **The person ruled on 2026-09-15 that implementation
+runs straight through the whole spec in the spec session, without stopping at
+the phase pauses**, unless something needs their attention — so the "PAUSE for
+the person" lines in T006 and T009 are **advisory**: they say what to drive and
+what to show in the phase report, not where to stop. Phase reviews by the
+`skeptical-reviewer` still happen at every phase end, and anything unexpected
+that bears on spec adherence still goes to the person immediately. The driver
+walkthroughs themselves still happen (the orchestrator drives them and reports
+what it saw): after Phase 2, the victory notice and the run-over summary on a
+scratch profile; after Phase 3, New Campaign / Reset Everything and the Quick
+Play deal.
 Back up + checksum-restore the real profile/saves before every driver session —
 this spec's walkthroughs include a full-run completion, a run-over reset and
 two kinds of New Campaign. Repo-wide docs (`ROADMAP.md`, `DECISIONS.md`) change
