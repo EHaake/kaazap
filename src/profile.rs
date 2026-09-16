@@ -1094,6 +1094,19 @@ mod tests {
             "a truly fresh profile opens the map directly",
         );
 
+        // ...and so does one loaded back from disk: a fresh profile writes its
+        // seed purse, so the round trip is still the starter. (A pre-economy
+        // document with no `credits` key loads with 0 instead — a pool that
+        // really does differ from the starter, so spec 021's migration path
+        // sees the entry panel, which is what the predicate specifies.)
+        let fresh = serde_json::to_string(&Profile::default()).unwrap();
+        assert!(
+            !Profile::from_json(&fresh)
+                .expect("a fresh profile reloads")
+                .differs_from_starter(),
+            "a reloaded fresh profile is still the starter",
+        );
+
         let mut beaten = Profile::default();
         beaten.campaign_mut().mark_beaten("cinder", "greeb");
         assert!(beaten.differs_from_starter(), "progress on the map");
@@ -1174,7 +1187,8 @@ mod tests {
         assert_eq!(p.deck().len(), SIDE_DECK_SIZE);
         assert!(p.deck_is_valid());
         // The starter is its own deck now (spec 022), no longer the standard
-        // pool — that stays the opponent baseline and Quick Play's deck.
+        // pool — that stays the opponent baseline (since spec 024 every match,
+        // Quick Play included, deals the player's built deck).
         assert_eq!(p.deck(), &STARTER_SIDE_DECK);
         assert_ne!(p.deck(), &DEFAULT_SIDE_DECK);
 

@@ -778,3 +778,12 @@ design and flagged for the sign-off and the person:
    the worlds-cleared figure appear on the two notices only. The spec was
    corrected to say so — read no promise of a wider This Run view into
    "the summary numbers stay readable on the Records screen".
+5. **A pre-economy profile document shows the entry panel.** A `profile.json`
+   without a `credits` key loads with 0 credits (the deliberate serde-default
+   divergence from `SEED_PURSE`, spec 021's migration path), so
+   `differs_from_starter` is true for it and Start Campaign offers the
+   three-choice panel; Continue then meets the run-over notice as spec 021
+   intended. Only a document that *is* the starter — a serialized fresh
+   profile — opens the map directly, which is what the acceptance criterion
+   says. Ruled by the orchestrator on T008's return (2026-09-16) as what the
+   spec's own predicate specifies; the test pins the true statement.
