@@ -581,6 +581,13 @@ human's stated priority is the first-run onboarding.
   a **packaging check** (release binaries for the three targets, the music
   track's CC-BY attribution in the distributed files); a license check on
   every bundled asset before anything goes to itch.io.
+- **Show locked cards in the Outfitter** (raised by the person 2026-09-16,
+  playing early in a campaign: the shop offered only +1 to +3, −1 to −3 and
+  ±1, and nothing said the rest exist). The shop hides every card above the
+  deepest region reached, so the depth gate reads as missing cards. Taken
+  ahead of the compact layout as spec 025: the Outfitter lists the whole
+  15-card universe grouped by region, the locked rows visibly locked and
+  saying where they open. No economy, price or pool change.
 - **A compact layout below 139 columns.** The minimum terminal grew to 139×31
   with the portrait panel (spec 016), which is large for a general audience.
   A layout that drops the presence panel (portrait + banter) when the terminal
@@ -626,6 +633,14 @@ human's stated priority is the first-run onboarding.
   Pazaak music, can't be used; see DECISIONS.md). Nothing in the CC0/CC-BY
   libraries surveyed got close to that specific flavor, so an original is
   the path. Human-requested during spec 004.
+- **More side-card types** (raised by the person 2026-09-16). The
+  collectible universe is 15 types (spec 001), and specs 012 and 022 treated
+  it as complete, but the original game also has **+5, +6, −5, −6, ±4 and ±5**.
+  Adding them is new card types in `card.rs`, a tier and price for each in
+  `economy.rs`, the album and shop growing (the Outfitter's full list is
+  sized to 15 rows against the 31-row minimum), opponent decks possibly
+  using them, and a re-measure of the spec 022 curve with the balance
+  simulator — its own spec, with a balance pass inside it.
 - **Post-v1 rule enhancements** — once the complete game exists as a
   baseline, consider Kaazap-specific rule variants that suit the TUI
   format (a mid-match hand-redraw mechanic is one candidate). Evaluated
