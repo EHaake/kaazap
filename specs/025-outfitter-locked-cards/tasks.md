@@ -1,6 +1,6 @@
 # Tasks: Locked cards in the Outfitter — spec 025
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at opus, 2026-09-16)
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -56,12 +56,15 @@ the review and the driver walkthrough. -->
   `arrows_move_over_the_pool_and_wrap`), the rewritten
   `enter_and_space_buy_the_highlighted_card` (fresh profile: Up then Enter →
   `Buy(Card::PlusMinus(1))`; then Down pressed 7 times, Enter after each, every
-  `Buy(c)` has `card_tier(c) == RegionTier::Outer`; Core profile: Down then
+  `Buy(c)` has `card_tier(c) == RegionTier::Outer` and the 7th Down lands back
+  on `Buy(Card::Plus(1))`; Core profile: Down then
   Enter/Space → `Buy(listing()[1])`),
   `a_reset_map_relocks_groups_but_keeps_owned_counts`, and
   `the_full_list_fits_the_minimum_terminal` (replaces
   `the_full_pool_fits_the_minimum_terminal`; dimensions from
-  `Config::min_size()`, asserts `LIST_ROWS == 21`). Add a `mid_profile()` test
+  `Config::min_size()`, asserts `LIST_ROWS == 21`; headings measured only for
+  the tiers that can lock — Mid and Core — since Outer's locked form is never
+  drawn, and `list_left` measures the same set). Add a `mid_profile()` test
   helper beside `core_profile()` (beaten `cinder/greeb`, `scree/dax`). Do not
   run `cargo fmt`. (Copies: the existing `shop.rs` — its state/outcome/draw shape
   and tests; `economy.rs`'s `the_pool_grows_monotonically_with_depth` for the
@@ -82,10 +85,21 @@ the review and the driver walkthrough. -->
   unlocked cards only, so a locked card can't be bought; the grouping reads
   `card_tier` / `deepest_reached`, the same functions as `available_pool`).
   Touch § The depth-gated pool only if it now reads as if locked cards were
-  hidden. (Copies the neighbouring prose voice.)
+  hidden. In § Tuning & guards (~line 260), rename the guard
+  `the_full_pool_fits_the_minimum_terminal` to
+  `the_full_list_fits_the_minimum_terminal` and add the new guards to that
+  inventory: the shop's `the_listing_groups_every_card_by_tier`,
+  `the_unlocked_prefix_is_the_available_pool_at_every_depth`,
+  `headings_name_the_region_and_lock_until_reached`,
+  `arrows_wrap_over_the_unlocked_cards_only`,
+  `a_reset_map_relocks_groups_but_keeps_owned_counts`, and `economy.rs`'s
+  `region_name_is_the_inverse_of_region_tier` (plan §Design 3). (Copies the
+  neighbouring prose voice and the inventory's existing `name` (`file.rs`)
+  form.)
   *Verify: `cargo build --all-targets` + `cargo test -q` green verbatim
   (docs-only, the command still runs); `git diff --stat` shows only
-  `docs/economy.md`. **PAUSE for the person** (after the Phase 1 review): the
+  `docs/economy.md`; `grep -n "the_full_pool_fits" docs/economy.md` is empty.
+  **PAUSE for the person** (after the Phase 1 review): the
   orchestrator drives the walkthrough in plan §Verification with the
   `run-kaazap` skill at 139×31 — real profile, settings and save backed up and
   checksummed first, restored and checksum-verified after — and reports what it
@@ -94,7 +108,9 @@ the review and the driver walkthrough. -->
   refused buy behave as before; Mid Rim reached → Mid navigable, Core locked;
   Core reached → all navigable; after New Campaign on a profile owning Mid/Core
   cards → both locked again with owned counts intact; headings read clearly
-  against the dimmed rows; nothing clips. Then the person tries it.*
+  against the dimmed rows; nothing clips; on the Core profile (no long heading
+  drawn), whether the 28-column rows sit visibly left of the centered title —
+  reported as a layout finding. Then the person tries it.*
 
 ## Final phase — Spec close-out
 
@@ -143,7 +159,10 @@ and after every driver session. Repo-wide docs (`ROADMAP.md`, `DECISIONS.md`)
 change only via `closeout-main-docs.md` on `main` after the merge;
 `docs/economy.md` rides in on the branch (T002). Never run `cargo fmt`.
 
-Model & effort: the session runs on Opus 5 (the fallback) because the Fable allowance is low; the planner and
+Model & effort: the session runs on `claude-opus-5` (Opus 5) because the Fable
+allowance is low — the person's choice for this fallback; `CLAUDE.md`'s
+Fallback clause names `claude-opus-4-8`, and the constitution is not changed
+for it; the planner and
 the sign-off ran at `opus` with the top-tier override dropped (the
 constitution's Fallback clause). Implementation, the phase review and the sweep
 run at `opus`. A task that isn't routine goes to a decision review, never
@@ -161,5 +180,7 @@ redo, and why). -->
 
 | Task / invocation | Tier | Tokens | Outcome / miss reason |
 |---|---|---|---|
-| **Fallback in effect** — the Fable allowance is low, so the session runs on Opus 5 and **experiment 2 is paused**: every implementer dispatch goes to `sdd-implementer` (opus, high), and the planner / sign-off run at `opus` with the top-tier override dropped. | — | — | header |
+| **Fallback in effect** — the Fable allowance is low, so the session runs on **`claude-opus-5`** (Opus 5, the person's choice; `CLAUDE.md`'s Fallback clause names `claude-opus-4-8` — recorded here, constitution unchanged) and **experiment 2 is paused**: every implementer dispatch goes to `sdd-implementer` (opus, high), and the planner / sign-off run at `opus` with the top-tier override dropped. | — | — | header |
 | Planning: draft (sdd-planner) | opus (override dropped, experiment 2 paused) | ~90K (planner's own estimate) | drafted; 3 tasks in 2 phases, no foundational phase, no per-task review; no product fork |
+| plan + tasks sign-off (skeptical-reviewer) | opus (override dropped) | ~70K (measured return; reviewer's own ~65K in / 4K out) | signed off, 0 blocking, 5 notes N1–N5 |
+| Planning: sign-off notes (sdd-planner, same context) | opus | ~20K (planner's own estimate of the delta) | N1 (headings measured for Mid/Core only; Core-profile centering eyeball added to the walkthrough), N2 (economy.md guard inventory added to T002), N3 (density-rule tension §5), N4 (model recorded as `claude-opus-5`), N5 (wrap-at-7 assertion) applied; both files marked signed off |

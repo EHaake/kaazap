@@ -1,6 +1,6 @@
 # Plan: Locked cards in the Outfitter — spec 025
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at opus, 2026-09-16)
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -90,6 +90,15 @@ alternative (locked headings Muted too) is a one-word change if it reads wrong.
 `app.rs` would be a second rule for a state the screen can't produce — cut per
 *Simplicity*.
 
+### 5. The density rule was checked — no conflict
+
+The constitution's *acted-on element stands apart* rule gives the acted-on line
+an empty row above and below. The spec keeps the list compact with one empty row
+above each heading, matching today's shop list, and padding a moving cursor row
+would shift every row below it on each keypress — breaking the spec's no-jitter
+requirement. So the list's only air is the heading gaps; no conflict with
+`CLAUDE.md`.
+
 ## Design
 
 ### 1. `src/economy.rs` — the region's name
@@ -151,8 +160,10 @@ fn anchors(num_rows: usize) -> (usize, usize, usize)
     // list_top = top + 2; hint_y = list_top + LIST_ROWS + 1
 
 /// The list's shared left column (plan tension §2): centered on `center_x` by
-/// the widest line the list can draw — every locked heading at its 3-column
-/// indent, every row with a two-digit owned count.
+/// the widest line the list can draw — the locked heading of each tier that
+/// can lock (Mid, Core; Outer is always reached, so its locked form is never
+/// drawn and is excluded) at its 3-column indent, and every row with a
+/// two-digit owned count.
 fn list_left(center_x: usize) -> usize
 ```
 
@@ -194,11 +205,21 @@ In § The depth-gated pool, "Which cards you can buy is gated…" stays true; ad
 "the Outfitter shows the locked tiers too" only if the paragraph otherwise reads
 as if they were hidden.
 
+§ Tuning & guards (~line 260): its guard inventory names
+`the_full_pool_fits_the_minimum_terminal` (`shop.rs`), which T001 renames —
+change it to `the_full_list_fits_the_minimum_terminal`, and add the new shop
+guards (`the_listing_groups_every_card_by_tier`,
+`the_unlocked_prefix_is_the_available_pool_at_every_depth`,
+`headings_name_the_region_and_lock_until_reached`,
+`arrows_wrap_over_the_unlocked_cards_only`,
+`a_reset_map_relocks_groups_but_keeps_owned_counts`) and
+`region_name_is_the_inverse_of_region_tier` (`economy.rs`).
+
 ## Files
 
 - `src/shop.rs` — helpers, cursor over the unlocked prefix, grouped draw; tests.
 - `src/economy.rs` — `RegionTier::region_name`; one test.
-- `docs/economy.md` — the shop section.
+- `docs/economy.md` — the shop section and the Tuning & guards test inventory.
 - `specs/025-outfitter-locked-cards/closeout-main-docs.md` (T003).
 - **No change**: `app.rs`, `card.rs`, `game.rs`, `player.rs`, `save.rs`,
   `profile.rs`, `campaign.rs`, `campaign_map.rs`, `frame.rs`, `Readme.md` (its
@@ -236,7 +257,8 @@ Each claim names the task that owns its check. All in T001 unless noted.
   `enter_and_space_buy_the_highlighted_card`: on a fresh profile, Up then Enter
   → `Buy(Card::PlusMinus(1))` (the last Outer card — the wrap did not reach
   `+4`); then Down pressed 7 times with Enter after each, every `Buy(c)` has
-  `card_tier(c) == RegionTier::Outer`. On a Core profile Down then Enter/Space →
+  `card_tier(c) == RegionTier::Outer`, and the 7th Down lands back on
+  `Buy(Card::Plus(1))` (the wrap is exactly 7). On a Core profile Down then Enter/Space →
   `Buy(listing()[1])`.
 - **Esc/`x` and unknown keys** — existing test, unchanged.
 - **A reset map relocks with owned counts intact** (AC 6) —
@@ -249,7 +271,8 @@ Each claim names the task that owns its check. All in T001 unless noted.
   `Config::min_size()`: `anchors(rows)` gives `list_top > title_y + 1` and
   `hint_y < rows`; `list_top + LIST_ROWS < hint_y`; for `left =
   list_left(cols / 2)`, every `row_text(card, true, 99)` satisfies `left + len
-  <= cols` and every locked heading satisfies `left + 3 + len <= cols`; the
+  <= cols` and the locked heading of Mid and Core (the tiers that can lock;
+  Outer excluded) satisfies `left + 3 + len <= cols`; the
   balance row at 99 999 fits centered. Also assert `LIST_ROWS == 21` so a new
   card type (roadmap) trips the test and re-checks the fit.
 - **Buying is unchanged** (AC 5) — structural: `git diff main -- src/app.rs
@@ -276,7 +299,10 @@ Each claim names the task that owns its check. All in T001 unless noted.
   navigable, Core still locked; a Core profile → all bare; a completed profile
   that owns Mid/Core cards after New Campaign → both groups locked again with
   their owned counts. Check headings read Normal against dimmed rows (tension
-  §3) and nothing clips at 139×31.
+  §3) and nothing clips at 139×31. On the Core profile (every region reached,
+  so no long heading is drawn but `list_left` still reserves for one), eyeball
+  whether the 28-column rows sit visibly left of the centered title (tension
+  §2) — report it; it is a layout finding, not a blocker by itself.
 
 ## Non-goals (from spec)
 
