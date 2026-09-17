@@ -34,6 +34,18 @@ pub enum RegionTier {
     Core,
 }
 
+impl RegionTier {
+    /// The map's name for this region — the inverse of [`region_tier`]
+    /// (spec 025: the Outfitter's group headings use the map's words).
+    pub fn region_name(self) -> &'static str {
+        match self {
+            RegionTier::Outer => "Outer Rim",
+            RegionTier::Mid => "Mid Rim",
+            RegionTier::Core => "Core",
+        }
+    }
+}
+
 /// Map a planet's `region` string to its depth tier. An unrecognized region
 /// falls back to `Outer` (the most conservative — never over-grants); the
 /// `every_planet_region_maps_to_a_known_tier` test guards against a typo ever
@@ -195,6 +207,13 @@ mod tests {
                 p.id,
                 p.region
             );
+        }
+    }
+
+    #[test]
+    fn region_name_is_the_inverse_of_region_tier() {
+        for t in [RegionTier::Outer, RegionTier::Mid, RegionTier::Core] {
+            assert_eq!(region_tier(t.region_name()), t, "{t:?}");
         }
     }
 

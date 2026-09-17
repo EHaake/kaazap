@@ -35,7 +35,7 @@ a mistake there is caught by the one Phase 1 review before anything inherits it.
 <!-- T001 is the whole code change; T002 documents it and ends the phase with
 the review and the driver walkthrough. -->
 
-- [ ] **T001** — `src/economy.rs` + `src/shop.rs`: list every card, grouped by
+- [x] **T001** — `src/economy.rs` + `src/shop.rs`: list every card, grouped by
   region, cursor over the unlocked prefix. In `economy.rs` add
   `impl RegionTier { pub fn region_name(self) -> &'static str }` exactly as plan
   §Design 1 and the test `region_name_is_the_inverse_of_region_tier`; nothing
@@ -184,3 +184,4 @@ redo, and why). -->
 | Planning: draft (sdd-planner) | opus (override dropped, experiment 2 paused) | ~90K (planner's own estimate) | drafted; 3 tasks in 2 phases, no foundational phase, no per-task review; no product fork |
 | plan + tasks sign-off (skeptical-reviewer) | opus (override dropped) | ~70K (measured return; reviewer's own ~65K in / 4K out) | signed off, 0 blocking, 5 notes N1–N5 |
 | Planning: sign-off notes (sdd-planner, same context) | opus | ~20K (planner's own estimate of the delta) | N1 (headings measured for Mid/Core only; Core-profile centering eyeball added to the walkthrough), N2 (economy.md guard inventory added to T002), N3 (density-rule tension §5), N4 (model recorded as `claude-opus-5`), N5 (wrap-at-7 assertion) applied; both files marked signed off |
+| T001 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~51K (measured return; implementer's own ~45K) | done first try; 408 unit + 6 integration passing, diff = shop.rs + economy.rs only, economy.rs adds only `region_name` + its test; **task-text off-by-one**: after Up+Enter (cursor at ±1) the 1st Down wraps to `+1` and the 7th lands back on `±1`, not `+1` — the test asserts `bought == listing()[..7]`, stricter than the wording |
