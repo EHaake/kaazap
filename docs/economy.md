@@ -154,10 +154,16 @@ written for correctness, not because any current run exercises it.
 
 ## The shop and its reserve
 
-Reached from the campaign map with **`b`** (the "Outfitter"). It lists the
-currently-available pool — each card with its price and how many you own — plus
-the balance *and* the **spendable** amount, `credits − cheapest_floor`. A
-purchase must leave that cheapest ante behind, so shopping can never end a run:
+Reached from the campaign map with **`b`** (the "Outfitter"). Since spec 025 it
+lists **all 15 cards**, grouped Outer Rim / Mid Rim / Core, each with its price
+and how many you own. A group you haven't reached is dimmed under the heading
+`<Region>  ·  reach the <Region> to unlock`, its prices and owned counts still
+showing; the cursor visits unlocked cards only, so a locked card can't be
+bought. The grouping reads `economy::card_tier` and `economy::deepest_reached`,
+the same functions `available_pool` does, so the unlocked groups are exactly the
+buyable pool. Alongside the list sit the balance *and* the **spendable**
+amount, `credits − cheapest_floor`. A purchase must leave that cheapest ante
+behind, so shopping can never end a run:
 `Profile::can_afford(price)` is `credits ≥ price + cheapest_floor`, and
 `try_purchase` deducts only `price`, never the reserve. The shop's dimming reads
 the same predicate `try_purchase` enforces, so the readout and the refusal can't
@@ -256,8 +262,14 @@ Elsewhere: `the_stake_rides_on_the_in_flight_node_and_defaults_to_zero` and
 wager prompt's grid/commit/fit tests (`wager.rs`, including
 `every_line_fits_seventy_columns`), `run_over_acknowledged_only_on_enter_or_space`
 (`app.rs`), `a_staked_match_draws_the_stake_under_the_pips` and
-`quick_play_leaves_the_stake_rows_blank` (`portrait.rs`), and
-`the_full_pool_fits_the_minimum_terminal` (`shop.rs`).
+`quick_play_leaves_the_stake_rows_blank` (`portrait.rs`),
+`region_name_is_the_inverse_of_region_tier` (`economy.rs`), and the Outfitter's
+list guards `the_listing_groups_every_card_by_tier`,
+`the_unlocked_prefix_is_the_available_pool_at_every_depth`,
+`headings_name_the_region_and_lock_until_reached`,
+`arrows_wrap_over_the_unlocked_cards_only`,
+`a_reset_map_relocks_groups_but_keeps_owned_counts` and
+`the_full_list_fits_the_minimum_terminal` (`shop.rs`).
 
 The **balance pass** shipped as **spec 022**: the seed purse, the ante formula
 and the tier prices above were checked against measured win rates from a

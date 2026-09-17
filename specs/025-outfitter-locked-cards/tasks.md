@@ -78,7 +78,7 @@ the review and the driver walkthrough. -->
   implementer's report quotes `listing`, `unlocked_count`, `heading` and
   `handle_input` verbatim.*
 
-- [ ] **T002** — `docs/economy.md`: the shop section describes the new list.
+- [x] **T002** — `docs/economy.md`: the shop section describes the new list.
   Rewrite § The shop and its reserve's listing sentence per plan §Design 3 (all
   15 cards in three region groups; unreached groups dimmed with prices and owned
   counts under `<Region>  ·  reach the <Region> to unlock`; the cursor visits
@@ -185,3 +185,4 @@ redo, and why). -->
 | plan + tasks sign-off (skeptical-reviewer) | opus (override dropped) | ~70K (measured return; reviewer's own ~65K in / 4K out) | signed off, 0 blocking, 5 notes N1–N5 |
 | Planning: sign-off notes (sdd-planner, same context) | opus | ~20K (planner's own estimate of the delta) | N1 (headings measured for Mid/Core only; Core-profile centering eyeball added to the walkthrough), N2 (economy.md guard inventory added to T002), N3 (density-rule tension §5), N4 (model recorded as `claude-opus-5`), N5 (wrap-at-7 assertion) applied; both files marked signed off |
 | T001 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~51K (measured return; implementer's own ~45K) | done first try; 408 unit + 6 integration passing, diff = shop.rs + economy.rs only, economy.rs adds only `region_name` + its test; **task-text off-by-one**: after Up+Enter (cursor at ±1) the 1st Down wraps to `+1` and the 7th lands back on `±1`, not `+1` — the test asserts `bought == listing()[..7]`, stricter than the wording |
+| T002 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~29K (measured return; implementer's own ~25K) | done first try; docs-only diff (docs/economy.md, +18/−6), 408 unit + 6 integration passing, `the_full_pool_fits` grep empty; § The depth-gated pool left as is (nothing there says locked cards are hidden) |
