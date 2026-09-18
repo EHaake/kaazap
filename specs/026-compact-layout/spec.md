@@ -127,13 +127,13 @@ the stake at the right of the status band's upper row):
 
 ## Acceptance criteria
 
-- [ ] The minimum terminal is 89×31: `Config::min_size()` returns it, the
+- [x] The minimum terminal is 89×31: `Config::min_size()` returns it, the
       startup error and the too-small screen quote `89 x 31`, and a test
       pins the figure.
-- [ ] The board layout at 138 columns has no panel and at 139 has the
+- [x] The board layout at 138 columns has no panel and at 139 has the
       panel at spec 016's position, pinned by a test; the board's own
       rects are identical in both, apart from the centering offset.
-- [ ] Every screen fits 89×31: each existing "fits the minimum terminal"
+- [x] Every screen fits 89×31: each existing "fits the minimum terminal"
       test (board, overlays, Outfitter, deck builder, opponent select, map,
       records) runs at 89×31 as well as 139×31 — the wager prompt's test
       reads `Config::min_size()` and so measures 89, and its 139 case
@@ -142,25 +142,25 @@ the stake at the right of the status band's upper row):
       walkthrough at 89×31 shows menu, How to Play, opponent select, map,
       Outfitter, deck builder, records, play log, wager prompt and a match
       with nothing clipped.
-- [ ] On a staked campaign match at 89 columns the `Stake ◈ N` line is on
+- [x] On a staked campaign match at 89 columns the `Stake ◈ N` line is on
       the board from the first frame through the game-over popup, without
       the board block growing; a Quick Play match at 89 shows no stake line.
-- [ ] The over-20 alert and the stake line never overlap: a test draws both
+- [x] The over-20 alert and the stake line never overlap: a test draws both
       on the compact board and checks the cells.
-- [ ] Resizing from 139 to 138 columns mid-match and back keeps the match,
+- [x] Resizing from 139 to 138 columns mid-match and back keeps the match,
       the hand cursor and any open help overlay, and shows the panel only at
       139 — pinned by a test on the app's resize path and by the driver
       walkthrough.
-- [ ] Opponent select and the campaign map draw their portraits at 89
+- [x] Opponent select and the campaign map draw their portraits at 89
       columns; a map fit test at 89×31 shows every planet and label on frame
       and clear of the rail.
-- [ ] The wide layout at 139×31 and larger is unchanged: the existing
+- [x] The wide layout at 139×31 and larger is unchanged: the existing
       board-layout tests pass untouched and the 139×31 driver walkthrough
       matches spec 016's screen — except that the panel's stake row now stays
       through the game-over popup (Q6 A).
-- [ ] `Readme.md`'s terminal-size paragraph describes the new minimum and
+- [x] `Readme.md`'s terminal-size paragraph describes the new minimum and
       the two layouts.
-- [ ] No change to `card.rs`, `game.rs`, `player.rs`, `save.rs`,
+- [x] No change to `card.rs`, `game.rs`, `player.rs`, `save.rs`,
       `profile.rs`, `economy.rs`, `wager.rs`, `tests/balance.rs`,
       `Cargo.toml` or `Cargo.lock`; `PROFILE_VERSION` and `SAVE_VERSION`
       stay 1.
@@ -184,3 +184,49 @@ the stake at the right of the status band's upper row):
   walkthrough finds a collision.
 - **Q5 A — the threshold stays 139.** No third layout between 114 and 138;
   the wide layout is exactly as spec 016 shipped it.
+
+## Acceptance evidence (T005 close-out, 2026-09-18)
+
+Checked off by the orchestrator against `cargo test -q` (three consecutive
+runs, 424 + 6 passed, 0 failed, 1 ignored, warning count 0 on both `main` and
+the branch) and the tier log's walkthrough rows in `tasks.md`.
+
+1. **Minimum 89×31** — `config_min_size_is_the_board_block`,
+   `the_wide_threshold_is_the_board_plus_panel_margins`,
+   `the_too_small_screen_quotes_the_new_minimum`; the bail's `{} x {}` seen in
+   the T001 diff and at the Phase 1 walkthrough (a 60×20 start).
+2. **Panel at 139, none at 138, same board rects** —
+   `the_panel_appears_at_the_threshold_and_not_below`,
+   `board_rects_are_identical_across_the_threshold_apart_from_centering`.
+3. **Every screen fits 89×31** — every fit test loops `Config::fit_sizes()`
+   (T001, T003); `wager.rs`'s test reads `min_size()`, file untouched (diff
+   check below); Phase 2 driver walkthrough at 89×31 (tier log row): menu,
+   help, How to Play, Settings, Records, opponent select, map, Outfitter, deck
+   builder (hint line whole and centered), play log, wager prompt, a match.
+4. **The stake for the whole staked match** —
+   `the_compact_board_carries_the_stake_clear_of_the_alert`,
+   `quick_play_shows_no_stake_line`, the T002a App-level test; both
+   walkthroughs saw `Stake ◈ 30` from the first frame through the game-over
+   popup after T002a, and Quick Play without it.
+5. **Alert and stake never overlap** — the cells between are asserted blank in
+   `the_compact_board_carries_the_stake_clear_of_the_alert`; the over-20
+   moment was watched at 89 in both walkthroughs.
+6. **Resize across 139 keeps the match** —
+   `a_resize_across_the_threshold_keeps_the_match_and_toggles_the_panel`;
+   the Phase 2 walkthrough resized 139→138→139 mid-match with a moved cursor
+   and an open `?` overlay.
+7. **Portraits at 89** — `preview_panel_is_on_frame_and_clear_of_the_list_at_the_minimum`,
+   `campaign_map_layout_fits_the_minimum_terminal`,
+   `the_campaign_map_is_legible_at_the_minimum_terminal` at both sizes; seen at
+   89 in both walkthroughs.
+8. **Wide layout unchanged** — the existing layout tests pass untouched,
+   `the_wide_board_keeps_the_stake_in_the_panel`; the 139×31 walkthrough
+   matched spec 016's screen, with the panel stake staying through the
+   game-over popup (Q6 A).
+9. **README** — the terminal-size paragraph replaced in T004.
+10. **No forbidden change** — `git diff main...HEAD --stat` over `src/main.rs
+    src/card.rs src/game.rs src/player.rs src/save.rs src/profile.rs
+    src/economy.rs src/wager.rs src/campaign.rs src/campaign_map.rs
+    tests/balance.rs Cargo.toml Cargo.lock` is empty; `git diff main...HEAD --
+    src/portrait.rs` adds only `stake_line`, its call and one doc line;
+    `SAVE_VERSION` and `PROFILE_VERSION` both read 1.
