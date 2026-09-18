@@ -130,9 +130,9 @@ the sketch; on screen they are simply dimmed):
       `Normal`; **driver walkthrough** read both locked
       headings verbatim. The dimming itself is an attribute the text-only
       driver snapshot can't see — **attested by the person** at the Phase 1
-      pause, where they were shown the Outfitter on a fresh profile (the Outer
-      Rim rows at normal weight, the Mid Rim and Core rows dim beneath their
-      locked headings) and said it looked good.*
+      pause: they were asked to check the dimming and the alignment in the
+      running game, played it, and replied "Looks good over all", raising no
+      finding against either. They did not single out the dimming in words.*
 - [x] Reaching the Mid Rim (a Mid Rim planet unlocked) unlocks the Mid Rim
       group and leaves the Core locked; reaching the Core unlocks all three.
       *Evidence: `the_unlocked_prefix_is_the_available_pool_at_every_depth`

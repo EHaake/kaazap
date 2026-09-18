@@ -6,8 +6,10 @@ file holds the text drafted in T003, ready to paste on `main` after the merge
 (the same close-out shape specs 020–024 used). Nothing here is applied by the
 spec branch.
 
-No `CLAUDE.md` amendment is needed: spec 025 changed no rule the constitution
-states (see §3).
+The `CLAUDE.md` amendment landed on `main` before the merge, in its own commit
+as the constitution requires (`3777553`, plus `5b6197a` carrying the fallback
+model into *Tiers by name*); nothing further to apply here — see §3. Spec 025
+changed no *product* rule the constitution states.
 
 Line numbers below are **`main`'s** at the time of drafting (2026-09-17,
 `main` at `6e5db0d`), which is *ahead* of the spec branch — it already carries
