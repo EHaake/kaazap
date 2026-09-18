@@ -1250,3 +1250,47 @@ of `region_tier`, plus its test), no profile-format change,
 `tests/balance.rs` / `Cargo.toml` / `Cargo.lock` untouched, and no new crate.
 `PROFILE_VERSION` and `SAVE_VERSION` both stay 1. Monochrome by construction:
 Normal, Muted and the existing cursor pulse, no new emphasis level.
+
+## Chore: warn on the wager prompt when a loss would end the run (2026-09-17)
+
+Raised by the person on 2026-09-16 while attesting spec 025, and ruled a chore:
+one line on an existing screen, no engine, save-format, balance-data or
+dependency change, and no new screen or mode.
+
+Stakes are uncapped (spec 021), so a player with a big purse and a full
+collection could stake nearly all of it and, on a loss, fall under the cheapest
+ante and take the full reset — cards, deck and credits — having seen nothing on
+the prompt but `Lose −N`. The prompt now adds **"Lose this and the run is
+over."** whenever the chosen stake would leave the balance under the run's
+cheapest ante.
+
+- **Additive, not a supersession.** Spec 021 says the prompt shows the
+  opponent, its ante floor, the balance and what a win pays; it does not
+  enumerate the rows as a closed list, and nothing it rules is reversed here.
+  Stakes stay uncapped, the reset behaves exactly as spec 021 left it, and the
+  softer *keep-your-cards* restart stays a separate, still-open lever.
+- **The predicate is the run's cheapest ante, not the prompt's own floor.**
+  `economy::cheapest_floor` is the same value `Profile::is_broke` tests, with
+  the same strict `<`, so the warning cannot disagree with the condition that
+  actually ends the run. This opponent's ante can sit well above the cheapest
+  node still launchable — warning against the prompt's own floor would fire far
+  too early on a deep planet. A test with Rix (ante 50) against a reserve of 10
+  pins the distinction: it fails if the two are confused, and fails again if the
+  comparison is relaxed to `<=`.
+- **The snapshot cannot go stale.** The balance and the reserve are read
+  together at the one call site, and `settle_campaign_match` touches the
+  campaign only on the *win* branch — so a loss leaves `cheapest_floor`
+  unchanged and the number the prompt warned on is the number the broke check
+  uses.
+- **`Strong`, not `Alert`.** `frame.rs` documents Alert as inverse and rationed
+  for interrupts; this is a line read while choosing, not an interrupt. The
+  person attested the wording and the weight in play before the merge.
+- **No spacer of its own.** The constitution's *Density and breathing room*
+  rule gives air to the acted-on element, which is the stake row; the warning
+  stays compact against the Win/Lose row above it. The box grows by one row on
+  its own, since it sizes itself from the row list.
+
+Touched `src/wager.rs` and the one call site in `src/app.rs`, nothing else:
+`card.rs`, `game.rs`, `player.rs`, `save.rs`, `profile.rs`, `economy.rs`,
+`tests/balance.rs`, `Cargo.toml` and `Cargo.lock` are untouched, and
+`PROFILE_VERSION` / `SAVE_VERSION` stay 1.
