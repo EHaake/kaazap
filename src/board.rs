@@ -274,19 +274,21 @@ impl BoardView {
         // Opponent presence panel in the right margin, beside the board —
         // always visible for the whole match (spec 016). Clear of the board's
         // cards and the centered outcome popup.
-        draw_presence_panel(
-            frame,
-            self.layout.opponent_panel,
-            state.opponent_profile.name,
-            state.opponent_profile.portrait,
-        );
-        draw_presence_extras(
-            frame,
-            self.layout.opponent_panel,
-            banter,
-            state.opponent.rounds_won,
-            stake,
-        );
+        if let Some(panel) = self.layout.opponent_panel {
+            draw_presence_panel(
+                frame,
+                panel,
+                state.opponent_profile.name,
+                state.opponent_profile.portrait,
+            );
+            draw_presence_extras(
+                frame,
+                panel,
+                banter,
+                state.opponent.rounds_won,
+                stake,
+            );
+        }
     }
 }
 

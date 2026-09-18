@@ -40,7 +40,7 @@ phase and followed by the second pause. No other task carries its own review.
 <!-- T001 is the geometry and the minimum; T002 the panel-less draw with the
 stake. After T002 the game plays at 89 columns. -->
 
-- [ ] **T001** — `src/layout.rs` + `src/config.rs` + `src/board.rs` (compile
+- [x] **T001** — `src/layout.rs` + `src/config.rs` + `src/board.rs` (compile
   fix only) + `src/opponent_select.rs` (tests only): the threshold and the
   optional panel. `review: per-task`. In `layout.rs`, per plan §Design 1:
   rename `IN_MATCH_MIN_WIDTH` → `WIDE_LAYOUT_MIN_WIDTH` (same value and
@@ -313,8 +313,8 @@ and why). -->
 | Planning: draft (sdd-planner) — measured | fable (override) → fable | ~181K (measured return for the draft dispatch) | — | — | — | the measured figure for the draft row above; the planner's own estimate was ~150K |
 | Planning: sign-off notes (sdd-planner, same context) | fable (override) → fable | ~25K (planner's own estimate of the delta) | 1 | yes | — | B1 (tension 3 / open question 3 now cite the corrected AC 3), B2 (Phase 1 ends with a PAUSE and the 89×31 walkthrough in T002; handoff cadence), N1 (bail `{} x {}` in T001), N2 (grep checks reworded), N3 (App-level half of AC 4 → walkthroughs), N4 (Outfitter finding-not-fix in T003), N5 (deck-builder hint line in the walkthroughs), N6 (`impl Config` block), N7 (tension 4 wording) applied; both files still Draft. Measured cumulative return for the planner agent after this pass: ~198K (draft + notes) |
 | sign-off re-review (skeptical-reviewer, same context) | fable (override) → fable | ~116K cumulative measured for the reviewer agent (~29K delta this pass; reviewer's own ~25K in / 1.5K out) | 1 | — | 0 (B1, B2 resolved) + 2 notes | **signed off**; N8 (the Phase 1 walkthrough listed the play log, which T003 widens at Phase 2) applied by the orchestrator in T002's PAUSE; N9 (tell the person AC 3 was reworded at sign-off) goes in the session's closing report |
-| T001 impl | sdd-implementer-fable → | | | | | |
-| T001 per-task review (skeptical-reviewer) | opus → | | | | | |
+| T001 impl | sdd-implementer-fable → fable | ~67K measured return (implementer's own ~60K in / 12K out) | 1 | yes | — | done; one flagged deviation: `WIDE_LAYOUT_MIN_WIDTH` imported inside `fit_sizes` (a top-level import warned as unused, its only use being `cfg(test)`); the plan's hand-derived map figures held at 89 |
+| T001 per-task review (skeptical-reviewer) | opus → opus | ~48K measured return (reviewer's own ~18K in / 2K out) | 1 | — | 0 + 7 notes | signed off; notes carried forward: the stale "always visible" panel comment in `board.rs` (folded into T002's bundle), `cfg` loop variable shadowing the `cfg()` helper in `overlay_layout_pads_content_symmetrically` (to the sweep) |
 | T002 impl | sdd-implementer-fable → | | | | | |
 | Phase 1 review (skeptical-reviewer) | opus → | | | | | |
 | Phase 1 driver walkthrough (orchestrator, 89×31) | — | — | — | — | — | |
