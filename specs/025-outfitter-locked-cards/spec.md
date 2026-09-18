@@ -130,7 +130,9 @@ the sketch; on screen they are simply dimmed):
       `Normal`; **driver walkthrough** read both locked
       headings verbatim. The dimming itself is an attribute the text-only
       driver snapshot can't see — **attested by the person** at the Phase 1
-      pause.*
+      pause, where they were shown the Outfitter on a fresh profile (the Outer
+      Rim rows at normal weight, the Mid Rim and Core rows dim beneath their
+      locked headings) and said it looked good.*
 - [x] Reaching the Mid Rim (a Mid Rim planet unlocked) unlocks the Mid Rim
       group and leaves the Core locked; reaching the Core unlocks all three.
       *Evidence: `the_unlocked_prefix_is_the_available_pool_at_every_depth`
@@ -175,10 +177,13 @@ the sketch; on screen they are simply dimmed):
       *Evidence: `the_unlocked_prefix_is_the_available_pool_at_every_depth`
       asserts `listing()[..n]` equals `economy::available_pool(..)` as a
       multiset **and** that every card after it has `card_tier > depth`, at all
-      three depths; `listing`, `unlocked_count` and `heading` all read
-      `economy::card_tier` / `economy::deepest_reached`, the same pair
-      `available_pool` uses. `region_name_is_the_inverse_of_region_tier` pins
-      the heading vocabulary to the map's region strings.*
+      three depths. `listing` groups by `economy::card_tier` and
+      `unlocked_count(depth)` counts `card_tier(c) <= depth` — the same function
+      `available_pool` gates on — while `depth` itself comes from
+      `economy::deepest_reached`, which `draw` reads once and passes into
+      `heading(tier, depth)` and into the row-by-row locked test. So there is no
+      second tier table anywhere. `region_name_is_the_inverse_of_region_tier`
+      pins the heading vocabulary to the map's own region strings.*
 - [x] The full list, headings, balance and hint fit 139×31, checked by a
       test and by running the game.
       *Evidence: `the_full_list_fits_the_minimum_terminal` — `LIST_ROWS == 21`,

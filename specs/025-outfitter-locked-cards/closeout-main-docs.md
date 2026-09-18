@@ -10,12 +10,14 @@ No `CLAUDE.md` amendment is needed: spec 025 changed no rule the constitution
 states (see §3).
 
 Line numbers below are **`main`'s** at the time of drafting (2026-09-17,
-`main` at `b4d89f4`), which is *ahead* of the spec branch on `ROADMAP.md` — it
-already carries two entries added during this spec (**More side-card types**
-and the **wager-warning chore**), neither of which is touched here. Each edit
-also quotes its anchor text verbatim, which is what to match on; every anchor
-below was checked programmatically against `git show main:<file>` and is
-unique there.
+`main` at `6e5db0d`), which is *ahead* of the spec branch — it already carries
+two `ROADMAP.md` entries added during this spec (**More side-card types** and
+the **wager-warning chore**), neither of which is touched here, plus the two
+pre-merge sweep commits: `3777553` (the `CLAUDE.md` model-policy amendment, see
+§3) and `6e5db0d` (the *More side-card types* entry corrected to 21 rows). Each
+edit also quotes its anchor text verbatim, which is what to match on; every
+anchor below was re-checked programmatically against `git show main:<file>` at
+`6e5db0d` and is unique there.
 
 ---
 
@@ -87,11 +89,10 @@ with:
 ```markdown
   progressively unlock more of the 15-card universe. A **shop** on the campaign
   map (the Outfitter, `b`) spends credits on that same pool, showing prices, owned
-  counts, and a live balance (also in the map header) — and, until spec 025,
-  **listing only that unlocked pool**, which is **superseded by spec 025**,
-  which lists all 15 cards grouped by region with the un-reached groups dimmed
-  and locked. What the shop *sells*, and what it costs, is unchanged.
-  Everything grows the
+  counts, and a live balance (also in the map header), and listing only that
+  unlocked pool — **superseded by spec 025**, which lists all 15 cards grouped
+  by region with the un-reached groups dimmed and locked; what the shop sells,
+  and what it costs, is unchanged. Everything grows the
 ```
 
 ### 1c. Inline annotation on the backlog's shipped-marked *C · Economy & progression* bullet (currently lines 415–418)
@@ -149,15 +150,15 @@ with:
 ```
 
 **Leave alone** the two newer backlog entries added on `main` during this spec:
-**More side-card types** (currently ~line 644, under *Other*) — spec 025's
+**More side-card types** (currently line 645, under *Other*) — spec 025's
 non-goal, deliberately still open, and it already refers to the Outfitter's
-full 15-row list — and the **wager-warning chore** (currently ~line 571).
+full list — and the **wager-warning chore** (currently line 571).
 
 ---
 
 ## 2. `DECISIONS.md` — two edits
 
-### 2a. The spec 012 scarcity bullet is clarified, not superseded (currently lines 247–251)
+### 2a. The spec 012 scarcity bullet is clarified, not superseded (currently lines 248–251)
 
 `grep -n "available pool\|shop" DECISIONS.md` on `main` returns ten hits
 (lines 82, 113, 245, 251, 346, 706, 713, 766, 802, 1004). Read and judged:
@@ -255,10 +256,13 @@ Design tensions resolved during planning:
   balance and hint stay centered as before. Two consequences, both accepted:
   a row no longer re-centers when its owned count gains a digit (`×9` → `×10`),
   so buying can't nudge a row sideways; and because the block is sized for the
-  *widest possible* line, a profile that has unlocked everything (no long
-  locked heading on screen) shows the list sitting about five columns left of
-  the centered title and balance — measured at the driver walkthrough,
-  eyeballed by the person, and left as is.
+  *widest possible* line (the locked Mid Rim heading at its indent, 42 columns),
+  the rows themselves sit left of centre — at 139 columns `list_left` is 48, a
+  row is 27–28 columns wide, so the row block centres on column 62 against a
+  title centred on 69: **about seven columns left**. It is most visible on a
+  profile that has unlocked everything, where no long locked heading is on
+  screen to fill the width. Measured at the driver walkthrough and reported at
+  the phase pause, where the person attested the screen looked good; left as is.
 - **Headings are drawn Normal, locked or not.** The spec dims locked *rows* and
   says nothing about heading emphasis. Drawing every heading Normal keeps the
   lock sentence — the thing that tells locked from unaffordable — at full
@@ -296,13 +300,21 @@ Normal, Muted and the existing cursor pulse, no new emphasis level.
   none of them describes the Outfitter's listing, and no number moved.
 - **The two `ROADMAP.md` entries added on `main` during this spec** — *More
   side-card types* and the *wager-warning chore* — are left exactly as they
-  are. The first is this spec's explicit non-goal and is still open; the second
-  is an unrelated chore.
-- **No `CLAUDE.md` amendment.** Spec 025 changed no rule the constitution
-  states: the Outfitter is still a `Screen` following the `opponent_select`
+  are. The first is this spec's explicit non-goal and is still open (and was
+  corrected on `main` in commit `6e5db0d` — the Outfitter's list is **21 rows**,
+  15 cards plus a blank and a heading per group, not 15); the second is an
+  unrelated chore.
+- **The `CLAUDE.md` amendment already landed on `main`** (commit `3777553`,
+  before the merge, in its own commit as the constitution requires): the
+  Fallback clause now points at the session-fallback model the person names
+  (`claude-opus-5` since 2026-09-16) and the History paragraph records that
+  spec 025 ran entirely on it. That is a **model-policy** amendment, not a
+  product rule — spec 025 changed no rule the constitution states about the
+  game: the Outfitter is still a `Screen` following the `opponent_select`
   shape, drawing never mutates state, the *acted-on element stands apart* rule
   was checked and found not to apply to a scrollless compact list (recorded
-  above), and the verification command is unchanged.
+  above), and the verification command is unchanged. **Nothing further to apply
+  here.**
 - **Tier-log observations stay in `specs/025-outfitter-locked-cards/tasks.md`**
   (the sign-off notes N1–N5, the Phase 1 review notes N1–N6, the driver
   walkthrough's layout measurement): process evidence for the model-policy
