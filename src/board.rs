@@ -7,7 +7,7 @@ use crate::{
     game::{GamePhase, GameState, RoundOutcome},
     layout::{BoardLayout, GRID_COLS, Rect, SideLayout, card_slot},
     player::{Player, PlayerState},
-    portrait::{draw_presence_extras, draw_presence_panel},
+    portrait::{draw_presence_extras, draw_presence_panel, stake_line},
 };
 
 // Interior padding around a popup's text, inside its border.
@@ -29,6 +29,10 @@ impl BoardView {
         }
     }
 
+    /// Whether this view has the opponent presence panel (139 columns and up).
+    pub fn is_wide(&self) -> bool {
+        self.layout.opponent_panel.is_some()
+    }
 
     /// Draw the round/game outcome as a bordered popup centered on the
     /// board — nothing to draw mid-play.
@@ -231,8 +235,10 @@ impl BoardView {
     }
 
     /// Draw the current game state. `stake` is the credits escrowed on this
-    /// match (spec 021) — `None` for Quick Play — forwarded to the presence
-    /// panel's extras.
+    /// match (spec 021) — `None` for Quick Play. On the wide layout it goes
+    /// to the presence panel's extras along with `banter`; on the compact
+    /// layout (spec 026) there is no panel, `banter` is not shown, and the
+    /// stake moves to the status band's upper row.
     ///
     pub fn draw(
         &self,
@@ -271,23 +277,33 @@ impl BoardView {
         // Draw Round/Game Outcome if it exists
         self.draw_round_outcome_text(state, frame);
 
-        // Opponent presence panel in the right margin, beside the board —
-        // always visible for the whole match (spec 016). Clear of the board's
-        // cards and the centered outcome popup.
-        if let Some(panel) = self.layout.opponent_panel {
-            draw_presence_panel(
-                frame,
-                panel,
-                state.opponent_profile.name,
-                state.opponent_profile.portrait,
-            );
-            draw_presence_extras(
-                frame,
-                panel,
-                banter,
-                state.opponent.rounds_won,
-                stake,
-            );
+        match self.layout.opponent_panel {
+            // Wide: the panel in the right margin, always visible (spec 016), with
+            // banter, pips and the stake (specs 017, 021).
+            Some(panel) => {
+                draw_presence_panel(
+                    frame,
+                    panel,
+                    state.opponent_profile.name,
+                    state.opponent_profile.portrait,
+                );
+                draw_presence_extras(
+                    frame,
+                    panel,
+                    banter,
+                    state.opponent.rounds_won,
+                    stake,
+                );
+            }
+            // Compact (spec 026): no panel, no banter, no pips — the header's
+            // "Rounds won" carries what the pips showed — but a staked match keeps
+            // its stake, right-aligned on the status band's upper row, where the
+            // left-aligned over-20 alert leaves it 40+ cells of room.
+            None => {
+                if let Some(stake) = stake {
+                    draw_text_in(frame, self.layout.status, 0, Align::Right, &stake_line(stake), Emphasis::Strong);
+                }
+            }
         }
     }
 }
@@ -536,6 +552,79 @@ mod tests {
             ((r.x0 + r.x1) / 2).abs_diff(bv.layout.divider_x) <= 1,
             "centered on the divider"
         );
+    }
+
+    // A frame row as a String (portrait.rs's stake test's idiom).
+    fn row_text(frame: &Frame, y: usize) -> String {
+        frame.iter().map(|col| col[y].ch).collect()
+    }
+
+    fn drawn_board(cols: usize, stake: Option<u32>, gs: &GameState) -> (BoardView, Frame) {
+        let config = Config { num_cols: cols, num_rows: 31 };
+        let bv = BoardView::new(config);
+        let mut frame = crate::frame::new_frame(&config);
+        bv.draw(gs, &HandCursor::default(), None, stake, Emphasis::Normal, &mut frame);
+        (bv, frame)
+    }
+
+    #[test]
+    fn the_compact_board_carries_the_stake_clear_of_the_alert() {
+        let mut gs = over_20_game(); // PlayerTurn, score 25
+        let (bv, frame) = drawn_board(89, Some(999_999), &gs);
+        assert!(!bv.is_wide());
+        let status = bv.layout.status;
+
+        let alert = "OVER 20!  (Space/D/S: bust)";
+        let stake = stake_line(999_999);
+        let row = row_text(&frame, status.y0);
+        let chars: Vec<char> = row.chars().collect();
+        let left: String = chars[status.x0..status.x0 + alert.chars().count()].iter().collect();
+        assert_eq!(left, alert, "alert starts at status.x0");
+        let stake_x0 = status.x1 + 1 - stake.chars().count();
+        let right: String = chars[stake_x0..=status.x1].iter().collect();
+        assert_eq!(right, stake, "stake ends at status.x1");
+        let alert_x1 = status.x0 + alert.chars().count() - 1;
+        assert!(alert_x1 < stake_x0, "alert ends left of the stake");
+        for x in (alert_x1 + 1)..stake_x0 {
+            assert_eq!(chars[x], ' ', "cell {x} between alert and stake is blank");
+        }
+        for x in stake_x0..=status.x1 {
+            assert_eq!(frame[x][status.y0].emphasis, Emphasis::Strong, "stake cell {x} is Strong");
+        }
+        let prompt = row_text(&frame, status.y0 + 1);
+        assert!(prompt.contains("Space draw · S stand"), "prompt row {prompt:?}");
+
+        // The game-over popup never reaches the band: the stake stays.
+        gs.game_phase = GamePhase::GameOver { winner: Player::Player };
+        let (_, frame) = drawn_board(89, Some(999_999), &gs);
+        let row = row_text(&frame, status.y0);
+        let chars: Vec<char> = row.chars().collect();
+        let right: String = chars[stake_x0..=status.x1].iter().collect();
+        assert_eq!(right, stake, "stake still ends the row at game over");
+    }
+
+    #[test]
+    fn quick_play_shows_no_stake_line() {
+        let gs = over_20_game();
+        let (bv, frame) = drawn_board(89, None, &gs);
+        let status = bv.layout.status;
+        for y in [status.y0, status.y0 + 1] {
+            assert!(!row_text(&frame, y).contains("Stake"), "no stake on row {y}");
+        }
+    }
+
+    #[test]
+    fn the_wide_board_keeps_the_stake_in_the_panel() {
+        let gs = over_20_game();
+        let (bv, frame) = drawn_board(139, Some(999_999), &gs);
+        assert!(bv.is_wide());
+        let status = bv.layout.status;
+        for y in [status.y0, status.y0 + 1] {
+            assert!(!row_text(&frame, y).contains("Stake"), "no stake on row {y}");
+        }
+        let panel = bv.layout.opponent_panel.unwrap();
+        let row = row_text(&frame, panel.y0 + 18);
+        assert!(row.contains("◈ 999999"), "panel stake row {row:?}");
     }
 
     #[test]

@@ -93,7 +93,7 @@ stake. After T002 the game plays at 89 columns. -->
   The orchestrator re-runs the verification command itself before committing
   (per-task review).*
 
-- [ ] **T002** — `src/portrait.rs` + `src/board.rs`: the compact board's stake
+- [x] **T002** — `src/portrait.rs` + `src/board.rs`: the compact board's stake
   line. In `portrait.rs`, per plan §Design 3: add `pub fn stake_line(stake:
   u32) -> String` (`Stake ◈ {stake}`), use it in `draw_presence_extras`, and
   reword `PANEL_W`'s "the game's minimum terminal width" to "the wide layout's
@@ -315,7 +315,7 @@ and why). -->
 | sign-off re-review (skeptical-reviewer, same context) | fable (override) → fable | ~116K cumulative measured for the reviewer agent (~29K delta this pass; reviewer's own ~25K in / 1.5K out) | 1 | — | 0 (B1, B2 resolved) + 2 notes | **signed off**; N8 (the Phase 1 walkthrough listed the play log, which T003 widens at Phase 2) applied by the orchestrator in T002's PAUSE; N9 (tell the person AC 3 was reworded at sign-off) goes in the session's closing report |
 | T001 impl | sdd-implementer-fable → fable | ~67K measured return (implementer's own ~60K in / 12K out) | 1 | yes | — | done; one flagged deviation: `WIDE_LAYOUT_MIN_WIDTH` imported inside `fit_sizes` (a top-level import warned as unused, its only use being `cfg(test)`); the plan's hand-derived map figures held at 89 |
 | T001 per-task review (skeptical-reviewer) | opus → opus | ~48K measured return (reviewer's own ~18K in / 2K out) | 1 | — | 0 + 7 notes | signed off; notes carried forward: the stale "always visible" panel comment in `board.rs` (folded into T002's bundle), `cfg` loop variable shadowing the `cfg()` helper in `overlay_layout_pads_content_symmetrically` (to the sweep) |
-| T002 impl | sdd-implementer-fable → | | | | | |
+| T002 impl | sdd-implementer-fable → fable | ~55K measured return (implementer's own ~45K in / 3K out) | 1 | yes | — | done; no behaviour deviation; also replaced the stale "always visible" panel comment carried from the T001 review; the three named tests pass, 419 total |
 | Phase 1 review (skeptical-reviewer) | opus → | | | | | |
 | Phase 1 driver walkthrough (orchestrator, 89×31) | — | — | — | — | — | |
 | **Phase 1 summary** | — | — | dispatches/task: | first-try rate: | blocking: | |
