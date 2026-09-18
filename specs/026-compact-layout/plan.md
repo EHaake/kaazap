@@ -269,8 +269,10 @@ The settled amount is still at hand: `self.banner` holds
 `MapBanner::Settled(StakeOutcome::Won(n) | Lost(n))` until the map clears it.
 A small `fn stake_to_show(&self) -> Option<u32>` on `App` returns
 `stake_at_risk()`, or — when the active game's phase is `GameOver` — the
-banner's settled amount; `App::draw` passes it to `BoardView::draw` in place of
-the raw `stake_at_risk()`. No settlement, economy or board change; one rule for
+banner's settled amount, and only while the campaign's in-flight pointer is
+set (so a Quick Play game over never picks up a stale settlement banner);
+`App::draw` passes it to `BoardView::draw` in place of the raw
+`stake_at_risk()`. No settlement, economy or board change; one rule for
 both widths (the person's ruling at the Phase 1 pause). An App-level test pins
 `Stake ◈ N` on the game-over frame at 89×31 and on the panel row at 139×31.
 
