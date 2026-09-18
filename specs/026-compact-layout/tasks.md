@@ -140,6 +140,18 @@ stake. After T002 the game plays at 89 columns. -->
   clipping is reported at Phase 2 as a pre-existing finding (plan tension 4).
   Then the person tries the compact board before Phase 2 starts.*
 
+- [ ] **T002a** — finding F1 from the Phase 1 walkthrough (2026-09-17): on a
+  staked campaign match at 89×31 the `Stake ◈ 30` line was on the band from
+  the first frame, through the over-20 alert and the round-outcome popup, but
+  **absent at the game-over popup** (`YOU WIN THE GAME!`, row 29 blank). Spec
+  AC 4 and §The compact board say the stake shows "from the first frame to the
+  game-over popup"; plan §Tests notes the App half depends on when
+  `stake_at_risk()` clears at settlement. Dispatched as a diagnosis bundle to
+  the implementer: fix if routine and inside the presentation footprint, else
+  return the diagnosis and options for a decision review.
+  *Verify: the fix's tests green verbatim; the 89×31 game-over snapshot shows
+  the stake line; no file on the spec's no-change list touched.*
+
 ## Phase 2 — Every screen at 89, and the resize
 
 <!-- T003 makes every fit test measure both widths; T004 proves the resize
@@ -316,9 +328,10 @@ and why). -->
 | T001 impl | sdd-implementer-fable → fable | ~67K measured return (implementer's own ~60K in / 12K out) | 1 | yes | — | done; one flagged deviation: `WIDE_LAYOUT_MIN_WIDTH` imported inside `fit_sizes` (a top-level import warned as unused, its only use being `cfg(test)`); the plan's hand-derived map figures held at 89 |
 | T001 per-task review (skeptical-reviewer) | opus → opus | ~48K measured return (reviewer's own ~18K in / 2K out) | 1 | — | 0 + 7 notes | signed off; notes carried forward: the stale "always visible" panel comment in `board.rs` (folded into T002's bundle), `cfg` loop variable shadowing the `cfg()` helper in `overlay_layout_pads_content_symmetrically` (to the sweep) |
 | T002 impl | sdd-implementer-fable → fable | ~55K measured return (implementer's own ~45K in / 3K out) | 1 | yes | — | done; no behaviour deviation; also replaced the stale "always visible" panel comment carried from the T001 review; the three named tests pass, 419 total |
-| Phase 1 review (skeptical-reviewer) | opus → | | | | | |
-| Phase 1 driver walkthrough (orchestrator, 89×31) | — | — | — | — | — | |
-| **Phase 1 summary** | — | — | dispatches/task: | first-try rate: | blocking: | |
+| Phase 1 review (skeptical-reviewer) | opus → opus | ~60K measured return (reviewer's own ~52K in / 1.5K out) | 1 | — | 0 + 5 notes | signed off; notes: watch the band's upper row at round end / opponent stand in the walkthrough (done — only the alert ever lands there; BUSTED/Stood go in the header); the game-over test proves the outcome, not the popup extent; `cfg` shadowing still to the sweep |
+| T002a diagnosis (sdd-implementer-fable) | sdd-implementer-fable → fable | ~33K measured return (implementer's own ~31K) | 1 | — | — | diagnosed, nothing changed: settlement zeroes the escrow on the tick that produces the game-over frame, and the wide panel has been blank at game over since spec 021 too; three options returned; product question to the person at the Phase 1 pause |
+| Phase 1 driver walkthrough (orchestrator, 89×31) | — | — | — | — | — | every listed screen on frame, nothing clipped; the bail quotes `89 x 31`; **finding F1**: at the game-over popup the band's `Stake ◈ N` is gone (App-level half of AC 4) → T002a |
+| **Phase 1 summary** | — | — | dispatches/task: 1.0 (T001, T002; T002a diagnosis 1) | first-try rate: 2/2 | blocking: 0 (per-task) + 0 (phase) | Phase 1 done on Fable in one dispatch each; one walkthrough finding (F1, stake absent on the game-over frame) open as a product question |
 | T003 impl | sdd-implementer-fable → | | | | | |
 | T004 impl | sdd-implementer-fable → | | | | | |
 | Phase 2 review (skeptical-reviewer) | opus → | | | | | |
