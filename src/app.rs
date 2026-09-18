@@ -870,6 +870,7 @@ impl App {
                     planet,
                     opp,
                     self.profile.credits(),
+                    economy::cheapest_floor(self.profile.campaign()),
                 )));
             }
         }
