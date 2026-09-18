@@ -56,8 +56,9 @@ the review and the driver walkthrough. -->
   `arrows_move_over_the_pool_and_wrap`), the rewritten
   `enter_and_space_buy_the_highlighted_card` (fresh profile: Up then Enter →
   `Buy(Card::PlusMinus(1))`; then Down pressed 7 times, Enter after each, every
-  `Buy(c)` has `card_tier(c) == RegionTier::Outer` and the 7th Down lands back
-  on `Buy(Card::Plus(1))`; Core profile: Down then
+  `Buy(c)` has `card_tier(c) == RegionTier::Outer`, the 1st Down wraps to
+  `Buy(Card::Plus(1))` and the 7th lands back on `Buy(Card::PlusMinus(1))`;
+  Core profile: Down then
   Enter/Space → `Buy(listing()[1])`),
   `a_reset_map_relocks_groups_but_keeps_owned_counts`, and
   `the_full_list_fits_the_minimum_terminal` (replaces
@@ -114,7 +115,7 @@ the review and the driver walkthrough. -->
 
 ## Final phase — Spec close-out
 
-- [ ] **T003** — Close-out. Draft
+- [x] **T003** — Close-out. Draft
   `specs/025-outfitter-locked-cards/closeout-main-docs.md` in spec 024's shape:
   **ROADMAP** — mark "Show locked cards in the Outfitter" (~line 584) shipped as
   spec 025, and annotate any shipped entry that still says the shop lists only
@@ -194,3 +195,4 @@ redo, and why). -->
 | T002 impl (sdd-implementer) | opus (fallback, experiment 2 paused) | ~29K (measured return; implementer's own ~25K) | done first try; docs-only diff (docs/economy.md, +18/−6), 408 unit + 6 integration passing, `the_full_pool_fits` grep empty; § The depth-gated pool left as is (nothing there says locked cards are hidden) |
 | Phase 1 review (skeptical-reviewer) | opus | ~48K (measured return; reviewer's own ~40K) | signed off, 0 blocking, 6 notes — N1 task/plan text off-by-one confirmed (test right, stricter) → T003; N2 `LIST_ROWS` is hand-counted, not read by the draw loop (accepted by the plan; driver is the check); N3 draw doesn't clamp the cursor (unreachable; pre-existing); N4 draw re-filters listing per tier (fine at 15); N5 economy.md "dimming reads the same predicate" now half the story → T003; N6 stale `core_profile()` comment → T003 optional |
 | Phase 1 driver walkthrough (orchestrator, scratch profiles, 139×31; real profile/settings/save backed up to scratchpad, checksummed) | — | — | Fresh profile: three groups, headings `Mid Rim  ·  reach the Mid Rim to unlock` / `Core  ·  reach the Core to unlock`, prices and owned counts on every row, cursor on `+1`; ↑ wraps to `±1`, six ↓ from `+1` land on `±1` (never into Mid); two buys of `+1` took 50 → 10 credits (owned ×4 → ×6), a third Enter refused at spendable 0 with nothing changed. Mid profile (Cinder, Scree beaten): Mid heading bare, ↑ wraps to `3&6`, Core still locked with owned ×1 showing. Core profile: all headings bare, ↑ wraps to `±1T`. Core profile → Start Campaign → New Campaign → Yes: `beaten` empty, credits 500 kept; Outfitter shows Mid and Core locked again with `+4`/`±6`/`±1T` owned ×1 intact, ↑ wraps to `±1`. Nothing clips (list rows 6–25, hint 27). **Not verifiable by the driver:** dim/bold attributes (the snapshot is text only) — the person checks the dimming. **Layout finding:** the list block starts at column 48 (labels and headings at 51) while the title centers near column 69; unlocked rows span ~48–79, so on the Core profile (no long heading) the list sits about 5–6 columns left of the title and balance. Real data restored twice (after each driver script); SHA-256 of profile.json, settings.json, saves/savegame.json match the pre-driver sums (81bb34d1…, 6fbd0816…, 59866b15…) |
+| T003 close-out (sdd-implementer) | opus (fallback, experiment 2 paused) | ~96K (measured return; implementer's own ~62K) | done first try; closeout-main-docs.md drafted (4 ROADMAP + 2 DECISIONS edits, 11/11 anchors verbatim and unique against main's live files), all 10 acceptance criteria checked with evidence, three green runs (408 unit + 6 integration each), warning counts equal 0=0 via a main worktree; N1's plan half and N5, N6 applied — N1's tasks.md half applied by the orchestrator (the dispatch forbade tasks.md edits); **judgment recorded:** no DECISIONS line actually says the shop *displays* only the unlocked pool, so spec 012's scarcity bullet is clarified, not superseded; findings — use `git diff main...HEAD` (three-dot) in close-out task lines since main moved ahead on ROADMAP.md, and close-out anchors must end on a line boundary |

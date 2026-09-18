@@ -165,9 +165,11 @@ buyable pool. Alongside the list sit the balance *and* the **spendable**
 amount, `credits − cheapest_floor`. A purchase must leave that cheapest ante
 behind, so shopping can never end a run:
 `Profile::can_afford(price)` is `credits ≥ price + cheapest_floor`, and
-`try_purchase` deducts only `price`, never the reserve. The shop's dimming reads
-the same predicate `try_purchase` enforces, so the readout and the refusal can't
-disagree; a reserved-out card is dimmed and a buy on it is a soft no-op.
+`try_purchase` deducts only `price`, never the reserve. The shop's
+*affordability* dimming reads the same predicate `try_purchase` enforces, so the
+readout and the refusal can't disagree; a reserved-out card is dimmed and a buy
+on it is a soft no-op. (Locked rows are dimmed too — see above; the heading and
+the cursor are what tell the two apart.)
 
 ## The depth-gated pool
 

@@ -111,27 +111,99 @@ the sketch; on screen they are simply dimmed):
 
 ## Acceptance criteria
 
-- [ ] On a fresh profile the Outfitter lists all 15 cards in three groups
+- [x] On a fresh profile the Outfitter lists all 15 cards in three groups
       (Outer Rim 7, Mid Rim 6, Core 2), each row with its price and owned
       count.
-- [ ] On a fresh profile the Mid Rim and Core rows are dimmed, and their
+      *Evidence: `the_listing_groups_every_card_by_tier` (`listing().len() ==
+      15`, tier-ordered, group sizes exactly `(7, 6, 2)`, and a permutation of
+      `ALL_SIDE_CARDS` — each card exactly once); `row_text` renders
+      `▸  <label>   <price> cr   owned ×<n>` for every row, locked or not;
+      **Phase 1 driver walkthrough** (tier log) — fresh profile showed three
+      groups with prices and owned counts on every row.*
+- [x] On a fresh profile the Mid Rim and Core rows are dimmed, and their
       headings name the region that opens them; the Outer Rim heading is the
       bare region name.
-- [ ] Reaching the Mid Rim (a Mid Rim planet unlocked) unlocks the Mid Rim
+      *Evidence: `headings_name_the_region_and_lock_until_reached` (at depth
+      `Outer`: `"Outer Rim"`, `"Mid Rim  ·  reach the Mid Rim to unlock"`,
+      `"Core  ·  reach the Core to unlock"`); `draw` gives every locked row
+      (`card_tier(card) > depth`) `Emphasis::Muted`, while headings stay
+      `Normal`; **driver walkthrough** read both locked
+      headings verbatim. The dimming itself is an attribute the text-only
+      driver snapshot can't see — **attested by the person** at the Phase 1
+      pause.*
+- [x] Reaching the Mid Rim (a Mid Rim planet unlocked) unlocks the Mid Rim
       group and leaves the Core locked; reaching the Core unlocks all three.
-- [ ] ↑/↓ never land the cursor on a locked row or a heading, wrapping over
+      *Evidence: `the_unlocked_prefix_is_the_available_pool_at_every_depth`
+      (`unlocked_count` is 7 / 13 / 15 for a fresh, Mid and Core profile) and
+      `headings_name_the_region_and_lock_until_reached` (at depth `Mid` the
+      Mid heading is bare and the Core heading still locked; at `Core` all
+      three are bare); **driver walkthrough** — Mid profile (Cinder, Scree
+      beaten) showed a bare Mid heading with the Core still locked, Core
+      profile showed all three bare.*
+- [x] ↑/↓ never land the cursor on a locked row or a heading, wrapping over
       the unlocked cards only; so no key buys a locked card.
-- [ ] Buying an unlocked card behaves exactly as before (affordability, the
+      *Evidence: `arrows_wrap_over_the_unlocked_cards_only` (fresh profile:
+      opens at 0, Up → 6, Down → 0, and over 20 Down presses the cursor stays
+      `< 7`; Core profile: Up from 0 → 14) and
+      `enter_and_space_buy_the_highlighted_card` (fresh profile: Up then Enter
+      buys `±1`, not a Mid card; seven Downs with Enter after each give
+      `bought == listing()[..7]`, every one `RegionTier::Outer`). Headings are
+      unreachable by construction — the cursor indexes cards only. **Driver
+      walkthrough**: ↑ wrapped to `±1`, six ↓ from `+1` landed on `±1`, never
+      into the Mid group.*
+- [x] Buying an unlocked card behaves exactly as before (affordability, the
       ante reserve, price, sound, save).
-- [ ] After New Campaign on a profile that owns Mid Rim or Core cards, those
+      *Evidence: the buy path is untouched — `git diff main...HEAD --stat`
+      shows no `src/app.rs`, `src/profile.rs`, `src/economy.rs` pricing or
+      `src/save.rs` change, and `handle_input` still emits one
+      `ShopOutcome::Buy(card)`; `economy.rs`'s only addition is
+      `RegionTier::region_name` (`git diff main -- src/economy.rs`).
+      **Driver walkthrough**: two buys of `+1` took 50 → 10 credits (owned ×4 →
+      ×6) and a third Enter was refused at spendable 0 with nothing changed —
+      the ante reserve holding as spec 021 left it.*
+- [x] After New Campaign on a profile that owns Mid Rim or Core cards, those
       groups show locked again with the owned counts intact.
-- [ ] The 15 cards' tier grouping comes from the same source that gates the
+      *Evidence: `a_reset_map_relocks_groups_but_keeps_owned_counts` (Core
+      profile granted `+4` and `±1T`, then `reset_campaign_run()` →
+      `unlocked_count == 7`, both `owned_count`s still 1, both headings back to
+      the locked form); **driver walkthrough** — Core profile → Start Campaign
+      → New Campaign → Yes left `beaten` empty and 500 credits, and the
+      Outfitter showed Mid and Core locked again with `+4` / `±6` / `±1T` owned
+      ×1 intact.*
+- [x] The 15 cards' tier grouping comes from the same source that gates the
       pool, so the list and what's buyable can't disagree.
-- [ ] The full list, headings, balance and hint fit 139×31, checked by a
+      *Evidence: `the_unlocked_prefix_is_the_available_pool_at_every_depth`
+      asserts `listing()[..n]` equals `economy::available_pool(..)` as a
+      multiset **and** that every card after it has `card_tier > depth`, at all
+      three depths; `listing`, `unlocked_count` and `heading` all read
+      `economy::card_tier` / `economy::deepest_reached`, the same pair
+      `available_pool` uses. `region_name_is_the_inverse_of_region_tier` pins
+      the heading vocabulary to the map's region strings.*
+- [x] The full list, headings, balance and hint fit 139×31, checked by a
       test and by running the game.
-- [ ] No change to `card.rs`, `game.rs`, `player.rs`, `save.rs`, the tier
+      *Evidence: `the_full_list_fits_the_minimum_terminal` — `LIST_ROWS == 21`,
+      `anchors(rows)` keeps the list clear of the title and the hint inside the
+      31 rows, a five-digit balance row fits centered, every `row_text` with a
+      two-digit owned count fits from `list_left`, and both locked headings fit
+      at `left + 3`. **Driver walkthrough** at 139×31: list rows 6–25, hint row
+      27, nothing clipped.*
+- [x] No change to `card.rs`, `game.rs`, `player.rs`, `save.rs`, the tier
       table or prices in `economy.rs`, or the profile format.
-- [ ] `docs/economy.md`'s shop section describes the new list.
+      *Evidence: `git diff main...HEAD --stat` lists only `docs/economy.md`,
+      `specs/025-outfitter-locked-cards/*`, `src/economy.rs` and `src/shop.rs`
+      — no `src/card.rs`, `src/game.rs`, `src/player.rs`, `src/save.rs`,
+      `src/app.rs`, `src/profile.rs`, `tests/balance.rs`, `Cargo.toml` or
+      `Cargo.lock`. `git diff main -- src/economy.rs` adds only
+      `RegionTier::region_name` and its test — the tier table, `card_price` and
+      every constant are untouched; `PROFILE_VERSION` and `SAVE_VERSION` stay 1.*
+- [x] `docs/economy.md`'s shop section describes the new list.
+      *Evidence: T002's docs-only diff (`docs/economy.md`, +18/−6) — the shop
+      section now describes the always-full 15-card list, the three region
+      groups, the locked form `<Region>  ·  reach the <Region> to unlock` with
+      prices and owned counts still showing, and the cursor visiting unlocked
+      cards only; T003 further qualified the affordability sentence ("The
+      shop's *affordability* dimming reads…") so dimming no longer reads as
+      meaning unaffordable alone.*
 
 ## Resolved decisions (the person, 2026-09-16)
 

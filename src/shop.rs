@@ -218,7 +218,8 @@ mod tests {
     }
 
     // A profile whose campaign has reached the Core, so the whole 15-card pool
-    // is available and the shop has a full list to navigate.
+    // is unlocked. The list is always all 15 rows (spec 025); what this profile
+    // changes is that the cursor can reach every one of them.
     fn core_profile() -> Profile {
         let mut p = Profile::default();
         for (planet, opponent) in [

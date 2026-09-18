@@ -257,8 +257,9 @@ Each claim names the task that owns its check. All in T001 unless noted.
   `enter_and_space_buy_the_highlighted_card`: on a fresh profile, Up then Enter
   → `Buy(Card::PlusMinus(1))` (the last Outer card — the wrap did not reach
   `+4`); then Down pressed 7 times with Enter after each, every `Buy(c)` has
-  `card_tier(c) == RegionTier::Outer`, and the 7th Down lands back on
-  `Buy(Card::Plus(1))` (the wrap is exactly 7). On a Core profile Down then Enter/Space →
+  `card_tier(c) == RegionTier::Outer`, the 1st Down wraps to
+  `Buy(Card::Plus(1))` and the 7th lands back on `Buy(Card::PlusMinus(1))`
+  (the wrap is exactly 7). On a Core profile Down then Enter/Space →
   `Buy(listing()[1])`.
 - **Esc/`x` and unknown keys** — existing test, unchanged.
 - **A reset map relocks with owned counts intact** (AC 6) —
