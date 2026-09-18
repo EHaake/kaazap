@@ -259,6 +259,21 @@ only in that `draw_status` (alert, `Align::Left`) runs first; the popup
 reaches the band (row 29), so the stake stays visible under the round-outcome
 and game-over popups — pinned by the T002 test at `GamePhase::GameOver`.
 
+### 4a. `src/app.rs` — the stake handed to the board at game over (Q6 A, T002a)
+
+`App::tick` settles the match on the tick whose phase becomes `GameOver`
+(`profile.resolve_match` → `settle_campaign_match` → `take_stake`), so on that
+same iteration `App::draw`'s `stake_at_risk()` is already `None` and neither
+the compact band nor the wide panel shows the stake on the game-over frame.
+The settled amount is still at hand: `self.banner` holds
+`MapBanner::Settled(StakeOutcome::Won(n) | Lost(n))` until the map clears it.
+A small `fn stake_to_show(&self) -> Option<u32>` on `App` returns
+`stake_at_risk()`, or — when the active game's phase is `GameOver` — the
+banner's settled amount; `App::draw` passes it to `BoardView::draw` in place of
+the raw `stake_at_risk()`. No settlement, economy or board change; one rule for
+both widths (the person's ruling at the Phase 1 pause). An App-level test pins
+`Stake ◈ N` on the game-over frame at 89×31 and on the panel row at 139×31.
+
 ### 5. `src/overlay.rs` — the play-log box
 
 ```rust

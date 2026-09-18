@@ -156,7 +156,8 @@ the stake at the right of the status band's upper row):
       and clear of the rail.
 - [ ] The wide layout at 139×31 and larger is unchanged: the existing
       board-layout tests pass untouched and the 139×31 driver walkthrough
-      matches spec 016's screen.
+      matches spec 016's screen — except that the panel's stake row now stays
+      through the game-over popup (Q6 A).
 - [ ] `Readme.md`'s terminal-size paragraph describes the new minimum and
       the two layouts.
 - [ ] No change to `card.rs`, `game.rs`, `player.rs`, `save.rs`,

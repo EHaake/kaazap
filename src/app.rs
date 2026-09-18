@@ -14,6 +14,7 @@ use crate::{
     card::Card,
     config::Config,
     deck_builder::{BuildOutcome, BuilderOrigin, DeckBuilderState},
+    economy::StakeOutcome,
     economy,
     frame::{
         Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_centered,
@@ -1729,6 +1730,29 @@ impl App {
         self.update_play_log();
     }
 
+    /// The stake the board shows (spec 026, Q6 A): the escrowed stake while the
+    /// match runs, or — at `GameOver`, when `tick` has already settled it on
+    /// this same iteration and `stake_at_risk()` is `None` — the settled amount
+    /// the map banner holds. The campaign pointer is still set at `GameOver`
+    /// (it clears on the acknowledgement), so a Quick Play game over never
+    /// picks up a banner left from an earlier campaign settlement.
+    fn stake_to_show(&self) -> Option<u32> {
+        self.profile.campaign().stake_at_risk().or_else(|| {
+            let Screen::InGame { game_state, .. } = &self.screen else {
+                return None;
+            };
+            if !matches!(game_state.game_phase, GamePhase::GameOver { .. })
+                || self.profile.campaign().in_progress().is_none()
+            {
+                return None;
+            }
+            match &self.banner {
+                Some(MapBanner::Settled(StakeOutcome::Won(n) | StakeOutcome::Lost(n))) => Some(*n),
+                _ => None,
+            }
+        })
+    }
+
     pub fn draw(&mut self, frame: &mut Frame) {
         if let Some((cols, rows)) = self.too_small {
             draw_too_small(frame, cols, rows);
@@ -1743,7 +1767,7 @@ impl App {
                     game_state,
                     cursor,
                     self.banter,
-                    self.profile.campaign().stake_at_risk(),
+                    self.stake_to_show(),
                     pulse,
                     frame,
                 )
@@ -2594,6 +2618,63 @@ mod tests {
         assert_eq!(game_state.player.hand, hand_before, "hand unchanged");
         assert_eq!(game_state.player.dealer_row.len(), dealer_before, "no card drawn");
         assert_eq!(game_state.player.played_row.len(), played_before, "no card played");
+    }
+
+    #[test]
+    fn the_game_over_frame_shows_the_settled_stake_on_both_layouts() {
+        // Spec 026 T002a (Q6 A): the match settles on the tick that draws the
+        // game-over frame, so `stake_at_risk()` is already `None` there — the
+        // board is handed the settled amount from the map banner instead, on
+        // the compact band (89) and the wide panel (139). The App holds a
+        // fresh profile with the campaign pointer still set, as it is at
+        // `GameOver` before the acknowledgement; nothing here writes to disk.
+        use crate::layout::BoardLayout;
+        use crate::portrait::stake_line;
+
+        fn row_text(frame: &Frame, y: usize) -> String {
+            frame.iter().map(|col| col[y].ch).collect()
+        }
+
+        for (cols, wide) in [(89, false), (139, true)] {
+            let config = Config { num_cols: cols, num_rows: 31 };
+            let mut app = App::new(config);
+            app.profile = Profile::default();
+            app.profile.campaign_mut().set_in_progress(Some(NodeRef {
+                planet: "cinder".to_string(),
+                opponent: "greeb".to_string(),
+                stake: 0, // settled: the escrow is already taken
+            }));
+            app.banner = Some(MapBanner::Settled(StakeOutcome::Won(30)));
+            let mut game_state = GameState::new();
+            game_state.game_phase = GamePhase::GameOver { winner: Player::Player };
+            app.screen = Screen::InGame {
+                game_state: Box::new(game_state),
+                cursor: HandCursor::default(),
+            };
+            assert_eq!(app.stake_to_show(), Some(30));
+
+            let mut frame = crate::frame::new_frame(&config);
+            app.draw(&mut frame);
+            let layout = BoardLayout::new(config);
+            assert_eq!(layout.opponent_panel.is_some(), wide);
+            if wide {
+                let panel = layout.opponent_panel.unwrap();
+                let row = row_text(&frame, panel.y0 + 18);
+                assert!(row.contains("◈ 30"), "panel stake row at {cols}: {row:?}");
+            } else {
+                let status = layout.status;
+                let stake = stake_line(30);
+                let chars: Vec<char> = row_text(&frame, status.y0).chars().collect();
+                let stake_x0 = status.x1 + 1 - stake.chars().count();
+                let right: String = chars[stake_x0..=status.x1].iter().collect();
+                assert_eq!(right, stake, "band ends in the stake at game over");
+            }
+
+            // A Quick Play game over — no campaign pointer — shows nothing,
+            // even with a settlement banner still around.
+            app.profile.campaign_mut().set_in_progress(None);
+            assert_eq!(app.stake_to_show(), None);
+        }
     }
 
     #[test]

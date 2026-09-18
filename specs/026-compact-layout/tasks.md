@@ -140,7 +140,7 @@ stake. After T002 the game plays at 89 columns. -->
   clipping is reported at Phase 2 as a pre-existing finding (plan tension 4).
   Then the person tries the compact board before Phase 2 starts.*
 
-- [ ] **T002a** — finding F1 from the Phase 1 walkthrough (2026-09-17): on a
+- [x] **T002a** — finding F1 from the Phase 1 walkthrough (2026-09-17): on a
   staked campaign match at 89×31 the `Stake ◈ 30` line was on the band from
   the first frame, through the over-20 alert and the round-outcome popup, but
   **absent at the game-over popup** (`YOU WIN THE GAME!`, row 29 blank). Spec
@@ -148,9 +148,18 @@ stake. After T002 the game plays at 89 columns. -->
   game-over popup"; plan §Tests notes the App half depends on when
   `stake_at_risk()` clears at settlement. Dispatched as a diagnosis bundle to
   the implementer: fix if routine and inside the presentation footprint, else
-  return the diagnosis and options for a decision review.
-  *Verify: the fix's tests green verbatim; the 89×31 game-over snapshot shows
-  the stake line; no file on the spec's no-change list touched.*
+  return the diagnosis and options for a decision review. **Diagnosis**: the
+  match settles on the tick that draws the game-over frame, and the wide panel
+  has been blank there since spec 021. **Ruling A (the person, 2026-09-17,
+  spec Q6)**: show the settled stake at game over on both layouts. Per plan
+  §Design 4a: `App::stake_to_show()` returns `stake_at_risk()` or, at
+  `GamePhase::GameOver`, the settled amount from `self.banner`; `App::draw`
+  passes it to the board. `src/app.rs` only, plus an App-level test drawing
+  a staked game at `GameOver` into 89×31 (band ends in `Stake ◈ N`) and
+  139×31 (panel row holds `◈ N`).
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim with the new test; `git diff --stat` shows only `src/app.rs`; the
+  Phase 2 walkthrough's game-over snapshots show the stake at 89 and 139.*
 
 ## Phase 2 — Every screen at 89, and the resize
 
@@ -330,8 +339,9 @@ and why). -->
 | T002 impl | sdd-implementer-fable → fable | ~55K measured return (implementer's own ~45K in / 3K out) | 1 | yes | — | done; no behaviour deviation; also replaced the stale "always visible" panel comment carried from the T001 review; the three named tests pass, 419 total |
 | Phase 1 review (skeptical-reviewer) | opus → opus | ~60K measured return (reviewer's own ~52K in / 1.5K out) | 1 | — | 0 + 5 notes | signed off; notes: watch the band's upper row at round end / opponent stand in the walkthrough (done — only the alert ever lands there; BUSTED/Stood go in the header); the game-over test proves the outcome, not the popup extent; `cfg` shadowing still to the sweep |
 | T002a diagnosis (sdd-implementer-fable) | sdd-implementer-fable → fable | ~33K measured return (implementer's own ~31K) | 1 | — | — | diagnosed, nothing changed: settlement zeroes the escrow on the tick that produces the game-over frame, and the wide panel has been blank at game over since spec 021 too; three options returned; product question to the person at the Phase 1 pause |
+| T002a impl (ruling A) | sdd-implementer-fable → fable | ~39K measured return (implementer's own ~37K) | 1 | yes | — | done; `App::stake_to_show()` with one extra guard (campaign pointer set, so a Quick Play game over never shows a stale banner); 420 tests |
 | Phase 1 driver walkthrough (orchestrator, 89×31) | — | — | — | — | — | every listed screen on frame, nothing clipped; the bail quotes `89 x 31`; **finding F1**: at the game-over popup the band's `Stake ◈ N` is gone (App-level half of AC 4) → T002a |
-| **Phase 1 summary** | — | — | dispatches/task: 1.0 (T001, T002; T002a diagnosis 1) | first-try rate: 2/2 | blocking: 0 (per-task) + 0 (phase) | Phase 1 done on Fable in one dispatch each; one walkthrough finding (F1, stake absent on the game-over frame) open as a product question |
+| **Phase 1 summary** | — | — | dispatches/task: 1.0 (T001, T002, T002a; plus one diagnosis dispatch) | first-try rate: 3/3 | blocking: 0 (per-task) + 0 (phase) | Phase 1 done on Fable in one dispatch each; walkthrough finding F1 (stake absent on the game-over frame) ruled A by the person and fixed as T002a; its game-over frames are checked in the Phase 2 walkthrough |
 | T003 impl | sdd-implementer-fable → | | | | | |
 | T004 impl | sdd-implementer-fable → | | | | | |
 | Phase 2 review (skeptical-reviewer) | opus → | | | | | |
