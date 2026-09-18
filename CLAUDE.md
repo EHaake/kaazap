@@ -137,8 +137,9 @@ further, and whenever something unexpected bears on spec adherence.
   `sdd-implementer` (opus, high) as the fallback dispatch;
   session tier `fable` at medium effort (experiment 1 — the top and
   session tiers are the same model at different effort; the fallback
-  session model is `claude-opus-4-8`, the full ID, since a
-  previous-generation model has no short alias). These names are the
+  session model is `claude-opus-5`, the full ID, since the person's
+  ruling of 2026-09-16; it was `claude-opus-4-8` before then, a
+  previous-generation model with no short alias). These names are the
   only place a model is spelled out; everything below refers to the
   roles.
 - **The session runs at the session tier, at medium effort**, set in
@@ -258,10 +259,10 @@ further, and whenever something unexpected bears on spec adherence.
 - **Fallback**: if the top tier's usage budget runs out, dispatch the
   planner and sign-off at the implementation tier for the rest of the
   window (drop the override; both definitions default to `opus`), and
-  switch the session itself to the session-fallback model the person
-  names at the time — `claude-opus-5` since their ruling of 2026-09-16
-  (spec 025), `claude-opus-4-8` before it — mid-session (`/model
-  <that ID>` — one cache re-write, then continue).
+  switch the session itself to the fallback session model named in
+  *Tiers by name* above, mid-session (one cache re-write, then
+  continue). The person may name a different one at the time; it is
+  written into *Tiers by name* in its own commit, not spelled out here.
   The implementer falls back to `sdd-implementer` when Fable's
   allowance runs out; needing that fallback is itself a result.
   Nothing else changes; the tier log records what ran and when the
