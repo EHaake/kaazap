@@ -1,6 +1,6 @@
 # Tasks: Compact layout below 139 columns — spec 026
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-17; re-review after B1/B2 and N1–N7; N8 applied by the orchestrator, N9 reported to the person)
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -134,9 +134,11 @@ stake. After T002 the game plays at 89 columns. -->
   through an over-20 alert, a round popup and the game-over popup (this is the
   App-level check that the stake is still passed at game over), a Quick Play
   match with no stake line, no panel and no banter line; starting in a
-  terminal below 89×31 shows the bail's `89 x 31`. Long play-log round headers
-  clipping is reported as a pre-existing finding (plan tension 4). Then the
-  person tries the compact board before Phase 2 starts.*
+  terminal below 89×31 shows the bail's `89 x 31`. **The play log is checked
+  at Phase 2, not here** — T003 widens its box, so at Phase 1 it is still the
+  40-column box and would clip (sign-off N8). Long play-log round headers
+  clipping is reported at Phase 2 as a pre-existing finding (plan tension 4).
+  Then the person tries the compact board before Phase 2 starts.*
 
 ## Phase 2 — Every screen at 89, and the resize
 
@@ -307,8 +309,10 @@ and why). -->
 |---|---|---|---|---|---|---|
 | **Experiment 2 live** — 2026-09-17, Fable allowance reading **96 %** at planning. Implementer `sdd-implementer-fable` (`claude-fable-5-1`, medium), fallback `sdd-implementer` (opus, high); reviewer opus (high); planner and sign-off at the top tier (fable, override). Specs 023–025 ran the fallback and are **not** experiment data; compare against specs 021–022. | — | — | — | — | — | header |
 | Planning: draft (sdd-planner) | fable (override) → fable | ~150K (planner's own estimate; ~120K read, the rest reasoning and the two files) | 1 | yes | — | drafted; 5 tasks in 3 phases, Phase 1 foundational, T001 `review: per-task`; no product fork; 4 design choices flagged for sign-off |
-| plan + tasks sign-off (skeptical-reviewer) | fable (override) → | | | | 2 (B1 wager test vs AC 3 — the spec corrected; B2 no Phase 1 pause) + 7 notes | orchestrator fills the tier and tokens |
-| Planning: sign-off notes (sdd-planner, same context) | fable (override) → fable | ~25K (planner's own estimate of the delta) | 1 | yes | — | B1 (tension 3 / open question 3 now cite the corrected AC 3), B2 (Phase 1 ends with a PAUSE and the 89×31 walkthrough in T002; handoff cadence), N1 (bail `{} x {}` in T001), N2 (grep checks reworded), N3 (App-level half of AC 4 → walkthroughs), N4 (Outfitter finding-not-fix in T003), N5 (deck-builder hint line in the walkthroughs), N6 (`impl Config` block), N7 (tension 4 wording) applied; both files still Draft |
+| plan + tasks sign-off (skeptical-reviewer) | fable (override) → fable | ~87K (measured return; reviewer's own ~70K in / 4K out) | 1 | — | 2 (B1 wager test vs AC 3 — the spec corrected; B2 no Phase 1 pause) + 7 notes N1–N7 | B1 fixed in spec.md by the orchestrator (AC 3 reworded; reported to the person as N9 asks); B2 and N1–N7 sent to the planner |
+| Planning: draft (sdd-planner) — measured | fable (override) → fable | ~181K (measured return for the draft dispatch) | — | — | — | the measured figure for the draft row above; the planner's own estimate was ~150K |
+| Planning: sign-off notes (sdd-planner, same context) | fable (override) → fable | ~25K (planner's own estimate of the delta) | 1 | yes | — | B1 (tension 3 / open question 3 now cite the corrected AC 3), B2 (Phase 1 ends with a PAUSE and the 89×31 walkthrough in T002; handoff cadence), N1 (bail `{} x {}` in T001), N2 (grep checks reworded), N3 (App-level half of AC 4 → walkthroughs), N4 (Outfitter finding-not-fix in T003), N5 (deck-builder hint line in the walkthroughs), N6 (`impl Config` block), N7 (tension 4 wording) applied; both files still Draft. Measured cumulative return for the planner agent after this pass: ~198K (draft + notes) |
+| sign-off re-review (skeptical-reviewer, same context) | fable (override) → fable | ~116K cumulative measured for the reviewer agent (~29K delta this pass; reviewer's own ~25K in / 1.5K out) | 1 | — | 0 (B1, B2 resolved) + 2 notes | **signed off**; N8 (the Phase 1 walkthrough listed the play log, which T003 widens at Phase 2) applied by the orchestrator in T002's PAUSE; N9 (tell the person AC 3 was reworded at sign-off) goes in the session's closing report |
 | T001 impl | sdd-implementer-fable → | | | | | |
 | T001 per-task review (skeptical-reviewer) | opus → | | | | | |
 | T002 impl | sdd-implementer-fable → | | | | | |

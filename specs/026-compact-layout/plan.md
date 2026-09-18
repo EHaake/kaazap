@@ -1,6 +1,6 @@
 # Plan: Compact layout below 139 columns — spec 026
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-17; re-review after B1/B2 and N1–N7; N8 applied by the orchestrator, N9 reported to the person)
 **Implements**: `spec.md` in this directory
 
 ## Context
