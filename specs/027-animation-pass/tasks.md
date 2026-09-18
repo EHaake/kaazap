@@ -1,6 +1,6 @@
 # Tasks: Animation pass — spec 027
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-18; re-review after B1 and N1, N2, N4; R1 applied by the orchestrator)
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -127,8 +127,13 @@ it. After T003 the game plays with every transition, always on. -->
   T004: gated by settings.animations` comment. No other `app.rs` code change.
   Tests (plan §Tests): `the_board_transitions_after_a_hit_and_settles_when_animations_are_off`
   (the Off step is **deferred to T004**; here: settled first frame; a dealer
-  card pushed by hand with the phase set to `OpponentThinking`, then
-  `tick(ZERO)` → slot 0 `Strong` and `Opponent's Turn .` on the status row;
+  card pushed by hand with the phase set to `OpponentThinking { until:
+  Instant::now() + Duration::from_secs(3600) }` — **a far-future deadline,
+  with a one-line comment saying why**: `tick` runs `update()` before it
+  observes, so an elapsed `until` (the `Instant::now()` the other tests use)
+  would move the phase to `OpponentTurn`, write the real save file and leave
+  no thinking line — then `tick(ZERO)` → slot 0 `Strong` and `Opponent's
+  Turn .` on the status row;
   `round_outcome` + `AwaitingNextRound` set by hand, `tick(ZERO)` → no popup
   text; the outcome cleared, rows emptied and `PlayerTurn` set by hand,
   `tick(ZERO)` → no popup and no `Strong` in the grid; `handle_key(Esc)` then
@@ -146,8 +151,9 @@ it. After T003 the game plays with every transition, always on. -->
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim with both new tests passing; `git diff --stat` shows only
   `src/app.rs`; `git diff -- src/app.rs` outside `mod tests` touches only the
-  field, `new`, the `tick` match and the `draw` argument; the implementer's
-  report quotes the `tick` match verbatim.
+  field, `new`, the `tick` match, the `draw` argument and the motion import
+  (`use crate::motion::BoardMotion;`); the implementer's report quotes the
+  `tick` match verbatim.
   **PAUSE for the person** (after the Phase 1 review): the orchestrator drives
   the **89×31 and 139×31** Quick Play walkthrough in plan §Verification with
   the `run-kaazap` skill — real profile, settings and save backed up and
@@ -191,7 +197,9 @@ the phase ends with the review and the second walkthrough. -->
   `the_board_transitions_after_a_hit_and_settles_when_animations_are_off`
   (`app.settings.animations = false` → the slot `Normal` and the plain
   `Opponent's Turn`; `true` → `Strong` again — set the field directly, never
-  through `handle_settings_input`, which writes the real settings file). In
+  through `handle_settings_input`, which writes the real settings file; the
+  step reuses T003's hand-set `OpponentThinking` state, so its `until` stays
+  the far-future deadline for the same reason). In
   `Readme.md` ~line 19 and `design/brief.md`'s Motion section, the exact
   wording in plan §Design 6. Do not run `cargo fmt`. (Copies: `settings.rs`'s
   own `draw_overlay` and tests; `menu.rs`'s cursor index handling for the
@@ -280,9 +288,10 @@ this spec's walkthroughs write the settings file on purpose. Repo-wide docs
 `main` after the merge; `Readme.md` and `design/brief.md` ride in on the branch
 (T004). Never run `cargo fmt`.
 
-Plan §Open questions 1 (the Score's resting weight) is a product question: the
-dispatcher takes it to the person at sign-off, and the orchestrator edits T001
-and T002 before dispatching if the ruling differs from the plan's reading.
+Plan §Open questions 1 (the Score's resting weight) was ruled at planning as
+spec Q7 (the Score rests `Normal`) and flagged to the person in the conformance
+summary; if the person overrules it before T001 starts, the orchestrator edits
+T001 and T002 before dispatching, per the header note above Phase 1.
 
 Model & effort: the session runs at the session tier (`claude-fable-5-1` at
 medium, from `.claude/settings.json`); the planner and the sign-off ran at the
@@ -309,3 +318,6 @@ and why). -->
 | **Experiment 2 live** — 2026-09-18. Implementer `sdd-implementer-fable` (`claude-fable-5-1`, medium), fallback `sdd-implementer` (opus, high); reviewer opus (high); planner and sign-off at the top tier (fable, override). Compare against spec 026's log (the first full Experiment 2 spec: 6/6 first try, ~280K implementer total). Fable allowance reading at planning: _orchestrator to fill_. | — | — | — | — | — | header |
 | Planning: draft (sdd-planner) | fable (override) → fable | ~120K (planner's own estimate: ~85K read — bundle, board.rs, settings.rs, frame.rs, main.rs, banter.rs, lib.rs, the app.rs and game.rs sections, the brief's Motion section — the rest reasoning and the two files) | 1 | yes | — | drafted; 5 tasks in 3 phases, Phase 1 foundational, T001 `review: per-task`; one product question (the Score's resting weight, plan tension 1) for the person at sign-off; 4 design choices flagged for sign-off |
 | Planning: draft (sdd-planner) — measured | fable (override) → fable | ~181K (measured return for the draft dispatch) | — | — | — | the measured figure for the draft row above; the planner's own estimate was ~120K |
+| plan + tasks sign-off (skeptical-reviewer) | fable (override) → fable | ~131K (measured return; reviewer's own estimate ~86K: ~64K bundle, ~14K four out-of-bundle reads, ~8K reasoning and report) | 1 | — | 1 (B1: T003's hand-set `OpponentThinking` with `until: Instant::now()` fires the pause in `update()`, writes the real save file and fails the thinking-line assertion) + notes N1–N5 | B1, N1, N2, N4 sent to the planner; N3 (density rule on Settings) and N5 (opponent-decided rounds resolve one tick later, inside the bounds) no change |
+| Planning: sign-off notes (sdd-planner, same context) | fable (override) → fable | ~12K (measured delta of the cumulative return, 193K − 181K; planner's own estimate ~20K) | 1 | yes | — | B1 (far-future `until` in tasks T003, plan §Tests T003, T004's Off step), N1 (tension 1 and §Open questions 1 closed with Q7), N2 (motion import allowed in T003's Verify), N4 (tension 5 notes the resumed-at-thinking first frame) applied; both files still Draft |
+| plan + tasks re-review (skeptical-reviewer, same context) | fable (override) → fable | ~5K (measured delta, 136K − 131K) | 1 | — | 0 | signed off; R1 (handoff note one revision behind) applied by the orchestrator; Draft flipped to Signed off |

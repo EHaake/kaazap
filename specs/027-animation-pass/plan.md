@@ -1,6 +1,6 @@
 # Plan: Animation pass — spec 027
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-18; re-review after B1 and N1, N2, N4; R1 applied by the orchestrator)
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -78,10 +78,9 @@ that rests `Normal`, so that is what this plan builds: `draw_side_header` draws
 transition. Consequence: with Animations **Off**, the board is the pre-spec
 board **except that the Score is no longer bold**. Goal 5 and §The Animations
 setting say "frame for frame" / "identical to the game's frames before this
-spec"; the ACs are what the tests pin, and they say otherwise. **Flagged for the
-person** (§Open questions 1). If the person wants the Score bold at rest, ruling
-(c) is dropped instead: `Elem::Score` is never started and the header line is
-untouched — a two-line change in T001/T002.
+spec"; the ACs are what the tests pin, and they say otherwise. **Ruled: spec
+Q7, 2026-09-18 — the Score rests `Normal`**; flagged to the person in the
+conformance summary (§Open questions 1).
 
 ### 2. One struct, observed in `tick`, read by `draw`
 
@@ -126,7 +125,11 @@ clock); a card index cannot arrive twice without a clear.
 `OpponentThinking` — when it is `Some`, which is exactly the phase in which the
 base line is the opponent's. The emphasis is the line's own (Muted). On the
 compact board the stake is on row 0 and this line on row 1, so they cannot meet
-(pinned by a test, AC 5/9).
+(pinned by a test, AC 5/9). The indicator is not a Transition: a board seeded
+in `OpponentThinking` (a save resumed mid-pause) shows `Opponent's Turn .` on
+its first frame — the seed starts the pause clock at zero — and that is
+consistent with AC 7, which is about arrivals and the popup; the walkthrough
+report should not read it as a first-frame violation.
 
 ### 6. Timing constants live in `lib.rs`, the bounds in a test
 
@@ -476,7 +479,11 @@ Each claim names the task that owns its check.
   so rows and phases are set by hand and only `tick`/`draw` run — nothing here
   touches disk. `screen = InGame` at `PlayerTurn`; `tick(ZERO)`; `draw` → no
   `Strong` cell inside the player's grid rect; push a dealer card by hand and
-  set the phase to `OpponentThinking` (what a hit does); `tick(ZERO)`; draw →
+  set the phase to `OpponentThinking { until: Instant::now() +
+  Duration::from_secs(3600) }` (what a hit does; **the deadline must be far in
+  the future** — `tick` runs `update()` before it observes, and an elapsed
+  `until` would move the phase to `OpponentTurn`, save the real file and lose
+  the thinking line; one comment in the test says so); `tick(ZERO)`; draw →
   slot 0's border `Strong` and the status row contains `Opponent's Turn .`;
   `app.settings.animations = false` (T004 adds the field; T003 ships the test
   without this step); draw → slot 0 `Normal`, status `Opponent's Turn` with a
@@ -559,12 +566,11 @@ the save format, the profile, the economy, the AI or balance data.
 
 ## Open questions
 
-1. **The Score's resting weight** (tension 1) — **for the person**, via the
-   dispatcher: the spec's ACs 3 and 8 need the Score `Normal` at rest so a
-   `Strong` beat can show, while Goal 5 says the Off board is the pre-spec board
-   "frame for frame". This plan follows the ACs (rest `Normal`, both settings).
-   The alternative is to keep the Score bold at rest and drop ruling (c); either
-   is a two-line change.
+1. **The Score's resting weight** (tension 1): the spec's ACs 3 and 8 need
+   the Score `Normal` at rest so a `Strong` beat can show, while Goal 5 says
+   the Off board is the pre-spec board "frame for frame". This plan follows
+   the ACs (rest `Normal`, both settings). **Ruled: spec Q7, 2026-09-18 — the
+   Score rests Normal; flagged to the person in the conformance summary.**
 
 Settled here as design and flagged for sign-off:
 
