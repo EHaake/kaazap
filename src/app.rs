@@ -2469,6 +2469,61 @@ mod tests {
     }
 
     #[test]
+    fn a_resize_across_the_threshold_keeps_the_match_and_toggles_the_panel() {
+        // Spec 026 (AC 6): a resize across the 139-column threshold mid-match
+        // rebuilds only the presentation — the match, the hand cursor and an
+        // open help overlay all survive, and the panel shows only at 139.
+        // No key reaches the game and no phase changes, so nothing here
+        // writes to disk.
+        let wide = Config { num_cols: 139, num_rows: 31 };
+        let narrow = Config { num_cols: 138, num_rows: 31 };
+        let mut app = App::new(wide);
+        let game_state = GameState::new();
+        let mut cursor = HandCursor::default();
+        cursor.move_right(&game_state.player.hand);
+        let index_before = cursor.index();
+        let hand_before = game_state.player.hand.clone();
+        app.screen = Screen::InGame {
+            game_state: Box::new(game_state),
+            cursor,
+        };
+        app.modal = Some(Modal::Help(Overlay::new(OverlayKind::GameHelp, wide)));
+        assert!(app.board_view.is_wide());
+
+        for (config, wide_expected) in [(narrow, false), (wide, true)] {
+            app.resize(config);
+            assert!(!app.is_too_small());
+            assert_eq!(app.board_view.is_wide(), wide_expected, "panel at {}", config.num_cols);
+            let Screen::InGame { game_state, cursor } = &app.screen else {
+                panic!("still in the match at {}", config.num_cols);
+            };
+            assert_eq!(cursor.index(), index_before, "cursor kept at {}", config.num_cols);
+            assert_eq!(game_state.player.hand, hand_before, "hand kept at {}", config.num_cols);
+            assert!(
+                matches!(&app.modal, Some(Modal::Help(overlay)) if matches!(overlay.kind(), OverlayKind::GameHelp)),
+                "help overlay kept at {}",
+                config.num_cols
+            );
+            let mut frame = crate::frame::new_frame(&config);
+            app.draw(&mut frame);
+        }
+    }
+
+    #[test]
+    fn the_too_small_screen_quotes_the_new_minimum() {
+        // Spec 026 (AC 1): the too-small screen quotes the new minimum.
+        let config = Config { num_cols: 40, num_rows: 10 };
+        let mut frame = crate::frame::new_frame(&config);
+        draw_too_small(&mut frame, 40, 10);
+        let rows = (0..10).map(|y| frame.iter().map(|col| col[y].ch).collect::<String>());
+        assert!(
+            rows.clone().any(|row| row.contains("Need at least 89 x 31")),
+            "rows: {:?}",
+            rows.collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn notice_dismissed_on_enter_space_or_esc_only() {
         // The first-run pieces (spec 023) and the victory notice (spec 024) are
         // notices, not choices: Enter, Space and Esc all wave them away, and

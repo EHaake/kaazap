@@ -208,7 +208,7 @@ walkthroughs. -->
   `is_wide`, `SCROLL_MIN_W`, `WIDE_LAYOUT_MIN_WIDTH`) and test literals are
   fine.*
 
-- [ ] **T004** — `src/app.rs` (tests) + `Readme.md`: the resize proof and the
+- [x] **T004** — `src/app.rs` (tests) + `Readme.md`: the resize proof and the
   README. In `app.rs`'s tests, per plan §Tests: add
   `a_resize_across_the_threshold_keeps_the_match_and_toggles_the_panel`
   (`App::new(139×31)`; `screen = InGame { Box::new(GameState::new()), a
@@ -343,7 +343,7 @@ and why). -->
 | Phase 1 driver walkthrough (orchestrator, 89×31) | — | — | — | — | — | every listed screen on frame, nothing clipped; the bail quotes `89 x 31`; **finding F1**: at the game-over popup the band's `Stake ◈ N` is gone (App-level half of AC 4) → T002a |
 | **Phase 1 summary** | — | — | dispatches/task: 1.0 (T001, T002, T002a; plus one diagnosis dispatch) | first-try rate: 3/3 | blocking: 0 (per-task) + 0 (phase) | Phase 1 done on Fable in one dispatch each; walkthrough finding F1 (stake absent on the game-over frame) ruled A by the person and fixed as T002a; its game-over frames are checked in the Phase 2 walkthrough |
 | T003 impl | sdd-implementer-fable → fable | ~56K measured return (implementer's own ~49K) | 1 | yes | — | done; Outfitter fits 89 (plan arithmetic held); `content_size` placed as a free fn beside the other pure builders; note: `wager.rs:497` comment still says "fit 139×31" (forbidden file, to the sweep) |
-| T004 impl | sdd-implementer-fable → | | | | | |
+| T004 impl | sdd-implementer-fable → fable | ~30K measured return (implementer's own ~29K) | 1 | yes | — | done; no app code change needed, as the plan predicted; README paragraph replaced |
 | Phase 2 review (skeptical-reviewer) | opus → | | | | | |
 | Phase 2 driver walkthroughs (orchestrator, 89×31 and 139×31) | — | — | — | — | — | |
 | **Phase 2 summary** | — | — | dispatches/task: | first-try rate: | blocking: | |
