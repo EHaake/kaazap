@@ -568,6 +568,15 @@ human's stated priority is the first-run onboarding.
   `runs/` file beside it. Costs nothing, changes no rule, and is insurance if
   the full reset ever feels too punishing in play — the softer
   *keep-your-cards* restart noted in spec 021 stays a separate lever.
+- **Warn on the wager screen when a loss would end the run** (chore, raised by
+  the person 2026-09-16 while attesting spec 025). Stakes are uncapped, so a
+  player with a big purse and a full collection who bets nearly all of it and
+  loses drops below the cheapest ante and takes spec 021's full reset — cards,
+  deck and credits — with only "Lose −N" on the prompt beforehand. The chore is
+  one line on the wager prompt when the chosen stake would leave
+  `credits − stake` under `economy::cheapest_floor` (e.g. "Lose this and the run
+  is over."), no rule change. The softer *keep-your-cards* restart (spec 021) and
+  *archive the last run at reset* (above) stay separate levers.
 - **A path-injection seam for the profile and save locations.** `Profile::path`
   and the match-save path go through `ProjectDirs` with no override, so no
   `App`-level flow (e.g. "acknowledging the run-over lands on the start menu",
