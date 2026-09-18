@@ -145,18 +145,18 @@ mod tests {
 
     #[test]
     fn preview_panel_is_on_frame_and_clear_of_the_list_at_the_minimum() {
-        use crate::layout::IN_MATCH_MIN_WIDTH;
-        let config = Config { num_cols: IN_MATCH_MIN_WIDTH, num_rows: 31 };
-        let r = preview_rect(&config);
-        // on-frame
-        assert!(r.x1 < config.num_cols && r.y1 < config.num_rows, "preview off-frame: {r:?}");
-        // clear of the widest roster row (rows are centered on center_x)
-        let center_x = config.num_cols / 2;
-        let widest = OPPONENTS.iter()
-            .map(|o| format!("\u{25b8} {}  \u{2014}  {}", o.name, o.difficulty).chars().count())
-            .max().unwrap();
-        let list_right_edge = center_x + widest / 2; // draw_text_centered right extent
-        assert!(r.x0 > list_right_edge, "preview x0 {} overlaps the list (right edge {list_right_edge})", r.x0);
+        for config in Config::fit_sizes() {
+            let r = preview_rect(&config);
+            // on-frame
+            assert!(r.x1 < config.num_cols && r.y1 < config.num_rows, "preview off-frame: {r:?}");
+            // clear of the widest roster row (rows are centered on center_x)
+            let center_x = config.num_cols / 2;
+            let widest = OPPONENTS.iter()
+                .map(|o| format!("\u{25b8} {}  \u{2014}  {}", o.name, o.difficulty).chars().count())
+                .max().unwrap();
+            let list_right_edge = center_x + widest / 2; // draw_text_centered right extent
+            assert!(r.x0 > list_right_edge, "preview x0 {} overlaps the list (right edge {list_right_edge})", r.x0);
+        }
     }
 
     #[test]
@@ -200,28 +200,28 @@ mod tests {
 
     #[test]
     fn the_full_roster_and_footer_fit_the_minimum_terminal() {
-        // At the 139×31 minimum the title, all opponents, the blurb (drawn at
-        // `y + 2`), the Quick Play note (`y + 4`) and the controls hint (`y + 5`)
-        // must all land on-frame — the footer reserve passed to MenuLayout is what
-        // makes the grown roster fit.
+        // At the 89×31 minimum and the 139×31 threshold the title, all
+        // opponents, the blurb (drawn at `y + 2`), the Quick Play note (`y + 4`)
+        // and the controls hint (`y + 5`) must all land on-frame — the footer
+        // reserve passed to MenuLayout is what makes the grown roster fit.
         // (Width is irrelevant here — this guards the vertical fit — but track the
-        // real minimum so the name stays honest.)
-        use crate::layout::IN_MATCH_MIN_WIDTH;
-        let config = Config { num_cols: IN_MATCH_MIN_WIDTH, num_rows: 31 };
-        let layout = MenuLayout::new(config, 1, OPPONENTS.len(), 7);
-        let after_items = layout.items_top + OPPONENTS.len() * layout.item_spacing;
-        let note_y = after_items + 4; // must match `draw`
-        let hint_y = after_items + 5; // must match `draw`
-        assert!(
-            note_y < config.num_rows,
-            "Quick Play note at row {note_y} clips the {}-row minimum terminal",
-            config.num_rows
-        );
-        assert!(
-            hint_y < config.num_rows,
-            "controls hint at row {hint_y} clips the {}-row minimum terminal",
-            config.num_rows
-        );
+        // real sizes so the name stays honest.)
+        for config in Config::fit_sizes() {
+            let layout = MenuLayout::new(config, 1, OPPONENTS.len(), 7);
+            let after_items = layout.items_top + OPPONENTS.len() * layout.item_spacing;
+            let note_y = after_items + 4; // must match `draw`
+            let hint_y = after_items + 5; // must match `draw`
+            assert!(
+                note_y < config.num_rows,
+                "Quick Play note at row {note_y} clips the {}-row minimum terminal",
+                config.num_rows
+            );
+            assert!(
+                hint_y < config.num_rows,
+                "controls hint at row {hint_y} clips the {}-row minimum terminal",
+                config.num_rows
+            );
+        }
         assert_eq!(QUICK_PLAY_NOTE, "Quick Play deals your deck. Nothing is staked.");
     }
 }

@@ -387,35 +387,38 @@ mod tests {
     fn the_full_list_fits_the_minimum_terminal() {
         // A new card type grows the list — trip here so the fit is re-checked.
         assert_eq!(LIST_ROWS, 21);
-        let (cols, rows) = Config::min_size();
 
-        // Vertically: title, balance, three groups (blank, heading, cards), a
-        // gap and the hint all land within the minimum height.
-        let (title_y, list_top, hint_y) = anchors(rows);
-        assert!(list_top > title_y + 1, "the list must clear the title and balance rows");
-        assert!(hint_y < rows, "the hint (row {hint_y}) clips the {rows}-row minimum");
-        assert!(list_top + LIST_ROWS < hint_y, "the list runs into the hint");
+        for config in Config::fit_sizes() {
+            let (cols, rows) = (config.num_cols, config.num_rows);
 
-        // The balance row at an implausibly large balance fits centered.
-        let balance = format!("Credits: ◈ {}  ·  spendable ◈ {}", 99_999u32, 99_989u32);
-        let len = balance.chars().count();
-        assert!(
-            (cols / 2).saturating_sub(len / 2) + len <= cols,
-            "balance row {balance:?} ({len} cols) overflows {cols} columns"
-        );
+            // Vertically: title, balance, three groups (blank, heading, cards), a
+            // gap and the hint all land within the minimum height.
+            let (title_y, list_top, hint_y) = anchors(rows);
+            assert!(list_top > title_y + 1, "the list must clear the title and balance rows");
+            assert!(hint_y < rows, "the hint (row {hint_y}) clips the {rows}-row minimum");
+            assert!(list_top + LIST_ROWS < hint_y, "the list runs into the hint");
 
-        // Horizontally: every row (a 2-digit owned count) and the locked heading
-        // of each tier that can lock fit from the shared left column.
-        let left = list_left(cols / 2);
-        for &card in &ALL_SIDE_CARDS {
-            let row = row_text(card, true, 99);
-            let len = row.chars().count();
-            assert!(left + len <= cols, "shop row {row:?} ({len} cols) overflows {cols} columns");
-        }
-        for tier in [RegionTier::Mid, RegionTier::Core] {
-            let h = heading(tier, RegionTier::Outer);
-            let len = h.chars().count();
-            assert!(left + 3 + len <= cols, "heading {h:?} ({len} cols) overflows {cols} columns");
+            // The balance row at an implausibly large balance fits centered.
+            let balance = format!("Credits: ◈ {}  ·  spendable ◈ {}", 99_999u32, 99_989u32);
+            let len = balance.chars().count();
+            assert!(
+                (cols / 2).saturating_sub(len / 2) + len <= cols,
+                "balance row {balance:?} ({len} cols) overflows {cols} columns"
+            );
+
+            // Horizontally: every row (a 2-digit owned count) and the locked heading
+            // of each tier that can lock fit from the shared left column.
+            let left = list_left(cols / 2);
+            for &card in &ALL_SIDE_CARDS {
+                let row = row_text(card, true, 99);
+                let len = row.chars().count();
+                assert!(left + len <= cols, "shop row {row:?} ({len} cols) overflows {cols} columns");
+            }
+            for tier in [RegionTier::Mid, RegionTier::Core] {
+                let h = heading(tier, RegionTier::Outer);
+                let len = h.chars().count();
+                assert!(left + 3 + len <= cols, "heading {h:?} ({len} cols) overflows {cols} columns");
+            }
         }
     }
 }

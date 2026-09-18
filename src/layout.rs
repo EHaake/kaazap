@@ -33,12 +33,13 @@ pub const BOARD_BLOCK_HEIGHT: usize =
 /// the divider.
 pub const BOARD_WIDTH: usize = 2 * (H_PAD + HAND_SIZE * CARD_SLOT_W) + 1;
 
-/// The minimum terminal width in match: the centered board plus symmetric
-/// left/right panel margins. The right margin holds the opponent presence
-/// panel; the equal left margin is reserved empty for a future player panel.
-pub const IN_MATCH_MIN_WIDTH: usize = BOARD_WIDTH + 2 * (PANEL_GAP + PANEL_W); // 139: board + symmetric left/right panel margins (the left is reserved empty for a future player panel)
+/// The width at which the board gains the opponent presence panel: the
+/// centered board plus symmetric left/right panel margins (the left is
+/// reserved empty for a future player panel). Below it the board draws
+/// alone (spec 026); the terminal minimum is BOARD_WIDTH.
+pub const WIDE_LAYOUT_MIN_WIDTH: usize = BOARD_WIDTH + 2 * (PANEL_GAP + PANEL_W); // 139
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct Rect {
     pub x0: usize,
     pub x1: usize,
@@ -77,8 +78,10 @@ pub struct BoardLayout {
     pub player: SideLayout,
     pub opponent: SideLayout,
     pub status: Rect, // two rows (alert over prompt) below the hand
-    // The opponent presence panel in the right margin, top-aligned with the board block.
-    pub opponent_panel: Rect,
+    /// The opponent presence panel in the right margin, top-aligned with the
+    /// board block — `Some` from WIDE_LAYOUT_MIN_WIDTH columns up, `None` on
+    /// the compact board.
+    pub opponent_panel: Option<Rect>,
 }
 
 impl BoardLayout {
@@ -127,8 +130,10 @@ impl BoardLayout {
         // Opponent presence panel: fixed-size, anchored in the right margin PANEL_GAP
         // past the centered board's right edge, top-aligned with the board block. The
         // equal left margin is left empty — reserved for a future player-status panel.
-        let panel_x0 = left + BOARD_WIDTH + PANEL_GAP;
-        let opponent_panel = Rect::new(panel_x0, panel_x0 + PANEL_W - 1, top, top + PANEL_H_INMATCH - 1);
+        let opponent_panel = (cols >= WIDE_LAYOUT_MIN_WIDTH).then(|| {
+            let panel_x0 = left + BOARD_WIDTH + PANEL_GAP;
+            Rect::new(panel_x0, panel_x0 + PANEL_W - 1, top, top + PANEL_H_INMATCH - 1)
+        });
 
         Self {
             divider_x,
@@ -214,7 +219,7 @@ impl CampaignMapLayout {
         let panel_top = config.num_rows.saturating_sub(Self::PANEL_H);
         let panel = Rect::new(0, last_x, panel_top, last_y);
         // The field sits between the bands, clamped so it never inverts on a
-        // short terminal (the global 139×31 minimum keeps it comfortable).
+        // short terminal (the global 89×31 minimum keeps it comfortable).
         let field_top = Self::HEADER_H;
         let field_bottom = panel_top.saturating_sub(1).max(field_top);
 
@@ -277,11 +282,11 @@ pub struct BriefcaseLayout {
 
 // The album is a fixed COLS×ROWS grid with one slot per card type. If the card
 // universe ever outgrows that grid, the fixed layout would silently overflow
-// (`card_origin` past a panel) — grow the grid and re-check the 139×31 fit rather
+// (`card_origin` past a panel) — grow the grid and re-check the 89×31 fit rather
 // than letting it slide. Ties the hardcoded ROWS/COLS to `ALL_SIDE_CARDS`.
 const _: () = assert!(
     crate::card::ALL_SIDE_CARDS.len() <= BriefcaseLayout::COLS * BriefcaseLayout::ROWS,
-    "ALL_SIDE_CARDS outgrew the briefcase album grid; grow BriefcaseLayout::ROWS/COLS and re-check the 139×31 fit",
+    "ALL_SIDE_CARDS outgrew the briefcase album grid; grow BriefcaseLayout::ROWS/COLS and re-check the 89×31 fit",
 );
 
 impl BriefcaseLayout {
@@ -295,7 +300,7 @@ impl BriefcaseLayout {
     /// pitch the board grid uses.
     const CARD_PITCH_X: usize = CARD_WIDTH + 1;
     /// A card cell's height: the card plus its count-caption row, with no
-    /// inter-row gap — packed so four rows fit the 139×31 minimum.
+    /// inter-row gap — packed so four rows fit the 89×31 minimum.
     const CELL_H: usize = CARD_HEIGHT + 1;
     /// One interior column of breathing room between a panel's border and its
     /// card grid, each side.
@@ -431,18 +436,62 @@ mod tests {
     }
 
     #[test]
-    fn board_and_panel_fit_the_minimum_terminal() {
-        // At the grown minimum the opponent presence panel sits in the right
-        // margin, on-frame, right of the opponent half (no overlap with the
-        // board's content), top-aligned with the board block.
-        let (cols, rows) = (IN_MATCH_MIN_WIDTH, 31);
+    fn the_wide_threshold_is_the_board_plus_panel_margins() {
+        // The panel threshold is the board plus symmetric panel margins — one
+        // source of truth, no independent guess.
+        assert_eq!(WIDE_LAYOUT_MIN_WIDTH, BOARD_WIDTH + 2 * (PANEL_GAP + PANEL_W));
+        assert_eq!(WIDE_LAYOUT_MIN_WIDTH, 139); // pins the concrete width
+    }
+
+    #[test]
+    fn the_panel_appears_at_the_threshold_and_not_below() {
+        // At the threshold the opponent presence panel sits in the right
+        // margin at spec 016's position: on-frame, strictly right of the
+        // opponent half (no overlap with the board's content), top-aligned
+        // with the board block. One column narrower, and at the 89 minimum,
+        // the board draws alone.
+        let (cols, rows) = (WIDE_LAYOUT_MIN_WIDTH, 31);
         let l = BoardLayout::new(cfg(cols, rows));
-        assert!(in_bounds(l.opponent_panel, cols, rows), "opponent panel off-frame");
+        assert_eq!(l.opponent_panel, Some(Rect::new(117, 138, 0, 19)));
+        let panel = l.opponent_panel.unwrap();
+        assert!(in_bounds(panel, cols, rows), "opponent panel off-frame");
         // The board's rightmost Rect is the opponent hand/header/status (all
         // share that right edge); the panel sits strictly right of it.
-        assert!(l.opponent_panel.x0 > l.opponent.hand.x1, "panel overlaps the board");
-        assert!(l.opponent_panel.y1 <= 30, "panel bottom below the board block");
-        assert!(l.opponent_panel.y1 <= rows - 1, "panel bottom off-frame");
+        assert!(panel.x0 > l.opponent.hand.x1, "panel overlaps the board");
+        assert!(panel.y1 <= 30, "panel bottom below the board block");
+
+        for cols in [WIDE_LAYOUT_MIN_WIDTH - 1, BOARD_WIDTH] {
+            let l = BoardLayout::new(cfg(cols, rows));
+            assert_eq!(l.opponent_panel, None, "panel drawn at {cols} columns");
+        }
+
+        let (cols, rows) = (180, 48);
+        let l = BoardLayout::new(cfg(cols, rows));
+        let panel = l.opponent_panel.expect("panel missing at 180 columns");
+        assert!(in_bounds(panel, cols, rows), "opponent panel off-frame at 180×48");
+    }
+
+    #[test]
+    fn board_rects_are_identical_across_the_threshold_apart_from_centering() {
+        // The compact board is the same board: every board rect at any width
+        // is the 89-column rect shifted by the centering offset.
+        let shift = |r: Rect, left: usize| {
+            Rect::new(r.x0 - left, r.x1 - left, r.y0, r.y1)
+        };
+        let unshifted = |l: &BoardLayout| {
+            let left = l.player.header.x0 - H_PAD;
+            (
+                l.divider_x - left,
+                [l.player.header, l.player.grid, l.player.hand].map(|r| shift(r, left)),
+                [l.opponent.header, l.opponent.grid, l.opponent.hand].map(|r| shift(r, left)),
+                shift(l.status, left),
+            )
+        };
+        let base = unshifted(&BoardLayout::new(cfg(89, 31)));
+        for cols in [89, 138, 139, 180] {
+            let l = BoardLayout::new(cfg(cols, 31));
+            assert_eq!(unshifted(&l), base, "board rects differ at {cols} columns");
+        }
     }
 
     #[test]
@@ -495,38 +544,39 @@ mod tests {
 
     #[test]
     fn campaign_map_layout_fits_the_minimum_terminal() {
-        // At the 139×31 minimum the three bands stack in-bounds and every planet
-        // node (and the label row just below it) lands within the field.
-        let (cols, rows) = (IN_MATCH_MIN_WIDTH, 31);
-        let l = CampaignMapLayout::new(cfg(cols, rows));
-        for r in [l.header, l.field, l.panel, l.portrait_panel] {
-            assert!(in_bounds(r, cols, rows), "band {r:?} out of bounds");
-        }
-        assert!(vertically_disjoint(l.header, l.field));
-        assert!(vertically_disjoint(l.field, l.panel));
-        // The portrait rail sits in the field band, clear of the bottom info panel.
-        assert!(l.portrait_panel.y1 < l.panel.y0, "rail overlaps the info panel band");
-        for p in crate::campaign::PLANETS {
-            let (x, y) = l.node_pos(p.fx, p.fy);
-            assert!(x < cols, "{} node x off-frame", p.id);
-            assert!(y + 1 <= l.field.y1, "{} node + label overflow the field", p.id);
-            // Node stays inside the reduced field and clear of the portrait rail.
-            assert!(x <= l.field.x1, "{} node escapes the reduced field", p.id);
-            assert!(x < l.portrait_panel.x0, "{} node lands on the rail", p.id);
+        // At the 89×31 minimum and the 139×31 threshold the three bands stack
+        // in-bounds and every planet node (and the label row just below it)
+        // lands within the field.
+        for config in Config::fit_sizes() {
+            let (cols, rows) = (config.num_cols, config.num_rows);
+            let l = CampaignMapLayout::new(config);
+            for r in [l.header, l.field, l.panel, l.portrait_panel] {
+                assert!(in_bounds(r, cols, rows), "band {r:?} out of bounds at {cols}×{rows}");
+            }
+            assert!(vertically_disjoint(l.header, l.field));
+            assert!(vertically_disjoint(l.field, l.panel));
+            // The portrait rail sits in the field band, clear of the bottom info panel.
+            assert!(l.portrait_panel.y1 < l.panel.y0, "rail overlaps the info panel band");
+            for p in crate::campaign::PLANETS {
+                let (x, y) = l.node_pos(p.fx, p.fy);
+                assert!(x < cols, "{} node x off-frame at {cols}×{rows}", p.id);
+                assert!(y + 1 <= l.field.y1, "{} node + label overflow the field at {cols}×{rows}", p.id);
+                // Node stays inside the reduced field and clear of the portrait rail.
+                assert!(x <= l.field.x1, "{} node escapes the reduced field at {cols}×{rows}", p.id);
+                assert!(x < l.portrait_panel.x0, "{} node lands on the rail at {cols}×{rows}", p.id);
+            }
         }
     }
 
     #[test]
     fn the_campaign_map_is_legible_at_the_minimum_terminal() {
         // The bigger (spec 011) map's hand-authored positions must not collide or
-        // clip at the 139×31 minimum — the guard the renderer doesn't provide:
-        // unique node cells, each cursored label on-frame, and no two labels
-        // overlapping on a shared row (worst case: both cursored).
+        // clip at the 89×31 minimum or the 139×31 threshold — the guard the
+        // renderer doesn't provide: unique node cells, each cursored label
+        // on-frame, and no two labels overlapping on a shared row (worst case:
+        // both cursored).
         use crate::campaign::PLANETS;
         use crate::campaign_map::cursored_label;
-
-        let (cols, _) = (IN_MATCH_MIN_WIDTH, 31);
-        let l = CampaignMapLayout::new(cfg(IN_MATCH_MIN_WIDTH, 31));
 
         struct Placed {
             id: &'static str,
@@ -536,45 +586,51 @@ mod tests {
             lx1: usize,
             ly: usize,
         }
-        let placed: Vec<Placed> = PLANETS
-            .iter()
-            .map(|p| {
-                let (x, y) = l.node_pos(p.fx, p.fy);
-                let len = cursored_label(p.name).chars().count();
-                let lx0 = x.saturating_sub(len / 2); // matches draw_text_centered
-                Placed { id: p.id, x, y, lx0, lx1: lx0 + len - 1, ly: y + 1 }
-            })
-            .collect();
 
-        for a in &placed {
-            assert!(a.x < cols, "{} node off-frame", a.id);
-            assert!(a.ly <= l.field.y1, "{} label row overflows the field", a.id);
-            assert!(a.lx1 < cols, "{} cursored label clips the right edge", a.id);
-            // Node stays inside the reduced field, and node + cursored label
-            // clear the portrait rail (no glyph lands on it).
-            assert!(a.x <= l.field.x1, "{} node escapes the reduced field", a.id);
-            assert!(a.lx1 < l.portrait_panel.x0, "{} cursored label lands on the rail", a.id);
-        }
-        for (i, a) in placed.iter().enumerate() {
-            for b in &placed[i + 1..] {
-                assert!(
-                    !(a.x == b.x && a.y == b.y),
-                    "{} and {} share a node cell",
-                    a.id,
-                    b.id
-                );
-                if a.ly == b.ly {
-                    let overlap = a.lx0 <= b.lx1 && b.lx0 <= a.lx1;
-                    assert!(!overlap, "{} and {} labels overlap on row {}", a.id, b.id, a.ly);
-                }
-                // A label must not land on another planet's node glyph (a label
-                // sits one row below its own node, so this only bites cross-pairs
-                // whose rows happen to coincide).
-                if a.ly == b.y {
-                    assert!(!(a.lx0 <= b.x && b.x <= a.lx1), "{}'s label covers {}'s node", a.id, b.id);
-                }
-                if b.ly == a.y {
-                    assert!(!(b.lx0 <= a.x && a.x <= b.lx1), "{}'s label covers {}'s node", b.id, a.id);
+        for config in Config::fit_sizes() {
+            let cols = config.num_cols;
+            let l = CampaignMapLayout::new(config);
+
+            let placed: Vec<Placed> = PLANETS
+                .iter()
+                .map(|p| {
+                    let (x, y) = l.node_pos(p.fx, p.fy);
+                    let len = cursored_label(p.name).chars().count();
+                    let lx0 = x.saturating_sub(len / 2); // matches draw_text_centered
+                    Placed { id: p.id, x, y, lx0, lx1: lx0 + len - 1, ly: y + 1 }
+                })
+                .collect();
+
+            for a in &placed {
+                assert!(a.x < cols, "{} node off-frame at {cols} columns", a.id);
+                assert!(a.ly <= l.field.y1, "{} label row overflows the field at {cols} columns", a.id);
+                assert!(a.lx1 < cols, "{} cursored label clips the right edge at {cols} columns", a.id);
+                // Node stays inside the reduced field, and node + cursored label
+                // clear the portrait rail (no glyph lands on it).
+                assert!(a.x <= l.field.x1, "{} node escapes the reduced field at {cols} columns", a.id);
+                assert!(a.lx1 < l.portrait_panel.x0, "{} cursored label lands on the rail at {cols} columns", a.id);
+            }
+            for (i, a) in placed.iter().enumerate() {
+                for b in &placed[i + 1..] {
+                    assert!(
+                        !(a.x == b.x && a.y == b.y),
+                        "{} and {} share a node cell at {cols} columns",
+                        a.id,
+                        b.id
+                    );
+                    if a.ly == b.ly {
+                        let overlap = a.lx0 <= b.lx1 && b.lx0 <= a.lx1;
+                        assert!(!overlap, "{} and {} labels overlap on row {} at {cols} columns", a.id, b.id, a.ly);
+                    }
+                    // A label must not land on another planet's node glyph (a label
+                    // sits one row below its own node, so this only bites cross-pairs
+                    // whose rows happen to coincide).
+                    if a.ly == b.y {
+                        assert!(!(a.lx0 <= b.x && b.x <= a.lx1), "{}'s label covers {}'s node at {cols} columns", a.id, b.id);
+                    }
+                    if b.ly == a.y {
+                        assert!(!(b.lx0 <= a.x && a.x <= b.lx1), "{}'s label covers {}'s node at {cols} columns", b.id, a.id);
+                    }
                 }
             }
         }
@@ -584,44 +640,47 @@ mod tests {
     fn briefcase_fits_the_minimum_terminal() {
         // Two bordered panels — Collection | Deck — each a fixed 4×4 album of
         // every card type, with a shared title, the "Deck: N/10" readout over
-        // the deck panel, and a controls hint, must fit the 139×31 minimum with
-        // every card slot inside its panel's border and clear of the hint.
-        let (cols, rows) = (IN_MATCH_MIN_WIDTH, 31);
-        let l = BriefcaseLayout::new(cfg(cols, rows));
+        // the deck panel, and a controls hint, must fit the 89×31 minimum and
+        // the 139×31 threshold with every card slot inside its panel's border
+        // and clear of the hint.
+        for config in Config::fit_sizes() {
+            let (cols, rows) = (config.num_cols, config.num_rows);
+            let l = BriefcaseLayout::new(config);
 
-        // A fixed 4 columns × 4 rows (16 slots, 15 used) — no scrolling.
-        assert_eq!(l.cols, 4);
-        assert_eq!(l.rows, 4);
+            // A fixed 4 columns × 4 rows (16 slots, 15 used) — no scrolling.
+            assert_eq!(l.cols, 4);
+            assert_eq!(l.rows, 4);
 
-        // Both panel borders sit on-frame and don't overlap (Collection left of Deck).
-        assert!(in_bounds(l.collection, cols, rows), "collection panel off-frame");
-        assert!(in_bounds(l.deck, cols, rows), "deck panel off-frame");
-        assert!(l.collection.x1 < l.deck.x0, "panels overlap");
+            // Both panel borders sit on-frame and don't overlap (Collection left of Deck).
+            assert!(in_bounds(l.collection, cols, rows), "collection panel off-frame at {cols}×{rows}");
+            assert!(in_bounds(l.deck, cols, rows), "deck panel off-frame at {cols}×{rows}");
+            assert!(l.collection.x1 < l.deck.x0, "panels overlap at {cols}×{rows}");
 
-        // Chrome rows are ordered and on-frame; the readout sits over the deck panel.
-        assert!(l.title_y < l.readout_y && l.readout_y < l.hint_y, "chrome rows out of order");
-        assert!(l.hint_y < rows, "hint line off-frame");
-        assert!(l.deck.x0 <= l.readout_x && l.readout_x <= l.deck.x1, "readout not over the deck");
+            // Chrome rows are ordered and on-frame; the readout sits over the deck panel.
+            assert!(l.title_y < l.readout_y && l.readout_y < l.hint_y, "chrome rows out of order");
+            assert!(l.hint_y < rows, "hint line off-frame");
+            assert!(l.deck.x0 <= l.readout_x && l.readout_x <= l.deck.x1, "readout not over the deck");
 
-        // Each panel's title-label anchor sits inside that panel.
-        for (anchor, pane) in [(l.collection_label, l.collection), (l.deck_label, l.deck)] {
-            assert!(pane.x0 <= anchor.0 && anchor.0 <= pane.x1, "label x outside its panel");
-            assert!(pane.y0 <= anchor.1 && anchor.1 <= pane.y1, "label y outside its panel");
-        }
+            // Each panel's title-label anchor sits inside that panel.
+            for (anchor, pane) in [(l.collection_label, l.collection), (l.deck_label, l.deck)] {
+                assert!(pane.x0 <= anchor.0 && anchor.0 <= pane.x1, "label x outside its panel");
+                assert!(pane.y0 <= anchor.1 && anchor.1 <= pane.y1, "label y outside its panel");
+            }
 
-        // Every slot of the fixed grid (all COLS×ROWS, not a hardcoded count) in
-        // both panels lands a full 9×5 card strictly inside that panel's border,
-        // its caption row clear of the hint.
-        for panel in [Panel::Collection, Panel::Deck] {
-            let border = match panel {
-                Panel::Collection => l.collection,
-                Panel::Deck => l.deck,
-            };
-            for i in 0..(l.cols * l.rows) {
-                let (x, y) = l.card_origin(panel, i);
-                assert!(x > border.x0 && x + CARD_WIDTH <= border.x1, "slot {i} escapes panel x");
-                assert!(y > border.y0 && y + CARD_HEIGHT <= border.y1, "slot {i} escapes panel y");
-                assert!(y + CARD_HEIGHT < l.hint_y, "slot {i} overlaps the hint line");
+            // Every slot of the fixed grid (all COLS×ROWS, not a hardcoded count) in
+            // both panels lands a full 9×5 card strictly inside that panel's border,
+            // its caption row clear of the hint.
+            for panel in [Panel::Collection, Panel::Deck] {
+                let border = match panel {
+                    Panel::Collection => l.collection,
+                    Panel::Deck => l.deck,
+                };
+                for i in 0..(l.cols * l.rows) {
+                    let (x, y) = l.card_origin(panel, i);
+                    assert!(x > border.x0 && x + CARD_WIDTH <= border.x1, "slot {i} escapes panel x at {cols}×{rows}");
+                    assert!(y > border.y0 && y + CARD_HEIGHT <= border.y1, "slot {i} escapes panel y at {cols}×{rows}");
+                    assert!(y + CARD_HEIGHT < l.hint_y, "slot {i} overlaps the hint line at {cols}×{rows}");
+                }
             }
         }
     }
@@ -650,22 +709,22 @@ mod tests {
         // bottom — the lopsided modal. When the box fits the frame, `inner` is
         // exactly the content's height and the blank rows above and below it
         // match, as do the blank columns left and right.
-        let (cols, rows) = Config::min_size();
-        let cfg = Config { num_cols: cols, num_rows: rows };
-        for (cw, ch) in [(20, 5), (40, 6), (52, 7), (60, 12)] {
-            let l = OverlayLayout::new(cfg, cw, ch);
-            assert_eq!(l.outer.height(), ch + V_PAD, "box height for {ch} rows");
-            assert_eq!(l.inner.height(), ch, "inner must fit the content exactly");
-            assert_eq!(
-                l.inner.y0 - l.outer.y0,
-                l.outer.y1 - l.inner.y1,
-                "uneven vertical padding for {ch} rows"
-            );
-            assert_eq!(
-                l.inner.x0 - l.outer.x0,
-                l.outer.x1 - l.inner.x1,
-                "uneven horizontal padding for {cw} columns"
-            );
+        for cfg in Config::fit_sizes() {
+            for (cw, ch) in [(20, 5), (40, 6), (52, 7), (60, 12)] {
+                let l = OverlayLayout::new(cfg, cw, ch);
+                assert_eq!(l.outer.height(), ch + V_PAD, "box height for {ch} rows");
+                assert_eq!(l.inner.height(), ch, "inner must fit the content exactly");
+                assert_eq!(
+                    l.inner.y0 - l.outer.y0,
+                    l.outer.y1 - l.inner.y1,
+                    "uneven vertical padding for {ch} rows"
+                );
+                assert_eq!(
+                    l.inner.x0 - l.outer.x0,
+                    l.outer.x1 - l.inner.x1,
+                    "uneven horizontal padding for {cw} columns"
+                );
+            }
         }
     }
 }

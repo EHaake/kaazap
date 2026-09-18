@@ -57,6 +57,23 @@ impl Default for RecordsState {
     }
 }
 
+/// The popup's content size across ALL views — widest of every body line, every
+/// pager label, the collection line and the footer; tallest body — so the box
+/// keeps one size as you page. Pure, so the fit test measures what `draw` does.
+fn content_size(bodies: &[Vec<String>], coll: &str) -> (usize, usize) {
+    const FOOTER_MEASURE: &str = "▲ ◂/▸ view · ↑/↓ scroll · Esc back ▼";
+    let content_w = bodies
+        .iter()
+        .flatten()
+        .map(|l| l.chars().count())
+        .chain((0..VIEWS.len()).map(|i| pager_label(i).chars().count()))
+        .chain([coll.chars().count(), FOOTER_MEASURE.chars().count()])
+        .max()
+        .unwrap_or(0);
+    let content_h = bodies.iter().map(|b| b.len()).max().unwrap_or(0);
+    (content_w, content_h)
+}
+
 impl RecordsState {
     pub fn new() -> Self {
         Self { view: 0, scroll: 0 }
@@ -129,16 +146,7 @@ impl RecordsState {
         // terminal the box stays snug rather than ballooning into empty space.
         let bodies = VIEWS.map(|v| view_body(v, profile.stats(), profile.campaign().run_stats()));
         let coll = collection_line(profile.distinct_side_cards_owned(), ALL_SIDE_CARDS.len());
-        const FOOTER_MEASURE: &str = "▲ ◂/▸ view · ↑/↓ scroll · Esc back ▼";
-        let content_w = bodies
-            .iter()
-            .flatten()
-            .map(|l| l.chars().count())
-            .chain((0..VIEWS.len()).map(|i| pager_label(i).chars().count()))
-            .chain([coll.chars().count(), FOOTER_MEASURE.chars().count()])
-            .max()
-            .unwrap_or(0);
-        let content_h = bodies.iter().map(|b| b.len()).max().unwrap_or(0);
+        let (content_w, content_h) = content_size(&bodies, &coll);
 
         // want_w: content + border(2) + inset(2) + ~3 cols breathing each side.
         // want_h: content + 4 fixed rows (pager, collection, rule, margin) + footer + border(2).
@@ -538,6 +546,41 @@ mod tests {
             1,
             "still exactly one completions line: {body:?}"
         );
+    }
+
+    #[test]
+    fn the_records_popup_is_never_capped_at_the_minimum_terminal() {
+        // The widest the content can plausibly get: three-digit match counts
+        // on one opponent in both modes, the first-clear suffix on the
+        // completions row, a streak line, and the full collection.
+        let mut stats = LifetimeStats::default();
+        for _ in 0..150 {
+            stats.record_match(Mode::QuickPlay, "greeb", true, 3, 1);
+            stats.record_match(Mode::Campaign, "greeb", false, 1, 3);
+        }
+        stats.record_campaign_completion(999);
+        let mut run = RunStats::default();
+        run.record_match(true, 3, 2);
+        run.record_match(true, 3, 2);
+
+        let bodies = VIEWS.map(|v| view_body(v, &stats, &run));
+        let coll = collection_line(15, 15);
+        let (content_w, content_h) = content_size(&bodies, &coll);
+
+        // `draw` wants content_w + 10 wide and content_h + 8 tall, then clamps
+        // the box to `cols - 8` by `rows - 4`; the box is never capped when the
+        // wants fit inside those caps at both fit sizes.
+        for config in Config::fit_sizes() {
+            let (cols, rows) = (config.num_cols, config.num_rows);
+            assert!(
+                content_w + 10 <= cols - 8,
+                "records box capped at {cols}x{rows}: content {content_w} wide"
+            );
+            assert!(
+                content_h + 8 <= rows - 4,
+                "records box capped at {cols}x{rows}: content {content_h} tall"
+            );
+        }
     }
 
     #[test]

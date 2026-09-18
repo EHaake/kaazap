@@ -11,7 +11,7 @@ pub const PORTRAIT_WIDTH: usize = 18;
 pub const PORTRAIT_HEIGHT: usize = 12;
 
 /// Presence-panel geometry, derived from the portrait block so the in-match
-/// panel and the game's minimum terminal width move together if the portrait
+/// panel and the wide layout's threshold move together if the portrait
 /// is ever resized. PANEL_H_INMATCH reserves rows below the portrait for the
 /// later banter line / round pips (spec 016 reserves the space, doesn't build it).
 const PANEL_PAD_X: usize = 1;
@@ -99,9 +99,14 @@ pub fn draw_presence_extras(
     // stays blank so the stake reads as its own line under the pips. Quick Play
     // passes `None` and both rows stay empty.
     if let Some(stake) = stake {
-        let line = format!("Stake ◈ {stake}");
-        draw_text_in(frame, interior, 17, Align::Center, &line, Emphasis::Strong);
+        draw_text_in(frame, interior, 17, Align::Center, &stake_line(stake), Emphasis::Strong);
     }
+}
+
+/// The escrowed stake as the panel shows it — `Stake ◈ N`. One string for the
+/// panel (spec 021) and the compact board's status band (spec 026).
+pub fn stake_line(stake: u32) -> String {
+    format!("Stake ◈ {stake}")
 }
 
 #[cfg(test)]

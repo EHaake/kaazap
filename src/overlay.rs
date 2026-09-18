@@ -104,11 +104,25 @@ pub struct ScrollResult {
     pub at_bottom: bool,
 }
 
-/// Minimum content width for the scrollable overlay — at least as wide as a
-/// full round header reads comfortably.
-const SCROLL_MIN_W: usize = 40;
+/// Content-width floor for the scrollable overlay: the box's width at the
+/// 139-column wide threshold (139 · 38 %), so the compact play log (spec 026)
+/// is the same box as the wide one instead of a narrower, clippier one.
+const SCROLL_MIN_W: usize = 52;
 /// Minimum content height for the scrollable overlay.
 const SCROLL_MIN_H: usize = 10;
+
+/// The scrollable overlay's outer box for `config` — pure, so the width rule
+/// is testable: `cols · 38 %` clamped to `[SCROLL_MIN_W, cols − 4]` wide,
+/// `rows · 58 %` clamped to `[SCROLL_MIN_H, rows − 2]` tall, centered.
+fn scroll_box(config: Config) -> Rect {
+    let cols = config.num_cols;
+    let rows = config.num_rows;
+    let box_w = (cols * 38 / 100).clamp(SCROLL_MIN_W.min(cols).max(1), cols.saturating_sub(4).max(1));
+    let box_h = (rows * 58 / 100).clamp(SCROLL_MIN_H.min(rows).max(1), rows.saturating_sub(2).max(1));
+    let x0 = cols.saturating_sub(box_w) / 2;
+    let y0 = rows.saturating_sub(box_h) / 2;
+    Rect::new(x0, x0 + box_w.saturating_sub(1), y0, y0 + box_h.saturating_sub(1))
+}
 
 /// Draw a fixed, larger, padded overlay with a pinned title and a vertically
 /// scrolled body — the play-log window (spec 019). `scroll` is the top body
@@ -127,13 +141,7 @@ pub fn draw_scrollable_overlay(
     // multi-round match overflows into scrolling. Sized directly rather than
     // through `OverlayLayout` (whose fixed padding is tuned for the small
     // static overlays and would push this near full-screen).
-    let cols = config.num_cols;
-    let rows = config.num_rows;
-    let box_w = (cols * 38 / 100).clamp(SCROLL_MIN_W.min(cols).max(1), cols.saturating_sub(4).max(1));
-    let box_h = (rows * 58 / 100).clamp(SCROLL_MIN_H.min(rows).max(1), rows.saturating_sub(2).max(1));
-    let x0 = cols.saturating_sub(box_w) / 2;
-    let y0 = rows.saturating_sub(box_h) / 2;
-    let outer = Rect::new(x0, x0 + box_w.saturating_sub(1), y0, y0 + box_h.saturating_sub(1));
+    let outer = scroll_box(config);
 
     clear_rect(frame, outer);
     draw_box(frame, outer, BorderWeight::Single, Emphasis::Normal);
@@ -217,25 +225,41 @@ mod tests {
     fn scrollable_overlay_pins_to_bottom_and_clamps_overscroll() {
         use crate::frame::new_frame;
 
-        let config = Config { num_cols: 139, num_rows: 31 };
-        let mut frame = new_frame(&config);
         // A body far taller than any viewport, so it genuinely overflows.
         let body: Vec<String> = (0..200).map(|i| format!("line {i}")).collect();
 
-        // usize::MAX pins to the bottom.
-        let pinned = draw_scrollable_overlay(config, "Play Log", &body, usize::MAX, &mut frame);
-        assert!(pinned.at_bottom);
-        assert!(!pinned.at_top);
+        for config in Config::fit_sizes() {
+            let mut frame = new_frame(&config);
 
-        // An over-large explicit scroll clamps to the same max offset.
-        let clamped = draw_scrollable_overlay(config, "Play Log", &body, 9_999, &mut frame);
-        assert_eq!(clamped.scroll, pinned.scroll);
-        assert!(clamped.at_bottom);
+            // usize::MAX pins to the bottom.
+            let pinned = draw_scrollable_overlay(config, "Play Log", &body, usize::MAX, &mut frame);
+            assert!(pinned.at_bottom);
+            assert!(!pinned.at_top);
 
-        // Zero scroll sits at the top.
-        let top = draw_scrollable_overlay(config, "Play Log", &body, 0, &mut frame);
-        assert!(top.at_top);
-        assert_eq!(top.scroll, 0);
+            // An over-large explicit scroll clamps to the same max offset.
+            let clamped = draw_scrollable_overlay(config, "Play Log", &body, 9_999, &mut frame);
+            assert_eq!(clamped.scroll, pinned.scroll);
+            assert!(clamped.at_bottom);
+
+            // Zero scroll sits at the top.
+            let top = draw_scrollable_overlay(config, "Play Log", &body, 0, &mut frame);
+            assert!(top.at_top);
+            assert_eq!(top.scroll, 0);
+        }
+    }
+
+    #[test]
+    fn the_play_log_box_is_the_same_width_compact_and_wide() {
+        // The width floor is the wide box's width, so the compact play log
+        // shows every line the wide one shows; above the floor the
+        // percentage still rules.
+        for (cols, rows) in [(89, 31), (139, 31)] {
+            let outer = scroll_box(Config { num_cols: cols, num_rows: rows });
+            assert_eq!(outer.width(), 52, "play-log box width at {cols}x{rows}");
+            assert!(outer.x1 < cols, "play-log box off-frame at {cols}x{rows}: {outer:?}");
+        }
+        let large = scroll_box(Config { num_cols: 200, num_rows: 48 });
+        assert!(large.width() > 52, "the percentage no longer rules above the floor: {large:?}");
     }
 
     #[test]
@@ -277,40 +301,43 @@ mod tests {
 
     #[test]
     fn help_texts_fit_the_minimum_terminal_unclamped() {
-        // The boxes must still fit 139×31 with margin — if either outgrows the
-        // frame, OverlayLayout clamps and the rows get eaten.
-        let (cols, rows) = Config::min_size();
-        let config = Config { num_cols: cols, num_rows: rows };
-        for kind in [
-            OverlayKind::GameHelp,
-            OverlayKind::MenuHelp,
-            OverlayKind::HowToPlay,
-            OverlayKind::Primer,
-            OverlayKind::FirstMatch,
-        ] {
-            let lines = overlay_text(kind);
-            let (width, height) = measure(&lines);
-            let layout = OverlayLayout::new(config, width, height);
-            assert_eq!(
-                layout.outer.height(),
-                height + crate::V_PAD,
-                "box height clamped — {kind:?} outgrew the minimum terminal"
-            );
-            assert_eq!(
-                layout.outer.width(),
-                width + 2 * crate::H_PAD,
-                "box width clamped — {kind:?}"
-            );
-            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame: {kind:?}");
+        // The boxes must fit both the compact minimum and the wide threshold
+        // with margin — if either outgrows the frame, OverlayLayout clamps
+        // and the rows get eaten.
+        for config in Config::fit_sizes() {
+            let (cols, rows) = (config.num_cols, config.num_rows);
+            for kind in [
+                OverlayKind::GameHelp,
+                OverlayKind::MenuHelp,
+                OverlayKind::HowToPlay,
+                OverlayKind::Primer,
+                OverlayKind::FirstMatch,
+            ] {
+                let lines = overlay_text(kind);
+                let (width, height) = measure(&lines);
+                let layout = OverlayLayout::new(config, width, height);
+                assert_eq!(
+                    layout.outer.height(),
+                    height + crate::V_PAD,
+                    "box height clamped — {kind:?} outgrew {cols}x{rows}"
+                );
+                assert_eq!(
+                    layout.outer.width(),
+                    width + 2 * crate::H_PAD,
+                    "box width clamped — {kind:?} at {cols}x{rows}"
+                );
+                assert!(
+                    layout.outer.y1 < rows && layout.outer.x1 < cols,
+                    "box off-frame: {kind:?} at {cols}x{rows}"
+                );
+            }
         }
     }
 
     #[test]
     fn onboarding_texts_are_the_spec_text_and_fit() {
         // The two onboarding pieces ship the spec's text exactly, and their
-        // boxes fit the minimum terminal unclamped over the map or board.
-        let (cols, rows) = Config::min_size();
-        let config = Config { num_cols: cols, num_rows: rows };
+        // boxes fit both fit sizes unclamped over the map or board.
         for (kind, line_count, title, dismiss) in [
             (
                 OverlayKind::Primer,
@@ -335,18 +362,24 @@ mod tests {
             );
 
             let (width, height) = measure(&lines);
-            let layout = OverlayLayout::new(config, width, height);
-            assert_eq!(
-                layout.outer.height(),
-                height + crate::V_PAD,
-                "box height clamped — {kind:?} outgrew the minimum terminal"
-            );
-            assert_eq!(
-                layout.outer.width(),
-                width + 2 * crate::H_PAD,
-                "box width clamped — {kind:?}"
-            );
-            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame: {kind:?}");
+            for config in Config::fit_sizes() {
+                let (cols, rows) = (config.num_cols, config.num_rows);
+                let layout = OverlayLayout::new(config, width, height);
+                assert_eq!(
+                    layout.outer.height(),
+                    height + crate::V_PAD,
+                    "box height clamped — {kind:?} outgrew {cols}x{rows}"
+                );
+                assert_eq!(
+                    layout.outer.width(),
+                    width + 2 * crate::H_PAD,
+                    "box width clamped — {kind:?} at {cols}x{rows}"
+                );
+                assert!(
+                    layout.outer.y1 < rows && layout.outer.x1 < cols,
+                    "box off-frame: {kind:?} at {cols}x{rows}"
+                );
+            }
         }
     }
 

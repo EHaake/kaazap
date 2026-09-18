@@ -54,10 +54,13 @@ sudo apt install libasound2-dev
 sudo dnf install alsa-lib-devel
 ```
 
-**Terminal size:** Kaazap needs a terminal at least **139 × 31** (columns ×
-rows) — the fixed board plus the always-visible opponent-portrait panel beside
-it. Below that it shows the required size and exits rather than rendering
-broken; enlarge the terminal and run again.
+**Terminal size:** Kaazap needs a terminal at least **89 × 31** (columns ×
+rows) — the fixed board. At **139 columns or wider** the match also shows the
+opponent's portrait panel beside the board; narrower than that, the board draws
+alone and a staked match's stake sits on the status line. The layout follows
+the terminal width, including a resize mid-match. Below 89 × 31 it shows the
+required size and exits (or, if resized below it while running, pauses until
+the terminal grows back).
 
 ## How to play
 

@@ -14,6 +14,7 @@ use crate::{
     card::Card,
     config::Config,
     deck_builder::{BuildOutcome, BuilderOrigin, DeckBuilderState},
+    economy::StakeOutcome,
     economy,
     frame::{
         Align, BorderWeight, Emphasis, Frame, clear_rect, draw_box, draw_text, draw_text_centered,
@@ -1729,6 +1730,29 @@ impl App {
         self.update_play_log();
     }
 
+    /// The stake the board shows (spec 026, Q6 A): the escrowed stake while the
+    /// match runs, or — at `GameOver`, when `tick` has already settled it on
+    /// this same iteration and `stake_at_risk()` is `None` — the settled amount
+    /// the map banner holds. The campaign pointer is still set at `GameOver`
+    /// (it clears on the acknowledgement), so a Quick Play game over never
+    /// picks up a banner left from an earlier campaign settlement.
+    fn stake_to_show(&self) -> Option<u32> {
+        self.profile.campaign().stake_at_risk().or_else(|| {
+            let Screen::InGame { game_state, .. } = &self.screen else {
+                return None;
+            };
+            if !matches!(game_state.game_phase, GamePhase::GameOver { .. })
+                || self.profile.campaign().in_progress().is_none()
+            {
+                return None;
+            }
+            match &self.banner {
+                Some(MapBanner::Settled(StakeOutcome::Won(n) | StakeOutcome::Lost(n))) => Some(*n),
+                _ => None,
+            }
+        })
+    }
+
     pub fn draw(&mut self, frame: &mut Frame) {
         if let Some((cols, rows)) = self.too_small {
             draw_too_small(frame, cols, rows);
@@ -1743,7 +1767,7 @@ impl App {
                     game_state,
                     cursor,
                     self.banter,
-                    self.profile.campaign().stake_at_risk(),
+                    self.stake_to_show(),
                     pulse,
                     frame,
                 )
@@ -2059,13 +2083,11 @@ mod tests {
     fn the_campaign_entry_panel_fits_the_minimum_terminal() {
         // Spec 024: three labels on one row at campaign entry, and the widest
         // reset confirm (title plus a stake note, so the taller layout) — both
-        // measured through the same layout the draw uses, at 139x31, so neither
-        // box is ever clamped over the menu.
+        // measured through the same layout the draw uses, at both fit sizes,
+        // so neither box is ever clamped over the menu.
         let labels: Vec<&str> = CampaignChoice::ALL.iter().map(|c| c.label()).collect();
         assert_eq!(labels, ["Continue", "New Campaign", "Reset Everything"]);
 
-        let (cols, rows) = Config::min_size();
-        let config = Config { num_cols: cols, num_rows: rows };
         let yes_no = ["Yes", "No"];
 
         // Each panel's own strings, verbatim from its draw fn: the entry panel
@@ -2087,10 +2109,21 @@ mod tests {
         ] {
             let width = choice_panel_width(title, note, hint, row_labels);
             let (_, _, _, height) = choice_rows(note.is_some());
-            let layout = OverlayLayout::new(config, width, height);
-            assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");
-            assert_eq!(layout.outer.height(), height + crate::V_PAD, "box height clamped");
-            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame");
+            for config in Config::fit_sizes() {
+                let (cols, rows) = (config.num_cols, config.num_rows);
+                let layout = OverlayLayout::new(config, width, height);
+                assert_eq!(
+                    layout.outer.width(),
+                    width + 2 * crate::H_PAD,
+                    "box width clamped at {cols}x{rows}"
+                );
+                assert_eq!(
+                    layout.outer.height(),
+                    height + crate::V_PAD,
+                    "box height clamped at {cols}x{rows}"
+                );
+                assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame at {cols}x{rows}");
+            }
         }
     }
 
@@ -2436,6 +2469,61 @@ mod tests {
     }
 
     #[test]
+    fn a_resize_across_the_threshold_keeps_the_match_and_toggles_the_panel() {
+        // Spec 026 (AC 6): a resize across the 139-column threshold mid-match
+        // rebuilds only the presentation — the match, the hand cursor and an
+        // open help overlay all survive, and the panel shows only at 139.
+        // No key reaches the game and no phase changes, so nothing here
+        // writes to disk.
+        let wide = Config { num_cols: 139, num_rows: 31 };
+        let narrow = Config { num_cols: 138, num_rows: 31 };
+        let mut app = App::new(wide);
+        let game_state = GameState::new();
+        let mut cursor = HandCursor::default();
+        cursor.move_right(&game_state.player.hand);
+        let index_before = cursor.index();
+        let hand_before = game_state.player.hand.clone();
+        app.screen = Screen::InGame {
+            game_state: Box::new(game_state),
+            cursor,
+        };
+        app.modal = Some(Modal::Help(Overlay::new(OverlayKind::GameHelp, wide)));
+        assert!(app.board_view.is_wide());
+
+        for (config, wide_expected) in [(narrow, false), (wide, true)] {
+            app.resize(config);
+            assert!(!app.is_too_small());
+            assert_eq!(app.board_view.is_wide(), wide_expected, "panel at {}", config.num_cols);
+            let Screen::InGame { game_state, cursor } = &app.screen else {
+                panic!("still in the match at {}", config.num_cols);
+            };
+            assert_eq!(cursor.index(), index_before, "cursor kept at {}", config.num_cols);
+            assert_eq!(game_state.player.hand, hand_before, "hand kept at {}", config.num_cols);
+            assert!(
+                matches!(&app.modal, Some(Modal::Help(overlay)) if matches!(overlay.kind(), OverlayKind::GameHelp)),
+                "help overlay kept at {}",
+                config.num_cols
+            );
+            let mut frame = crate::frame::new_frame(&config);
+            app.draw(&mut frame);
+        }
+    }
+
+    #[test]
+    fn the_too_small_screen_quotes_the_new_minimum() {
+        // Spec 026 (AC 1): the too-small screen quotes the new minimum.
+        let config = Config { num_cols: 40, num_rows: 10 };
+        let mut frame = crate::frame::new_frame(&config);
+        draw_too_small(&mut frame, 40, 10);
+        let rows = (0..10).map(|y| frame.iter().map(|col| col[y].ch).collect::<String>());
+        assert!(
+            rows.clone().any(|row| row.contains("Need at least 89 x 31")),
+            "rows: {:?}",
+            rows.collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
     fn notice_dismissed_on_enter_space_or_esc_only() {
         // The first-run pieces (spec 023) and the victory notice (spec 024) are
         // notices, not choices: Enter, Space and Esc all wave them away, and
@@ -2477,7 +2565,8 @@ mod tests {
         // Spec 024: the two notices share one summary block, both end on the
         // dismiss line with an empty row above it (the acted-on element gets its
         // air — the box's own padding gives the row below), neither doubles a
-        // blank row, and both fit 139x31 unclamped so no row is ever eaten.
+        // blank row, and both fit both fit sizes unclamped so no row is ever
+        // eaten.
         let mut run = RunStats::default();
         for _ in 0..4 {
             run.record_match(true, 3, 1);
@@ -2494,9 +2583,6 @@ mod tests {
 
         assert_eq!(victory[0], "Campaign complete — the house's best has lost.");
         assert_eq!(run_over[0], "You're broke — the run is over.");
-
-        let (cols, rows) = Config::min_size();
-        let config = Config { num_cols: cols, num_rows: rows };
 
         for lines in [&victory, &run_over] {
             let summary_at = lines
@@ -2520,14 +2606,21 @@ mod tests {
             );
 
             let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
-            let layout = OverlayLayout::new(config, width, lines.len());
-            assert_eq!(
-                layout.outer.height(),
-                lines.len() + crate::V_PAD,
-                "box height clamped — the notice outgrew the minimum terminal"
-            );
-            assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");
-            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame");
+            for config in Config::fit_sizes() {
+                let (cols, rows) = (config.num_cols, config.num_rows);
+                let layout = OverlayLayout::new(config, width, lines.len());
+                assert_eq!(
+                    layout.outer.height(),
+                    lines.len() + crate::V_PAD,
+                    "box height clamped — the notice outgrew {cols}x{rows}"
+                );
+                assert_eq!(
+                    layout.outer.width(),
+                    width + 2 * crate::H_PAD,
+                    "box width clamped at {cols}x{rows}"
+                );
+                assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame at {cols}x{rows}");
+            }
         }
 
         // The victory notice's two spec'd lines sit above the summary...
@@ -2594,6 +2687,63 @@ mod tests {
         assert_eq!(game_state.player.hand, hand_before, "hand unchanged");
         assert_eq!(game_state.player.dealer_row.len(), dealer_before, "no card drawn");
         assert_eq!(game_state.player.played_row.len(), played_before, "no card played");
+    }
+
+    #[test]
+    fn the_game_over_frame_shows_the_settled_stake_on_both_layouts() {
+        // Spec 026 T002a (Q6 A): the match settles on the tick that draws the
+        // game-over frame, so `stake_at_risk()` is already `None` there — the
+        // board is handed the settled amount from the map banner instead, on
+        // the compact band (89) and the wide panel (139). The App holds a
+        // fresh profile with the campaign pointer still set, as it is at
+        // `GameOver` before the acknowledgement; nothing here writes to disk.
+        use crate::layout::BoardLayout;
+        use crate::portrait::stake_line;
+
+        fn row_text(frame: &Frame, y: usize) -> String {
+            frame.iter().map(|col| col[y].ch).collect()
+        }
+
+        for (cols, wide) in [(89, false), (139, true)] {
+            let config = Config { num_cols: cols, num_rows: 31 };
+            let mut app = App::new(config);
+            app.profile = Profile::default();
+            app.profile.campaign_mut().set_in_progress(Some(NodeRef {
+                planet: "cinder".to_string(),
+                opponent: "greeb".to_string(),
+                stake: 0, // settled: the escrow is already taken
+            }));
+            app.banner = Some(MapBanner::Settled(StakeOutcome::Won(30)));
+            let mut game_state = GameState::new();
+            game_state.game_phase = GamePhase::GameOver { winner: Player::Player };
+            app.screen = Screen::InGame {
+                game_state: Box::new(game_state),
+                cursor: HandCursor::default(),
+            };
+            assert_eq!(app.stake_to_show(), Some(30));
+
+            let mut frame = crate::frame::new_frame(&config);
+            app.draw(&mut frame);
+            let layout = BoardLayout::new(config);
+            assert_eq!(layout.opponent_panel.is_some(), wide);
+            if wide {
+                let panel = layout.opponent_panel.unwrap();
+                let row = row_text(&frame, panel.y0 + 18);
+                assert!(row.contains("◈ 30"), "panel stake row at {cols}: {row:?}");
+            } else {
+                let status = layout.status;
+                let stake = stake_line(30);
+                let chars: Vec<char> = row_text(&frame, status.y0).chars().collect();
+                let stake_x0 = status.x1 + 1 - stake.chars().count();
+                let right: String = chars[stake_x0..=status.x1].iter().collect();
+                assert_eq!(right, stake, "band ends in the stake at game over");
+            }
+
+            // A Quick Play game over — no campaign pointer — shows nothing,
+            // even with a settlement banner still around.
+            app.profile.campaign_mut().set_in_progress(None);
+            assert_eq!(app.stake_to_show(), None);
+        }
     }
 
     #[test]
