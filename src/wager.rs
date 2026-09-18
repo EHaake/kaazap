@@ -122,14 +122,14 @@ impl WagerState {
         }
     }
 
-    /// What a content row is for — the one place emphasis is decided, so the
-    /// spacer rows below can't drift a hardcoded index out from under it.
     /// Whether losing the current stake would leave the player unable to cover
     /// the run's cheapest ante — i.e. the loss ends the run (spec 021's reset).
     fn loss_ends_the_run(&self) -> bool {
         self.max.saturating_sub(self.stake()) < self.reserve
     }
 
+    /// What a content row is for — the one place emphasis is decided, so the
+    /// spacer rows below can't drift a hardcoded index out from under it.
     fn rows(&self) -> Vec<(Role, String)> {
         let stake = self.stake();
         // Winnings, not the payout: the line stays correct if PAYOUT_RATIO moves.
@@ -412,7 +412,11 @@ mod tests {
                 warned_at.push(s.stake());
             }
         }
-        assert_eq!(warned_at, vec![45, 50, 53], "warns only once under reserve");
+        assert_eq!(
+            warned_at,
+            vec![45, 50, 53],
+            "every stake past 43 warns, and no stake at or below it does"
+        );
 
         // Walking back down clears it again at the first safe stake.
         s.handle_input(KeyCode::Left);
@@ -423,7 +427,7 @@ mod tests {
         assert!(warns(&s));
         s.handle_input(KeyCode::Left);
         assert_eq!(s.stake(), 40);
-        assert!(!warns(&s), "43 left is over the 10 reserve");
+        assert!(!warns(&s), "13 left is over the 10 reserve");
     }
 
     #[test]
