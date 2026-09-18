@@ -1,6 +1,6 @@
 # Spec: Animation pass — spec 027
 
-**Status**: Approved (2026-09-18). Rulings Q1 a–e; Q2 A, Q3 A, Q4 A, Q5 A,
+**Status**: Approved (2026-09-18; Q7 added at planning). Rulings Q1 a–e; Q2 A, Q3 A, Q4 A, Q5 A,
 Q6 A delegated to the session and taken as recommended, under the person's
 standing constraint (Goal 1).
 **Depends on**: spec 002 (the selection pulse and the Motion rule in
@@ -53,7 +53,9 @@ static.
    transition runs.
 5. **It can be turned off.** A player who wants no motion beyond the
    selection pulse switches Animations off in Settings and the board draws
-   as it does before this spec, frame for frame.
+   as it does before this spec, frame for frame — with one standing
+   exception, Q7 below: the Score figure rests at normal weight from this
+   spec on, On or Off, where it was bold before.
 
 ## Non-goals (explicitly deferred)
 
@@ -188,8 +190,9 @@ on screen.
 - **Off** means: cards and totals draw settled from the first frame, the
   outcome popups draw on the same frame as today, and the thinking line
   is today's static `Opponent's Turn`. The board's frames are identical to
-  the game's frames before this spec. The selection pulse and the map's
-  starfield are unaffected.
+  the game's frames before this spec, apart from the Score figure resting
+  at normal weight (Q7). The selection pulse and the map's starfield are
+  unaffected.
 - The setting takes effect immediately, including on a match in progress.
 
 ## Acceptance criteria
@@ -262,6 +265,16 @@ on screen.
 - **Q5 A — portraits stay static**; spec 016's "light portrait animation"
   deferral is closed at merge (delegated; taken as recommended).
 - **Q6 A — the match board only** (delegated; taken as recommended).
+- **Q7 — the Score rests at normal weight** (session ruling at planning,
+  2026-09-18, under the delegation; flagged to the person in the
+  spec-conformance summary). Today `Score: N` is drawn bold at all times,
+  so a bold-for-a-beat transition on it would be invisible, and the only
+  stronger level is the rationed inverse. The planner offered two ways
+  out: rest the Score at Normal so the beat shows, or keep it bold and
+  drop the total-change transition (ruling c). The session took the
+  first: ruling c is the person's, and the Score keeps its place in the
+  header either way. Goal 5, the Off bullet and criterion 8 carry the
+  exception.
 - **The standing constraint**, stated by the person with the rulings:
   transitions must be noticeable enough to add to the game and quick enough
   that they never get in the way of player actions. It is Goal 1, the
