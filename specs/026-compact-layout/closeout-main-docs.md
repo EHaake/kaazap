@@ -56,7 +56,8 @@ Insert after them:
   **stake at risk**, moves onto the board: a staked campaign match shows
   `Stake ◈ N` right-aligned on the status band's upper row, drawn `Strong`,
   from the first frame through the game-over popup, sharing the over-20
-  alert's row (≥ 40 blank cells between them, pinned by a test) so the
+  alert's row (a test pins the alert ending left of a six-digit stake with
+  every cell between blank; the 81-column band leaves ≥ 40 of them) so the
   31-row board block does not grow; Quick Play shows no stake line. The
   layout is **chosen by width alone, live, with no setting** — `BoardLayout`'s
   panel is an `Option<Rect>`, `Some` iff `cols >= WIDE_LAYOUT_MIN_WIDTH` (the
@@ -70,9 +71,13 @@ Insert after them:
   popup** on both layouts (Q6, `App::stake_to_show` reads the settled amount
   at `GameOver`; it had been blank there since spec 021), and the play log's
   width floor rose 40 → 52 so the compact log is the same box as the wide one.
-  Every "fits the minimum terminal" test now loops `Config::fit_sizes()` —
-  89×31 and 139×31 — and the too-small screen and the startup error both quote
-  `89 x 31`. No engine, AI, economy, wager, save-format or balance change:
+  Every "fits the minimum terminal" test now measures 89×31 as well as 139×31:
+  the tests in `layout.rs`, `overlay.rs`, `shop.rs`, `app.rs`,
+  `opponent_select.rs`, `board.rs` and `records.rs` loop `Config::fit_sizes()`,
+  while the wager prompt's test reads `Config::min_size()` and so measures 89
+  with `wager.rs` untouched (its 139 case follows from a centered, content-
+  sized box — spec AC 3). The too-small screen and the startup error both
+  quote `89 x 31`. No engine, AI, economy, wager, save-format or balance change:
   `main.rs`, `card.rs`, `game.rs`, `player.rs`, `save.rs`, `profile.rs`,
   `economy.rs`, `wager.rs`, `campaign.rs`, `campaign_map.rs`,
   `tests/balance.rs`, `Cargo.toml` and `Cargo.lock` are untouched and
@@ -317,8 +322,9 @@ Design tensions resolved during planning:
   compact, keeping `BoardView::draw`'s signature unchanged.
 - **The density rule was checked — no conflict.** The stake shares the over-20
   alert's row (the alert is 27 characters, `Align::Left`; a six-digit stake is
-  14, `Align::Right`, on the 81-column band — ≥ 40 blank cells between them,
-  pinned), adds no row, and the board block keeps its fixed 31-row height. The
+  14, `Align::Right`, on the 81-column band — ≥ 40 blank cells between them
+  by arithmetic; the test pins the alert left of the stake with every cell
+  between blank), adds no row, and the board block keeps its fixed 31-row height. The
   acted-on element on the board (the cursored hand card) is unchanged.
 
 Attested by driver walkthroughs at both sizes. At 89×31: every screen (menu,
@@ -361,6 +367,12 @@ panel, and no new emphasis level.
 - **The spec 025 Shipped entry's "fit 139×31" (ROADMAP line 420)** is left as
   history: it is a fit claim, not a minimum, and the Outfitter's fit test now
   loops 89 as well.
+- **`src/wager.rs:497`'s comment still says "The box must still fit 139×31
+  with margin"** above a test that now measures 89×31. `wager.rs` is on this
+  spec's no-change list (AC 10), so the stale comment is left for a wording
+  chore; noted here so it does not die with the tier log. The same chore can
+  take `src/config.rs`'s `fit_sizes` doc ("The two sizes every 'fits' test
+  measures"), which overclaims in the same way for the wager prompt's test.
 - **Tier-log observations stay in `specs/026-compact-layout/tasks.md`** (the
   Phase 1 and Phase 2 review notes, the walkthrough rows, finding F1's route
   to T002a): process evidence for the model-policy experiments, not project

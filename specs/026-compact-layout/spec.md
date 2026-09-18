@@ -61,7 +61,8 @@ is untouched.
   fire (audio, log) but no line is shown below 139.
 - **A setting** to force the compact board on a wide terminal.
 - **Changing the wide layout** — the board's position, the panel, the
-  reserved left margin — in any way.
+  reserved left margin — in any way (the one exception, ruled at the Phase 1
+  pause: the panel's stake row now stays through the game-over popup, Q6 A).
 - **A player-status panel** in the reserved left margin (still reserved).
 - **Engine, AI, economy, wager, save-format or balance-data changes.**
 
@@ -184,6 +185,11 @@ the stake at the right of the status band's upper row):
   walkthrough finds a collision.
 - **Q5 A — the threshold stays 139.** No third layout between 114 and 138;
   the wide layout is exactly as spec 016 shipped it.
+- **Q6 A — the settled stake shows on the game-over frame, both layouts**
+  (ruled at the Phase 1 pause, after finding F1). The match settles on the
+  tick that draws the game-over popup, so the escrow reads zero there; the
+  board is handed the settled amount instead, on the compact band and on the
+  wide panel alike.
 
 ## Acceptance evidence (T005 close-out, 2026-09-18)
 
@@ -205,9 +211,10 @@ the branch) and the tier log's walkthrough rows in `tasks.md`.
    builder (hint line whole and centered), play log, wager prompt, a match.
 4. **The stake for the whole staked match** —
    `the_compact_board_carries_the_stake_clear_of_the_alert`,
-   `quick_play_shows_no_stake_line`, the T002a App-level test; both
-   walkthroughs saw `Stake ◈ 30` from the first frame through the game-over
-   popup after T002a, and Quick Play without it.
+   `quick_play_shows_no_stake_line`, the T002a App-level test; the Phase 1
+   walkthrough found the stake missing at the game-over popup (finding F1,
+   fixed as T002a), and the Phase 2 walkthrough saw `Stake ◈ 30` from the
+   first frame through the game-over popup, and Quick Play without it.
 5. **Alert and stake never overlap** — the cells between are asserted blank in
    `the_compact_board_carries_the_stake_clear_of_the_alert`; the over-20
    moment was watched at 89 in both walkthroughs.

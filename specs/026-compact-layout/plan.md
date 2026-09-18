@@ -304,11 +304,13 @@ fn content_size(bodies: &[Vec<String>], coll: &str) -> (usize, usize)
 `draw` replaces its inline `content_w`/`content_h` with a call; `FOOTER_MEASURE`
 moves next to it. No drawing change.
 
-### 7. `src/app.rs` — tests only
+### 7. `src/app.rs` — the resize path is untouched
 
-No code change: `resize`, `set_too_small`, `draw_too_small` and the draw arms
-already do what the spec asks once `min_size()` and `BoardLayout` change. Two
-tests are added (§Tests) and two fit tests loop `fit_sizes()`.
+`resize`, `set_too_small`, `draw_too_small` and the draw arms already do what
+the spec asks once `min_size()` and `BoardLayout` change, so the resize path
+has no code change. The file's one code change is §4a's `stake_to_show`
+(T002a, Q6 A). Two tests are added (§Tests) and two fit tests loop
+`fit_sizes()`.
 
 ### 8. `Readme.md` — the terminal-size paragraph
 
@@ -330,7 +332,8 @@ running, pauses until the terminal grows back).
 - `src/board.rs` — `is_wide`, the compact arm; tests.
 - `src/overlay.rs` — `SCROLL_MIN_W`, `scroll_box`; tests loop both widths.
 - `src/records.rs` — `content_size`; one fit test.
-- `src/opponent_select.rs`, `src/shop.rs`, `src/app.rs` — tests only.
+- `src/opponent_select.rs`, `src/shop.rs` — tests only; `src/app.rs` — tests
+  plus `stake_to_show` (§4a, T002a).
 - `Readme.md` — the terminal-size paragraph.
 - `specs/026-compact-layout/closeout-main-docs.md` (T005).
 - **No change**: `main.rs`, `menu.rs`, `campaign_map.rs`, `campaign.rs`,
