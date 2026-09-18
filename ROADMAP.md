@@ -646,8 +646,9 @@ human's stated priority is the first-run onboarding.
   collectible universe is 15 types (spec 001), and specs 012 and 022 treated
   it as complete, but the original game also has **+5, +6, −5, −6, ±4 and ±5**.
   Adding them is new card types in `card.rs`, a tier and price for each in
-  `economy.rs`, the album and shop growing (the Outfitter's full list is
-  sized to 15 rows against the 31-row minimum), opponent decks possibly
+  `economy.rs`, the album and shop growing (since spec 025 the Outfitter's
+  list is 21 rows — 15 cards plus a blank and a heading per region — against
+  the 31-row minimum, and `LIST_ROWS` guards it), opponent decks possibly
   using them, and a re-measure of the spec 022 curve with the balance
   simulator — its own spec, with a balance pass inside it.
 - **Post-v1 rule enhancements** — once the complete game exists as a
