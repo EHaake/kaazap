@@ -249,6 +249,12 @@ the calls newly settled this spec (first two human-ruled this session):
   15-card universe is complete, so progression gates *acquiring* the existing cards
   by campaign depth (three region tiers, Outer ⊆ Mid ⊆ Core). Both the win-drop
   and the shop draw from that one growing pool.
+  **Clarified — not superseded — by spec 025**: the shop still *draws* from
+  that one growing pool, so what you can buy and what it costs are unchanged,
+  but it now *lists* all 15 cards with the un-reached groups dimmed and locked.
+  The gate reads the same `card_tier` / `deepest_reached` pair `available_pool`
+  does, so the list cannot drift from the pool. See *Locked cards in the
+  Outfitter (spec 025)* below.
 - **A single card drop per win, not a pack/gacha** (pre-ruled) — one roll, one
   card, to keep the tuning burden bounded.
 - **Additive persistence, no version bump** — `credits` is a serde-defaulted
@@ -1165,3 +1171,82 @@ The profile gained three additive `#[serde(default)]` fields
 `LifetimeStats::first_clear_matches`); `PROFILE_VERSION` and `SAVE_VERSION`
 both stay 1, so a pre-024 profile loads with zero counters and no record.
 Monochrome by construction.
+
+## Locked cards in the Outfitter (spec 025)
+
+A new player saw seven cards in the Outfitter and nothing saying the other
+eight exist, so the depth gate read as missing cards rather than as a promise.
+The person hit it in play on 2026-09-16 and ruled the same day. The spec
+changes what the shop **shows** and nothing about what it sells, what that
+costs, or when a region opens.
+
+- **A2 — locked rows show their price, dimmed.** First ruled **A3** (a
+  `locked` word in place of the price), reversed the same day so a player can
+  see what they are saving toward. The cost, accepted on record: in a
+  monochrome UI a locked row and an unaffordable row look alike, so the
+  difference is carried by the group heading and by the cursor (which stops on
+  an unaffordable card but never on a locked one).
+- **B2 — the cursor skips locked rows.** They are there to be seen, not
+  selected, so Enter on a locked card cannot happen — which is what lets the
+  buy path stay exactly as it was.
+- **C1 — the heading names the region** (`Mid Rim  ·  reach the Mid Rim to
+  unlock`), in the map's own labels, rather than naming the planet that opens
+  the group. One vocabulary for depth across the map and the shop.
+- **Taken ahead of the compact layout**, the other queued shop-adjacent item,
+  and **new card types (+5, +6, −5, −6, ±4, ±5) were logged as their own
+  roadmap item** rather than folded in: they would move `card.rs`, the tier
+  table, the prices and the spec 022 curve, and this spec moves none of those.
+
+Design tensions resolved during planning:
+
+- **Unlocked cards are always a prefix of the list — so the cursor stays a
+  plain index.** Groups are drawn in tier order and a group is unlocked iff
+  `tier <= deepest_reached`, so the unlocked cards are always the **first `n`**
+  cards of the grouped listing (7, 13 or 15). The cursor therefore stayed a
+  `usize` wrapping over `0..n`, and a drawn row `i` is cursored iff `i ==
+  cursor` (counting cards only). **B2 falls out of the ordering** — no skip
+  logic, no per-row lookup. The claim is pinned by a test that the prefix
+  equals `available_pool` as a multiset and that every card after it is deeper
+  than `deepest_reached`, at all three depths. Rejected: keeping
+  `available_pool`'s order for the cursor — it is `ALL_SIDE_CARDS` order (`+4`
+  between `+3` and `−1`), not the grouped display order, so the cursor index
+  and the drawn row would diverge.
+- **The list is one block, centered as a block.** Headings are wider than rows
+  (`Mid Rim  ·  reach the Mid Rim to unlock` is 39 columns; a row is 28), so
+  centering each line on its own would put headings and rows on different left
+  edges and leave the list ragged. Instead the whole list shares one left
+  column, `list_left(center_x)`, computed from the widest line it can ever
+  draw, with headings three columns in, aligned with the card labels. Title,
+  balance and hint stay centered as before. Two consequences, both accepted:
+  a row no longer re-centers when its owned count gains a digit (`×9` → `×10`),
+  so buying can't nudge a row sideways; and because the block is sized for the
+  *widest possible* line (the locked Mid Rim heading at its indent, 42 columns),
+  the rows themselves sit left of centre — at 139 columns `list_left` is 48, a
+  row is 27–28 columns wide, so the row block centres on column 62 against a
+  title centred on 69: **about seven columns left**. It is most visible on a
+  profile that has unlocked everything, where no long locked heading is on
+  screen to fill the width. Measured at the driver walkthrough and reported at
+  the phase pause, where the person attested the screen looked good; left as is.
+- **Headings are drawn Normal, locked or not.** The spec dims locked *rows* and
+  says nothing about heading emphasis. Drawing every heading Normal keeps the
+  lock sentence — the thing that tells locked from unaffordable — at full
+  weight while the rows under it recede, and adds no new emphasis level.
+- **No defensive tier check on Buy.** `try_purchase` does not look at tier, and
+  `handle_input` can only emit `Buy(listing()[cursor])` with `cursor < n`. The
+  guarantee is the prefix property plus the cursor clamp, both tested in
+  `shop.rs`; a tier check in `app.rs` would be a second rule for a state the
+  screen cannot produce — cut per the constitution's *Simplicity*.
+- **The density rule was checked — no conflict.** The *acted-on element stands
+  apart* rule gives the acted-on line an empty row above and below. The list
+  stays compact with one empty row above each heading, matching today's shop
+  list: padding a moving cursor row would shift every row below it on each
+  keypress, which is exactly the jitter the spec forbids. So the list's only
+  air is the heading gaps.
+
+No engine change (`card.rs`, `game.rs`, `player.rs`, `save.rs` untouched), no
+AI change, no balance data moved (`economy.rs`'s tier table and prices are as
+spec 022 left them; the file gained only `RegionTier::region_name`, the inverse
+of `region_tier`, plus its test), no profile-format change,
+`tests/balance.rs` / `Cargo.toml` / `Cargo.lock` untouched, and no new crate.
+`PROFILE_VERSION` and `SAVE_VERSION` both stay 1. Monochrome by construction:
+Normal, Muted and the existing cursor pulse, no new emphasis level.

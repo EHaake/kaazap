@@ -151,7 +151,10 @@ of, not guessed at here in advance.
   from a **depth-gated pool** — the three map regions (Outer → Mid → Core)
   progressively unlock more of the 15-card universe. A **shop** on the campaign
   map (the Outfitter, `b`) spends credits on that same pool, showing prices, owned
-  counts, and a live balance (also in the map header). Everything grows the
+  counts, and a live balance (also in the map header), and listing only that
+  unlocked pool — **superseded by spec 025**, which lists all 15 cards grouped
+  by region with the un-reached groups dimmed and locked; what the shop sells,
+  and what it costs, is unchanged. Everything grows the
   collection the spec-008 deck-builder already reads, so won/bought cards are
   immediately usable. Pure content + persistence over shipped seams: `credits` is
   an additive `#[serde(default)]` profile field (no `PROFILE_VERSION` bump), the
@@ -383,6 +386,39 @@ of, not guessed at here in advance.
   and `Cargo.lock` untouched; `PROFILE_VERSION` and `SAVE_VERSION` stay 1.
   `Readme.md`, `docs/economy.md` and `docs/balance.md` re-synced (the last with
   a short *Replays* note: a replay starts premium, deliberately not retuned).
+- **Locked cards in the Outfitter** (spec 025) — the depth gate is now
+  **visible**. The Outfitter lists all **15 cards** on every visit, in three
+  region groups — Outer Rim 7, Mid Rim 6, Core 2 — each row carrying its price
+  and owned count exactly as before. A group whose region the run hasn't
+  reached is **locked**: its rows are dimmed *with their prices still showing*
+  (ruling A2, revised from A3 the same day, so a player can see what they're
+  saving toward), its heading reads `Mid Rim  ·  reach the Mid Rim to unlock`
+  in the map's own words (C1), and the cursor **passes over it** (B2), so no
+  key can buy a locked card. Because the groups are drawn in tier order and a
+  group is unlocked iff `tier <= deepest_reached`, the unlocked cards are
+  always the **first `n`** of the listing (7, 13 or 15) — so the cursor stayed
+  what it was, a `usize` wrapping over `0..n`, with no skip logic and no
+  per-row lookup; a test pins that prefix against `available_pool` as a
+  multiset at all three depths. The grouping reads `economy::card_tier` and
+  `economy::deepest_reached`, the same pair `available_pool` uses, so the list
+  and what's buyable **cannot disagree**. The list is centered **as one block**
+  (`list_left`, off the widest line the list can ever draw, headings three
+  columns in), so a row no longer re-centers when an owned count gains a digit
+  and the cursor never makes the list jitter. Buying is untouched —
+  affordability, the ante reserve, prices, the bought/refused sounds and the
+  save all behave as specs 012, 021 and 022 left them — and after **New
+  Campaign** (spec 024) the Mid and Core groups lock again with their owned
+  counts intact. `economy.rs` gained exactly one function,
+  `RegionTier::region_name` (the inverse of `region_tier`, with a test);
+  everything else is `shop.rs` (`TIERS`, `listing`, `unlocked_count`,
+  `heading`, `row_text`, `LIST_ROWS`, `list_left`, and `anchors(num_rows)` in
+  place of `anchors(num_rows, n)`). No engine, AI, economy, balance-data or
+  save-format change: `card.rs`, `game.rs`, `player.rs`, `save.rs`,
+  `profile.rs`, `tests/balance.rs`, `Cargo.toml` and `Cargo.lock` are
+  untouched, the tier table and prices stand as spec 022 left them, and
+  `PROFILE_VERSION` / `SAVE_VERSION` stay 1. The full list, headings, balance
+  and hint fit 139×31, pinned by a test and by a driver walkthrough at all
+  three depths and across a New Campaign. `docs/economy.md` re-synced.
 
 ## Backlog
 
@@ -414,7 +450,10 @@ file — the engine works, so the campaign is now being planned in order.)
   KOTOR-style "briefcase" layout is a deferred UI follow-up (below).
 - **C · Economy & progression** — ✅ **Shipped (spec 012** — see Shipped above
   and `docs/economy.md`). Credits from wins; a card pool that **unlocks by
-  campaign depth**; a **shop** selling from the unlocked pool; and a **random
+  campaign depth**; a **shop** selling from the unlocked pool (and, until
+  **spec 025**, listing only that pool — spec 025 supersedes the listing half:
+  all 15 cards, grouped by region, the un-reached groups locked and skipped by
+  the cursor, while what the shop *sells* is unchanged); and a **random
   card drop from each win** pulled from that same pool. Scarcity is the depth
   gate, not new card types (the canon pool is complete). Extended the profile
   save with credits (additive, no version bump); B supplied the collection it
@@ -590,13 +629,16 @@ human's stated priority is the first-run onboarding.
   a **packaging check** (release binaries for the three targets, the music
   track's CC-BY attribution in the distributed files); a license check on
   every bundled asset before anything goes to itch.io.
-- **Show locked cards in the Outfitter** (raised by the person 2026-09-16,
+- **Show locked cards in the Outfitter** — ✅ **Shipped (spec 025** — see
+  Shipped above and `docs/economy.md`). Raised by the person 2026-09-16,
   playing early in a campaign: the shop offered only +1 to +3, −1 to −3 and
-  ±1, and nothing said the rest exist). The shop hides every card above the
-  deepest region reached, so the depth gate reads as missing cards. Taken
-  ahead of the compact layout as spec 025: the Outfitter lists the whole
-  15-card universe grouped by region, the locked rows visibly locked and
-  saying where they open. No economy, price or pool change.
+  ±1, and nothing said the rest exist — it hid every card above the deepest
+  region reached, so the depth gate read as missing cards. Taken ahead of the
+  compact layout: the Outfitter now lists the whole 15-card universe grouped by
+  region, the locked rows dimmed with their prices showing under a heading that
+  names the region that opens them, and the cursor passing over them. No
+  economy, price or pool change; **new card types** stayed their own backlog
+  item (below).
 - **A compact layout below 139 columns.** The minimum terminal grew to 139×31
   with the portrait panel (spec 016), which is large for a general audience.
   A layout that drops the presence panel (portrait + banter) when the terminal
