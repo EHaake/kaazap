@@ -258,8 +258,10 @@ further, and whenever something unexpected bears on spec adherence.
 - **Fallback**: if the top tier's usage budget runs out, dispatch the
   planner and sign-off at the implementation tier for the rest of the
   window (drop the override; both definitions default to `opus`), and
-  switch the session itself to `claude-opus-4-8` mid-session
-  (`/model claude-opus-4-8` — one cache re-write, then continue).
+  switch the session itself to the session-fallback model the person
+  names at the time — `claude-opus-5` since their ruling of 2026-09-16
+  (spec 025), `claude-opus-4-8` before it — mid-session (`/model
+  <that ID>` — one cache re-write, then continue).
   The implementer falls back to `sdd-implementer` when Fable's
   allowance runs out; needing that fallback is itself a result.
   Nothing else changes; the tier log records what ran and when the
@@ -283,6 +285,12 @@ further, and whenever something unexpected bears on spec adherence.
   `opus`. Spec 021 is the first spec under experiment 1 — its tier log
   in `specs/021-wager-and-loss/tasks.md` carries the allowance reading
   and the per-invocation token counts to compare against specs 019–020.
+  **Spec 025 (2026-09-16/17) ran entirely on the session fallback**:
+  the person chose `claude-opus-5` at high effort with Fable's allowance
+  low, so the whole spec — conversation, planning, sign-off,
+  implementation, reviews and sweep — ran at `opus`/`claude-opus-5` with
+  the top-tier override dropped and experiment 2 paused. Its tier log is
+  in `specs/025-outfitter-locked-cards/tasks.md`.
 
 ## Spec-driven workflow
 
