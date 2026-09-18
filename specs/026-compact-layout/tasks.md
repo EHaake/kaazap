@@ -27,9 +27,11 @@ top tier (fable, per-call override).
 
 **Foundational phase: Phase 1.** T001 changes the constant, the minimum and the
 `BoardLayout` shape that every later test and screen inherits, so it carries
-`review: per-task`; T002 completes the compact board. Phase 2 is the fit sweep
-and the resize proof, reviewed once as a phase. No other task carries its own
-review.
+`review: per-task`; T002 completes the compact board and ends the phase with
+the review, the 89×31 driver walkthrough and a **pause for the person** (the
+constitution's default: a pause after every phase unless the person says to
+run further). Phase 2 is the fit sweep and the resize proof, reviewed once as a
+phase and followed by the second pause. No other task carries its own review.
 
 ---
 
@@ -49,8 +51,10 @@ stake. After T002 the game plays at 89 columns. -->
   in the `CampaignMapLayout` clamp comment, the briefcase `const _` message and
   `CELL_H` doc to "89×31". In `config.rs`, per plan §Design 2: `min_size()`
   returns `(BOARD_WIDTH, BOARD_BLOCK_HEIGHT)` with the plan's doc; add
-  `#[cfg(test)] pub fn fit_sizes() -> [Config; 2]` (89×31, 139×31). In
-  `board.rs`, only what compiles: the panel tail of `draw` becomes `if let
+  `#[cfg(test)] pub fn fit_sizes() -> [Config; 2]` (89×31, 139×31) inside
+  `impl Config`; in `from_terminal`'s bail change `Minimum size required:
+  {}x{}` to `{} x {}` so the startup error quotes `89 x 31` like the too-small
+  screen (AC 1), nothing else in the message. In `board.rs`, only what compiles: the panel tail of `draw` becomes `if let
   Some(panel) = self.layout.opponent_panel { draw_presence_panel(…);
   draw_presence_extras(…) }` (T002 finishes it). Tests (plan §Tests): in
   `config.rs` rename `config_min_size_is_board_plus_panel_margins` →
@@ -83,10 +87,11 @@ stake. After T002 the game plays at 89 columns. -->
   `the_prompt_fits_the_minimum_terminal_unclamped` (wager.rs, untouched) and
   `turn_hints_fit_the_status_band` still pass now that they measure 89; `git
   diff --stat` shows only `src/layout.rs`, `src/config.rs`, `src/board.rs`,
-  `src/opponent_select.rs`; `grep -rn IN_MATCH_MIN_WIDTH src/` is empty; the
-  implementer's report quotes the new `opponent_panel` computation and
-  `min_size` verbatim. The orchestrator re-runs the verification command
-  itself before committing (per-task review).*
+  `src/opponent_select.rs`; `grep -rn IN_MATCH_MIN_WIDTH src/` is empty; `grep
+  -n "required: {} x {}" src/config.rs` finds the bail; the implementer's
+  report quotes the new `opponent_panel` computation and `min_size` verbatim.
+  The orchestrator re-runs the verification command itself before committing
+  (per-task review).*
 
 - [ ] **T002** — `src/portrait.rs` + `src/board.rs`: the compact board's stake
   line. In `portrait.rs`, per plan §Design 3: add `pub fn stake_line(stake:
@@ -117,7 +122,21 @@ stake. After T002 the game plays at 89 columns. -->
   verbatim with the three named tests passing and every `portrait.rs` test
   unchanged; `git diff --stat` shows only `src/portrait.rs` and `src/board.rs`;
   `git diff -- src/portrait.rs` adds only `stake_line`, its call and the one doc
-  line; the implementer's report quotes the compact arm verbatim.*
+  line; the implementer's report quotes the compact arm verbatim.
+  **PAUSE for the person** (after the Phase 1 review): the orchestrator drives
+  the **89×31** walkthrough in plan §Verification with the `run-kaazap` skill —
+  real profile, settings and save backed up and checksummed first, restored and
+  checksum-verified after — and reports what it saw in plain language: every
+  screen listed there on frame with nothing clipped (the deck builder's hint
+  line whole and centered; the map's eight planets and labels clear of the
+  rail; the select preview beside the list), a staked campaign match with
+  `Stake ◈ N` at the right of the status band's upper row from the first frame
+  through an over-20 alert, a round popup and the game-over popup (this is the
+  App-level check that the stake is still passed at game over), a Quick Play
+  match with no stake line, no panel and no banter line; starting in a
+  terminal below 89×31 shows the bail's `89 x 31`. Long play-log round headers
+  clipping is reported as a pre-existing finding (plan tension 4). Then the
+  person tries the compact board before Phase 2 starts.*
 
 ## Phase 2 — Every screen at 89, and the resize
 
@@ -149,8 +168,11 @@ walkthroughs. -->
   `the_campaign_entry_panel_fits_the_minimum_terminal` and
   `both_notices_read_right_breathe_and_fit_the_minimum_terminal`, and
   `board.rs`'s `turn_hints_fit_the_status_band`; drop stale "139x31" comment
-  figures in those tests. `wager.rs` is not touched (plan tension 3). Do not run
-  `cargo fmt`. (Copies: `records.rs`'s
+  figures in those tests. `wager.rs` is not touched (spec AC 3, plan tension
+  3). If `the_full_list_fits_the_minimum_terminal` fails at 89 (the plan's
+  Outfitter arithmetic is the expectation), that is a finding for the
+  orchestrator to route to the person, not something to fix by re-laying-out
+  the shop. Do not run `cargo fmt`. (Copies: `records.rs`'s
   `the_campaign_view_folds_in_the_first_clear_record` for the stats fixture;
   `overlay.rs`'s existing fit tests for the loop shape.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
@@ -158,8 +180,10 @@ walkthroughs. -->
   `src/overlay.rs`, `src/records.rs`, `src/shop.rs`, `src/app.rs`,
   `src/board.rs`; `git diff -- src/wager.rs` is empty; `git diff --
   src/records.rs src/overlay.rs` changes no drawing call beyond the two
-  extractions and the constant; `grep -rn "139" src/*.rs` lists only
-  `layout.rs`'s threshold comment and test literals the plan names.*
+  extractions and the constant; `grep -rn "139" src/*.rs`, read line by line,
+  shows no `139` where a *minimum* is described — threshold docs (`fit_sizes`,
+  `is_wide`, `SCROLL_MIN_W`, `WIDE_LAYOUT_MIN_WIDTH`) and test literals are
+  fine.*
 
 - [ ] **T004** — `src/app.rs` (tests) + `Readme.md`: the resize proof and the
   README. In `app.rs`'s tests, per plan §Tests: add
@@ -181,21 +205,21 @@ walkthroughs. -->
   *Verify: `cargo build --all-targets` + `cargo test -q` green verbatim with
   both new tests passing; `git diff --stat` shows only `src/app.rs` and
   `Readme.md`; `git diff -- src/app.rs` touches only the `mod tests` block;
-  `grep -n "139" Readme.md` shows only the threshold sentence.
+  `grep -n "139" Readme.md`, read line by line, shows no `139` where a minimum
+  is described (the threshold sentence and any history line are fine).
   **PAUSE for the person** (after the Phase 2 review): the orchestrator drives
   the walkthroughs in plan §Verification with the `run-kaazap` skill at
   **89×31 and 139×31** — real profile, settings and save backed up and
   checksummed first, restored and checksum-verified after — and reports what it
-  saw: at 89 every screen listed there on frame with nothing clipped, the map's
-  eight planets and labels clear of the rail, the select preview beside the
-  list, a staked match with `Stake ◈ N` at the right of the status band's upper
-  row from the first frame through an over-20 alert, a round popup and the
-  game-over popup, a Quick Play match with no stake line, the play log at its
-  52-column box; at 139 spec 016's panel with no band stake; a resize across
-  139 both ways keeping the match, cursor and open help; below 89×31 the
-  too-small screen quoting `89 x 31`. Long play-log round headers clipping is
-  reported as a pre-existing finding (plan tension 4). Then the person tries
-  it.*
+  saw: at 89 the T002 walkthrough repeated (every screen on frame with nothing
+  clipped, the deck builder's hint line whole and centered, the map clear of
+  the rail, the select preview beside the list, the staked match's `Stake ◈ N`
+  from the first frame through the game-over popup, Quick Play without it) plus
+  the play log at its 52-column box; at 139 spec 016's panel with no band
+  stake; a resize across 139 both ways keeping the match, cursor and open help;
+  below 89×31 the too-small screen quoting `89 x 31`. Long play-log round
+  headers clipping is reported as a pre-existing finding (plan tension 4). Then
+  the person tries it.*
 
 ## Final phase — Spec close-out
 
@@ -246,10 +270,12 @@ alone before T002 starts. **Foundational phase: Phase 1.** One
 `skeptical-reviewer` pass (opus) at the end of each phase — after T002 and
 after T004 — on a shell-assembled bundle (the phase diff, the task lines, plan
 §Design and §Tests, the acceptance criteria), one review plus at most one
-re-review. **Pause cadence**: pause after Phase 1 only if the person asks (the
-game already plays at 89 after T002, so the person may want to try it); pause
-after Phase 2 for the person, per the constitution, after the orchestrator's
-two driver walkthroughs in T004 are reported in plain language. Back up +
+re-review. **Pause cadence**: pause after **every** phase for the person, per
+the constitution, unless the person says to run further — after Phase 1 once
+the review is done and the orchestrator's 89×31 walkthrough in T002 is reported
+in plain language (the person sees a real compact board before Phase 2), and
+after Phase 2 once the review and the 89×31 + 139×31 + resize walkthroughs in
+T004 are reported. Back up +
 checksum-restore the real profile, settings and save before and after every
 driver session. Repo-wide docs (`ROADMAP.md`, `DECISIONS.md`) change only via
 `closeout-main-docs.md` on `main` after the merge; `Readme.md` rides in on the
@@ -281,11 +307,13 @@ and why). -->
 |---|---|---|---|---|---|---|
 | **Experiment 2 live** — 2026-09-17, Fable allowance reading **96 %** at planning. Implementer `sdd-implementer-fable` (`claude-fable-5-1`, medium), fallback `sdd-implementer` (opus, high); reviewer opus (high); planner and sign-off at the top tier (fable, override). Specs 023–025 ran the fallback and are **not** experiment data; compare against specs 021–022. | — | — | — | — | — | header |
 | Planning: draft (sdd-planner) | fable (override) → fable | ~150K (planner's own estimate; ~120K read, the rest reasoning and the two files) | 1 | yes | — | drafted; 5 tasks in 3 phases, Phase 1 foundational, T001 `review: per-task`; no product fork; 4 design choices flagged for sign-off |
-| plan + tasks sign-off (skeptical-reviewer) | fable (override) → | | | | | |
+| plan + tasks sign-off (skeptical-reviewer) | fable (override) → | | | | 2 (B1 wager test vs AC 3 — the spec corrected; B2 no Phase 1 pause) + 7 notes | orchestrator fills the tier and tokens |
+| Planning: sign-off notes (sdd-planner, same context) | fable (override) → fable | ~25K (planner's own estimate of the delta) | 1 | yes | — | B1 (tension 3 / open question 3 now cite the corrected AC 3), B2 (Phase 1 ends with a PAUSE and the 89×31 walkthrough in T002; handoff cadence), N1 (bail `{} x {}` in T001), N2 (grep checks reworded), N3 (App-level half of AC 4 → walkthroughs), N4 (Outfitter finding-not-fix in T003), N5 (deck-builder hint line in the walkthroughs), N6 (`impl Config` block), N7 (tension 4 wording) applied; both files still Draft |
 | T001 impl | sdd-implementer-fable → | | | | | |
 | T001 per-task review (skeptical-reviewer) | opus → | | | | | |
 | T002 impl | sdd-implementer-fable → | | | | | |
 | Phase 1 review (skeptical-reviewer) | opus → | | | | | |
+| Phase 1 driver walkthrough (orchestrator, 89×31) | — | — | — | — | — | |
 | **Phase 1 summary** | — | — | dispatches/task: | first-try rate: | blocking: | |
 | T003 impl | sdd-implementer-fable → | | | | | |
 | T004 impl | sdd-implementer-fable → | | | | | |

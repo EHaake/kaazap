@@ -1,6 +1,6 @@
 # Spec: Compact layout below 139 columns — spec 026
 
-**Status**: Approved (2026-09-17). Rulings Q1 B, Q2 A, Q3 B, Q4 A (with C's
+**Status**: Approved (2026-09-17; AC 3 corrected at sign-off, B1). Rulings Q1 B, Q2 A, Q3 B, Q4 A (with C's
 rule), Q5 A.
 **Depends on**: spec 002 (the fixed, centered board block), spec 016 (the
 opponent presence panel and the 139-column minimum), spec 017 (the banter
@@ -134,8 +134,11 @@ the stake at the right of the status band's upper row):
       panel at spec 016's position, pinned by a test; the board's own
       rects are identical in both, apart from the centering offset.
 - [ ] Every screen fits 89×31: each existing "fits the minimum terminal"
-      test (board, overlays, wager prompt, Outfitter, deck builder, opponent
-      select, map, records) runs at 89×31 as well as 139×31, and a driver
+      test (board, overlays, Outfitter, deck builder, opponent select, map,
+      records) runs at 89×31 as well as 139×31 — the wager prompt's test
+      reads `Config::min_size()` and so measures 89, and its 139 case
+      follows from a centered, content-sized box, with `wager.rs` itself
+      untouched (see the last criterion) — and a driver
       walkthrough at 89×31 shows menu, How to Play, opponent select, map,
       Outfitter, deck builder, records, play log, wager prompt and a match
       with nothing clipped.

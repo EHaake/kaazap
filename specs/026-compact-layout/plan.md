@@ -48,8 +48,11 @@ economy, wager, save, profile or dependency change.
   `App::resize(config)` (rebuilds `board_view`, re-creates a cached help
   `Overlay`, clears `too_small`) or `set_too_small`. The too-small screen
   (`draw_too_small`) and the startup error (`Config::from_terminal`) both
-  format `Config::min_size()`, so they quote `89 x 31` as soon as the constant
-  changes. The play log and Records rebuild from `self.config` every draw.
+  format `Config::min_size()`, so the figure follows the constant; the
+  too-small screen already prints the spaced form (`Need at least 89 x 31`)
+  while the bail prints `{}x{}` (`89x31`) — T001 makes it `{} x {}` so both
+  quote `89 x 31` as AC 1 says. The play log and Records rebuild from
+  `self.config` every draw.
 - **The map at 89 clears the rail.** `CampaignMapLayout::new(89×31)`: rail
   `x0 = 67`, field `x1 = 65`, nodes at `x = 6 + round(fx·53)` → 9, 18, 18, 29,
   29, 39, 48, 54; the widest cursored label is `▸ THE SPINDLE ◂` (15) at
@@ -61,7 +64,16 @@ economy, wager, save, profile or dependency change.
   `PANEL_W` = 22: at 89, x 62..83. The "clear of the list" assertion compares
   two offsets from `center_x`, so it is width-independent.
 - **The briefcase is exactly 89 wide** (`BRIEFCASE_W = 2·43 + 3`): at 89
-  columns `left = 0` and the Deck panel ends at column 88.
+  columns `left = 0` and the Deck panel ends at column 88. The layout test
+  checks rects only; the centered title (`Side Deck`), readout (`Deck: 10/10 —
+  add 10 more`, 27) and hint (`Tab switch  ·  Enter move  ·  Esc done`, 38)
+  are short but unpinned — **walkthrough-only**, the T002 and T004 walkthroughs
+  look at the hint line specifically.
+- **The Outfitter's list fits 89 by arithmetic.** `list_left(44)` is sized on
+  the widest line it can draw (the locked Mid Rim heading, 42 + 3 indent = 45)
+  → `left = 22`; a two-digit-count row is 28 (ends at 50) and the heading ends
+  at 67; the balance row is ~40 centered. Hand-derived — the T003 loop of
+  `the_full_list_fits_the_minimum_terminal` is the first check (§Tests).
 - **Overlays size to content and center.** The widest shipped overlay text is
   53 columns (first-match popup), the widest notice 72 (`Deck, collection, and
   progress reset…`), the wager prompt ≤ 70 (`every_line_fits_seventy_columns`):
@@ -106,17 +118,19 @@ tests that used the old name for "the minimum" (`opponent_select.rs`,
 `[89×31, 139×31]`, so every fit test loops both without spelling numbers.
 `wager.rs` is on the spec's no-change list: its
 `the_prompt_fits_the_minimum_terminal_unclamped` reads `min_size()` and so runs
-at 89×31 from T001 on without an edit; the 139 case is implied (a centered
-content-sized box that fits 89 fits any wider frame). Stated here as the one
-place the acceptance criterion's "as well as 139×31" is met by argument rather
-than by a loop.
+at 89×31 from T001 on without an edit; the 139 case follows from centering (a
+content-sized box that fits 89 fits any wider frame). `spec.md`'s AC 3 records
+exactly this (corrected at sign-off, 2026-09-17), so it is the spec's rule, not
+a deviation from it.
 
 ### 4. The play log's width floor becomes the wide box's width
 
 `SCROLL_MIN_W` 40 → 52 (`139 · 38 / 100`), so the compact play log is the same
 box as the wide one instead of a 40-column one that clips more transcript
-lines. 52 + margins fits 89 (`cols - 4 = 85`). Widths 106–136 gain a slightly
-wider box than today; nothing above 139 changes. The sizing moves into a pure
+lines. 52 + margins fits 89 (`cols - 4 = 85`). The change is confined to
+widths below 139 — widths the game has never run at, so there is no "today" to
+compare against there — and at 139 and up the clamp never binds, so the wide
+box is untouched. The sizing moves into a pure
 `scroll_box(config) -> Rect` so the equality is a test, not a walkthrough
 observation. Pre-existing and **not** fixed here: round headers with a long
 opponent name (`Round 1: The Magistrate wins — You 20 / The Magistrate 19
@@ -173,22 +187,26 @@ users of the old name.
 ```rust
 use crate::layout::{BOARD_BLOCK_HEIGHT, BOARD_WIDTH, WIDE_LAYOUT_MIN_WIDTH};
 
-/// The smallest terminal the layout supports, as (cols, rows): the fixed
-/// board block, 89 × 31. From WIDE_LAYOUT_MIN_WIDTH columns the match adds
-/// the opponent presence panel beside it (spec 026); wider/taller terminals
-/// center the board and pad the margins.
-pub fn min_size() -> (usize, usize) { (BOARD_WIDTH, BOARD_BLOCK_HEIGHT) }
+impl Config {
+    /// The smallest terminal the layout supports, as (cols, rows): the fixed
+    /// board block, 89 × 31. From WIDE_LAYOUT_MIN_WIDTH columns the match adds
+    /// the opponent presence panel beside it (spec 026); wider/taller
+    /// terminals center the board and pad the margins.
+    pub fn min_size() -> (usize, usize) { (BOARD_WIDTH, BOARD_BLOCK_HEIGHT) }
 
-/// The two sizes every "fits" test measures: the 89×31 minimum (compact) and
-/// the 139×31 threshold (wide). Test-only.
-#[cfg(test)]
-pub fn fit_sizes() -> [Config; 2] {
-    let (cols, rows) = Self::min_size();
-    [Config { num_cols: cols, num_rows: rows }, Config { num_cols: WIDE_LAYOUT_MIN_WIDTH, num_rows: rows }]
+    /// The two sizes every "fits" test measures: the 89×31 minimum (compact)
+    /// and the 139×31 threshold (wide). Test-only.
+    #[cfg(test)]
+    pub fn fit_sizes() -> [Config; 2] {
+        let (cols, rows) = Self::min_size();
+        [Config { num_cols: cols, num_rows: rows }, Config { num_cols: WIDE_LAYOUT_MIN_WIDTH, num_rows: rows }]
+    }
 }
 ```
 
-`fits`, `from_terminal` unchanged. The test
+`fits` unchanged. In `from_terminal`, the bail's `Minimum size required:
+{}x{}` becomes `{} x {}` so the startup error and the too-small screen quote
+the same `89 x 31` (AC 1); the rest of the message stays. The test
 `config_min_size_is_board_plus_panel_margins` becomes
 `config_min_size_is_the_board_block`: `min_size() == (BOARD_WIDTH,
 BOARD_BLOCK_HEIGHT)` and `== (89, 31)`, and `fit_sizes()` is `[89×31,
@@ -289,7 +307,8 @@ running, pauses until the terminal grows back).
 
 - `src/layout.rs` — `WIDE_LAYOUT_MIN_WIDTH` (renamed), `opponent_panel:
   Option<Rect>`, `Rect: PartialEq`, comment figures; tests.
-- `src/config.rs` — `min_size()` = the board block, `fit_sizes()`; test.
+- `src/config.rs` — `min_size()` = the board block, `fit_sizes()`, the bail's
+  `{} x {}`; test.
 - `src/portrait.rs` — `stake_line`; one doc line.
 - `src/board.rs` — `is_wide`, the compact arm; tests.
 - `src/overlay.rs` — `SCROLL_MIN_W`, `scroll_box`; tests loop both widths.
@@ -330,7 +349,9 @@ Each claim names the task that owns its check.
   node cells, no label overlap, no label over another node). The 89 arithmetic
   in §What the code already gives us is the expectation; the test is the check.
 - **The briefcase fits both widths** (AC 3) — T001: `briefcase_fits_the_minimum_terminal`
-  loops `fit_sizes()`; `overlay_layout_pads_content_symmetrically` likewise.
+  loops `fit_sizes()` (rects only; the title, readout and hint strings are
+  walkthrough-only — T002/T004 look at the hint line);
+  `overlay_layout_pads_content_symmetrically` likewise.
 - **The select preview is on frame at 89** (AC 7) — T001:
   `preview_panel_is_on_frame_and_clear_of_the_list_at_the_minimum` and
   `the_full_roster_and_footer_fit_the_minimum_terminal` loop `fit_sizes()`.
@@ -347,7 +368,12 @@ Each claim names the task that owns its check.
   popup doesn't reach it). `quick_play_shows_no_stake_line`: `stake = None` →
   no `Stake` on either status row. `the_wide_board_keeps_the_stake_in_the_panel`:
   `BoardView::new(139×31)` (`is_wide()`), same draw → no `Stake` on the status
-  rows, and the panel row `panel.y0 + 18` contains `◈ 999999`.
+  rows, and the panel row `panel.y0 + 18` contains `◈ 999999`. These prove
+  the board half of AC 4 (the band shows whatever stake it is given, under the
+  popups too); the App half — that `App::draw` still passes `Some` at game
+  over, which depends on when `stake_at_risk()` clears at settlement — is
+  checked by the T002 and T004 walkthroughs, which watch the stake line through
+  the game-over popup on a real staked match.
 - **Emphasis** (design requirement) — T002: the stake cells on the compact row
   carry `Emphasis::Strong` (read `frame[x][y].emphasis`).
 - **Every overlay text fits both widths unclamped** (AC 3) — T003:
@@ -371,7 +397,12 @@ Each claim names the task that owns its check.
   `fit_sizes()` config, `content_w + 10 <= cols - 8` and `content_h + 8 <= rows
   - 4` (the `draw` clamps, cross-referenced in a comment).
 - **The wager prompt fits** (AC 3) — no task: `wager.rs` unchanged; its test
-  reads `min_size()` and so measures 89×31 from T001 on (tension 3).
+  reads `min_size()` and so measures 89×31 from T001 on, the 139 case
+  following from centering, as AC 3 now records (tension 3).
+- **The startup error quotes `89 x 31`** (AC 1) — T001 changes the bail
+  format; structural (the message is only reachable with a real terminal), read
+  in the T001 diff and seen at the walkthrough by starting in a too-small
+  terminal.
 - **A resize across 139 keeps the match and toggles the panel** (AC 6) — T004,
   `app.rs`: `a_resize_across_the_threshold_keeps_the_match_and_toggles_the_panel`:
   `App::new(139×31)`, `screen = InGame { GameState::new() boxed, HandCursor
@@ -398,14 +429,17 @@ Each claim names the task that owns its check.
 
 - `cargo build --all-targets 2>&1 | tail -n 20 && cargo test -q 2>&1 | tail -n 25`
   — no new warnings, reported verbatim.
-- **Driver walkthroughs after T004** (the orchestrator, `run-kaazap` skill; the
-  real profile, settings and save backed up and checksum-restored afterwards),
-  at **89×31** and **139×31**:
+- **Driver walkthroughs** (the orchestrator, `run-kaazap` skill; the real
+  profile, settings and save backed up and checksum-restored afterwards): the
+  **89×31** walkthrough runs **after the Phase 1 review (T002)**, so the person
+  sees a real compact board before Phase 2, and again after T004 together with
+  the **139×31** and resize checks:
   - 89×31: menu, `?` help, How to Play, Settings, Records (all four views),
     opponent select (preview panel right of the list, every row and the blurb on
     frame), campaign map (all eight planets and labels on frame, none on the
     rail; header credits and the info panel readable), Outfitter, deck builder
-    (both panels, title, readout, hint), a staked campaign match: wager prompt
+    (both panels, title, readout, and specifically the hint line `Tab switch  ·
+    Enter move  ·  Esc done` whole and centered), a staked campaign match: wager prompt
     (with the all-in warning row), then the board with `Stake ◈ N` at the right
     of the status band's upper row from the first frame, through an over-20
     moment (alert left, stake right, no collision), a round-outcome popup and
@@ -436,10 +470,12 @@ None product-level. Settled here as design and flagged for sign-off:
 1. **`IN_MATCH_MIN_WIDTH` → `WIDE_LAYOUT_MIN_WIDTH`** (tension 3) — a rename
    the spec doesn't ask for, made because the old name would be false.
 2. **The play-log box floor rises from 40 to 52** (tension 4) — so the compact
-   log is the wide log's box; widths 106–136 get a slightly wider box than
-   today. The pre-existing clipping of long round headers at 139 is left alone.
-3. **`wager.rs`'s fit test is not looped** (tension 3) — the file is on the
-   spec's no-change list; it measures 89×31 via `min_size()` and the 139 case
-   follows.
-4. **Records gains a pure `content_size`** (tension 5) — a small extraction so
+   log is the wide log's box; the change is confined to widths below 139, which
+   the game has never run at. The pre-existing clipping of long round headers
+   at 139 is left alone.
+3. **Records gains a pure `content_size`** (tension 5) — a small extraction so
    the records fit test the acceptance criteria name can exist.
+
+(The un-looped `wager.rs` fit test is no longer an open question: `spec.md`'s
+AC 3 now records that it measures 89 via `min_size()` with the 139 case
+following from centering, `wager.rs` untouched — tension 3.)
