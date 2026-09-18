@@ -207,7 +207,10 @@ of, not guessed at here in advance.
   (`draw_portrait` + a shared `draw_presence_panel`), one authored `.txt` art asset per
   opponent (`assets/portraits/`), and a `portrait` field on `OpponentProfile` (data, not
   logic, with the generic as the never-blank fallback). The always-on panel **grew the
-  minimum terminal 89×31 → 139×31** — the board is unchanged and still centered, the panel
+  minimum terminal 89×31 → 139×31** — **superseded by spec 026**, which makes 139 a
+  threshold rather than the minimum (the minimum is 89×31 again; below 139 the board
+  draws without the panel and a staked match's stake moves onto the status band) — the
+  board is unchanged and still centered, the panel
   sits in the right margin, and the equal left margin is reserved empty for a future
   player-status panel; the panel also reserves rows for the coming banter line + round pips.
   Monochrome by construction (no color path), blessed by a `design/brief.md` bounded-
@@ -419,6 +422,46 @@ of, not guessed at here in advance.
   `PROFILE_VERSION` / `SAVE_VERSION` stay 1. The full list, headings, balance
   and hint fit 139×31, pinned by a test and by a driver walkthrough at all
   three depths and across a New Campaign. `docs/economy.md` re-synced.
+- **Compact layout below 139 columns** (spec 026) — the minimum terminal is
+  **back to 89×31**, where it was before spec 016. **139 is now a threshold,
+  not the minimum**: at 139 columns and wider the match draws exactly as spec
+  016 shipped it (the board centered, the opponent-presence panel — portrait,
+  name, banter, round pips, stake — in the right margin); from 89 to 138 the
+  **same board draws alone**, centered, with no panel, no portrait, no banter
+  and no pips (the header's `Rounds won` line already carries what the pips
+  showed). The one piece of panel information that matters to play, the
+  **stake at risk**, moves onto the board: a staked campaign match shows
+  `Stake ◈ N` right-aligned on the status band's upper row, drawn `Strong`,
+  from the first frame through the game-over popup, sharing the over-20
+  alert's row (a test pins the alert ending left of a six-digit stake with
+  every cell between blank; the 81-column band leaves ≥ 40 of them) so the
+  31-row board block does not grow; Quick Play shows no stake line. The
+  layout is **chosen by width alone, live, with no setting** — `BoardLayout`'s
+  panel is an `Option<Rect>`, `Some` iff `cols >= WIDE_LAYOUT_MIN_WIDTH` (the
+  renamed `IN_MATCH_MIN_WIDTH`, same value and derivation), so a resize from
+  139 to 138 mid-match redraws the next frame compact and a resize back
+  restores the panel, keeping the match, the hand cursor and an open help
+  overlay (pinned on `App::resize`). The opponent-select preview and the
+  campaign map's portrait rail **keep their portraits at every width**; at
+  89 every planet and label is on frame and clear of the rail (pinned). Along
+  the way: the stake row on the wide panel now **stays through the game-over
+  popup** on both layouts (Q6, `App::stake_to_show` reads the settled amount
+  at `GameOver`; it had been blank there since spec 021), and the play log's
+  width floor rose 40 → 52 so the compact log is the same box as the wide one.
+  Every "fits the minimum terminal" test now measures 89×31 as well as 139×31:
+  the tests in `layout.rs`, `overlay.rs`, `shop.rs`, `app.rs`,
+  `opponent_select.rs`, `board.rs` and `records.rs` loop `Config::fit_sizes()`,
+  while the wager prompt's test reads `Config::min_size()` and so measures 89
+  with `wager.rs` untouched (its 139 case follows from a centered, content-
+  sized box — spec AC 3). The too-small screen and the startup error both
+  quote `89 x 31`. No engine, AI, economy, wager, save-format or balance change:
+  `main.rs`, `card.rs`, `game.rs`, `player.rs`, `save.rs`, `profile.rs`,
+  `economy.rs`, `wager.rs`, `campaign.rs`, `campaign_map.rs`,
+  `tests/balance.rs`, `Cargo.toml` and `Cargo.lock` are untouched and
+  `PROFILE_VERSION` / `SAVE_VERSION` stay 1. Driver walkthroughs at 89×31 and
+  139×31 (every screen, a staked match, Quick Play, the resize across the
+  threshold and the too-small screen) attested. `Readme.md`'s terminal-size
+  paragraph re-synced.
 
 ## Backlog
 
@@ -523,7 +566,9 @@ touches the stakes work below, so they can interleave freely.
   and `DECISIONS.md`). A monochrome character-art portrait per opponent (plus a generic
   fallback), shown in an always-visible presence panel beside the board and as a preview
   in opponent-select and on the campaign map. As anticipated it needed a layout region and
-  a grown minimum terminal (**89×31 → 139×31**), and stayed monochrome by construction (no
+  a grown minimum terminal (**89×31 → 139×31** — **superseded by spec 026**, which brought
+  the minimum back to 89×31 and made 139 the threshold above which the panel draws), and
+  stayed monochrome by construction (no
   color path), sanctioned by a `design/brief.md` bounded-exception amendment. The mandated
   art-format spike proved the approach; the portraits were then authored to an in-repo brief
   by a more capable tool and validated/integrated by Claude Code. **Light animation**
@@ -642,13 +687,15 @@ human's stated priority is the first-run onboarding.
   names the region that opens them, and the cursor passing over them. No
   economy, price or pool change; **new card types** stayed their own backlog
   item (below).
-- **A compact layout below 139 columns.** The minimum terminal grew to 139×31
+- **A compact layout below 139 columns** — ✅ **Shipped (spec 026** — see
+  Shipped above and `DECISIONS.md`). The minimum terminal had grown to 139×31
   with the portrait panel (spec 016), which is large for a general audience.
-  A layout that drops the presence panel (portrait + banter) when the terminal
-  is narrower — back to the pre-016 89-column board — would widen who can play
-  at all. Its own spec: a second `BoardLayout` arm and the panel-less draw
-  path, no engine change; the portraits and banter stay as they are above the
-  threshold.
+  Below 139 columns the match now drops the presence panel (portrait, banter,
+  pips) and draws the pre-016 89-column board alone, with a staked match's
+  stake moved onto the status band; the minimum is 89×31 again. Chosen by
+  width alone, live across a resize, no setting; the portraits and banter stay
+  exactly as they were at 139 and above, and the select preview and the map
+  rail keep their portraits at every width. No engine change.
 
 ### Other (not campaign-dependent)
 

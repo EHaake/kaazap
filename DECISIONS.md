@@ -409,6 +409,12 @@ a focused campaign-map node. The calls:
   player-status panel (the layout is intentionally asymmetric for now). `IN_MATCH_MIN_WIDTH`
   and the panel width both derive from the portrait size, so they move together; below the
   minimum the existing too-small machinery errors with the required size, unchanged.
+  **Superseded by spec 026**: the minimum is **89×31 again** and 139 is the *threshold*
+  above which the panel draws; `IN_MATCH_MIN_WIDTH` is now `WIDE_LAYOUT_MIN_WIDTH` (same
+  value, same derivation from the portrait size). Below 139 the same board draws without
+  the panel and a staked match's stake moves onto the status band. The right-margin
+  placement, the reserved left margin and the asymmetry are unchanged at 139 and above.
+  See *Compact layout below 139 columns (spec 026)* below.
 - **Reserved, not built.** The in-match panel reserves rows below the portrait for the
   coming banter line + round pips (the next personality spec); the two preview panels use a
   snug rect with no reserved rows. One shared `draw_presence_panel` drawer serves all three
@@ -726,7 +732,9 @@ ruled with the human on 2026-09-10, on the recommendations as proposed.
   the reset *is* the loss condition.
 - **The stake is shown in-match; no "runs ended broke" counter.** The wager's
   tension belongs on screen (it rides in the existing presence panel, inside the
-  139×31 minimum); a bust counter is a cheap additive field if the balance pass
+  139×31 minimum — since **spec 026** 139 is the wide layout's threshold, and
+  below it the stake rides on the board's status band instead, so the ruling
+  holds at every width); a bust counter is a cheap additive field if the balance pass
   wants it.
 - **A campaign completion counts once.** Spec 020's "a completed run exposes no
   launchable match" assumption no longer holds with rematches, so completion is
@@ -1294,3 +1302,108 @@ Touched `src/wager.rs` and the one call site in `src/app.rs`, nothing else:
 `card.rs`, `game.rs`, `player.rs`, `save.rs`, `profile.rs`, `economy.rs`,
 `tests/balance.rs`, `Cargo.toml` and `Cargo.lock` are untouched, and
 `PROFILE_VERSION` / `SAVE_VERSION` stay 1.
+
+## Compact layout below 139 columns (spec 026)
+
+Since spec 016 the game needed a terminal 139 columns wide, because the
+opponent-presence panel sits beside the fixed 89-column board with an equal,
+empty margin on the other side — large for a general audience, when the game
+had played at 89 before. This spec brings the minimum back to **89×31** and
+makes 139 a **threshold**: at 139 and wider nothing changes; narrower, the
+match board draws without the panel and the stake at risk moves onto the board.
+A presentation-only spec: `layout.rs`, `config.rs`, `board.rs`, `portrait.rs`,
+`overlay.rs`, `records.rs`, `app.rs`, fit tests and the README. Ruled by the
+person on 2026-09-17.
+
+- **Q1 B — the compact board drops the portrait and banter but keeps the
+  stake.** Money at risk stays on screen (the wager-warning chore of
+  2026-09-17 shows the same priority); banter without a face reads oddly in a
+  status band spec 017 deliberately kept mechanical. The header's `Rounds won`
+  line already carries what the pips showed, so the pips go too.
+- **Q2 A — chosen by width alone, live, no setting.** The resize path already
+  rebuilds the board view from the size; a setting would be a second way to
+  reach a state width already reaches.
+- **Q3 B — the select preview and the map rail keep their portraits at every
+  width.** The person wants the portraits to stay part of the game even where
+  the match window can't hold one; both surfaces physically fit at 89. (The
+  recommended one-rule-everywhere option was declined.)
+- **Q4 A with C's rule — the stake goes on the status band's upper row,
+  right-aligned; the requirement is visibility for the whole staked match
+  without growing the board block.** The planner could move it if the
+  walkthrough found a collision; it found none.
+- **Q5 A — the threshold stays 139.** No third layout between 114 and 138;
+  the wide layout is exactly as spec 016 shipped it.
+- **Q6 A — the settled stake shows at game over, on both layouts.** Found by
+  the Phase 1 walkthrough (finding F1): at the game-over popup the compact
+  band's `Stake ◈ N` was gone, because the match settles on the tick that
+  draws the game-over frame and `stake_at_risk()` is already cleared — and the
+  wide panel had been blank there since spec 021 for the same reason. Ruled
+  the same day: `App::stake_to_show()` returns `stake_at_risk()` or, at
+  `GamePhase::GameOver`, the settled amount from the banner; `src/app.rs`
+  only, pinned by an App-level test at 89×31 and 139×31. The wide layout's
+  one deliberate change.
+
+Design tensions resolved during planning:
+
+- **The panel is an `Option<Rect>`, chosen where the geometry is built.**
+  `BoardLayout.opponent_panel` is `Some` iff `cols >= WIDE_LAYOUT_MIN_WIDTH`,
+  decided in `BoardLayout::new` — the one place the board geometry is built
+  (startup via `App::new`, resize via `App::resize`) — so there is no second
+  flag to keep in sync and no width check in `board.rs` beyond `if let
+  Some(panel)`. Rejected: a `wide: bool` beside a still-computed rect (two
+  fields saying one thing, and the rect would be off-frame at 89), and a
+  `Config::is_wide()` helper (a second place to evaluate the rule).
+  `main.rs` and `App::resize` are untouched: `Config::fits` reads
+  `min_size()` and `resize` already rebuilds `BoardView::new(config)`, so the
+  switch across 139 falls out of the existing resize path.
+- **`IN_MATCH_MIN_WIDTH` is renamed, and one test helper carries both
+  widths.** The name would be false after this spec (the in-match minimum is
+  89). It is `WIDE_LAYOUT_MIN_WIDTH` — same value, same derivation, new doc —
+  and `Config::min_size()` returns `(BOARD_WIDTH, BOARD_BLOCK_HEIGHT)`. The
+  tests that used the old name for "the minimum" switched to
+  `Config::fit_sizes()`, a `#[cfg(test)]` helper returning `[89×31, 139×31]`,
+  so every fit test loops both without spelling numbers. `wager.rs` is on the
+  spec's no-change list: its fit test reads `min_size()` and so measures 89
+  without an edit, and the 139 case follows from centering (a content-sized
+  box that fits 89 fits any wider frame) — the spec's AC 3 records exactly
+  this.
+- **The play log's width floor became the wide box's width.** `SCROLL_MIN_W`
+  40 → 52 (`139 · 38 / 100`), so the compact play log is the same box as the
+  wide one instead of a 40-column one that clips more transcript lines; 52 plus
+  margins fits 89. The change is confined to widths below 139 — widths the game
+  has never run at — and at 139 and up the clamp never binds, so the wide box
+  is untouched. The sizing moved into a pure `scroll_box(config) -> Rect` so
+  the equality is a test, not a walkthrough observation. Pre-existing and
+  **not** fixed here: round headers with a long opponent name (`Round 1: The
+  Magistrate wins — You 20 / The Magistrate 19 (stand)`, 66 columns) already
+  clip at 139's 48-column interior; the spec asks only that the compact log
+  show what the wide one shows. Not observed in the walkthroughs.
+- **The stake line is the panel's string.** `portrait::stake_line(stake)`
+  (`Stake ◈ N`) is used by the panel and by the compact arm — one string, so
+  the "panel's own form" claim can't drift. Banter is accepted and ignored in
+  compact, keeping `BoardView::draw`'s signature unchanged.
+- **The density rule was checked — no conflict.** The stake shares the over-20
+  alert's row (the alert is 27 characters, `Align::Left`; a six-digit stake is
+  14, `Align::Right`, on the 81-column band — ≥ 40 blank cells between them
+  by arithmetic; the test pins the alert left of the stake with every cell
+  between blank), adds no row, and the board block keeps its fixed 31-row height. The
+  acted-on element on the board (the cursored hand card) is unchanged.
+
+Attested by driver walkthroughs at both sizes. At 89×31: every screen (menu,
+How to Play, opponent select with the preview beside the list, map clear of the
+rail, Outfitter, deck builder with the hint whole and centered, records, play
+log as a 52-column box, wager prompt) on frame with nothing clipped; a staked
+match showed `Stake ◈ 30` from the first frame through the over-20 alert, a
+round popup and the game-over popup; Quick Play showed no stake line; the
+too-small screen quoted `Need at least 89 x 31` at 60×20. At 139×31: spec
+016's panel with portrait, banter, pips and stake, no band stake, and the stake
+on the panel at game over. Resizing 139 → 138 → 139 mid-match kept the match,
+the moved cursor and the open `?` overlay and toggled the panel.
+
+No engine, AI, economy, wager, save-format or balance change: `main.rs`,
+`card.rs`, `game.rs`, `player.rs`, `save.rs`, `profile.rs`, `economy.rs`,
+`wager.rs`, `campaign.rs`, `campaign_map.rs`, `tests/balance.rs`, `Cargo.toml`
+and `Cargo.lock` are untouched; `portrait.rs` gained only `stake_line`, its
+call and one doc line; `PROFILE_VERSION` and `SAVE_VERSION` both stay 1; no
+new crate. Monochrome by construction: the stake line is `Strong`, as on the
+panel, and no new emphasis level.
