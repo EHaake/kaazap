@@ -2083,13 +2083,11 @@ mod tests {
     fn the_campaign_entry_panel_fits_the_minimum_terminal() {
         // Spec 024: three labels on one row at campaign entry, and the widest
         // reset confirm (title plus a stake note, so the taller layout) — both
-        // measured through the same layout the draw uses, at 139x31, so neither
-        // box is ever clamped over the menu.
+        // measured through the same layout the draw uses, at both fit sizes,
+        // so neither box is ever clamped over the menu.
         let labels: Vec<&str> = CampaignChoice::ALL.iter().map(|c| c.label()).collect();
         assert_eq!(labels, ["Continue", "New Campaign", "Reset Everything"]);
 
-        let (cols, rows) = Config::min_size();
-        let config = Config { num_cols: cols, num_rows: rows };
         let yes_no = ["Yes", "No"];
 
         // Each panel's own strings, verbatim from its draw fn: the entry panel
@@ -2111,10 +2109,21 @@ mod tests {
         ] {
             let width = choice_panel_width(title, note, hint, row_labels);
             let (_, _, _, height) = choice_rows(note.is_some());
-            let layout = OverlayLayout::new(config, width, height);
-            assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");
-            assert_eq!(layout.outer.height(), height + crate::V_PAD, "box height clamped");
-            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame");
+            for config in Config::fit_sizes() {
+                let (cols, rows) = (config.num_cols, config.num_rows);
+                let layout = OverlayLayout::new(config, width, height);
+                assert_eq!(
+                    layout.outer.width(),
+                    width + 2 * crate::H_PAD,
+                    "box width clamped at {cols}x{rows}"
+                );
+                assert_eq!(
+                    layout.outer.height(),
+                    height + crate::V_PAD,
+                    "box height clamped at {cols}x{rows}"
+                );
+                assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame at {cols}x{rows}");
+            }
         }
     }
 
@@ -2501,7 +2510,8 @@ mod tests {
         // Spec 024: the two notices share one summary block, both end on the
         // dismiss line with an empty row above it (the acted-on element gets its
         // air — the box's own padding gives the row below), neither doubles a
-        // blank row, and both fit 139x31 unclamped so no row is ever eaten.
+        // blank row, and both fit both fit sizes unclamped so no row is ever
+        // eaten.
         let mut run = RunStats::default();
         for _ in 0..4 {
             run.record_match(true, 3, 1);
@@ -2518,9 +2528,6 @@ mod tests {
 
         assert_eq!(victory[0], "Campaign complete — the house's best has lost.");
         assert_eq!(run_over[0], "You're broke — the run is over.");
-
-        let (cols, rows) = Config::min_size();
-        let config = Config { num_cols: cols, num_rows: rows };
 
         for lines in [&victory, &run_over] {
             let summary_at = lines
@@ -2544,14 +2551,21 @@ mod tests {
             );
 
             let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
-            let layout = OverlayLayout::new(config, width, lines.len());
-            assert_eq!(
-                layout.outer.height(),
-                lines.len() + crate::V_PAD,
-                "box height clamped — the notice outgrew the minimum terminal"
-            );
-            assert_eq!(layout.outer.width(), width + 2 * crate::H_PAD, "box width clamped");
-            assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame");
+            for config in Config::fit_sizes() {
+                let (cols, rows) = (config.num_cols, config.num_rows);
+                let layout = OverlayLayout::new(config, width, lines.len());
+                assert_eq!(
+                    layout.outer.height(),
+                    lines.len() + crate::V_PAD,
+                    "box height clamped — the notice outgrew {cols}x{rows}"
+                );
+                assert_eq!(
+                    layout.outer.width(),
+                    width + 2 * crate::H_PAD,
+                    "box width clamped at {cols}x{rows}"
+                );
+                assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame at {cols}x{rows}");
+            }
         }
 
         // The victory notice's two spec'd lines sit above the summary...

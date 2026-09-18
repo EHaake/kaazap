@@ -492,8 +492,13 @@ mod tests {
 
     #[test]
     fn turn_hints_fit_the_status_band() {
-        let (num_cols, num_rows) = Config::min_size();
-        let band = BoardLayout::new(Config { num_cols, num_rows }).status.width();
+        for config in Config::fit_sizes() {
+            turn_hints_fit_the_status_band_at(config);
+        }
+    }
+
+    fn turn_hints_fit_the_status_band_at(config: Config) {
+        let band = BoardLayout::new(config).status.width();
         let gs = GameState::new(); // PlayerTurn
 
         // Every prompt shape, each with its widest label: empty hand,

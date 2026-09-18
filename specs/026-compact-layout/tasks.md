@@ -167,7 +167,7 @@ stake. After T002 the game plays at 89 columns. -->
 path, updates the README and ends the phase with the review and the two driver
 walkthroughs. -->
 
-- [ ] **T003** — `src/overlay.rs` + `src/records.rs` + `src/shop.rs` +
+- [x] **T003** — `src/overlay.rs` + `src/records.rs` + `src/shop.rs` +
   `src/app.rs` + `src/board.rs` (tests): the fit sweep. In `overlay.rs`, per
   plan §Design 5: `SCROLL_MIN_W` 40 → 52 with the plan's doc; extract `fn
   scroll_box(config: Config) -> Rect` from `draw_scrollable_overlay` (the
@@ -342,7 +342,7 @@ and why). -->
 | T002a impl (ruling A) | sdd-implementer-fable → fable | ~39K measured return (implementer's own ~37K) | 1 | yes | — | done; `App::stake_to_show()` with one extra guard (campaign pointer set, so a Quick Play game over never shows a stale banner); 420 tests |
 | Phase 1 driver walkthrough (orchestrator, 89×31) | — | — | — | — | — | every listed screen on frame, nothing clipped; the bail quotes `89 x 31`; **finding F1**: at the game-over popup the band's `Stake ◈ N` is gone (App-level half of AC 4) → T002a |
 | **Phase 1 summary** | — | — | dispatches/task: 1.0 (T001, T002, T002a; plus one diagnosis dispatch) | first-try rate: 3/3 | blocking: 0 (per-task) + 0 (phase) | Phase 1 done on Fable in one dispatch each; walkthrough finding F1 (stake absent on the game-over frame) ruled A by the person and fixed as T002a; its game-over frames are checked in the Phase 2 walkthrough |
-| T003 impl | sdd-implementer-fable → | | | | | |
+| T003 impl | sdd-implementer-fable → fable | ~56K measured return (implementer's own ~49K) | 1 | yes | — | done; Outfitter fits 89 (plan arithmetic held); `content_size` placed as a free fn beside the other pure builders; note: `wager.rs:497` comment still says "fit 139×31" (forbidden file, to the sweep) |
 | T004 impl | sdd-implementer-fable → | | | | | |
 | Phase 2 review (skeptical-reviewer) | opus → | | | | | |
 | Phase 2 driver walkthroughs (orchestrator, 89×31 and 139×31) | — | — | — | — | — | |
