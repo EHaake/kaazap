@@ -181,7 +181,7 @@ box-drawn card did not register. T003b extends the pure module; T003c the
 board reading it. After T003c the arrivals read as shape, not weight. No
 app.rs change: the observer and the draw argument are already in place. -->
 
-- [ ] **T003b** — `src/lib.rs` + `src/motion.rs`: the flip beat, the face-down
+- [x] **T003b** — `src/lib.rs` + `src/motion.rs`: the flip beat, the face-down
   read and the source-ghost element. In `lib.rs`, per plan §Design 1: `pub
   const FLIP_BEAT_MS: u64 = 250;` with its comment, after `ARRIVAL_BEAT_MS`,
   and the bounds comment extended with `150 <= FLIP_BEAT_MS` and
@@ -449,3 +449,4 @@ and why). -->
 | Revision 1 sign-off (skeptical-reviewer) | fable (override) → fable | ~93K (measured; reviewer's own estimate ~79K) | 1 | — | 1 (B1: `is_face_down` was variant-agnostic, so a fresh Played card read face down and T003b's own test would fail) + N1–N6 | B1, N1, N2, N4 sent to the planner; N3 (card.rs's stale "Heavy marks cursor selection" comment, forbidden file — name it in DECISIONS), N5 (brief's "distinct weights" rule: exception recorded in DECISIONS, not the brief) for T005/the sweep |
 | Revision 1 sign-off notes (sdd-planner, same context) | fable (override) → fable | ~8K (measured delta, 169K − 161K; planner's own estimate ~12K) | 1 | yes | — | B1 (Dealer guard in `is_face_down`, played face asserted on the first frame), N1 (faces read by the trimmed middle row), N2 (Dealer(7) verified), N4 (checked T003's constants count) applied |
 | Revision 1 re-review (skeptical-reviewer, same context) | fable (override) → fable | ~27K (measured delta, 120K − 93K) | 1 | — | 0 | signed off; Draft flipped to Signed off by the orchestrator |
+| T003b (sdd-implementer-fable) | fable → fable | ~59K (measured; implementer's own estimate ~50K) | 1 | yes | — | FLIP_BEAT_MS, Elem::Hand, the ghost rule, is_face_down (Dealer-guarded); 2 new tests + extended bounds test; verification green (439 unit tests, 0 warnings) |

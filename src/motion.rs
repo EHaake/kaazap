@@ -7,30 +7,35 @@ use std::time::Duration;
 
 use crate::game::{GamePhase, GameState};
 use crate::player::Player;
-use crate::{ARRIVAL_BEAT_MS, POPUP_BEAT_MS, THINKING_STEP_MS};
+use crate::{ARRIVAL_BEAT_MS, FLIP_BEAT_MS, HAND_SIZE, POPUP_BEAT_MS, THINKING_STEP_MS};
 
 /// A board element that can be in transition: a card by its index in its
-/// side's row (stable until the row clears), or a side's Score figure.
+/// side's row (stable until the row clears), a side's Score figure, or — the
+/// source ghost, Revision 1 — the hand slot a side card was just played from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Elem {
     Dealer(Player, usize),
     Played(Player, usize),
     Score(Player),
+    Hand(Player, usize),
 }
 
 impl Elem {
     fn side(self) -> Player {
         match self {
-            Elem::Dealer(who, _) | Elem::Played(who, _) | Elem::Score(who) => who,
+            Elem::Dealer(who, _) | Elem::Played(who, _) | Elem::Score(who) | Elem::Hand(who, _) => who,
         }
     }
 }
 
+/// `hand[i]`: whether slot i holds a card (Revision 1 — a true→false slot
+/// starts a `Hand` ghost).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct SideSnapshot {
     dealers: usize,
     played: usize,
     score: i32,
+    hand: [bool; HAND_SIZE],
 }
 
 /// The facts the diff compares. `resolved` is exactly the condition under which
@@ -49,6 +54,7 @@ impl MotionSnapshot {
             dealers: p.dealer_row.len(),
             played: p.played_row.len(),
             score: p.score(),
+            hand: std::array::from_fn(|i| p.hand.get(i).is_some_and(Option::is_some)),
         };
         Self {
             player: side(&gs.player),
@@ -123,8 +129,10 @@ impl BoardMotion {
 
     /// A row that shrank is a clear (round end, rematch): drop this side's
     /// transitions and start none — a reset total is not a change to guide the
-    /// eye to. Otherwise: one arrival per new card index, and the Score if the
-    /// total differs (restarting its clock if it is already running).
+    /// eye to. Otherwise: one arrival per new card index, the Score if the
+    /// total differs (restarting its clock if it is already running), and
+    /// (Revision 1) a `Hand(who, i)` ghost for each slot that went filled →
+    /// empty — all on the arrival beat.
     fn diff_side(&mut self, who: Player, prev: SideSnapshot, curr: SideSnapshot) {
         if curr.dealers < prev.dealers || curr.played < prev.played {
             self.arrivals.retain(|(e, _)| e.side() != who);
@@ -136,6 +144,11 @@ impl BoardMotion {
         for i in prev.played..curr.played {
             self.arrivals.push((Elem::Played(who, i), ms(ARRIVAL_BEAT_MS)));
         }
+        for i in 0..HAND_SIZE {
+            if prev.hand[i] && !curr.hand[i] {
+                self.arrivals.push((Elem::Hand(who, i), ms(ARRIVAL_BEAT_MS)));
+            }
+        }
         if curr.score != prev.score {
             self.arrivals.retain(|(e, _)| *e != Elem::Score(who));
             self.arrivals.push((Elem::Score(who), ms(ARRIVAL_BEAT_MS)));
@@ -144,6 +157,16 @@ impl BoardMotion {
 
     pub fn is_arriving(&self, elem: Elem) -> bool {
         self.arrivals.iter().any(|(e, _)| *e == elem)
+    }
+
+    /// Revision 1: whether `elem` is still inside the flip window of its
+    /// arrival — the first FLIP_BEAT_MS of the beat. A read of the countdown,
+    /// not a clock of its own; true only for a `Dealer` arrival (a played
+    /// card shows its value from its first frame, spec Q9).
+    pub fn is_face_down(&self, elem: Elem) -> bool {
+        self.arrivals.iter().any(|(e, left)| {
+            matches!(e, Elem::Dealer(..)) && *e == elem && *left + ms(FLIP_BEAT_MS) > ms(ARRIVAL_BEAT_MS)
+        })
     }
 
     pub fn popup_due(&self) -> bool {
@@ -171,13 +194,17 @@ mod tests {
     use super::*;
     use crate::card::{Card, FlipKind, PlayedCard};
     use crate::game::RoundOutcome;
-    use crate::{OPPONENT_THINKING_TIME_MS, SELECTION_PULSE_MS};
+    use crate::{FLIP_BEAT_MS, OPPONENT_THINKING_TIME_MS, SELECTION_PULSE_MS};
     use std::time::Instant;
 
     const ZERO: Duration = Duration::ZERO;
 
     fn arrival() -> Duration {
         ms(ARRIVAL_BEAT_MS)
+    }
+
+    fn flip() -> Duration {
+        ms(FLIP_BEAT_MS)
     }
 
     fn popup() -> Duration {
@@ -217,6 +244,8 @@ mod tests {
         assert!(ARRIVAL_BEAT_MS <= POPUP_BEAT_MS);
         assert!(POPUP_BEAT_MS <= 1000);
         assert!(THINKING_STEP_MS * 2 <= OPPONENT_THINKING_TIME_MS);
+        assert!(150 <= FLIP_BEAT_MS);
+        assert!(FLIP_BEAT_MS * 2 <= ARRIVAL_BEAT_MS);
     }
 
     #[test]
@@ -275,6 +304,40 @@ mod tests {
     }
 
     #[test]
+    fn a_dealt_card_is_face_down_for_the_flip_beat_then_faces_up() {
+        for who in [Player::Player, Player::Opponent] {
+            let (mut gs, mut m) = seeded();
+            match who {
+                Player::Player => gs.player.dealer_row.push(dealer(7)),
+                Player::Opponent => gs.opponent.dealer_row.push(dealer(7)),
+            }
+            m.observe(&gs, ZERO);
+            assert!(m.is_face_down(Elem::Dealer(who, 0)));
+            assert!(m.is_arriving(Elem::Dealer(who, 0)));
+
+            m.observe(&gs, flip() - ms(1));
+            assert!(m.is_face_down(Elem::Dealer(who, 0)));
+
+            // The flip ends: the value shows for the rest of the beat.
+            m.observe(&gs, ms(1));
+            assert!(!m.is_face_down(Elem::Dealer(who, 0)));
+            assert!(m.is_arriving(Elem::Dealer(who, 0)));
+
+            m.observe(&gs, arrival() - flip());
+            assert!(!m.is_arriving(Elem::Dealer(who, 0)));
+            assert!(!m.is_face_down(Elem::Dealer(who, 0)));
+        }
+
+        // A played card is never face down, even on its first frame (the
+        // countdown alone would say it is; the Dealer guard says otherwise).
+        let (mut gs, mut m) = seeded();
+        gs.player.played_row.push(PlayedCard { card: Card::Plus(3), value: 3 });
+        m.observe(&gs, ZERO);
+        assert!(m.is_arriving(Elem::Played(Player::Player, 0)));
+        assert!(!m.is_face_down(Elem::Played(Player::Player, 0)));
+    }
+
+    #[test]
     fn a_play_arrives_with_the_total_and_a_draw_and_play_arrive_together() {
         let (mut gs, mut m) = seeded();
 
@@ -299,6 +362,58 @@ mod tests {
         m.observe(&gs, ZERO);
         assert!(m.is_arriving(Elem::Played(Player::Player, 1)));
         assert!(!m.is_arriving(Elem::Score(Player::Player)));
+    }
+
+    #[test]
+    fn a_play_ghosts_its_hand_slot_for_one_beat() {
+        let mut gs = GameState::new();
+        gs.player.hand = vec![Some(Card::Plus(3)), Some(Card::Minus(2)), None, None];
+        gs.opponent.hand = vec![Some(Card::Plus(2)), None, None, None];
+        let mut m = BoardMotion::default();
+        m.observe(&gs, ZERO);
+        assert!(!m.is_arriving(Elem::Hand(Player::Player, 0)));
+        assert!(!m.is_arriving(Elem::Hand(Player::Player, 1)));
+
+        // The player plays from slot 1: the ghost and the card arrive together.
+        gs.player.hand[1] = None;
+        gs.player.played_row.push(PlayedCard { card: Card::Minus(2), value: -2 });
+        m.observe(&gs, ZERO);
+        assert!(m.is_arriving(Elem::Hand(Player::Player, 1)));
+        assert!(m.is_arriving(Elem::Played(Player::Player, 0)));
+        assert!(!m.is_arriving(Elem::Hand(Player::Player, 0)));
+        assert!(!m.is_arriving(Elem::Hand(Player::Player, 2)));
+
+        m.observe(&gs, arrival() - ms(1));
+        assert!(m.is_arriving(Elem::Hand(Player::Player, 1)));
+        m.observe(&gs, ms(1));
+        assert!(!m.is_arriving(Elem::Hand(Player::Player, 1)));
+        assert!(!m.is_arriving(Elem::Played(Player::Player, 0)));
+
+        // The opponent draws and plays in one move: all three transition together.
+        gs.opponent.hand[0] = None;
+        gs.opponent.dealer_row.push(dealer(6));
+        gs.opponent.played_row.push(PlayedCard { card: Card::Plus(2), value: 2 });
+        m.observe(&gs, ZERO);
+        assert!(m.is_arriving(Elem::Hand(Player::Opponent, 0)));
+        assert!(m.is_arriving(Elem::Dealer(Player::Opponent, 0)));
+        assert!(m.is_arriving(Elem::Played(Player::Opponent, 0)));
+
+        // A slot filling (a rematch's deal) starts nothing.
+        m.observe(&gs, arrival());
+        gs.player.hand[1] = Some(Card::Plus(1));
+        m.observe(&gs, ZERO);
+        assert!(!m.is_arriving(Elem::Hand(Player::Player, 1)));
+
+        // A ghost in flight is dropped when the side's rows clear.
+        gs.player.hand[0] = None;
+        gs.player.played_row.push(PlayedCard { card: Card::Plus(3), value: 3 });
+        m.observe(&gs, ZERO);
+        assert!(m.is_arriving(Elem::Hand(Player::Player, 0)));
+        gs.player.dealer_row = vec![];
+        gs.player.played_row = vec![];
+        m.observe(&gs, ZERO);
+        assert!(!m.is_arriving(Elem::Hand(Player::Player, 0)));
+        assert!(side_settled(&m, Player::Player, 0, 2));
     }
 
     #[test]
