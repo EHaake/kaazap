@@ -443,7 +443,7 @@ pub enum SettingsAction { Up, Down, Left, Right, Back }  // Left/Right were Quie
 `move_up`/`move_down`: the index of `selected` in `ROWS`, moved by one and
 clamped (replacing the two-row special case and its "generalize" comment).
 `draw_overlay`: a `row_text(row, settings) -> String` per row — the volume rows
-as today, `Animations` as `format!("{marker}{label:<9}{}", if settings.animations { "On" } else { "Off" })`;
+as today, `Animations` as `format!("{marker}Animations {}", if settings.animations { "On" } else { "Off" })` (as built in T004 — the drafted `{label:<9}` padded nothing for a 10-character label and would have read `AnimationsOn`; the Phase 2 review's N1 notes the row is 15 columns against the volume rows' 28, so the centred marker and value shift right on that row — the person judges at the pause);
 the content column becomes 7 (title, gap, three rows, gap, hint), rows at
 `2 + i`, hint at row 6; the hint reads `↑/↓ select  ·  ←/→ change  ·  Esc back`.
 Existing tests' `Settings { … }` literals gain `animations: true` (and
