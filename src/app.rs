@@ -23,6 +23,7 @@ use crate::{
     game::{GameAction, GamePhase, GameState},
     layout::OverlayLayout,
     menu::{MenuItem, MenuOutcome, MenuState},
+    motion::BoardMotion,
     opponent::{OpponentProfile, opponent_by_id},
     opponent_select::{OpponentSelectState, SelectOutcome},
     overlay::{Overlay, OverlayKind, draw_scrollable_overlay, draw_text_overlay, overlay_text},
@@ -614,6 +615,9 @@ pub struct App {
     // UI state only — never saved, since the completion and its payout are
     // already persisted and only the notice is lost by quitting under it.
     victory_due: bool,
+    // One-shot board transitions in flight (spec 027). Observed every tick
+    // while in a match, reset to default off the board; never saved.
+    motion: BoardMotion,
 }
 
 impl App {
@@ -644,6 +648,7 @@ impl App {
             too_small: None,
             banner: None,
             victory_due: false,
+            motion: BoardMotion::default(),
         }
     }
 
@@ -1728,6 +1733,14 @@ impl App {
         self.emit_audio_cues();
         self.update_banter();
         self.update_play_log();
+
+        // Transitions are drawing state: observe the board while it is on screen
+        // (after update(), so the opponent's move is seen on the frame it lands),
+        // and discard them the moment it is not.
+        match &self.screen {
+            Screen::InGame { game_state, .. } => self.motion.observe(game_state, dt),
+            _ => self.motion = BoardMotion::default(),
+        }
     }
 
     /// The stake the board shows (spec 026, Q6 A): the escrowed stake while the
@@ -1769,7 +1782,7 @@ impl App {
                     self.banter,
                     self.stake_to_show(),
                     pulse,
-                    None,
+                    Some(&self.motion), // T004: gated by settings.animations
                     frame,
                 )
             }
@@ -2745,6 +2758,143 @@ mod tests {
             app.profile.campaign_mut().set_in_progress(None);
             assert_eq!(app.stake_to_show(), None);
         }
+    }
+
+    #[test]
+    fn the_board_transitions_after_a_hit_and_settles_when_animations_are_off() {
+        // Spec 027 (AC 4, 7, 8): a match's first frame is settled, a hit
+        // transitions the new card and the thinking line, the round resolving
+        // holds the popup for its beat, and leaving the board resets the motion.
+        // No game key is pressed — every key that reaches the engine ends in
+        // `save_game()`, which writes the real save file — so rows and phases
+        // are set by hand and only `tick`/`draw` run; nothing here touches disk.
+        // (The Animations-off step lands with the setting in T004.)
+        use crate::card::PlayedCard;
+        use crate::game::RoundOutcome;
+        use crate::layout::{BoardLayout, card_slot};
+        use std::time::Instant;
+
+        fn row_text(frame: &Frame, y: usize) -> String {
+            frame.iter().map(|col| col[y].ch).collect()
+        }
+        fn any_strong_in(frame: &Frame, grid: crate::layout::Rect) -> bool {
+            (grid.x0..=grid.x1)
+                .any(|x| (grid.y0..=grid.y1).any(|y| frame[x][y].emphasis == Emphasis::Strong))
+        }
+
+        let config = Config { num_cols: 89, num_rows: 31 };
+        let layout = BoardLayout::new(config);
+        let grid = layout.player.grid;
+        let (slot0_x, slot0_y) = card_slot(grid, 0, 0);
+        let status_y = layout.status.y0 + 1; // the base prompt row
+        let popup = "You won this round!";
+
+        let mut app = App::new(config);
+        app.profile = Profile::default();
+        app.screen = Screen::InGame {
+            game_state: Box::new(GameState::new()),
+            cursor: HandCursor::default(),
+        };
+
+        // The first frame is settled.
+        app.tick(Duration::ZERO);
+        let mut frame = crate::frame::new_frame(&config);
+        app.draw(&mut frame);
+        assert!(!any_strong_in(&frame, grid), "first frame: no Strong cell in the grid");
+
+        // A hit: the dealer card lands and the opponent starts thinking. The
+        // deadline is far in the future because tick runs update() before it
+        // observes — an elapsed one would move the phase on and save the file.
+        let Screen::InGame { game_state, .. } = &mut app.screen else {
+            panic!("in the match");
+        };
+        game_state.player.dealer_row.push(PlayedCard { card: Card::Dealer(7), value: 7 });
+        game_state.game_phase =
+            GamePhase::OpponentThinking { until: Instant::now() + Duration::from_secs(3600) };
+        app.tick(Duration::ZERO);
+        let mut frame = crate::frame::new_frame(&config);
+        app.draw(&mut frame);
+        assert_eq!(frame[slot0_x][slot0_y].emphasis, Emphasis::Strong, "the new card arrives Strong");
+        assert!(
+            row_text(&frame, status_y).contains("Opponent's Turn ."),
+            "thinking line: {:?}",
+            row_text(&frame, status_y)
+        );
+
+        // The round resolves: the popup waits out its beat.
+        let Screen::InGame { game_state, .. } = &mut app.screen else {
+            panic!("in the match");
+        };
+        game_state.round_outcome = Some(RoundOutcome::PlayerWon);
+        game_state.game_phase = GamePhase::AwaitingNextRound;
+        app.tick(Duration::ZERO);
+        let mut frame = crate::frame::new_frame(&config);
+        app.draw(&mut frame);
+        assert!((0..31).all(|y| !row_text(&frame, y).contains(popup)), "no popup during the beat");
+
+        // `n` mid-beat: the outcome clears and the rows empty on that frame.
+        let Screen::InGame { game_state, .. } = &mut app.screen else {
+            panic!("in the match");
+        };
+        game_state.round_outcome = None;
+        game_state.player.dealer_row.clear();
+        game_state.player.played_row.clear();
+        game_state.opponent.dealer_row.clear();
+        game_state.opponent.played_row.clear();
+        game_state.game_phase = GamePhase::PlayerTurn;
+        app.tick(Duration::ZERO);
+        let mut frame = crate::frame::new_frame(&config);
+        app.draw(&mut frame);
+        assert!((0..31).all(|y| !row_text(&frame, y).contains(popup)), "no popup after n");
+        assert!(!any_strong_in(&frame, grid), "a cleared row starts nothing");
+
+        // Leaving the board discards the transitions (the Menu arm saves nothing).
+        app.handle_key(KeyCode::Esc);
+        assert!(matches!(app.screen, Screen::StartMenu { .. }));
+        app.tick(Duration::ZERO);
+        assert_eq!(app.motion, BoardMotion::default());
+    }
+
+    #[test]
+    fn a_resumed_popup_draws_on_the_first_frame() {
+        // Spec 027 (AC 7): a match resumed at the round-outcome popup — as
+        // Continue leaves it — shows the popup on its first frame, with nothing
+        // in transition. Rows and phase are set by hand; nothing touches disk.
+        use crate::card::PlayedCard;
+        use crate::game::RoundOutcome;
+        use crate::layout::BoardLayout;
+
+        fn row_text(frame: &Frame, y: usize) -> String {
+            frame.iter().map(|col| col[y].ch).collect()
+        }
+
+        let config = Config { num_cols: 89, num_rows: 31 };
+        let grid = BoardLayout::new(config).player.grid;
+        let mut app = App::new(config);
+        app.profile = Profile::default();
+        let mut game_state = GameState::new();
+        game_state.player.dealer_row =
+            vec![PlayedCard { card: Card::Dealer(9), value: 9 }, PlayedCard { card: Card::Dealer(10), value: 10 }];
+        game_state.opponent.dealer_row = vec![PlayedCard { card: Card::Dealer(8), value: 8 }];
+        game_state.round_outcome = Some(RoundOutcome::PlayerWon);
+        game_state.game_phase = GamePhase::AwaitingNextRound;
+        app.screen = Screen::InGame {
+            game_state: Box::new(game_state),
+            cursor: HandCursor::default(),
+        };
+
+        app.tick(Duration::ZERO);
+        let mut frame = crate::frame::new_frame(&config);
+        app.draw(&mut frame);
+        assert!(
+            (0..31).any(|y| row_text(&frame, y).contains("You won this round!")),
+            "the popup is on the first frame"
+        );
+        assert!(
+            !(grid.x0..=grid.x1)
+                .any(|x| (grid.y0..=grid.y1).any(|y| frame[x][y].emphasis == Emphasis::Strong)),
+            "no grid cell is Strong"
+        );
     }
 
     #[test]

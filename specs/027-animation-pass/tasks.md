@@ -118,7 +118,7 @@ it. After T003 the game plays with every transition, always on. -->
   report quotes the new `draw_side_header` Score line and the popup guard
   verbatim.*
 
-- [ ] **T003** — `src/app.rs`: the app feeds the motion. Per plan §Design 4:
+- [x] **T003** — `src/app.rs`: the app feeds the motion. Per plan §Design 4:
   the `motion: BoardMotion` field with its doc, set in `new`; in `tick`, after
   `update_play_log()`, the `match &self.screen` that observes on `InGame` and
   resets otherwise, with the plan's comment; in `draw`'s `InGame` arm pass
@@ -324,3 +324,4 @@ and why). -->
 | T001 (sdd-implementer-fable) | fable → fable | ~47K (measured; implementer's own estimate ~30K) | 1 | yes | — | lib.rs + motion.rs, 8 tests; verification green (432 unit tests, 0 warnings); orchestrator re-ran it (per-task) |
 | T001 per-task review (skeptical-reviewer) | opus → opus | ~58K (measured; reviewer's own estimate ~38K) | 1 | — | 0 | clean. Notes for the sweep: N1 the dot clock does not restart on `restart_opponent_pause` or a back-to-back pause (snapshot holds a bool; AC 5 holds either way — plan tension 5 wording vs implementation); N2 the `Dealer(who, 1)` assert in the dealt-card test is vacuous, the real claim is pinned by the independent-clocks test; N3 `popup_due()` is true whenever unresolved — the board must keep its outcome gate (the plan's guard does); N4 the seed rule needs a fresh `BoardMotion` per match entry (plan §Design 4's reset does this); N5 a same-frame clear-and-refill would slip the shrink rule — not reachable today |
 | T002 (sdd-implementer-fable) | fable → fable | ~58K (measured; implementer's own estimate ~53K) | 1 | yes | — | board.rs reads the motion (+ the one `None` in app.rs); 3 tests; verification green (435 unit tests, 0 warnings); settled-with-motion frame equals the `None` frame on both layouts |
+| T003 (sdd-implementer-fable) | fable → fable | ~58K (measured; implementer's own estimate ~51K) | 1 | yes | — | app.rs feeds the motion (field, tick observer, draw argument); 2 tests; verification green (437 unit tests, 0 warnings); T004 gates the draw argument and adds the Off step |
