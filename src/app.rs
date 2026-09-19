@@ -1769,6 +1769,7 @@ impl App {
                     self.banter,
                     self.stake_to_show(),
                     pulse,
+                    None,
                     frame,
                 )
             }
