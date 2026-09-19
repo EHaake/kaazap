@@ -212,17 +212,21 @@ impl SettingsState {
         draw_text_in(frame, layout.inner, 6, Align::Center, hint, Emphasis::Muted);
     }
 
-    /// One row's text: "▸ " on the selected row, two spaces otherwise, so
-    /// every row is the same width and the values stay column-aligned.
+    /// One row's text: "▸ " on the selected row, two spaces otherwise, and
+    /// every row padded to the volume rows' width, so the centered rows
+    /// share the marker and label columns. The two volume rows also share
+    /// the bar/percent columns; the Animations label is one character wider
+    /// than the volume label column, so its value sits one space after it.
     fn row_text(&self, row: SettingRow, settings: Settings) -> String {
         let marker = if self.selected == row { "▸ " } else { "  " };
         match row {
             SettingRow::Music => volume_row(marker, "Music", settings.music_volume),
             SettingRow::Sfx => volume_row(marker, "Sound FX", settings.sfx_volume),
             SettingRow::Animations => {
-                // The label is wider than the volume labels' column, so a
-                // plain space separates it from its value.
-                format!("{marker}Animations {}", if settings.animations { "On" } else { "Off" })
+                let value = if settings.animations { "On" } else { "Off" };
+                // Padded to the volume rows' width (marker 2 + label 9 +
+                // bar 12 + " 100%" 5 = 28): 2 + "Animations " 11 + 15.
+                format!("{marker}Animations {value:<15}")
             }
         }
     }
@@ -381,6 +385,17 @@ mod tests {
                 // The row's content sits between the box's side borders.
                 let content = row.trim_end_matches([' ', '│']).trim_end();
                 assert!(content.ends_with(word), "{cols}: {row:?} ends in {word}");
+                // Aligned with the volume rows: the label starts in the Music
+                // row's label column (the marker column is the one before),
+                // and the value follows the label after one space.
+                let music = (0..31).map(|y| row_text(&frame, y)).find(|r| r.contains("Music"));
+                let music = music.unwrap_or_else(|| panic!("a Music row at {cols}"));
+                // A substring's column, in characters (the rows hold box glyphs).
+                let col = |r: &str, s: &str| r[..r.find(s).unwrap()].chars().count();
+                let label_col = col(&row, "Animations");
+                assert_eq!(label_col, col(&music, "Music"), "{cols}: label columns");
+                assert_eq!(music.chars().nth(label_col - 2), Some('▸'), "{cols}: marker column");
+                assert_eq!(col(&row, word), label_col + "Animations ".chars().count(), "{cols}: value column");
                 // The box is inside the frame: its corners are drawn.
                 let content_width = "↑/↓ select  ·  ←/→ change  ·  Esc back".chars().count();
                 let layout = OverlayLayout::new(config, content_width, 7);

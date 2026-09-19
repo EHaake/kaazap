@@ -345,6 +345,25 @@ the phase ends with the review and the last walkthrough. -->
   holding; a settings file with the key removed reading On. Then the person
   tries it.*
 
+- [x] **T004a** — The Animations row aligned (the person, 2026-09-19, on the
+  Phase 2 review's N1): in `src/settings.rs`, make the Animations row the
+  same width as the two volume rows so the `▸` marker, the label and the
+  On/Off value sit in the volume rows' columns — pad the row to the volume
+  rows' 28-character width, the value one space after the label (the label
+  is wider than the volume label column, so the value lands two columns
+  right of the bar's start — accepted by the orchestrator when the
+  implementer stopped on the original "at the bar's column" wording), keeping
+  `Align::Center` and the 38-column content width; correct `row_text`'s doc
+  (review N2: it claims every row is the same width — make it true or say
+  what is aligned). Extend `the_animations_row_reads_on_or_off_and_fits` to
+  assert the Animations row's `▸`/label column equals the Music row's (read
+  both rows, compare the column of `Music` and `Animations` after trimming
+  the box border) with the value at the bar's column. No other row or key
+  changes; `content_width` stays 38. Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q`
+  green verbatim; `git diff --stat` shows only `src/settings.rs`; the
+  implementer quotes the Animations row text and its width.*
+
 ## Final phase — Spec close-out
 
 - [ ] **T005** — Close-out. Draft
@@ -478,3 +497,4 @@ and why). -->
 | T004 (sdd-implementer-fable) | fable → fable | ~54K (measured; implementer's own estimate ~45K) | 1 | yes | — | Animations row, `Settings::adjust`, Left/Right rename, README and brief lines; 4 new tests + the Off step; verification green (443 unit tests, 0 warnings). Deviation noted: row text `Animations On` with one space (the plan's `{label:<9}` would have padded nothing) |
 | Phase 2 review (skeptical-reviewer) | opus → opus | ~53K (measured; reviewer's own estimate ~30K) | 1 | — | 0 | clean; signed off. For the person: N1 the `▸` marker, label and value shift ~6 columns right on the Animations row (each row is centred; the third row is shorter than the volume rows). For the sweep: N2 `row_text`'s doc claims the rows are column-aligned (false after N1); N3 plan §Design 5's format string corrected by the orchestrator; N4 the App Left/Right → `adjust` arm is checked only by the walkthrough (authorized by the plan); N5 the fits test recomputes the box geometry; N6 `ROWS`/`SettingRow` are two lists; N7 a long doc line in app.rs; N8 the hint wording change is plan-authorized |
 | **Phase 2 summary** | fable implementer ×1, opus reviewer ×1 | implementer ~54K, reviewer ~53K | 1/1 | 1/1 | 0 | no fallback needed. Walkthrough (orchestrator, driver at 89×31, real data backed up and restored — the save restored is the person's own newer one from 2026-09-19 10:53, not the older backup): Settings shows Music, Sound FX, Animations On; ↓↓ reaches the row; → flips it to Off and the file on disk gains `"animations": false`; a Quick Play hit with it Off draws the thin card with its value, plain `Opponent's Turn` with no dots, a play lands double-bordered with the hand slot blank, and the round popup is on the resolving frame; → again reads On and the file says `true`; a hit then lands heavy with the dots stepping; a file with the key deleted reads On |
+| T004a (sdd-implementer-fable) | fable → fable | ~32K (measured; implementer's own estimate ~17K) | 1 | yes (stopped on a judgment call: the orchestrator's "value at the bar's column" was impossible with a 10-character label; the delivered row — padded to 28, value one space after the label — was accepted, the task line reworded) | — | Animations row aligned with the volume rows' marker and label columns; test extended; verification green (443 unit tests, 0 warnings) |
