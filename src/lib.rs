@@ -27,6 +27,7 @@ pub mod audio;
 pub mod stats;
 pub mod records;
 pub mod wager;
+pub mod motion;
 
 // Card size
 pub const CARD_WIDTH: usize = 9;
@@ -67,6 +68,14 @@ pub const GAME_LOOP_SLEEP_MS: u64 = 50;
 
 // Selection pulse cadence (shared by menu and board selection)
 pub const SELECTION_PULSE_MS: u64 = 500;
+
+// Spec 027 — one-shot board transitions (drawing only; see motion.rs). Bounds
+// from the spec, pinned by motion::tests::beats_are_named_constants_within_bounds:
+// SELECTION_PULSE_MS <= ARRIVAL_BEAT_MS <= 1000, ARRIVAL_BEAT_MS <= POPUP_BEAT_MS
+// <= 1000, and THINKING_STEP_MS * 2 <= OPPONENT_THINKING_TIME_MS.
+pub const ARRIVAL_BEAT_MS: u64 = 600; // a card arriving / a total changing draws Strong this long
+pub const POPUP_BEAT_MS: u64 = 800; // the round/game popup waits this long after the round resolves
+pub const THINKING_STEP_MS: u64 = 300; // the thinking indicator steps . / .. / ... at this cadence
 
 // Campaign-map starfield twinkle period, per star. Deliberately slower than the
 // selection pulse so the ambient backdrop reads as depth, not a synchronized
