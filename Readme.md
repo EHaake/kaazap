@@ -111,6 +111,18 @@ This project is built using spec-driven development with Claude:
 - `docs/` — reference notes (e.g. `docs/opponents.md` — the opponent
   roster and difficulty tuning)
 
+**Saved data.** Your profile, deck, credits and campaign progress live in
+`profile.json`, an in-progress match in `saves/savegame.json`, and your
+settings in `settings.json` — the first two in the per-platform application
+data directory, the settings in the config directory (on Linux, `~/.local/share`
+and `~/.config`). Setting `KAAZAP_DATA_DIR` puts all three in that directory
+instead — handy for trying a throwaway run, or a change, without touching
+your real save:
+
+```
+KAAZAP_DATA_DIR=/tmp/kaazap-scratch cargo run
+```
+
 ## Acknowledgments
 
 Kaazap is an unofficial, non-commercial fan project inspired by Pazaak

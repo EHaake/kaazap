@@ -1,7 +1,6 @@
 use std::{fs, path::PathBuf};
 
 use crossterm::event::KeyCode;
-use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -81,10 +80,9 @@ impl Settings {
         serde_json::from_str(text).unwrap_or_default()
     }
 
-    /// The platform config-dir path for the settings file, if resolvable.
+    /// `<config_dir>/settings.json`, if a config dir is resolvable.
     fn config_path() -> Option<PathBuf> {
-        ProjectDirs::from("", "", "kaazap")
-            .map(|dirs| dirs.config_dir().join("settings.json"))
+        crate::paths::config_dir().map(|dir| dir.join("settings.json"))
     }
 
     /// Apply ←/→ on `row`: a volume steps by VOLUME_STEP and clamps to 0..=1;
