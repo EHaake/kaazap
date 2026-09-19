@@ -131,10 +131,7 @@ further, and whenever something unexpected bears on spec adherence.
 
 ## Model policy
 
-- **Tiers by name**: top tier `fable`; implementation tier `opus` for
-  the reviewer; the implementer is dispatched as `sdd-implementer-fable`
-  (Fable 5.1 at medium) under experiment 2, with the plain
-  `sdd-implementer` (opus, high) as the fallback dispatch;
+- **Tiers by name**: top tier `fable`; implementation tier `opus`;
   session tier `fable` at medium effort (experiment 1 — the top and
   session tiers are the same model at different effort; the fallback
   session model is `claude-opus-5`, the full ID, since the person's
@@ -142,6 +139,8 @@ further, and whenever something unexpected bears on spec adherence.
   previous-generation model with no short alias). These names are the
   only place a model is spelled out; everything below refers to the
   roles.
+  - Task implementer: `sdd-implementer` (the implementation tier, opus at high)
+  - Close-out dispatch: `sdd-implementer-fable` under the standard profile
 - **The session runs at the session tier, at medium effort**, set in
   this repo's `.claude/settings.json` — written at project setup from
   the profile's settings file in the skill's `project/.claude/`
@@ -224,10 +223,10 @@ further, and whenever something unexpected bears on spec adherence.
   means it would fail an acceptance criterion or a test, or contradicts
   `plan.md` or `CLAUDE.md`; nothing else blocks. Anything open after
   the re-review goes to the tier log and the sweep.
-- **Implementation runs at the implementation tier**, dispatched to the
-  `sdd-implementer-fable` subagent (Fable 5.1 at medium, experiment 2),
-  with the plain `sdd-implementer` (its definition says `opus`) as the
-  fallback dispatch, one task per dispatch, sequentially. The orchestrating
+- **Implementation runs at the implementation tier**: each ordinary
+  task is dispatched to whichever subagent the *Task implementer* line
+  above names, and the close-out task to whichever the *Close-out
+  dispatch* line names, one task per dispatch, sequentially. The orchestrating
   session triages each task, dispatches routine ones on a task bundle
   assembled with shell (task line, plan section, acceptance criteria,
   files, the pattern file to copy), and on return verifies with the
@@ -243,16 +242,23 @@ further, and whenever something unexpected bears on spec adherence.
   `/compact` if the context grows large; never clear or compact
   mid-task. `/clear` is not part of the workflow: both session
   boundaries are new sessions.
-- **Every session-ending pause ends with a continuation prompt.** When
-  the next step belongs in a fresh session — plan and tasks final, a
-  merge with the next spec waiting on `ROADMAP.md`, or a phase pause
-  the person is stopping at — the report's last item is the exact
-  prompt to paste there, in its own fenced block. It names the spec directory,
-  the files to read, where to resume, the involvement level, the
-  pause cadence, and any effort switch the next session needs. Write
-  anything the next session needs to a file first; the prompt points
-  at files. If nothing can proceed until the person decides
-  something, say so instead.
+- **The two session boundaries end with a continuation prompt.** A
+  spec has exactly two: `plan.md` and `tasks.md` final, handed to
+  implementation; and the spec merged, with the next one waiting on
+  `ROADMAP.md`. At each, the report's last item is the exact prompt to
+  paste into the next session, in its own fenced block. It names the
+  spec directory, the files to read, where to resume, the involvement
+  level, the pause cadence, and any effort switch the next session
+  needs. Write anything the next session needs to a file first; the
+  prompt points at files. If nothing can proceed until the person
+  decides something, say so instead.
+- **A phase pause never ends with a continuation prompt.** The phase
+  report ends with what the person should check in the app and how to
+  say continue. The session cannot know whether the person is stopping
+  when it writes the report, so a prompt offered unasked invites a
+  `/clear` that costs a full re-read. If the person says they are
+  stopping, or asks for a prompt, write it then, as the next message,
+  resuming from the first unchecked task.
 - **Batch the bookkeeping**: commit, checkbox, and tier-log row in one
   shell command; bundle assembly and dispatch back to back. Every turn
   saved is one fewer re-send of the whole context.
@@ -263,8 +269,10 @@ further, and whenever something unexpected bears on spec adherence.
   *Tiers by name* above, mid-session (one cache re-write, then
   continue). The person may name a different one at the time; it is
   written into *Tiers by name* in its own commit, not spelled out here.
-  The implementer falls back to `sdd-implementer` when Fable's
-  allowance runs out; needing that fallback is itself a result.
+  Anything the *Task implementer* or *Close-out dispatch* lines name
+  `sdd-implementer-fable`, close-out included, is dispatched to
+  `sdd-implementer` instead when Fable's allowance runs out; needing
+  that fallback is itself a result.
   Nothing else changes; the tier log records what ran and when the
   switch happened, which is a result of experiment 1 in itself.
 - **Escape hatch**: two failed verifications on one task, or a "stopped
