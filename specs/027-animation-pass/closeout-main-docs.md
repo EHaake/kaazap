@@ -86,9 +86,9 @@ Insert after them:
   `profile.rs`, `economy.rs`, `wager.rs`, `campaign.rs`, `campaign_map.rs`,
   `opponent.rs`, `tests/balance.rs`, `Cargo.toml` and `Cargo.lock` are
   untouched, `PROFILE_VERSION` / `SAVE_VERSION` stay 1, no new crate, no
-  color path. Driver walkthroughs at 89×31 and 139×31 after each phase
-  attested the arrivals, the ghost, the popup beat, the dots, the settled
-  first frames and the Off state. `Readme.md`'s settings mention names the
+  color path. Driver walkthroughs after each phase attested the
+  arrivals, the ghost, the popup beat, the dots and the settled first
+  frames at 89×31 and 139×31, and the Off state at 89×31. `Readme.md`'s settings mention names the
   row.
 ```
 
@@ -349,7 +349,8 @@ Design tensions resolved during planning:
   `2 · step ≤ OPPONENT_THINKING_TIME_MS`), so a retune outside them fails
   the build.
 
-Attested by driver walkthroughs at 89×31 and 139×31 after each phase, with the
+Attested by driver walkthroughs at 89×31 and 139×31 after Phases 1 and 1b and
+at 89×31 after Phase 2, with the
 person's own play at the Phase 1, 1b and 2 pauses. Phase 1 (bold-only): a
 dealt card bold on its frame and settled by ~1 s, the Score bold only when it
 changed (a dealt 0 left it plain), `Rounds won` never bold, the cursor still
@@ -414,8 +415,10 @@ the existing border weights.
   `specs/027-animation-pass/tasks.md`'s tier log: the dot clock not
   restarting on a back-to-back pause (AC 5 holds either way), no board test
   distinguishing the sides' arrivals, the key→tick→draw ordering in
-  `main.rs` pinned only by the walkthrough, `row_text`'s doc still claiming
-  column alignment after T004a, `ROWS`/`SettingRow` as two lists.
+  `main.rs` pinned only by the walkthrough, no board assertion that a
+  sibling dealer card stays single/Normal while another lands,
+  `ROWS`/`SettingRow` as two lists. (`row_text`'s doc was corrected by
+  T004a; the redundant `FLIP_BEAT_MS` test import went with T003d.)
   Process evidence for the model-policy experiments, not project decisions.
 
 ---

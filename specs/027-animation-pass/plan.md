@@ -737,8 +737,8 @@ cell stays true under a heavy border — so none is removed or weakened.
 
 ## Non-goals (from spec)
 
-Nothing outside the match board; no face-down reveal for any card but a dealer
-card (Q8); no stake flash; no portrait animation (spec 016's deferral closes at
+Nothing outside the match board; no face-down reveal for any card (Q8's dealer
+flip was withdrawn by Q11, Revision 2); no stake flash; no portrait animation (spec 016's deferral closes at
 merge); no departure transitions (the source ghost is a landing cue, not a
 departure — Q9); the pulse is not held; the Animations row governs these
 transitions only; no change to the opponent's thinking time, the phase machine,
