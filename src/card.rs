@@ -158,7 +158,7 @@ pub struct CardView {
     pub x: usize,
     pub y: usize,
     pub text: String,
-    pub weight: BorderWeight, // Heavy marks cursor selection (T007)
+    pub weight: BorderWeight, // Heavy marks cursor selection (T007) and, for one arrival beat, a card landing on the board (spec 027)
     pub emphasis: Emphasis,   // applied to border and face text
 }
 

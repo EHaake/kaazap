@@ -835,6 +835,41 @@ mod tests {
     }
 
     #[test]
+    fn only_the_side_that_drew_transitions() {
+        for cols in [89, 139] {
+            let seed = GameState::new();
+            let mut gs = GameState::new();
+            gs.opponent.dealer_row = vec![dealer(7)];
+            let mut motion = motion_from(&seed, &gs, Duration::ZERO);
+
+            let (bv, first) = drawn_board(cols, None, &gs, Some(&motion));
+            let (player, opponent) = (&bv.layout.player, &bv.layout.opponent);
+            // A swapped `who` in `draw_side_header` or `draw_side` would
+            // light the wrong side here.
+            for em in header_right_emphases(&first, opponent, 0, "Score: 7") {
+                assert_eq!(em, Emphasis::Strong, "{cols}: opponent score transitions");
+            }
+            for em in header_right_emphases(&first, player, 0, "Score: 0") {
+                assert_eq!(em, Emphasis::Normal, "{cols}: player score stays Normal");
+            }
+            assert_eq!(slot_corner_char(&first, opponent.grid, 0, 0), '┏', "{cols}: opponent dealer 0 lands heavy");
+            assert_eq!(slot_corner_emphasis(&first, opponent.grid, 0, 0), Emphasis::Strong, "{cols}: opponent dealer 0 is Strong");
+            let (_, off) = drawn_board(cols, None, &gs, None);
+            let (px0, py0) = card_slot(player.grid, 0, 0);
+            let (px1, py1) = card_slot(player.grid, 3, 2);
+            for x in px0..px1 + CARD_WIDTH {
+                for y in py0..py1 + CARD_HEIGHT {
+                    assert!(first[x][y] == off[x][y], "{cols}: player grid cell ({x}, {y}) untouched by the opponent's arrival");
+                }
+            }
+
+            motion.observe(&gs, ms(ARRIVAL_BEAT_MS));
+            let (_, settled) = drawn_board(cols, None, &gs, Some(&motion));
+            assert!(settled == off, "{cols}: the settled frame is the Animations-off frame");
+        }
+    }
+
+    #[test]
     fn the_popup_waits_and_the_deciding_card_shows_through() {
         let mut seed = GameState::new(); // PlayerTurn
         seed.player.dealer_row = vec![dealer(9)];
@@ -848,6 +883,9 @@ mod tests {
         let (bv, frame) = drawn_board(89, None, &gs, Some(&motion));
         assert!((0..31).all(|y| !row_text(&frame, y).contains(popup)), "no popup during the beat");
         assert_eq!(slot_corner_emphasis(&frame, bv.layout.player.grid, 1, 0), Emphasis::Strong);
+        // AC 1: the cards already in the row stay single-border Normal.
+        assert_eq!(slot_corner_emphasis(&frame, bv.layout.player.grid, 0, 0), Emphasis::Normal, "seeded slot 0 stays Normal");
+        assert_eq!(slot_corner_char(&frame, bv.layout.player.grid, 0, 0), '┌', "seeded slot 0 stays single-border");
 
         motion.observe(&gs, ms(POPUP_BEAT_MS));
         let (_, frame) = drawn_board(89, None, &gs, Some(&motion));
