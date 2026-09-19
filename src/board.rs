@@ -174,7 +174,9 @@ impl BoardView {
     /// draw never shifts an already-played card. The player's side passes
     /// `selection` and reveals its hand + number keys; the opponent's side
     /// passes None and hides its hand. A card whose arrival is in flight
-    /// (spec 027) draws Strong.
+    /// (spec 027) draws Strong and borrows the heavy border for its beat; a
+    /// dealt one is face down (`?`) for the flip beat; the hand slot a play
+    /// emptied shows its outline — the source ghost (spec 027 Revision 1).
     fn draw_side(
         &self,
         side: &SideLayout,
@@ -204,7 +206,11 @@ impl BoardView {
             let (x, y) = card_slot(side.grid, i % per, i / per);
             let mut v = CardView::new(x, y, c.display_text());
             if arriving(motion, Elem::Dealer(who, i)) {
+                v.weight = BorderWeight::Heavy;
                 v.emphasis = Emphasis::Strong;
+                if face_down(motion, Elem::Dealer(who, i)) {
+                    v.text = "?".to_string();
+                }
             }
             v.draw(frame);
         }
@@ -214,9 +220,11 @@ impl BoardView {
             let idx = MAX_TABLE_CARDS - 1 - j;
             let (x, y) = card_slot(side.grid, idx % per, idx / per);
             let mut v = CardView::new(x, y, c.display_text());
-            v.weight = BorderWeight::Double;
             if arriving(motion, Elem::Played(who, j)) {
+                v.weight = BorderWeight::Heavy;
                 v.emphasis = Emphasis::Strong;
+            } else {
+                v.weight = BorderWeight::Double;
             }
             v.draw(frame);
         }
@@ -230,7 +238,16 @@ impl BoardView {
         // Hand — faces + number keys for the player, hidden for the opponent
         draw_text(frame, side.hand.x0, side.hand.y0.saturating_sub(1), "Hand", Emphasis::Muted);
         for (i, c) in ps.hand.iter().enumerate() {
-            let Some(card) = c else { continue };
+            let Some(card) = c else {
+                // The source ghost: the slot a card was just played from
+                // keeps its outline for the beat — single border, empty
+                // face, Normal, no number key.
+                if arriving(motion, Elem::Hand(who, i)) {
+                    let (x, y) = card_slot(side.hand, i, 0);
+                    CardView::new(x, y, String::new()).draw(frame);
+                }
+                continue;
+            };
             let (x, y) = card_slot(side.hand, i, 0);
 
             let view = match selection {
@@ -352,6 +369,12 @@ struct Selection {
 /// Whether `e` is in transition — settled when there is no motion.
 fn arriving(motion: Option<&BoardMotion>, e: Elem) -> bool {
     motion.is_some_and(|m| m.is_arriving(e))
+}
+
+/// Whether `e` is still inside the flip window of its arrival (spec 027
+/// Revision 1) — never when there is no motion.
+fn face_down(motion: Option<&BoardMotion>, e: Elem) -> bool {
+    motion.is_some_and(|m| m.is_face_down(e))
 }
 
 /// The single status message for the current game state, with its
@@ -677,7 +700,7 @@ mod tests {
     }
 
     use crate::card::PlayedCard;
-    use crate::{ARRIVAL_BEAT_MS, POPUP_BEAT_MS, THINKING_STEP_MS};
+    use crate::{ARRIVAL_BEAT_MS, FLIP_BEAT_MS, POPUP_BEAT_MS, THINKING_STEP_MS};
     use std::time::Duration;
 
     fn ms(n: u64) -> Duration {
@@ -712,6 +735,20 @@ mod tests {
         frame[x][y].emphasis
     }
 
+    fn slot_corner_char(frame: &Frame, grid: Rect, col: usize, row: usize) -> char {
+        let (x, y) = card_slot(grid, col, row);
+        frame[x][y].ch
+    }
+
+    /// The middle interior row of the card at `(col, row)` of `rect`, as a
+    /// String — read by row, not by cell, since centring may round the face
+    /// off by one.
+    fn slot_face_row(frame: &Frame, rect: Rect, col: usize, row: usize) -> String {
+        let (x, y) = card_slot(rect, col, row);
+        let y = y + CARD_HEIGHT / 2;
+        (x + 1..=x + CARD_WIDTH - 2).map(|cx| frame[cx][y].ch).collect()
+    }
+
     #[test]
     fn arrivals_draw_strong_then_settle_on_both_layouts() {
         for cols in [89, 139] {
@@ -739,14 +776,77 @@ mod tests {
                 }
             };
             all(&first, Emphasis::Strong);
+            // Revision 1: heavy border on every arrival; a dealt card is
+            // face down for the flip beat, a played card never is.
+            assert_eq!(slot_corner_char(&first, player.grid, 0, 0), '┏', "{cols}: player dealer 0 lands heavy");
+            assert_eq!(slot_face_row(&first, player.grid, 0, 0).trim(), "?", "{cols}: player dealer 0 face down");
+            assert_eq!(slot_corner_char(&first, player.grid, 3, 2), '┏', "{cols}: player played 0 lands heavy");
+            assert_eq!(slot_face_row(&first, player.grid, 3, 2).trim(), "+3", "{cols}: a played card is never face down");
+            assert_eq!(slot_corner_char(&first, opponent.grid, 0, 0), '┏', "{cols}: opponent dealer 0 lands heavy");
+            assert_eq!(slot_face_row(&first, opponent.grid, 0, 0).trim(), "?", "{cols}: opponent dealer 0 face down");
 
-            motion.observe(&gs, ms(ARRIVAL_BEAT_MS));
+            motion.observe(&gs, ms(FLIP_BEAT_MS));
+            let (_, flipped) = drawn_board(cols, None, &gs, Some(&motion));
+            assert_eq!(slot_face_row(&flipped, player.grid, 0, 0).trim(), "5", "{cols}: face up after the flip beat");
+            assert_eq!(slot_corner_char(&flipped, player.grid, 0, 0), '┏', "{cols}: still heavy after the flip");
+            assert_eq!(slot_corner_emphasis(&flipped, player.grid, 0, 0), Emphasis::Strong, "{cols}: still Strong after the flip");
+
+            motion.observe(&gs, ms(ARRIVAL_BEAT_MS - FLIP_BEAT_MS));
             let (_, settled) = drawn_board(cols, None, &gs, Some(&motion));
             all(&settled, Emphasis::Normal);
+            assert_eq!(slot_corner_char(&settled, player.grid, 0, 0), '┌', "{cols}: dealer settles single");
+            assert_eq!(slot_corner_char(&settled, player.grid, 3, 2), '╔', "{cols}: played settles double");
+            assert_eq!(slot_corner_char(&settled, opponent.grid, 0, 0), '┌', "{cols}: opponent dealer settles single");
 
             let (_, off) = drawn_board(cols, None, &gs, None);
             assert!(settled == off, "{cols}: the settled frame is the Animations-off frame");
             assert!(settled != first, "{cols}: the arrival frame differs from the settled one");
+        }
+    }
+
+    #[test]
+    fn a_played_card_lands_heavy_and_its_hand_slot_ghosts() {
+        for cols in [89, 139] {
+            let mut seed = GameState::new();
+            seed.player.hand = vec![Some(Card::Plus(3)), None, None, None];
+            seed.opponent.hand = vec![Some(Card::Plus(2)), None, None, None];
+            let mut gs = GameState::new();
+            gs.player.hand = vec![None, None, None, None];
+            gs.player.played_row = vec![PlayedCard { card: Card::Plus(3), value: 3 }];
+            gs.opponent.hand = vec![None, None, None, None];
+            gs.opponent.played_row = vec![PlayedCard { card: Card::Plus(2), value: 2 }];
+            let mut motion = motion_from(&seed, &gs, Duration::ZERO);
+
+            let (bv, first) = drawn_board(cols, None, &gs, Some(&motion));
+            let (player, opponent) = (&bv.layout.player, &bv.layout.opponent);
+            for (side, face) in [(player, "+3"), (opponent, "+2")] {
+                // The source ghost: a single-line outline, blank face, Normal,
+                // and no number key below it.
+                let (x, y) = card_slot(side.hand, 0, 0);
+                let corners = [(x, y, '┌'), (x + CARD_WIDTH - 1, y, '┐'), (x, y + CARD_HEIGHT - 1, '└'), (x + CARD_WIDTH - 1, y + CARD_HEIGHT - 1, '┘')];
+                for (cx, cy, ch) in corners {
+                    assert_eq!(first[cx][cy].ch, ch, "{cols}: ghost corner at ({cx}, {cy})");
+                    assert_eq!(first[cx][cy].emphasis, Emphasis::Normal, "{cols}: ghost corner is Normal");
+                }
+                assert_eq!(first[x + 1][y].ch, '─', "{cols}: ghost top edge is single");
+                assert!(slot_face_row(&first, side.hand, 0, 0).trim().is_empty(), "{cols}: ghost face is blank");
+                assert_eq!(first[x + CARD_WIDTH / 2][y + CARD_HEIGHT].ch, ' ', "{cols}: ghost has no number key");
+                // The played card lands heavy, Strong, and face up.
+                assert_eq!(slot_corner_char(&first, side.grid, 3, 2), '┏', "{cols}: played card lands heavy");
+                assert_eq!(slot_corner_emphasis(&first, side.grid, 3, 2), Emphasis::Strong, "{cols}: played card is Strong");
+                assert_eq!(slot_face_row(&first, side.grid, 3, 2).trim(), face, "{cols}: a played card is never face down");
+            }
+
+            motion.observe(&gs, ms(ARRIVAL_BEAT_MS));
+            let (_, settled) = drawn_board(cols, None, &gs, Some(&motion));
+            for side in [player, opponent] {
+                let (x, y) = card_slot(side.hand, 0, 0);
+                assert_eq!(settled[x][y].ch, ' ', "{cols}: the ghost blanks after the beat");
+                assert_eq!(slot_corner_char(&settled, side.grid, 3, 2), '╔', "{cols}: played card settles double");
+                assert_eq!(slot_corner_emphasis(&settled, side.grid, 3, 2), Emphasis::Normal, "{cols}: played card settles Normal");
+            }
+            let (_, off) = drawn_board(cols, None, &gs, None);
+            assert!(settled == off, "{cols}: the settled frame is the Animations-off frame");
         }
     }
 

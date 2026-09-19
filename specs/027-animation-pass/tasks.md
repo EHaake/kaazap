@@ -215,7 +215,7 @@ app.rs change: the observer and the draw argument are already in place. -->
   implementer's report quotes `is_face_down` and the hand loop in `diff_side`
   verbatim.*
 
-- [ ] **T003c** — `src/board.rs` + `src/frame.rs` (one doc-comment line): the
+- [x] **T003c** — `src/board.rs` + `src/frame.rs` (one doc-comment line): the
   board draws the shapes. Per plan §Design 3 (Revision 1): the free fn
   `face_down(motion, e) -> bool` beside `arriving`; in `draw_side`, the dealer
   loop sets `v.weight = BorderWeight::Heavy` and `v.emphasis = Emphasis::Strong`
@@ -450,3 +450,4 @@ and why). -->
 | Revision 1 sign-off notes (sdd-planner, same context) | fable (override) → fable | ~8K (measured delta, 169K − 161K; planner's own estimate ~12K) | 1 | yes | — | B1 (Dealer guard in `is_face_down`, played face asserted on the first frame), N1 (faces read by the trimmed middle row), N2 (Dealer(7) verified), N4 (checked T003's constants count) applied |
 | Revision 1 re-review (skeptical-reviewer, same context) | fable (override) → fable | ~27K (measured delta, 120K − 93K) | 1 | — | 0 | signed off; Draft flipped to Signed off by the orchestrator |
 | T003b (sdd-implementer-fable) | fable → fable | ~59K (measured; implementer's own estimate ~50K) | 1 | yes | — | FLIP_BEAT_MS, Elem::Hand, the ghost rule, is_face_down (Dealer-guarded); 2 new tests + extended bounds test; verification green (439 unit tests, 0 warnings) |
+| T003c (sdd-implementer-fable) | fable → fable | ~73K (measured; implementer's own estimate ~45K) | 1 | yes | — | board draws heavy landings, the `?` face and the source ghost; 1 new test, arrivals test extended; verification green (440 unit tests, 0 warnings); frame.rs doc comment rewrapped onto two lines (comment-only) |
