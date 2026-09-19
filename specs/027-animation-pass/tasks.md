@@ -1,0 +1,504 @@
+# Tasks: Animation pass — spec 027
+
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-18; re-review after B1 and N1, N2, N4; R1 applied by the orchestrator). **Revision 2** (2026-09-19, spec Q11 at the Phase 1b pause — the flip withdrawn): T003d below; T004's and T005's flip lines read as struck. **Revision 1: Signed off** (skeptical-reviewer at fable, 2026-09-18; re-review after B1 and N1, N2, N4) (2026-09-18, at the Phase 1 pause; spec Q8–Q10). The new material is Phase 1b (T003b, T003c), the Revision 1 lines in T004 and T005, and the handoff note's Phase 1b review and pause.
+**Implements**: plan.md in this directory
+
+Ordered, small, independently verifiable. Each task should be completable (and
+testable) on its own. If a session ends mid-list, resume by finding the first
+unchecked task — don't re-verify everything above it unless something looks off.
+
+<!-- WARNING: once implementation starts, this file gets written by more than one
+party — whoever's steering adds scope and reshuffles tasks; the implementing
+session (the orchestrator — never the sdd-implementer subagent) checks boxes and
+adds findings. Never edit this file from a stale copy. Prefer small, targeted
+edits over regenerating it wholesale — a full replacement silently discards
+whatever the other party added since your copy was taken. -->
+
+Per the constitution: every implementation task ends with an actual build and,
+where tests exist for what changed, an actual test run — reported, not summarized.
+Under the model policy, the orchestrator verifies after an implementer returns,
+and only the orchestrator commits. **Experiment 2 is live**: every task below is
+dispatched to `sdd-implementer-fable` (`claude-fable-5-1` at medium) per
+`CLAUDE.md`, with the plain `sdd-implementer` (opus, high) as the fallback
+dispatch when Fable's allowance runs out — needing the fallback is itself a
+result, logged below; never infer the budget from a successful dispatch. The
+`skeptical-reviewer` runs at opus (high) for phase reviews and the sweep; the
+planner and the plan/tasks sign-off ran at the top tier (fable, per-call
+override).
+
+**Foundational phase: Phase 1.** T001 writes `motion.rs` — the struct, the
+diff rule and the clocks that the board (T002) and the app (T003) both read, so
+it carries `review: per-task`; T003 ends the phase with the review, the driver
+walkthrough at both widths and a **pause for the person** (the constitution's
+default: a pause after every phase unless the person says to run further).
+**Phase 1b** (Revision 1, spec Q8–Q10, signed off 2026-09-18) sits between
+them: T003b extends `motion.rs` (the flip read and the source-ghost element)
+and T003c the board's drawing of them, reviewed once as a phase and followed by
+its own walkthrough and pause; neither carries a per-task review (the diff is
+small and the phase review sees both).
+Phase 2 is the Animations setting and the two documents, reviewed once as a
+phase and followed by the last pause. No other task carries its own review.
+
+**Plan §Open questions 1 (the Score's resting weight)** was ruled at planning:
+the Score rests `Normal` from this spec on (spec Q7), as the plan reads it.
+The ruling is flagged to the person in the spec-conformance summary; if they
+overrule it before T001 starts, T001 drops `Elem::Score` and T002 leaves
+`draw_side_header`'s Score line untouched — the orchestrator edits both task
+lines before dispatching.
+
+---
+
+## Phase 1 — The transitions (foundational)
+
+<!-- T001 is the pure module; T002 the board reading it; T003 the app feeding
+it. After T003 the game plays with every transition, always on. -->
+
+- [x] **T001** — `src/lib.rs` + `src/motion.rs` (new): the beats and
+  `BoardMotion`. `review: per-task`. In `lib.rs`, per plan §Design 1: add `pub
+  mod motion;` and the three constants `ARRIVAL_BEAT_MS = 600`, `POPUP_BEAT_MS
+  = 800`, `THINKING_STEP_MS = 300` with the plan's comment, beside
+  `SELECTION_PULSE_MS`. In `motion.rs`, per plan §Design 2: the module doc;
+  `pub enum Elem { Dealer(Player, usize), Played(Player, usize), Score(Player)
+  }` with `fn side`; private `SideSnapshot` and `MotionSnapshot` (`of` sets
+  `resolved = round_outcome.is_some() || GameOver`, `thinking =
+  OpponentThinking`); `pub struct BoardMotion` deriving `Debug, Default,
+  PartialEq, Eq` with `prev`, `arrivals: Vec<(Elem, Duration)>`, `popup_wait:
+  Duration`, `thinking_for: Option<Duration>`; `observe(&mut self, gs, dt)`
+  exactly as the plan's listing (clocks first, seed on `prev == None`, else
+  `diff_side` per side plus the resolved and thinking edges); `diff_side` (a
+  shrunk row discards the side's arrivals and starts nothing; otherwise one
+  arrival per new index and a restarted `Score` if the total differs);
+  `is_arriving`, `popup_due`, `thinking_suffix`; `pub fn thinking_suffix_at`.
+  Tests (plan §Tests), in `motion.rs`'s tests module:
+  `beats_are_named_constants_within_bounds`,
+  `the_first_observation_starts_nothing`,
+  `a_dealt_card_and_its_total_arrive_for_one_beat`,
+  `a_play_arrives_with_the_total_and_a_draw_and_play_arrive_together`,
+  `transitions_run_on_independent_clocks`,
+  `a_cleared_row_discards_its_transitions_and_starts_none`,
+  `the_popup_waits_one_beat_and_n_clears_the_wait`,
+  `the_thinking_indicator_steps_through_the_pause_and_reverts` — each built
+  on `GameState::new()` with rows pushed by hand (`PlayedCard { card, value }`)
+  and phases set by hand, never sleeping. Do not run `cargo fmt`. (Copies:
+  `banter.rs` for the module shape, `BanterSnapshot::of` and the snapshot
+  tests; `app.rs`'s `SelectionPulse::tick` for the `Duration` accumulation
+  and its `pulse_*` tests.)
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green,
+  reported verbatim, with the eight named tests passing; `git diff --stat`
+  shows only `src/lib.rs` and `src/motion.rs`; `git diff -- src/lib.rs` adds
+  only the `mod` line and the three constants with their comment; the
+  implementer's report quotes `observe` and `diff_side` verbatim. The
+  orchestrator re-runs the verification command itself before committing
+  (per-task review).*
+
+- [x] **T002** — `src/board.rs` + `src/app.rs` (one call site): the board
+  reads the motion. Per plan §Design 3: `draw` gains `motion:
+  Option<&BoardMotion>` before `frame` (import `crate::motion::{BoardMotion,
+  Elem}`), and `App::draw`'s one `board_view.draw(…)` call passes `None` there
+  so the crate compiles (T003 replaces it); add the free fn `arriving(motion,
+  elem) -> bool`; `draw_side_header` takes `who: Player` and `motion` and
+  draws the Score line `Strong` only while `Elem::Score(who)` is arriving,
+  `Normal` otherwise (plan tension 1 — see the note above Phase 1);
+  `draw_top_info` passes the sides; `draw_side` takes `who` and `motion` and
+  sets `v.emphasis = Emphasis::Strong` on a dealer card while
+  `Elem::Dealer(who, i)` is arriving and on a played card while
+  `Elem::Played(who, j)` is (the `Double` weight stays); `status_lines` takes
+  `motion` and appends `thinking_suffix()` to the base line when both are
+  `Some`; the popup call is guarded by `motion.is_none_or(|m| m.popup_due())`;
+  update `draw`'s doc. `status_message`, `over_twenty_alert`, the hand branch
+  and the panel/stake tail are untouched. Tests (plan §Tests): `drawn_board`
+  gains a `motion: Option<&BoardMotion>` parameter (existing callers pass
+  `None`); add `arrivals_draw_strong_then_settle_on_both_layouts`,
+  `the_popup_waits_and_the_deciding_card_shows_through`,
+  `the_thinking_line_steps_muted_and_stays_clear_of_the_stake` — the motion
+  in each built by `observe`-ing a seed state and then the changed one, cells
+  read through `frame[x][y].emphasis` and `row_text`, slot corners from
+  `card_slot`. Do not run `cargo fmt`. (Copies: `board.rs`'s own
+  `the_compact_board_carries_the_stake_clear_of_the_alert` for reading rows
+  and emphasis; `over_20_game` for building rows by hand.)
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim with the three new tests passing and `status_opponent_turn_is_muted`
+  unchanged; `git diff --stat` shows only `src/board.rs` and `src/app.rs`;
+  `git diff -- src/app.rs` is the one added `None` argument; the implementer's
+  report quotes the new `draw_side_header` Score line and the popup guard
+  verbatim.*
+
+- [x] **T003** — `src/app.rs`: the app feeds the motion. Per plan §Design 4:
+  the `motion: BoardMotion` field with its doc, set in `new`; in `tick`, after
+  `update_play_log()`, the `match &self.screen` that observes on `InGame` and
+  resets otherwise, with the plan's comment; in `draw`'s `InGame` arm pass
+  `self.settings.animations.then_some(&self.motion)` — **`animations` does not
+  exist until T004**, so for this task pass `Some(&self.motion)` with a `//
+  T004: gated by settings.animations` comment. No other `app.rs` code change.
+  Tests (plan §Tests): `the_board_transitions_after_a_hit_and_settles_when_animations_are_off`
+  (the Off step is **deferred to T004**; here: settled first frame; a dealer
+  card pushed by hand with the phase set to `OpponentThinking { until:
+  Instant::now() + Duration::from_secs(3600) }` — **a far-future deadline,
+  with a one-line comment saying why**: `tick` runs `update()` before it
+  observes, so an elapsed `until` (the `Instant::now()` the other tests use)
+  would move the phase to `OpponentTurn`, write the real save file and leave
+  no thinking line — then `tick(ZERO)` → slot 0 `Strong` and `Opponent's
+  Turn .` on the status row;
+  `round_outcome` + `AwaitingNextRound` set by hand, `tick(ZERO)` → no popup
+  text; the outcome cleared, rows emptied and `PlayerTurn` set by hand,
+  `tick(ZERO)` → no popup and no `Strong` in the grid; `handle_key(Esc)` then
+  `tick(ZERO)` → `app.motion == BoardMotion::default()`) and
+  `a_resumed_popup_draws_on_the_first_frame`. Both use `Profile::default()`,
+  `Config { 89, 31 }`, `crate::frame::new_frame`, read the player's grid rect
+  from `BoardLayout::new(config).player.grid` and the popup text by row.
+  **Press no game key**: every key that reaches the engine ends in
+  `save_game()` (the `game_changed` branch of `handle_key`), which writes the
+  real save file — rows and phases are set by hand; `Esc` (the `Menu` arm)
+  is the only key pressed. Do not run `cargo fmt`. (Copies: `the_first_match_popup_holds_the_match_and_swallows_play_keys`
+  for entering a match and ticking;
+  `the_game_over_frame_shows_the_settled_stake_on_both_layouts` for drawing an
+  `App` into a frame and reading rows.)
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim with both new tests passing; `git diff --stat` shows only
+  `src/app.rs`; `git diff -- src/app.rs` outside `mod tests` touches only the
+  field, `new`, the `tick` match, the `draw` argument and the motion import
+  (`use crate::motion::BoardMotion;`); the implementer's report quotes the
+  `tick` match verbatim.
+  **PAUSE for the person** (after the Phase 1 review): the orchestrator drives
+  the **89×31 and 139×31** Quick Play walkthrough in plan §Verification with
+  the `run-kaazap` skill — real profile, settings and save backed up and
+  checksummed first, restored and checksum-verified after — and reports in
+  plain language what it saw: the new card and the score bold after a hit and
+  settled about half a second later while the cursor keeps breathing; the
+  opponent's dots stepping through its pause and gone when it acts; its cards
+  bold when they land; the deciding card seen before the round popup, then the
+  popup; `n` and `g` inside the beat acting at once; a settled board after `g`
+  and on Continue; at 89 the stake on the band's upper row with the dots on the
+  lower one. Then the person plays it and may ask for a beat tuning within the
+  spec's bounds — logged as **T003a**, editing only the three constants
+  (four after Revision 1, see T003c) in `src/lib.rs` (the bounds test
+  guards).*
+
+## Phase 1b — Revision 1: heavy landings, the flip and the source ghost
+
+<!-- Spec Revision 1 (Q8–Q10), ruled at the Phase 1 pause: bold on a thin
+box-drawn card did not register. T003b extends the pure module; T003c the
+board reading it. After T003c the arrivals read as shape, not weight. No
+app.rs change: the observer and the draw argument are already in place. -->
+
+- [x] **T003b** — `src/lib.rs` + `src/motion.rs`: the flip beat, the face-down
+  read and the source-ghost element. In `lib.rs`, per plan §Design 1: `pub
+  const FLIP_BEAT_MS: u64 = 250;` with its comment, after `ARRIVAL_BEAT_MS`,
+  and the bounds comment extended with `150 <= FLIP_BEAT_MS` and
+  `FLIP_BEAT_MS * 2 <= ARRIVAL_BEAT_MS`. In `motion.rs`, per plan §Design 2
+  and tension 9: `Elem::Hand(Player, usize)` (the emptied hand slot), with
+  `side` covering it; `SideSnapshot` gains `hand: [bool; HAND_SIZE]`, built in
+  `of` as `std::array::from_fn(|i| p.hand.get(i).is_some_and(Option::is_some))`;
+  `diff_side`, after the shrink check and the two row loops, pushes
+  `(Elem::Hand(who, i), ms(ARRIVAL_BEAT_MS))` for each `i` with
+  `prev.hand[i] && !curr.hand[i]`; `pub fn is_face_down(&self, elem: Elem) ->
+  bool` — `self.arrivals.iter().any(|(e, left)| matches!(e, Elem::Dealer(..))
+  && *e == elem && *left + ms(FLIP_BEAT_MS) > ms(ARRIVAL_BEAT_MS))`, true only
+  for a `Dealer` arrival (the guard is the function's, not the caller's — a
+  freshly pushed `Played` card has `left == ARRIVAL` too), with the plan's
+  doc; import `FLIP_BEAT_MS` and `HAND_SIZE`. No new clock and no new field
+  beyond `hand`.
+  Tests (plan §Tests, *Revision 1*): extend
+  `beats_are_named_constants_within_bounds` with the two flip assertions; add
+  `a_dealt_card_is_face_down_for_the_flip_beat_then_faces_up` and
+  `a_play_ghosts_its_hand_slot_for_one_beat` — hands set by hand
+  (`gs.player.hand = vec![Some(Card::Plus(3)), Some(Card::Minus(2)), None, None]`),
+  never sleeping; the other seven Phase 1 tests pass unedited. Do not run
+  `cargo fmt`. (Copies: `motion.rs`'s own
+  `a_dealt_card_and_its_total_arrive_for_one_beat` and
+  `a_cleared_row_discards_its_transitions_and_starts_none` for the seed →
+  change → `observe` shape and `side_settled`.)
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim with the two new tests and the extended bounds test passing; `git
+  diff --stat` shows only `src/lib.rs` and `src/motion.rs`; `git diff --
+  src/lib.rs` adds one constant line and extends one comment; the
+  implementer's report quotes `is_face_down` and the hand loop in `diff_side`
+  verbatim.*
+
+- [x] **T003c** — `src/board.rs` + `src/frame.rs` (one doc-comment line): the
+  board draws the shapes. Per plan §Design 3 (Revision 1): the free fn
+  `face_down(motion, e) -> bool` beside `arriving`; in `draw_side`, the dealer
+  loop sets `v.weight = BorderWeight::Heavy` and `v.emphasis = Emphasis::Strong`
+  while `Elem::Dealer(who, i)` is arriving and `v.text = "?".to_string()`
+  while it is also `face_down`; the played loop sets `v.weight` to `Heavy`
+  while `Elem::Played(who, j)` is arriving and `Double` otherwise, `Strong`
+  while arriving; the hand loop's `None` arm draws
+  `CardView::new(x, y, String::new())` at `card_slot(side.hand, i, 0)` while
+  `Elem::Hand(who, i)` is arriving, then `continue`s as today (no number key).
+  Update `draw_side`'s doc: a landing card borrows the heavy border for its
+  beat, a dealt one is face down for the flip beat, an emptied slot shows its
+  outline (spec 027 Revision 1). In `frame.rs`, the `BorderWeight` doc's
+  "Heavy is reserved for cursor selection" becomes "Heavy is reserved for
+  cursor selection (and, for one arrival beat, a card landing on the board —
+  spec 027)"; no code change there. `status_lines`, `draw_side_header`, the
+  popup guard and the hand's `Some` arms are untouched. Tests (plan §Tests,
+  *Revision 1*): extend `arrivals_draw_strong_then_settle_on_both_layouts`
+  with the corner-glyph and face assertions (`┏` and `?` on the first frame;
+  `5` with `┏` after `observe(FLIP_BEAT_MS)`; `┌`/`╔`/`┌` settled) and add
+  `a_played_card_lands_heavy_and_its_hand_slot_ghosts` at both widths, which
+  also asserts the played card's middle row reads its value (`+3` / `+2`) on
+  the first frame — a played card is never face down. **Read faces by row,
+  not by cell**: centring may round the face off by one, so a
+  `slot_face_row(frame, rect, col, row) -> String` helper beside
+  `slot_corner_emphasis` returns the middle interior row (`x + 1 ..= x +
+  CARD_WIDTH − 2` at `y + CARD_HEIGHT / 2`); assert `trim() == "?"` / `"5"` /
+  `"+3"` for a face, and that the whole row is blank for the ghost. Do not run
+  `cargo fmt`.
+  (Copies: `board.rs`'s own `arrivals_draw_strong_then_settle_on_both_layouts`
+  for `motion_from` and the settled-equals-Off assertion; the hand loop's
+  `Some(sel)` arm for building a `CardView` by hand.)
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim with the new test and the extended one passing and every other
+  `board.rs` test unedited; `git diff --stat` shows only `src/board.rs` and
+  `src/frame.rs`; `git diff -- src/frame.rs` is one comment line; the
+  implementer's report quotes the three changed loops verbatim.
+  **Phase 1b review** (`skeptical-reviewer`, opus, on the T003b + T003c diff),
+  then **PAUSE for the person**: the orchestrator drives the Phase 1b
+  walkthrough in plan §Verification at **89×31 and 139×31** with the
+  `run-kaazap` skill — real profile, settings and save backed up and
+  checksummed first, restored and checksum-verified after — and reports in
+  plain language: on a hit the new card thick-bordered with a `?` that turns
+  into its value after about a quarter second, thinning to match the row
+  about half a second later; on a play the card landing thick then settling
+  to its double border while the slot it left shows an empty outline for the
+  same beat, then blank; the opponent's dealt card, played card and hand
+  outline landing together; the score, the popup beat and the dots as before.
+  Then the person plays it and may ask for a beat tuning within the spec's
+  bounds — **T003a**, editing only the four constants in `src/lib.rs` (the
+  bounds test guards).*
+
+- [x] **T003d** — Revision 2 (spec Q11, the person at the Phase 1b pause:
+  "just remove the initial `?` and call it good"): withdraw the flip. In
+  `src/lib.rs` remove `FLIP_BEAT_MS` and its clause in the bounds comment
+  (three constants again). In `src/motion.rs` remove `is_face_down`, the
+  `FLIP_BEAT_MS` import, the two flip assertions in
+  `beats_are_named_constants_within_bounds`, the test
+  `a_dealt_card_is_face_down_for_the_flip_beat_then_faces_up` and the
+  `flip()` helper; keep `Elem::Hand`, the ghost rule and every other test. In
+  `src/board.rs` remove the `face_down` free fn and the `?` branch of the
+  dealer loop (a dealt card draws `c.display_text()` heavy + Strong while
+  arriving); in the tests, drop the `?` assertion and the `observe(FLIP)`
+  intermediate step of `arrivals_draw_strong_then_settle_on_both_layouts`
+  (settle with one `observe(ARRIVAL_BEAT_MS)` as in Phase 1; keep the corner
+  glyph and face assertions, the face reading `5` on the first frame), and
+  the `FLIP_BEAT_MS` import. Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim; `grep -rn "FLIP\|face_down" src/` is empty; `git diff --stat`
+  shows only `src/lib.rs`, `src/motion.rs`, `src/board.rs`; the settled frame
+  still equals the `None` frame (existing assertions).*
+
+## Phase 2 — The Animations setting and the documents
+
+<!-- T004 adds the row, gates the board and lands the README and brief lines;
+the phase ends with the review and the last walkthrough. -->
+
+- [x] **T004** — `src/settings.rs` + `src/app.rs` + `src/audio.rs` (tests
+  only) + `Readme.md` + `design/brief.md`: the Animations row. In
+  `settings.rs`, per plan §Design 5: `animations: bool` with `#[serde(default
+  = "default_animations")]` (true) and its doc, in `Default`; move
+  `VOLUME_STEP` here from `app.rs`; `pub fn adjust(&mut self, row, right:
+  bool)`; `SettingRow::Animations`; `const ROWS: [SettingRow; 3]`;
+  `SettingsAction::{Up, Down, Left, Right, Back}` (rename `Quieter`/`Louder`);
+  `move_up`/`move_down` by index in `ROWS`, clamped; `draw_overlay` with a
+  `row_text(row, settings)` helper, three rows, content height 7, hint `↑/↓
+  select  ·  ←/→ change  ·  Esc back`; update the struct doc's "Two for now"
+  comment. In `app.rs`, per plan §Design 4: `handle_settings_input`'s
+  `Left | Right` arm calls `self.settings.adjust(row, right)` then
+  `set_settings`, `save`, `MenuMove` as today; remove `VOLUME_STEP`; `draw`'s
+  `InGame` arm becomes `self.settings.animations.then_some(&self.motion)`
+  (drop the T003 comment). In `audio.rs`, add `..Settings::default()` to the
+  three `Settings { … }` test literals; in `settings.rs`'s existing tests add
+  the field. Tests (plan §Tests), `settings.rs`:
+  `settings_animations_default_on_missing_key_on_and_off_reads_off`,
+  `adjust_toggles_animations_and_steps_volumes`,
+  `settings_rows_move_over_three_rows_and_clamp`,
+  `the_animations_row_reads_on_or_off_and_fits`; `app.rs`: add the Off step to
+  `the_board_transitions_after_a_hit_and_settles_when_animations_are_off`
+  (`app.settings.animations = false` → slot 0's corner `┌` at `Normal`, its
+  middle interior row (`slot0_x + 1 ..= slot0_x + CARD_WIDTH − 2` at
+  `slot0_y + CARD_HEIGHT / 2`, trimmed) reading `7` — the card T003's test
+  pushes is `Dealer(7)` — and the plain `Opponent's Turn`; `true` → `┏`,
+  `Strong` again (Revision 2: no `?` — the face reads `7` On and Off) — set the field
+  directly, never through `handle_settings_input`, which writes the real
+  settings file; the step reuses T003's hand-set `OpponentThinking` state, so
+  its `until` stays the far-future deadline for the same reason). In
+  `Readme.md` ~line 19 and `design/brief.md`'s Motion section, the exact
+  wording in plan §Design 6. Do not run `cargo fmt`. (Copies: `settings.rs`'s
+  own `draw_overlay` and tests; `menu.rs`'s cursor index handling for the
+  clamped row move.)
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim with the four new tests and the extended app test passing; `git
+  diff --stat` shows only `src/settings.rs`, `src/app.rs`, `src/audio.rs`,
+  `Readme.md`, `design/brief.md`; `git diff -- src/audio.rs` touches only
+  `mod tests`; `grep -rn "Louder\|Quieter" src/` is empty; `grep -n
+  "Animations" Readme.md` finds the clause; `grep -n "spec 027" design/brief.md`
+  finds the sentence in the Motion section.
+  **PAUSE for the person** (after the Phase 2 review): the orchestrator drives
+  the Phase 2 walkthrough in plan §Verification with the `run-kaazap` skill —
+  real profile, settings and save backed up and checksummed first, restored
+  and checksum-verified after — and reports in plain language: the third row
+  and its `On`/`Off`; the settings file on disk showing `"animations": false`
+  after a toggle; a match with it Off showing thin single-bordered dealt cards
+  with their value from the first frame, double-bordered plays, no
+  outline in an emptied hand slot, no bold score, the popup on the resolving
+  frame and the plain thinking line; back On, the Phase 1 and 1b checks
+  holding; a settings file with the key removed reading On. Then the person
+  tries it.*
+
+- [x] **T004a** — The Animations row aligned (the person, 2026-09-19, on the
+  Phase 2 review's N1): in `src/settings.rs`, make the Animations row the
+  same width as the two volume rows so the `▸` marker, the label and the
+  On/Off value sit in the volume rows' columns — pad the row to the volume
+  rows' 28-character width, the value one space after the label (the label
+  is wider than the volume label column, so the value lands two columns
+  right of the bar's start — accepted by the orchestrator when the
+  implementer stopped on the original "at the bar's column" wording), keeping
+  `Align::Center` and the 38-column content width; correct `row_text`'s doc
+  (review N2: it claims every row is the same width — make it true or say
+  what is aligned). Extend `the_animations_row_reads_on_or_off_and_fits` to
+  assert the Animations row's `▸`/label column equals the Music row's (read
+  both rows, compare the column of `Music` and `Animations` after trimming
+  the box border) with the value at the bar's column. No other row or key
+  changes; `content_width` stays 38. Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q`
+  green verbatim; `git diff --stat` shows only `src/settings.rs`; the
+  implementer quotes the Animations row text and its width.*
+
+## Final phase — Spec close-out
+
+- [x] **T005** — Close-out. Draft
+  `specs/027-animation-pass/closeout-main-docs.md` in spec 026's shape:
+  **ROADMAP** — mark the animation pass shipped as spec 027 (`grep -n -i
+  "animation" ROADMAP.md`, read and judge), and close spec 016's "light
+  portrait animation" deferral with the repo's inline "closed by spec 027 (Q5
+  A): portraits stay static" convention; **DECISIONS** — the rulings (Q1 a–e in,
+  f out; Q2 A emphasis-only arrival; Q3 A the pulse keeps breathing and the
+  brief's amendment; Q4 A the Animations row, missing key reads On; Q5 A
+  portraits static; Q6 A board only; the person's ruling on plan §Open
+  questions 1, the Score's resting weight; **Revision 1** — Q8 a dealer card
+  lands heavy (and, until Revision 2's Q11 withdrew it, face down for a
+  flip beat), Q9 a played card lands heavy
+  with a source ghost in the hand slot it left, Q10 the Score transition as
+  built, ruled at the Phase 1 pause after the bold arrivals did not register,
+  and written into `spec.md` in the implementation session at the person's
+  ruling — a stated deviation from the constitution's spec-session rule), plan
+  tension §2 (one struct observed in `tick`, `None` is the settled draw), §4
+  (a shrunk row is a clear), §7 (the `Left`/`Right` rename and
+  `Settings::adjust`), §9 (the ghost is an `Elem`, the heavy landing is the
+  exception to the brief's "distinct weights, distinct meanings", and the
+  flip — a read of the arrival's countdown — was built and withdrawn), and
+  the three beat values as shipped
+  (after any T003a tuning) — to apply on `main` after the merge, never on the
+  branch. Run `cargo test -q` three consecutive times and paste the tails.
+  Mechanical checks (three-dot, since `main` may move): `git diff main...HEAD
+  --stat` lists none of `src/game.rs`, `src/main.rs`, `src/render.rs`,
+  `src/layout.rs`, `src/portrait.rs`, `src/card.rs`, `src/player.rs`,
+  `src/save.rs`, `src/profile.rs`, `src/economy.rs`, `src/wager.rs`,
+  `src/campaign.rs`, `src/campaign_map.rs`, `src/opponent.rs`,
+  `tests/balance.rs`, `Cargo.toml`, `Cargo.lock`; `git diff main...HEAD --
+  src/frame.rs` is one doc-comment line (T003c); `git diff main...HEAD --
+  src/audio.rs` touches only `mod tests`; `grep -n "VERSION" src/save.rs
+  src/profile.rs` still reads 1 and 1; `grep -rn "Color" src/` shows nothing
+  new against `main`; `cargo build --all-targets` warning count equals
+  `main`'s; the three constants in `src/lib.rs` satisfy the bounds (the T001
+  test is green; `grep -n FLIP src/` is empty after T003d). Check off
+  `spec.md`'s acceptance criteria with evidence (the T003, T003c and T004
+  walkthrough reports are the evidence for the driver criteria). Request the
+  pre-merge sweep; apply `closeout-main-docs.md`
+  on `main` after the merge. Never chain a file edit, a branch switch and a
+  commit in one shell command (spec 025's miss).
+  *Verify: three green tails, zero failures; every mechanical check listed with
+  its command and output; sweep clean or findings resolved.*
+
+---
+
+## Handoff note
+
+Read `CLAUDE.md` and `specs/027-animation-pass/{spec,plan,tasks}.md`, then
+implement from the first unchecked task. Involvement level is **product
+owner**. **Experiment 2 is live**: dispatch each task to
+`sdd-implementer-fable` (Fable 5.1, medium) on a shell-assembled task bundle
+(task line, plan section, acceptance criteria, files, the pattern file to
+copy); fall back to `sdd-implementer` (opus, high) only when Fable's allowance
+runs out, and log the fallback as a result — never infer the budget from a
+successful dispatch. Verify from the implementer's verbatim output, except
+**T001 (`review: per-task`)**: the orchestrator re-runs the verification
+command itself, then dispatches a `skeptical-reviewer` (opus) on T001's diff
+alone before T002 starts. **Foundational phase: Phase 1.** One
+`skeptical-reviewer` pass (opus) at the end of each phase — after T003, after
+T003c (Phase 1b, Revision 1) and after T004 — on a shell-assembled bundle (the
+phase diff, the task lines, plan §Design and §Tests, the acceptance criteria),
+one review plus at most one re-review; the Phase 1 and 1b reviews also check
+the changed board and the Phase 2 review the changed Settings overlay against
+the constitution's *acted-on element stands apart* rule and the modal padding
+rule (plan tension 8 states the reading). **Pause cadence**: pause after
+**every** phase for the person, per the constitution, unless the person says
+to run further — after Phase 1 once the review is done and the orchestrator's
+89×31 + 139×31 walkthrough in T003 is reported in plain language (the person
+sees the transitions before the setting exists; a beat tuning becomes T003a),
+after Phase 1b once its review and the T003c walkthrough at both widths are
+reported (the heavy landings, the flip and the ghost — the person judges
+whether the arrivals now register), and after Phase 2 once the review and the
+settings walkthrough in T004 are reported. Back up + checksum-restore
+the real profile, settings and save before and after every driver session —
+this spec's walkthroughs write the settings file on purpose. Repo-wide docs
+(`ROADMAP.md`, `DECISIONS.md`) change only via `closeout-main-docs.md` on
+`main` after the merge; `Readme.md` and `design/brief.md` ride in on the branch
+(T004). Never run `cargo fmt`.
+
+Plan §Open questions 1 (the Score's resting weight) was ruled at planning as
+spec Q7 (the Score rests `Normal`) and flagged to the person in the conformance
+summary; if the person overrules it before T001 starts, the orchestrator edits
+T001 and T002 before dispatching, per the header note above Phase 1.
+
+Model & effort: the session runs at the session tier (`claude-fable-5-1` at
+medium, from `.claude/settings.json`); the planner and the sign-off ran at the
+top tier (fable, high, per-call override). Implementation runs on
+`sdd-implementer-fable` (experiment 2), the phase reviews and the sweep at
+opus. A task that isn't routine goes to a decision review at the top tier,
+never resolved by the session; a product question `spec.md` doesn't settle
+goes to the person. Every session-ending pause ends with a continuation prompt
+(spec directory, files to read, where to resume, involvement level, pause
+cadence, any model switch) in its own fenced block.
+
+## Tier log (this spec, under the model policy)
+
+<!-- Experiment 2's measures: dispatches per task (1 = done in one dispatch;
+count re-dispatches and fallbacks), first-try rate (verification green on the
+first return, no re-dispatch), and blocking findings per phase review. One row
+per implementer run and per reviewer invocation; a summary row per phase the
+orchestrator fills at that phase's review. Record token usage from each
+subagent return and any escape-hatch miss (a task the orchestrator had to redo,
+and why). -->
+
+| Task / invocation | Tier (dispatched → ran) | Tokens | Dispatches | First try | Blocking findings | Outcome / miss reason |
+|---|---|---|---|---|---|---|
+| **Experiment 2 live** — 2026-09-18. Implementer `sdd-implementer-fable` (`claude-fable-5-1`, medium), fallback `sdd-implementer` (opus, high); reviewer opus (high); planner and sign-off at the top tier (fable, override). Compare against spec 026's log (the first full Experiment 2 spec: 6/6 first try, ~280K implementer total). Fable allowance reading at planning: 30% of the weekly Fable window used (70% remaining) at the implementation session start, 2026-09-18. | — | — | — | — | — | header |
+| Planning: draft (sdd-planner) | fable (override) → fable | ~120K (planner's own estimate: ~85K read — bundle, board.rs, settings.rs, frame.rs, main.rs, banter.rs, lib.rs, the app.rs and game.rs sections, the brief's Motion section — the rest reasoning and the two files) | 1 | yes | — | drafted; 5 tasks in 3 phases, Phase 1 foundational, T001 `review: per-task`; one product question (the Score's resting weight, plan tension 1) for the person at sign-off; 4 design choices flagged for sign-off |
+| Planning: draft (sdd-planner) — measured | fable (override) → fable | ~181K (measured return for the draft dispatch) | — | — | — | the measured figure for the draft row above; the planner's own estimate was ~120K |
+| plan + tasks sign-off (skeptical-reviewer) | fable (override) → fable | ~131K (measured return; reviewer's own estimate ~86K: ~64K bundle, ~14K four out-of-bundle reads, ~8K reasoning and report) | 1 | — | 1 (B1: T003's hand-set `OpponentThinking` with `until: Instant::now()` fires the pause in `update()`, writes the real save file and fails the thinking-line assertion) + notes N1–N5 | B1, N1, N2, N4 sent to the planner; N3 (density rule on Settings) and N5 (opponent-decided rounds resolve one tick later, inside the bounds) no change |
+| Planning: sign-off notes (sdd-planner, same context) | fable (override) → fable | ~12K (measured delta of the cumulative return, 193K − 181K; planner's own estimate ~20K) | 1 | yes | — | B1 (far-future `until` in tasks T003, plan §Tests T003, T004's Off step), N1 (tension 1 and §Open questions 1 closed with Q7), N2 (motion import allowed in T003's Verify), N4 (tension 5 notes the resumed-at-thinking first frame) applied; both files still Draft |
+| plan + tasks re-review (skeptical-reviewer, same context) | fable (override) → fable | ~5K (measured delta, 136K − 131K) | 1 | — | 0 | signed off; R1 (handoff note one revision behind) applied by the orchestrator; Draft flipped to Signed off |
+| T001 (sdd-implementer-fable) | fable → fable | ~47K (measured; implementer's own estimate ~30K) | 1 | yes | — | lib.rs + motion.rs, 8 tests; verification green (432 unit tests, 0 warnings); orchestrator re-ran it (per-task) |
+| T001 per-task review (skeptical-reviewer) | opus → opus | ~58K (measured; reviewer's own estimate ~38K) | 1 | — | 0 | clean. Notes for the sweep: N1 the dot clock does not restart on `restart_opponent_pause` or a back-to-back pause (snapshot holds a bool; AC 5 holds either way — plan tension 5 wording vs implementation); N2 the `Dealer(who, 1)` assert in the dealt-card test is vacuous, the real claim is pinned by the independent-clocks test; N3 `popup_due()` is true whenever unresolved — the board must keep its outcome gate (the plan's guard does); N4 the seed rule needs a fresh `BoardMotion` per match entry (plan §Design 4's reset does this); N5 a same-frame clear-and-refill would slip the shrink rule — not reachable today |
+| T002 (sdd-implementer-fable) | fable → fable | ~58K (measured; implementer's own estimate ~53K) | 1 | yes | — | board.rs reads the motion (+ the one `None` in app.rs); 3 tests; verification green (435 unit tests, 0 warnings); settled-with-motion frame equals the `None` frame on both layouts |
+| T003 (sdd-implementer-fable) | fable → fable | ~58K (measured; implementer's own estimate ~51K) | 1 | yes | — | app.rs feeds the motion (field, tick observer, draw argument); 2 tests; verification green (437 unit tests, 0 warnings); T004 gates the draw argument and adds the Off step |
+| Phase 1 review (skeptical-reviewer) | opus → opus | ~78K (measured; reviewer's own estimate ~55K) | 1 | — | 0 | clean; signed off. Notes for the sweep: N1 the key→tick→draw ordering in `main.rs` is load-bearing and pinned only by the walkthrough (seen: `n` and the resolving frame behave as specified); N2 no board test distinguishes the sides' arrivals (a swapped `who` would pass) — candidate one-line asymmetric test; N3 the thinking suffix attaches to whatever `status_message` returns — confirm it is always the opponent's line in `OpponentThinking`; N4 satisfied, with the `g` rematch settled by the shrink rule rather than the seed; N5 the popup board test runs at 89 only (as planned); N7 test-module imports mid-module (style) |
+| **Phase 1 summary** | fable implementer ×3, opus reviewer ×2 | implementer ~163K total (47K + 58K + 58K), reviewer ~136K (58K + 78K) | 3/3 tasks in one dispatch each | 3/3 | 0 | no fallback to opus needed; Fable weekly allowance 30% used at session start. Walkthrough (orchestrator, attribute-tracking driver copy in the scratchpad, 89×31 and 139×31, real data backed up and checksum-restored): dealt card bold on its frame and settled by ~1 s, Score bold only when it changed (a dealt 0 left it plain), `Rounds won` never bold, cursor still breathing; dots `.`/`..`/`...` stepping through the pause, plain line once the opponent acted; opponent's card and Score bold when they landed; round resolved with no popup for two 0.4 s samples, popup by 0.8 s; `n` pressed on the resolving frame started the next round with no popup ever drawn; game-over popup absent at 0.1 s, present at 1.1 s, `g` gave a settled board; Continue on a save left at the popup drew the popup on the first frame with nothing bold; Continue mid-match drew settled; at 89 the dots on the band's lower row (row 30) with the alert/stake row above |
+| Revision 1 planning: draft (sdd-planner) | fable (override) → fable | ~161K (measured; planner's own estimate ~110K) | 1 | yes | — | spec Q8–Q10 at the Phase 1 pause (the person's finding: hit/play arrivals invisible); plan and tasks amended in place — tension 9, FLIP_BEAT_MS = 250, `Elem::Hand` ghost under the shrink rule, `is_face_down` as a read of remaining time, Phase 1b (T003b, T003c) with its own review and pause; 6 choices flagged; no product question. The revision itself was made in the implementation session at the person's ruling — a stated deviation from the spec-session rule |
+| Revision 1 sign-off (skeptical-reviewer) | fable (override) → fable | ~93K (measured; reviewer's own estimate ~79K) | 1 | — | 1 (B1: `is_face_down` was variant-agnostic, so a fresh Played card read face down and T003b's own test would fail) + N1–N6 | B1, N1, N2, N4 sent to the planner; N3 (card.rs's stale "Heavy marks cursor selection" comment, forbidden file — name it in DECISIONS), N5 (brief's "distinct weights" rule: exception recorded in DECISIONS, not the brief) for T005/the sweep |
+| Revision 1 sign-off notes (sdd-planner, same context) | fable (override) → fable | ~8K (measured delta, 169K − 161K; planner's own estimate ~12K) | 1 | yes | — | B1 (Dealer guard in `is_face_down`, played face asserted on the first frame), N1 (faces read by the trimmed middle row), N2 (Dealer(7) verified), N4 (checked T003's constants count) applied |
+| Revision 1 re-review (skeptical-reviewer, same context) | fable (override) → fable | ~27K (measured delta, 120K − 93K) | 1 | — | 0 | signed off; Draft flipped to Signed off by the orchestrator |
+| T003b (sdd-implementer-fable) | fable → fable | ~59K (measured; implementer's own estimate ~50K) | 1 | yes | — | FLIP_BEAT_MS, Elem::Hand, the ghost rule, is_face_down (Dealer-guarded); 2 new tests + extended bounds test; verification green (439 unit tests, 0 warnings) |
+| T003c (sdd-implementer-fable) | fable → fable | ~73K (measured; implementer's own estimate ~45K) | 1 | yes | — | board draws heavy landings, the `?` face and the source ghost; 1 new test, arrivals test extended; verification green (440 unit tests, 0 warnings); frame.rs doc comment rewrapped onto two lines (comment-only) |
+| Phase 1b review (skeptical-reviewer) | opus → opus | ~80K (measured; reviewer's own estimate ~48K) | 1 | — | 0 | clean; signed off. For the sweep: N1 no board assertion that a sibling dealer card stays single/Normal while another lands (two lines in the popup test would pin it); N4 the heavy border's second meaning is squared only by T005's DECISIONS entry; N5 a redundant `FLIP_BEAT_MS` import in motion's test module. For the person: N2 the deciding card reads `?` for the first 250 ms of its uncovered window (authorized by Q8, worth judging on a bust); N3 the source ghost appears beside the cursor right after a play |
+| **Phase 1b summary** | fable implementer ×2, opus reviewer ×1; planning and sign-off at fable | implementer ~132K (59K + 73K), reviewer ~80K, planning ~169K + sign-off ~120K | 2/2 tasks in one dispatch each | 2/2 | 0 | no fallback needed. Walkthrough (orchestrator, attribute-tracking driver, 89×31 and 139×31, real data backed up and checksum-restored): a hit lands with the heavy border showing `?` at 0.1 s, its value at 0.35 s still heavy, settled to the thin border by 0.75 s; a play lands heavy in the grid while the emptied hand slot keeps a plain outline and loses its number key, then settles to the double border with the slot blank; the cursor moved to the next card and kept breathing; the opponent's dealt card flips the same way; presence panel unchanged at 139 |
+| T003d (sdd-implementer-fable) | fable → fable | ~30K (measured; implementer's own estimate ~18K) | 1 | yes | — | Revision 2: flip withdrawn (FLIP_BEAT_MS, is_face_down, face_down, the `?` branch, one motion test); verification green (439 unit tests, 0 warnings); `grep FLIP\|face_down src/` empty; no separate walkthrough — the person ruled "remove the `?` and call it good" |
+| T004 (sdd-implementer-fable) | fable → fable | ~54K (measured; implementer's own estimate ~45K) | 1 | yes | — | Animations row, `Settings::adjust`, Left/Right rename, README and brief lines; 4 new tests + the Off step; verification green (443 unit tests, 0 warnings). Deviation noted: row text `Animations On` with one space (the plan's `{label:<9}` would have padded nothing) |
+| Phase 2 review (skeptical-reviewer) | opus → opus | ~53K (measured; reviewer's own estimate ~30K) | 1 | — | 0 | clean; signed off. For the person: N1 the `▸` marker, label and value shift ~6 columns right on the Animations row (each row is centred; the third row is shorter than the volume rows). For the sweep: N2 `row_text`'s doc claims the rows are column-aligned (false after N1); N3 plan §Design 5's format string corrected by the orchestrator; N4 the App Left/Right → `adjust` arm is checked only by the walkthrough (authorized by the plan); N5 the fits test recomputes the box geometry; N6 `ROWS`/`SettingRow` are two lists; N7 a long doc line in app.rs; N8 the hint wording change is plan-authorized |
+| **Phase 2 summary** | fable implementer ×1, opus reviewer ×1 | implementer ~54K, reviewer ~53K | 1/1 | 1/1 | 0 | no fallback needed. Walkthrough (orchestrator, driver at 89×31, real data backed up and restored — the save restored is the person's own newer one from 2026-09-19 10:53, not the older backup): Settings shows Music, Sound FX, Animations On; ↓↓ reaches the row; → flips it to Off and the file on disk gains `"animations": false`; a Quick Play hit with it Off draws the thin card with its value, plain `Opponent's Turn` with no dots, a play lands double-bordered with the hand slot blank, and the round popup is on the resolving frame; → again reads On and the file says `true`; a hit then lands heavy with the dots stepping; a file with the key deleted reads On |
+| T004a (sdd-implementer-fable) | fable → fable | ~32K (measured; implementer's own estimate ~17K) | 1 | yes (stopped on a judgment call: the orchestrator's "value at the bar's column" was impossible with a 10-character label; the delivered row — padded to 28, value one space after the label — was accepted, the task line reworded) | — | Animations row aligned with the volume rows' marker and label columns; test extended; verification green (443 unit tests, 0 warnings) |
+| T005 draft (sdd-implementer-fable) | fable → fable | ~93K (measured; implementer's own estimate ~72K) | 1 | yes | — | closeout-main-docs.md drafted (ROADMAP ×3 edits, DECISIONS entry, checks §4); spec.md criteria 1–13 checked with evidence; three green tails (443 unit tests), 0 warnings, no forbidden file, versions 1/1, no Color, no FLIP; pending the sweep |
+| Pre-merge sweep (skeptical-reviewer) | opus → opus | ~158K (measured; reviewer's own estimate ~115K) | 1 | — | 1 (B1: the close-out's attestation sentences claimed both widths for the Phase 2 walkthrough, which ran at 89 only) + N1–N8 | B1, N1 (sweep note list), N5 (plan §Non-goals after Q11) applied by the orchestrator (document edits). After-merge chore candidates: N2 sibling-card assertion, N3 side-distinguishing board assertion, N7 `ROWS`/`SettingRow` two lists and the fits test's recomputed geometry. Record only: N4 dot clock on back-to-back pauses, N6 the brief's "distinct weights" exception lives in DECISIONS/frame.rs, N8 main's warning count inferred from spec 026's log |
+| Sweep re-review (skeptical-reviewer, same context) | opus → opus | ~4K (measured delta, 161K − 158K) | 1 | — | 0 | clean; merge |
+| **Spec 027 totals** | — | implementer 7 dispatches ≈ 388K (47+58+58+59+73+30+54+32 ≈ 411K incl. T004a; T005 draft 93K → ≈ 504K); reviewer opus 6 invocations ≈ 486K; planning + sign-offs at fable ≈ 651K | 8/8 implementer tasks in one dispatch each (T004a stopped on an impossible wording of the orchestrator's and was accepted as delivered) | 8/8 | 1 (sweep B1, a close-out sentence) | Experiment 2 held for the whole spec: no fallback to opus for any task; Fable weekly allowance 30% at start (final reading in the merge report). Compare spec 026: 6/6 first try, ~280K implementer |

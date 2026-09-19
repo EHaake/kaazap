@@ -377,14 +377,17 @@ mod tests {
 
     #[test]
     fn audio_gating_respects_mute_and_volume() {
-        let on = Settings { music_volume: 0.5, sfx_volume: 0.8 };
-        let silent = Settings { music_volume: 0.0, sfx_volume: 0.0 };
+        let on = Settings { music_volume: 0.5, sfx_volume: 0.8, ..Settings::default() };
+        let silent = Settings { music_volume: 0.0, sfx_volume: 0.0, ..Settings::default() };
         assert!(should_play_sfx(false, on));
         assert!(!should_play_sfx(true, on)); // muted
         assert!(!should_play_sfx(false, silent)); // sfx volume 0
         assert!(should_music_sound(false, on));
         assert!(!should_music_sound(true, on)); // muted
-        assert!(!should_music_sound(false, Settings { music_volume: 0.0, sfx_volume: 0.8 }));
+        assert!(!should_music_sound(
+            false,
+            Settings { music_volume: 0.0, sfx_volume: 0.8, ..Settings::default() }
+        ));
     }
 
     // A player cue (normal pitch) and an opponent cue (lower pitch).
