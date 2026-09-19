@@ -131,23 +131,78 @@ further, and whenever something unexpected bears on spec adherence.
 
 ## Model policy
 
-- **Tiers by name**: top tier `fable`; implementation tier `opus`;
-  session tier `fable` at medium effort (experiment 1 — the top and
-  session tiers are the same model at different effort; the fallback
-  session model is `claude-opus-5`, the full ID, since the person's
-  ruling of 2026-09-16; it was `claude-opus-4-8` before then, a
-  previous-generation model with no short alias). These names are the
-  only place a model is spelled out; everything below refers to the
-  roles.
-  - Task implementer: `sdd-implementer` (the implementation tier, opus at high)
-  - Close-out dispatch: `sdd-implementer-fable` under the standard profile
+**Standard profile** — this project's. Top tier `fable`; implementation
+tier `opus`; session tier `fable` at medium effort (the top and session
+tiers are the same model at different effort; the fallback session model
+is `claude-opus-5`, the full ID, since the person's ruling of
+2026-09-16; it was `claude-opus-4-8` before then, a previous-generation
+model with no short alias). Settings from the skill's
+`project/.claude/settings.json`.
+
+**Economy profile** (a small or personal project, or one that should
+leave the top tier's separate allowance to other projects). One model
+family throughout: top tier `opus`; implementation tier `opus`; session
+tier `claude-opus-4-8` at medium effort. Nothing runs on Fable: the
+planner and sign-off dispatches carry no override, and the top-tier
+fallback below never applies. Settings from the skill's
+`project/.claude/settings.economy.json`. Move to the standard profile
+when a spec's plan is the kind a stronger planner would change — a
+sign-off that keeps finding blocking problems is the signal.
+
+These names are the only place a model is spelled out; everything
+below refers to the roles.
+
+### The role table
+
+Every dispatch in this project resolves here. Cells hold tier names,
+never model IDs, so switching profile re-points every row at once and
+the three names above stay the only place a model is spelled out.
+"Override" means the orchestrator passes a per-call model override on
+that dispatch; without one, the agent's own frontmatter applies, and
+every agent definition defaults to the implementation tier except
+`sdd-implementer-fable`, which pins the top tier's model at medium.
+
+| Role | Dispatched as | Model | Effort |
+|---|---|---|---|
+| Spec conversation | the spec session itself | session tier | high (raised per session) |
+| Plan and tasks draft | `sdd-planner` | **top tier** (override) | high |
+| Plan and tasks sign-off | `skeptical-reviewer` | **top tier** (override) | high |
+| Decision review | `skeptical-reviewer` | **top tier** (override) | high |
+| Task implementation | `sdd-implementer` | implementation tier | high |
+| Close-out task | `sdd-implementer-fable` | top tier | medium |
+| Per-task and phase review | `skeptical-reviewer` | implementation tier | high |
+| Pre-merge sweep | `skeptical-reviewer` | implementation tier | high |
+| Orchestration and bookkeeping | the session itself | session tier | medium |
+
+**Moving a role.** Edit its row, nothing else. To step a role down,
+replace **top tier** (override) with "implementation tier (no
+override)"; the dispatch then carries no override and the agent runs
+at its own default. To change the implementer, change the agent name
+in that row — both definitions stay installed, so it is a word, not a
+reinstall. Under the economy profile the top tier *is* the
+implementation tier, so the overrides become no-ops and the close-out
+row reads `sdd-implementer`; nothing else in the table changes.
+
+**A change the person asks for gets written here before it is acted
+on.** If they say to move a role — for one window, for this project,
+for good — edit the row, note it in the current spec's tier log with
+the date and which spec it changed at, and commit, in the same turn,
+*before* the next dispatch. Then do it. A model preference that lives
+only in a session's context is gone at the next session boundary and
+the next session will not know it ever existed, which is the one
+failure this whole repo-as-interface arrangement exists to prevent.
+If the person frames it as temporary ("while my allowance is low"),
+write the row with the condition and the date in the comment, so
+whoever reads it next knows when it stops applying and can ask. Never
+infer the end of a temporary change and revert it unasked.
+
 - **The session runs at the session tier, at medium effort**, set in
   this repo's `.claude/settings.json` — written at project setup from
   the profile's settings file in the skill's `project/.claude/`
   (`settings.json` for the standard profile, `settings.economy.json`
-  for economy) (`"model":
-  "claude-fable-5-1"`, `"effortLevel": "medium"`, and a level under
-  `"modelSettings"` for each tier's full model ID). If that file is missing or lacks these
+  for economy) (`"model": "claude-fable-5-1"`, `"effortLevel":
+  "medium"`, and a level under `"modelSettings"` for each tier's full
+  model ID). If that file is missing or lacks these
   keys, recreate it from the template and commit it before dispatching
   anything; nobody creates it by hand. Project settings outrank user
   settings, so a model picked in the app's picker only affects the
@@ -158,10 +213,9 @@ further, and whenever something unexpected bears on spec adherence.
   bookkeeping turns and re-sends its whole context on each one — the
   dominant cost of the workflow — and it makes no design decisions: it
   assembles bundles, dispatches, verifies, commits, and reports. The
-  role never needs the top tier; it sits on the top tier's model
-  under experiment 1 because Fable 5.1's cache-read rate makes the
-  seat's re-sends cost about what they would on Opus, and this spec
-  measures the allowance draw and the readability of the reports.
+  role never needs the top tier. Under the standard profile it sits on
+  the top tier's model because, measured, Fable 5.1 at medium in this
+  seat cost about a third per task of Opus 4.8 and its allowance held.
   If it drops the protocol (a skipped review, a stale `tasks.md`
   edit, a task done by hand), the first fix is high effort, one line
   in the same file.
@@ -184,20 +238,23 @@ further, and whenever something unexpected bears on spec adherence.
   line.** When the person reports at a phase pause that something is
   wrong, the session restates it — which acceptance criterion, what
   they saw, what the spec says — and dispatches a diagnosis bundle to
-  the `sdd-implementer` (the report, the restatement, the task line,
-  the plan section, the acceptance criterion, the files). The
-  implementer finds the cause and fixes it if the fix is routine and
-  inside the footprint; otherwise it returns the diagnosis and
-  options, which go to a decision review at the top tier. A fix is
+  the implementer the role table names (the report, the restatement,
+  the task line, the plan section, the acceptance criterion, the
+  files). The implementer finds the cause and fixes it if the fix is
+  routine and inside the footprint; otherwise it returns the diagnosis
+  and options, which go to a decision review at the top tier. A fix is
   logged as a sub-lettered task; a finding that is really the spec
   being ambiguous goes back to the person as a product question. The
   session never diagnoses in place.
-- **The top tier runs only inside the decisions**: the `sdd-planner`
-  (one dispatch per spec) and the `skeptical-reviewer` on plan/tasks
-  sign-off and on decision reviews — each dispatched with an explicit
-  per-call override to the top tier's name. The three agent
-  definitions carry `effort: high`, which overrides the session's
-  medium, so reasoning stays at full strength where it matters.
+- **The top tier runs only where the role table says it does**: by
+  default the `sdd-planner` (one dispatch per spec), the
+  `skeptical-reviewer` on plan/tasks sign-off and on decision reviews,
+  and the close-out dispatch. The first three carry an explicit
+  per-call override to the top tier's name; drop the override and the
+  definition's own implementation tier applies, which is exactly what
+  stepping one of those rows down means. The agent definitions carry
+  `effort: high`, which overrides the session's medium, so reasoning
+  stays at full strength where it matters.
 - **Spec conversations happen in a Claude Code spec session of their
   own**, at the top tier, never inside an implementation session. The
   spec session also runs planning once `spec.md` is approved — the
@@ -205,12 +262,12 @@ further, and whenever something unexpected bears on spec adherence.
   ends when `plan.md` and `tasks.md` are final, with a new session
   (not `/clear`, which keeps the model) whose opening prompt is the
   spec session's last message. A session in this repo opens at the
-  session tier — the top tier's model at medium — so a spec session
-  states its model and effort first (`/effort status`) and asks the
-  person to raise effort to high for this session (`/effort high`)
-  before continuing. The next session opens at medium again from
-  `.claude/settings.json`. (The project's very first spec, with no
-  codebase yet, happened in chat.)
+  session tier at medium, so a spec session states its model and
+  effort first (`/effort status`) and asks the person to raise effort
+  to high for this session (`/effort high`) before continuing. The
+  next session opens at medium again from `.claude/settings.json`.
+  (The project's very first spec, with no codebase yet, happened in
+  chat.)
 - **The `skeptical-reviewer` runs at the implementation tier by
   default** (its definition says `opus`) for per-phase reviews, the
   per-task reviews the planner marks, and the pre-merge sweep. Each
@@ -223,10 +280,11 @@ further, and whenever something unexpected bears on spec adherence.
   means it would fail an acceptance criterion or a test, or contradicts
   `plan.md` or `CLAUDE.md`; nothing else blocks. Anything open after
   the re-review goes to the tier log and the sweep.
-- **Implementation runs at the implementation tier**: each ordinary
-  task is dispatched to whichever subagent the *Task implementer* line
-  above names, and the close-out task to whichever the *Close-out
-  dispatch* line names, one task per dispatch, sequentially. The orchestrating
+- **Implementation runs in the subagent the role table names** — the
+  task implementation row for ordinary tasks, the close-out row for
+  close-out — one task per dispatch, sequentially. Neither is
+  re-decided per spec: the table is the answer until the person
+  changes a row. The orchestrating
   session triages each task, dispatches routine ones on a task bundle
   assembled with shell (task line, plan section, acceptance criteria,
   files, the pattern file to copy), and on return verifies with the
@@ -242,10 +300,9 @@ further, and whenever something unexpected bears on spec adherence.
   `/compact` if the context grows large; never clear or compact
   mid-task. `/clear` is not part of the workflow: both session
   boundaries are new sessions.
-- **The two session boundaries end with a continuation prompt.** A
-  spec has exactly two: `plan.md` and `tasks.md` final, handed to
-  implementation; and the spec merged, with the next one waiting on
-  `ROADMAP.md`. At each, the report's last item is the exact prompt to
+- **Two pauses end with a continuation prompt, and only two**: plan
+  and tasks final, and the merge with the next spec waiting on
+  `ROADMAP.md`. At those the report's last item is the exact prompt to
   paste into the next session, in its own fenced block. It names the
   spec directory, the files to read, where to resume, the involvement
   level, the pause cadence, and any effort switch the next session
@@ -253,28 +310,32 @@ further, and whenever something unexpected bears on spec adherence.
   prompt points at files. If nothing can proceed until the person
   decides something, say so instead.
 - **A phase pause never ends with a continuation prompt.** The phase
-  report ends with what the person should check in the app and how to
-  say continue. The session cannot know whether the person is stopping
-  when it writes the report, so a prompt offered unasked invites a
-  `/clear` that costs a full re-read. If the person says they are
-  stopping, or asks for a prompt, write it then, as the next message,
-  resuming from the first unchecked task.
+  report ends with what to check in the app and how to say continue —
+  nothing else. The session cannot know whether the person is about to
+  stop, so a rule conditioned on that produces a prompt at every phase,
+  which is what this line exists to prevent: the spec runs in one
+  implementation session, and a prompt offered unasked invites a
+  `/clear` that costs a re-read and buys nothing. If the person says
+  they are stopping, or asks for a prompt, write one then, as the next
+  message — the resume form from the first unchecked task. Asked for,
+  it costs one turn; volunteered, it costs the session.
 - **Batch the bookkeeping**: commit, checkbox, and tier-log row in one
   shell command; bundle assembly and dispatch back to back. Every turn
   saved is one fewer re-send of the whole context.
-- **Fallback**: if the top tier's usage budget runs out, dispatch the
-  planner and sign-off at the implementation tier for the rest of the
-  window (drop the override; both definitions default to `opus`), and
-  switch the session itself to the fallback session model named in
-  *Tiers by name* above, mid-session (one cache re-write, then
-  continue). The person may name a different one at the time; it is
-  written into *Tiers by name* in its own commit, not spelled out here.
-  Anything the *Task implementer* or *Close-out dispatch* lines name
-  `sdd-implementer-fable`, close-out included, is dispatched to
-  `sdd-implementer` instead when Fable's allowance runs out; needing
-  that fallback is itself a result.
-  Nothing else changes; the tier log records what ran and when the
-  switch happened, which is a result of experiment 1 in itself.
+- **Fallback** (standard profile): if the top tier's usage budget runs
+  out, dispatch the planner and sign-off at the implementation tier for
+  the rest of the window (drop the override; both definitions default
+  to `opus`), switch the session itself to the fallback session model
+  named in the standard profile above (`/model claude-opus-5` — one
+  cache re-write, then continue), and dispatch `sdd-implementer` for
+  any row that names `sdd-implementer-fable`, including close-out.
+  This is the whole role table stepped down at once, and it is the
+  automatic form: it fires on the allowance, for the rest of the
+  window, and the rows are not edited. A step-down the person *asks*
+  for is the other form — it edits the rows and persists until they
+  say otherwise. Don't confuse them, and don't silently revert one the
+  person asked for. Either way the tier log records what ran and when
+  the switch happened.
 - **Escape hatch**: two failed verifications on one task, or a "stopped
   on a judgment call" the orchestrator considers well-specified, and
   the orchestrator does that task itself, noting the
@@ -289,17 +350,17 @@ further, and whenever something unexpected bears on spec adherence.
   policy as settled.
 - **History (this project)**: the session tier was `sonnet` until
   2026-09-07 (orchestrator at the step-down tier, third tier off), moved
-  to `claude-opus-4-8` on 2026-09-09, and to `fable` at medium under
-  experiment 1 on 2026-09-11; the `sdd-implementer` has always run at
-  `opus`. Spec 021 is the first spec under experiment 1 — its tier log
+  to `claude-opus-4-8` on 2026-09-09, and to `fable` at medium on
+  2026-09-11; the `sdd-implementer` has always run at `opus`. Spec 021
+  is the first spec with the session on `fable` at medium — its tier log
   in `specs/021-wager-and-loss/tasks.md` carries the allowance reading
   and the per-invocation token counts to compare against specs 019–020.
   **Spec 025 (2026-09-16/17) ran entirely on the session fallback**:
   the person chose `claude-opus-5` at high effort with Fable's allowance
   low, so the whole spec — conversation, planning, sign-off,
   implementation, reviews and sweep — ran at `opus`/`claude-opus-5` with
-  the top-tier override dropped and experiment 2 paused. Its tier log is
-  in `specs/025-outfitter-locked-cards/tasks.md`.
+  the top-tier override dropped. Its tier log is in
+  `specs/025-outfitter-locked-cards/tasks.md`.
 
 ## Spec-driven workflow
 
@@ -371,9 +432,29 @@ orchestrator re-runs the command itself before committing.
 ## Git conventions
 
 - **One branch per spec, not per task or phase.**
-- **Never commit directly to `main`** for spec-specific work. Repo-wide
-  files (`CLAUDE.md`, `ROADMAP.md`, `DECISIONS.md`) commit straight to
-  `main`; spec-specific files ride into `main` only when the spec merges.
+- **A spec's implementation never goes to `main` directly.** Its code,
+  its files under `specs/<NNN>-<slug>/`, and any README change
+  describing its behavior live on that spec's branch and reach `main`
+  through its PR.
+- **Work that isn't a spec's implementation commits straight to
+  `main`, and doesn't need to ask.** Roadmap grooming, a
+  `DECISIONS.md` entry, a constitution amendment, a docs or README
+  correction unrelated to a spec in flight, the written residue of a
+  conversation that didn't become a spec, tooling or config no spec
+  touches. None of this has a spec branch, and none of it deserves
+  one — a branch and a PR for a roadmap paragraph cost more than they
+  protect, and stopping to ask costs a turn and interrupts the
+  conversation that produced the change. The test is whether the
+  change implements part of some spec's `tasks.md`, not whether the
+  file appears on a list. If it doesn't: commit it to `main`, push,
+  and say so in the report. This line is the permission; don't ask for
+  it again.
+- **Branch anyway when the change wants a diff someone will look at** —
+  a dependency bump, a refactor with no spec behind it, anything where
+  being wrong is expensive or awkward to unwind. Use
+  `fix/<short-description>` or `chore/<short-description>`, not the
+  spec `<NNN>-<slug>` convention, and open a PR. Size and risk decide
+  this, not whether the work counts as "a spec."
 - Open the PR as a draft immediately after pushing the branch, for a
   running diff. Only mark it ready and merge once every task in the
   spec's `tasks.md` is complete and verified.
