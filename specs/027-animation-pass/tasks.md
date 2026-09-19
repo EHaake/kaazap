@@ -267,7 +267,7 @@ app.rs change: the observer and the draw argument are already in place. -->
   bounds — **T003a**, editing only the four constants in `src/lib.rs` (the
   bounds test guards).*
 
-- [ ] **T003d** — Revision 2 (spec Q11, the person at the Phase 1b pause:
+- [x] **T003d** — Revision 2 (spec Q11, the person at the Phase 1b pause:
   "just remove the initial `?` and call it good"): withdraw the flip. In
   `src/lib.rs` remove `FLIP_BEAT_MS` and its clause in the bounds comment
   (three constants again). In `src/motion.rs` remove `is_face_down`, the
@@ -474,3 +474,4 @@ and why). -->
 | T003c (sdd-implementer-fable) | fable → fable | ~73K (measured; implementer's own estimate ~45K) | 1 | yes | — | board draws heavy landings, the `?` face and the source ghost; 1 new test, arrivals test extended; verification green (440 unit tests, 0 warnings); frame.rs doc comment rewrapped onto two lines (comment-only) |
 | Phase 1b review (skeptical-reviewer) | opus → opus | ~80K (measured; reviewer's own estimate ~48K) | 1 | — | 0 | clean; signed off. For the sweep: N1 no board assertion that a sibling dealer card stays single/Normal while another lands (two lines in the popup test would pin it); N4 the heavy border's second meaning is squared only by T005's DECISIONS entry; N5 a redundant `FLIP_BEAT_MS` import in motion's test module. For the person: N2 the deciding card reads `?` for the first 250 ms of its uncovered window (authorized by Q8, worth judging on a bust); N3 the source ghost appears beside the cursor right after a play |
 | **Phase 1b summary** | fable implementer ×2, opus reviewer ×1; planning and sign-off at fable | implementer ~132K (59K + 73K), reviewer ~80K, planning ~169K + sign-off ~120K | 2/2 tasks in one dispatch each | 2/2 | 0 | no fallback needed. Walkthrough (orchestrator, attribute-tracking driver, 89×31 and 139×31, real data backed up and checksum-restored): a hit lands with the heavy border showing `?` at 0.1 s, its value at 0.35 s still heavy, settled to the thin border by 0.75 s; a play lands heavy in the grid while the emptied hand slot keeps a plain outline and loses its number key, then settles to the double border with the slot blank; the cursor moved to the next card and kept breathing; the opponent's dealt card flips the same way; presence panel unchanged at 139 |
+| T003d (sdd-implementer-fable) | fable → fable | ~30K (measured; implementer's own estimate ~18K) | 1 | yes | — | Revision 2: flip withdrawn (FLIP_BEAT_MS, is_face_down, face_down, the `?` branch, one motion test); verification green (439 unit tests, 0 warnings); `grep FLIP\|face_down src/` empty; no separate walkthrough — the person ruled "remove the `?` and call it good" |

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use crate::game::{GamePhase, GameState};
 use crate::player::Player;
-use crate::{ARRIVAL_BEAT_MS, FLIP_BEAT_MS, HAND_SIZE, POPUP_BEAT_MS, THINKING_STEP_MS};
+use crate::{ARRIVAL_BEAT_MS, HAND_SIZE, POPUP_BEAT_MS, THINKING_STEP_MS};
 
 /// A board element that can be in transition: a card by its index in its
 /// side's row (stable until the row clears), a side's Score figure, or — the
@@ -159,16 +159,6 @@ impl BoardMotion {
         self.arrivals.iter().any(|(e, _)| *e == elem)
     }
 
-    /// Revision 1: whether `elem` is still inside the flip window of its
-    /// arrival — the first FLIP_BEAT_MS of the beat. A read of the countdown,
-    /// not a clock of its own; true only for a `Dealer` arrival (a played
-    /// card shows its value from its first frame, spec Q9).
-    pub fn is_face_down(&self, elem: Elem) -> bool {
-        self.arrivals.iter().any(|(e, left)| {
-            matches!(e, Elem::Dealer(..)) && *e == elem && *left + ms(FLIP_BEAT_MS) > ms(ARRIVAL_BEAT_MS)
-        })
-    }
-
     pub fn popup_due(&self) -> bool {
         self.popup_wait.is_zero()
     }
@@ -194,17 +184,13 @@ mod tests {
     use super::*;
     use crate::card::{Card, FlipKind, PlayedCard};
     use crate::game::RoundOutcome;
-    use crate::{FLIP_BEAT_MS, OPPONENT_THINKING_TIME_MS, SELECTION_PULSE_MS};
+    use crate::{OPPONENT_THINKING_TIME_MS, SELECTION_PULSE_MS};
     use std::time::Instant;
 
     const ZERO: Duration = Duration::ZERO;
 
     fn arrival() -> Duration {
         ms(ARRIVAL_BEAT_MS)
-    }
-
-    fn flip() -> Duration {
-        ms(FLIP_BEAT_MS)
     }
 
     fn popup() -> Duration {
@@ -244,8 +230,6 @@ mod tests {
         assert!(ARRIVAL_BEAT_MS <= POPUP_BEAT_MS);
         assert!(POPUP_BEAT_MS <= 1000);
         assert!(THINKING_STEP_MS * 2 <= OPPONENT_THINKING_TIME_MS);
-        assert!(150 <= FLIP_BEAT_MS);
-        assert!(FLIP_BEAT_MS * 2 <= ARRIVAL_BEAT_MS);
     }
 
     #[test]
@@ -301,40 +285,6 @@ mod tests {
             assert!(!m.is_arriving(Elem::Dealer(who, 0)));
             assert!(!m.is_arriving(Elem::Score(who)));
         }
-    }
-
-    #[test]
-    fn a_dealt_card_is_face_down_for_the_flip_beat_then_faces_up() {
-        for who in [Player::Player, Player::Opponent] {
-            let (mut gs, mut m) = seeded();
-            match who {
-                Player::Player => gs.player.dealer_row.push(dealer(7)),
-                Player::Opponent => gs.opponent.dealer_row.push(dealer(7)),
-            }
-            m.observe(&gs, ZERO);
-            assert!(m.is_face_down(Elem::Dealer(who, 0)));
-            assert!(m.is_arriving(Elem::Dealer(who, 0)));
-
-            m.observe(&gs, flip() - ms(1));
-            assert!(m.is_face_down(Elem::Dealer(who, 0)));
-
-            // The flip ends: the value shows for the rest of the beat.
-            m.observe(&gs, ms(1));
-            assert!(!m.is_face_down(Elem::Dealer(who, 0)));
-            assert!(m.is_arriving(Elem::Dealer(who, 0)));
-
-            m.observe(&gs, arrival() - flip());
-            assert!(!m.is_arriving(Elem::Dealer(who, 0)));
-            assert!(!m.is_face_down(Elem::Dealer(who, 0)));
-        }
-
-        // A played card is never face down, even on its first frame (the
-        // countdown alone would say it is; the Dealer guard says otherwise).
-        let (mut gs, mut m) = seeded();
-        gs.player.played_row.push(PlayedCard { card: Card::Plus(3), value: 3 });
-        m.observe(&gs, ZERO);
-        assert!(m.is_arriving(Elem::Played(Player::Player, 0)));
-        assert!(!m.is_face_down(Elem::Played(Player::Player, 0)));
     }
 
     #[test]

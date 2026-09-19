@@ -174,9 +174,9 @@ impl BoardView {
     /// draw never shifts an already-played card. The player's side passes
     /// `selection` and reveals its hand + number keys; the opponent's side
     /// passes None and hides its hand. A card whose arrival is in flight
-    /// (spec 027) draws Strong and borrows the heavy border for its beat; a
-    /// dealt one is face down (`?`) for the flip beat; the hand slot a play
-    /// emptied shows its outline — the source ghost (spec 027 Revision 1).
+    /// (spec 027) draws Strong and borrows the heavy border for its beat;
+    /// the hand slot a play emptied shows its outline — the source ghost
+    /// (spec 027 Revision 1).
     fn draw_side(
         &self,
         side: &SideLayout,
@@ -208,9 +208,6 @@ impl BoardView {
             if arriving(motion, Elem::Dealer(who, i)) {
                 v.weight = BorderWeight::Heavy;
                 v.emphasis = Emphasis::Strong;
-                if face_down(motion, Elem::Dealer(who, i)) {
-                    v.text = "?".to_string();
-                }
             }
             v.draw(frame);
         }
@@ -369,12 +366,6 @@ struct Selection {
 /// Whether `e` is in transition — settled when there is no motion.
 fn arriving(motion: Option<&BoardMotion>, e: Elem) -> bool {
     motion.is_some_and(|m| m.is_arriving(e))
-}
-
-/// Whether `e` is still inside the flip window of its arrival (spec 027
-/// Revision 1) — never when there is no motion.
-fn face_down(motion: Option<&BoardMotion>, e: Elem) -> bool {
-    motion.is_some_and(|m| m.is_face_down(e))
 }
 
 /// The single status message for the current game state, with its
@@ -700,7 +691,7 @@ mod tests {
     }
 
     use crate::card::PlayedCard;
-    use crate::{ARRIVAL_BEAT_MS, FLIP_BEAT_MS, POPUP_BEAT_MS, THINKING_STEP_MS};
+    use crate::{ARRIVAL_BEAT_MS, POPUP_BEAT_MS, THINKING_STEP_MS};
     use std::time::Duration;
 
     fn ms(n: u64) -> Duration {
@@ -776,22 +767,15 @@ mod tests {
                 }
             };
             all(&first, Emphasis::Strong);
-            // Revision 1: heavy border on every arrival; a dealt card is
-            // face down for the flip beat, a played card never is.
+            // Revision 1: heavy border on every arrival; Revision 2: every
+            // card's value is visible from its first frame.
             assert_eq!(slot_corner_char(&first, player.grid, 0, 0), '┏', "{cols}: player dealer 0 lands heavy");
-            assert_eq!(slot_face_row(&first, player.grid, 0, 0).trim(), "?", "{cols}: player dealer 0 face down");
+            assert_eq!(slot_face_row(&first, player.grid, 0, 0).trim(), "5", "{cols}: player dealer 0 value visible on its first frame");
             assert_eq!(slot_corner_char(&first, player.grid, 3, 2), '┏', "{cols}: player played 0 lands heavy");
-            assert_eq!(slot_face_row(&first, player.grid, 3, 2).trim(), "+3", "{cols}: a played card is never face down");
+            assert_eq!(slot_face_row(&first, player.grid, 3, 2).trim(), "+3", "{cols}: player played 0 value visible on its first frame");
             assert_eq!(slot_corner_char(&first, opponent.grid, 0, 0), '┏', "{cols}: opponent dealer 0 lands heavy");
-            assert_eq!(slot_face_row(&first, opponent.grid, 0, 0).trim(), "?", "{cols}: opponent dealer 0 face down");
 
-            motion.observe(&gs, ms(FLIP_BEAT_MS));
-            let (_, flipped) = drawn_board(cols, None, &gs, Some(&motion));
-            assert_eq!(slot_face_row(&flipped, player.grid, 0, 0).trim(), "5", "{cols}: face up after the flip beat");
-            assert_eq!(slot_corner_char(&flipped, player.grid, 0, 0), '┏', "{cols}: still heavy after the flip");
-            assert_eq!(slot_corner_emphasis(&flipped, player.grid, 0, 0), Emphasis::Strong, "{cols}: still Strong after the flip");
-
-            motion.observe(&gs, ms(ARRIVAL_BEAT_MS - FLIP_BEAT_MS));
+            motion.observe(&gs, ms(ARRIVAL_BEAT_MS));
             let (_, settled) = drawn_board(cols, None, &gs, Some(&motion));
             all(&settled, Emphasis::Normal);
             assert_eq!(slot_corner_char(&settled, player.grid, 0, 0), '┌', "{cols}: dealer settles single");

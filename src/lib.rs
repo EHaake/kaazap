@@ -72,10 +72,8 @@ pub const SELECTION_PULSE_MS: u64 = 500;
 // Spec 027 — one-shot board transitions (drawing only; see motion.rs). Bounds
 // from the spec, pinned by motion::tests::beats_are_named_constants_within_bounds:
 // SELECTION_PULSE_MS <= ARRIVAL_BEAT_MS <= 1000, ARRIVAL_BEAT_MS <= POPUP_BEAT_MS
-// <= 1000, THINKING_STEP_MS * 2 <= OPPONENT_THINKING_TIME_MS, and (Revision 1)
-// 150 <= FLIP_BEAT_MS and FLIP_BEAT_MS * 2 <= ARRIVAL_BEAT_MS.
+// <= 1000, THINKING_STEP_MS * 2 <= OPPONENT_THINKING_TIME_MS.
 pub const ARRIVAL_BEAT_MS: u64 = 600; // a card arriving / a total changing draws Strong this long
-pub const FLIP_BEAT_MS: u64 = 250; // a dealt card's face reads `?` for this long at the start of its arrival (Revision 1)
 pub const POPUP_BEAT_MS: u64 = 800; // the round/game popup waits this long after the round resolves
 pub const THINKING_STEP_MS: u64 = 300; // the thinking indicator steps . / .. / ... at this cadence
 
