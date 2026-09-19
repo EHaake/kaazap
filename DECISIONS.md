@@ -1407,3 +1407,207 @@ and `Cargo.lock` are untouched; `portrait.rs` gained only `stake_line`, its
 call and one doc line; `PROFILE_VERSION` and `SAVE_VERSION` both stay 1; no
 new crate. Monochrome by construction: the stake line is `Strong`, as on the
 panel, and no new emphasis level.
+
+## Animation pass (spec 027)
+
+Until this spec exactly one thing moved on a still screen: the selection
+pulse. A dealt card, the opponent's whole move, a changed total and the
+outcome popup all landed on the same frame as the state change behind them,
+so a fast round read as a jump cut. This spec adds sparse, one-shot
+transitions on the match board — emphasis over a short, fixed time on an
+element already at its final position — and an Animations row in Settings
+that turns them off. Drawing only: a new `motion.rs` and changes to
+`board.rs`, `app.rs`, `settings.rs`, `lib.rs`, one doc line in `frame.rs`,
+one test line in `audio.rs`, the README and the brief. Ruled by the person on
+2026-09-18, with two revisions at the phase pauses (Revision 1 on 2026-09-18,
+Revision 2 on 2026-09-19).
+
+- **Q1 a–e in, f out — a dealer card arriving, a played card arriving, a
+  total changing, the popup beat and the thinking indicator; no stake
+  flash.** Exactly the roadmap's list plus the thinking indicator; the
+  presence panel's stake line, pips and banter are untouched.
+- **Q2 A — arrival is emphasis only.** A face-down beat hides information
+  and costs more for a subtlety. (Superseded for dealer cards by Q8 at
+  Revision 1, then restored for every card by Q11 at Revision 2 — see
+  below.)
+- **Q3 A — the selection pulse keeps breathing during a transition**, and
+  `design/brief.md`'s Motion section is amended by one sentence: the
+  one-thing-moves rule counts *continuous* motion, and a one-shot emphasis
+  transition may run alongside the pulse because it ends on its own within a
+  beat and never breathes. Holding the pulse (Q3 B) was declined.
+- **Q4 A — an Animations On/Off row in Settings.** Reduced motion is a real
+  need and the overlay was written to grow. Saved with the volumes; a
+  settings file **without the key reads On**; a file with it Off starts Off;
+  the toggle takes effect on the next frame, mid-match included. Off means
+  the board draws settled from the first frame — no heavy border, no ghost,
+  no Strong, popup on the resolving frame, static thinking line — with one
+  standing exception (Q7). The pulse and the map's starfield are not
+  governed by it.
+- **Q5 A — portraits stay static.** Spec 016's "light portrait animation"
+  deferral (swapping frames on the pulse) is closed at this merge rather
+  than reopened; the brief's portrait amendment ("no color, no animation",
+  spec 016 above) stands unchanged and the presence panel is untouched.
+- **Q6 A — the match board only.** Menus, the Outfitter, the deck builder,
+  the map, the wager prompt, the shop and the records screens do not change.
+- **Q7 — the Score rests at Normal weight** (a session ruling at planning
+  under the person's delegation — plan *Open questions* 1 — flagged in the
+  spec-conformance summary). `Score: N` had been drawn bold at all times, so
+  a bold-for-a-beat transition on it would have been invisible, and the only
+  stronger level is the rationed inverse. The options were to rest the Score
+  Normal so the beat shows, or keep it bold and drop the total-change
+  transition; the first was taken because ruling c is the person's. The
+  consequence is the one deviation from "the Off board is the pre-spec board
+  frame for frame": with Animations Off the Score is no longer bold.
+- **The standing constraint**, stated by the person with the rulings:
+  transitions must be noticeable enough to add to the game and quick enough
+  that they never get in the way of player actions. No key is ever delayed
+  or deferred; the opponent's pause is still `OPPONENT_THINKING_TIME_MS`;
+  the phase machine, saves, banter and audio fire exactly when they did.
+
+**Revision 1** (the person, 2026-09-18, at the Phase 1 pause). With Phase 1
+built, the popup beat and the thinking dots read well but the bold-only hit
+and card-play arrivals did not register at all: the driver confirmed the bold
+attribute reached the terminal on the right frames, and the cause was that
+bold on a thin box-drawn card is barely distinguishable from normal, while
+the hand cursor's heavy breathing border already owned the strongest look on
+the board. The remedy was shape, not weight.
+
+- **Q8 — a dealer card lands heavy** (and, until Revision 2's Q11 withdrew
+  it, face down for a flip beat). The dealt card draws with the heavy border
+  and Strong for the arrival beat, then settles to today's single border,
+  Normal.
+- **Q9 — a played card lands heavy, and its hand slot shows a source
+  ghost.** No card flies from the hand to the board: at the loop's 50 ms
+  frame and whole-cell positions a flight would read as a stutter. The
+  ghost outline in the emptied slot (single border, empty face, Normal, no
+  number key) plus the heavy landing gives the same "it came from there" cue
+  without motion — the person's choice from the session's options. Both
+  sides: the opponent's hidden `?` slot empties into the same ghost.
+- **Q10 — the Score transition stays as built** (Strong for the arrival
+  beat, resting Normal per Q7). Not raised by the person; noted so the
+  revision's scope is explicit. If it proves as invisible as the card bold,
+  it is a follow-up.
+- Not in the revision: the selection pulse's own vocabulary (spec 002 — a
+  heavy/thin border alternation was floated as more visible than
+  bold/normal; the person has not ruled), the thinking indicator and the
+  popup beat, which the person judged good.
+
+**Revision 2** (the person, 2026-09-19, at the Phase 1b pause). Played with
+Revision 1 built, the person judged the heavy landings and the source ghost
+good and the dealer card's `?` flip as not making sense: "just remove the
+initial `?` and call it good."
+
+- **Q11 — the flip is withdrawn.** A dealt card lands heavy with its value
+  visible from its first frame; the flip beat, its constant and its bounds
+  are gone (`grep FLIP src/` is empty). A card's content never changes after
+  it is drawn, on either side; Q2 A stands for every card. Everything else in
+  Revision 1 (Q9, Q10) stands.
+
+**Process note.** Both revisions were written into `spec.md` in the
+implementation session at the person's ruling ("revise the spec now so that
+we finish it here") — a stated deviation from the constitution's rule that
+spec conversations happen in a spec session of their own. Each revision had
+its own planner amendment, sign-off at the top tier, a phase (1b) with its
+own review, and a walkthrough.
+
+Design tensions resolved during planning:
+
+- **One struct, observed in `tick`, read by `draw`; `None` is the settled
+  draw.** `BoardMotion` (`src/motion.rs`, pure logic and tests, no rendering
+  import, like `banter.rs`) is a field on `App`. `App::tick` calls
+  `observe(&game_state, dt)` while the screen is `InGame` and resets it to
+  `default()` otherwise — that one `match` is the spec's "discarded when the
+  board leaves the screen" and its "first frame drawn settled" (the first
+  observation after entering a match seeds silently and starts nothing).
+  `App::draw` passes `settings.animations.then_some(&motion)` to
+  `BoardView::draw`, so `None` — no motion at all — is the settled draw and
+  the Off state is the same code path as "nothing is arriving". Rejected: a
+  per-element `Instant` map (untestable without sleeping), a `GamePhase`
+  extension (the engine must not know), and an `Animations` flag inside
+  `BoardMotion` (the board would have two ways to be settled). Clocks count
+  down in the tick's `dt`, so every test is a sequence of `observe` calls
+  with chosen durations, no sleeping.
+- **A row that shrinks is a clear, never a change.** `setup_next_round` and
+  `new_game` empty both rows and drop the total to 0 — a "change" by value,
+  but the spec wants a rematch's first frame settled and the eye guided to
+  what *arrived*. Rule in `observe`: if a side's dealer or played count fell
+  since the last observation, discard that side's arrivals (the source ghost
+  included) and start nothing for it; otherwise start an arrival per new
+  index and a Score arrival if the total differs. A second change to the
+  same Score restarts its beat (one figure, one clock); a card index cannot
+  arrive twice without a clear. The `g` rematch's settled board falls out of
+  this rule rather than the seed.
+- **Settings: three rows, one `adjust`, no disk in tests.**
+  `SettingsAction::Louder`/`Quieter` became **`Right`/`Left`** — on a
+  volume row louder/quieter, on the Animations row a toggle; the old names
+  were about to be wrong — and the value change moved out of
+  `App::handle_settings_input` into **`Settings::adjust(row, right)`**, which
+  owns the volume step (`VOLUME_STEP`, clamped to 0..=1) and the toggle, so
+  both are unit-tested without the `save()` that writes the real config
+  file; `App` still calls `set_settings`, `save` and the cue as before. The
+  rows are a `const ROWS: [SettingRow; 3]`; the hint reads `←/→ change` (was
+  `←/→ volume`). The Animations row is **padded to the volume rows' width**
+  (T004a, the person at the Phase 2 pause, after the reviewer noted the
+  shorter centred row shifted its marker and label ~6 columns right): the
+  row's marker and label now sit in the volume rows' columns, with the value
+  one space after the label.
+- **Revision 1: the arrivals change shape on the clocks Phase 1 already
+  runs.** The heavy landing costs no new clock: a card draws
+  `BorderWeight::Heavy` + `Strong` while its arrival is counting down and its
+  resting border after. **The source ghost is one more `Elem`**,
+  `Hand(side, slot)`, started when a hand slot went `Some → None` since the
+  last observation, on the arrival beat, and dropped by the same shrink rule
+  as the side's cards; the board draws it by reusing `CardView` with an
+  empty face rather than a bespoke box, so its rect and interior blanking are
+  the card's. **The heavy landing is the recorded exception to the brief's
+  "distinct weights, distinct meanings" rule** (spec 003): Heavy was
+  reserved for cursor selection, and for one arrival beat it now also marks
+  a card landing. `frame.rs`'s `BorderWeight` doc names the exception (the
+  file's one comment-only touch); `card.rs`'s `// Heavy marks cursor
+  selection (T007)` comment is **knowingly left stale**, because `card.rs`
+  is on the spec's no-change list (AC 12) — noted here so the next touch of
+  that file fixes it. The brief's Motion section itself carries only the
+  Q3 A sentence. **The flip was built as a read of the arrival's countdown**
+  — `?` while the remaining time was still inside the flip window, no second
+  clock, no `face_down` flag — and **withdrawn** by Q11 after the person saw
+  it: the constant, the guard and the `?` branch are gone.
+- **The beats live in `lib.rs`, the bounds in a test.** As shipped, with no
+  tuning at the pauses: `ARRIVAL_BEAT_MS = 600`, `POPUP_BEAT_MS = 800`,
+  `THINKING_STEP_MS = 300`. A motion test pins the spec's bounds
+  (`SELECTION_PULSE_MS ≤ arrival ≤ 1000`, `arrival ≤ popup ≤ 1000`,
+  `2 · step ≤ OPPONENT_THINKING_TIME_MS`), so a retune outside them fails
+  the build.
+
+Attested by driver walkthroughs at 89×31 and 139×31 after Phases 1 and 1b and
+at 89×31 after Phase 2, with the
+person's own play at the Phase 1, 1b and 2 pauses. Phase 1 (bold-only): a
+dealt card bold on its frame and settled by ~1 s, the Score bold only when it
+changed (a dealt 0 left it plain), `Rounds won` never bold, the cursor still
+breathing; the dots stepping through the pause and the plain line once the
+opponent acted; a round resolved with no popup at two 0.4 s samples and the
+popup by 0.8 s; `n` on the resolving frame started the next round with no
+popup ever drawn; the game-over popup absent at 0.1 s and present at 1.1 s;
+Continue on a save left at the popup drew the popup on the first frame with
+nothing bold, and Continue mid-match drew settled; at 89 the dots sat on the
+band's lower row with the alert/stake row above. Phase 1b (heavy landings): a
+hit landed heavy, still heavy at 0.35 s, settled to the thin border by
+0.75 s; a play landed heavy in the grid while the emptied hand slot kept a
+plain outline and lost its number key, then settled to the double border
+with the slot blank; the cursor moved to the next card and kept breathing;
+the opponent's card landed the same way; the presence panel unchanged at 139.
+Phase 2 (the setting): Settings showed Music, Sound FX, Animations On; `→`
+flipped it Off and the file on disk gained `"animations": false`; a hit with
+it Off drew the thin card with its value, a plain `Opponent's Turn`, a
+double-bordered play with the slot blank and the popup on the resolving
+frame; `→` again read On and the file said `true`; a file with the key
+deleted read On.
+
+No engine, AI, economy, wager, save-format or balance change: `game.rs`,
+`main.rs`, `render.rs`, `layout.rs`, `portrait.rs`, `card.rs`, `player.rs`,
+`save.rs`, `profile.rs`, `economy.rs`, `wager.rs`, `campaign.rs`,
+`campaign_map.rs`, `opponent.rs`, `tests/balance.rs`, `Cargo.toml` and
+`Cargo.lock` are untouched; `frame.rs` changed one doc comment; `audio.rs`
+changed one test's struct literals for the new field; `PROFILE_VERSION` and
+`SAVE_VERSION` both stay 1; no new crate; the build has no warnings. No color
+path: the only attributes emitted are the four existing emphasis levels and
+the existing border weights.

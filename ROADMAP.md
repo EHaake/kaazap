@@ -462,6 +462,51 @@ of, not guessed at here in advance.
   139×31 (every screen, a staked match, Quick Play, the resize across the
   threshold and the too-small screen) attested. `Readme.md`'s terminal-size
   paragraph re-synced.
+- **Animation pass** (spec 027) — the match board now has **sparse, one-shot
+  transitions** that guide the eye to what just changed, in the vocabulary
+  spec 002's Motion rule set: emphasis over time on an element already at
+  its final position, no sweeps, no particles, no ambient motion. A **card
+  arriving** on either side — a dealt card in the dealer row, a played card
+  in the played row — lands with the **heavy border** and Strong for one
+  arrival beat (600 ms) and settles to its resting look (single or double
+  border, Normal); a played card's **emptied hand slot shows a source ghost**
+  (a plain single-line outline, empty face, no number key) for the same beat,
+  the "it came from there" half of a source-and-destination pair with nothing
+  flying between them. A **Score that changed** draws Strong for the beat and
+  rests Normal (it was bold at all times before, so the beat could not show —
+  Q7; `Rounds won` and the slot counter never transition). The **round and
+  game-over popups wait one popup beat** (800 ms) after the round resolves,
+  so the deciding card is seen uncovered with its own highlight; `n`, `g` and
+  `x` work from the first frame and the popup then simply never appears. The
+  opponent's thinking pause carries a **stepping indicator** (`Opponent's
+  Turn .` / `..` / `...`, every 300 ms) on the status line, Muted, reverting
+  the moment the opponent acts. Both sides, both layouts (89 and 139); the
+  first frame of a new match, a rematch and a resumed save is drawn settled;
+  the selection pulse keeps breathing throughout (`design/brief.md`'s Motion
+  section gained one sentence: a one-shot transition may run alongside the
+  continuous pulse). All of it is drawing state: a new `motion.rs`
+  (`BoardMotion`, a pure per-element countdown observed once per tick from
+  the frame-to-frame diff, the same snapshot pattern banter and audio use),
+  read by `board.rs`; the engine, `GamePhase`, the timing constants and every
+  key are untouched, and no key is ever delayed. Settings gained a third row,
+  **Animations On/Off** (saved with the volumes; a file without the key reads
+  On), which turns the whole layer off — the Off board is the pre-spec board
+  frame for frame apart from the Score resting Normal. Two revisions at the
+  phase pauses: the first bold-only arrivals did not register on a thin
+  box-drawn card (Revision 1: heavy landings, the source ghost, and a
+  face-down `?` flip for dealt cards); the person then judged the flip as not
+  making sense and it was withdrawn (Revision 2) — a card's face never
+  changes after it is drawn. Portraits stay static (spec 016's "light
+  animation" deferral is closed, not reopened). No engine, AI, economy,
+  wager, save-format or balance change: `game.rs`, `main.rs`, `render.rs`,
+  `layout.rs`, `portrait.rs`, `card.rs`, `player.rs`, `save.rs`,
+  `profile.rs`, `economy.rs`, `wager.rs`, `campaign.rs`, `campaign_map.rs`,
+  `opponent.rs`, `tests/balance.rs`, `Cargo.toml` and `Cargo.lock` are
+  untouched, `PROFILE_VERSION` / `SAVE_VERSION` stay 1, no new crate, no
+  color path. Driver walkthroughs after each phase attested the
+  arrivals, the ghost, the popup beat, the dots and the settled first
+  frames at 89×31 and 139×31, and the Off state at 89×31. `Readme.md`'s settings mention names the
+  row.
 
 ## Backlog
 
@@ -572,7 +617,9 @@ touches the stakes work below, so they can interleave freely.
   color path), sanctioned by a `design/brief.md` bounded-exception amendment. The mandated
   art-format spike proved the approach; the portraits were then authored to an in-repo brief
   by a more capable tool and validated/integrated by Claude Code. **Light animation**
-  (swapping frames on the pulse/tick) stayed **deferred** to a later spec; **banter** (above)
+  (swapping frames on the pulse/tick) stayed **deferred** to a later spec — **closed by
+  spec 027 (Q5 A): portraits stay static**, as the brief's portrait amendment says, and the
+  animation pass left the presence panel untouched; **banter** (above)
   is the next slice and now has a face to attach to.
 
 ### Stakes, loss condition & difficulty balance (now being sequenced)
@@ -719,13 +766,20 @@ human's stated priority is the first-run onboarding.
   can be re-measured against the same targets with the balance simulator before
   it ships, rather than being playtested blind. Suggested during the
   post-spec-009 review.
-- **Considered animation pass** — deliberate, sparse animations that
-  guide the eye during play: a dealt card arriving, a flip resolving,
-  a total changing, round transitions. Builds on spec 002's selection
-  pulse and its Motion rule in `design/brief.md` (motion is emphasis;
-  one vocabulary — emphasis transitions over time — never ambient or
-  decorative movement). Designed against the finished UI overhaul, not
-  in advance of it.
+- **Considered animation pass** — ✅ **Shipped (spec 027** — see Shipped
+  above and `DECISIONS.md`). Deliberate, sparse animations that guide the
+  eye during play: a card arriving on either side lands heavy for a beat
+  (with a source ghost in the hand slot a played card left), a changed
+  total draws Strong for a beat, the outcome popups wait a beat so the
+  deciding card is seen, and the opponent's pause carries a stepping
+  indicator. Built on spec 002's selection pulse and its Motion rule in
+  `design/brief.md` (motion is emphasis; one vocabulary — emphasis
+  transitions over time — never ambient or decorative movement), with the
+  brief amended by one sentence so a one-shot transition may run alongside
+  the pulse. "A flip resolving" was tried at Revision 1 and withdrawn at
+  Revision 2: a card's face never changes after it is drawn. An Animations
+  row in Settings turns the layer off. Designed against the finished UI
+  overhaul, as intended.
 - **Original cantina-vibe music** — the bundled track (Kevin MacLeod's
   CC-BY "Chipper Doodle", spec 004) is a good placeholder but not the
   target vibe. Generate or commission an original chiptune track closer
