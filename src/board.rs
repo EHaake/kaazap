@@ -6,6 +6,7 @@ use crate::{
     frame::{Align, BorderWeight, Drawable, Emphasis, Frame, clear_rect, draw_box, draw_ghost_slot, draw_text, draw_text_in},
     game::{GamePhase, GameState, RoundOutcome},
     layout::{BoardLayout, GRID_COLS, Rect, SideLayout, card_slot},
+    motion::{BoardMotion, Elem},
     player::{Player, PlayerState},
     portrait::{draw_presence_extras, draw_presence_panel, stake_line},
 };
@@ -101,10 +102,16 @@ impl BoardView {
         &self,
         state: &GameState,
         cursor: &HandCursor,
+        motion: Option<&BoardMotion>,
     ) -> (Option<(String, Emphasis)>, Option<(String, Emphasis)>) {
         let alert = over_twenty_alert(state);
         let selected = state.player.hand.get(cursor.index()).copied().flatten();
-        let base = status_message(state, selected, cursor.pending_positive());
+        let mut base = status_message(state, selected, cursor.pending_positive());
+        // The thinking indicator (spec 027) trails the base line during the
+        // opponent's pause; the line keeps its emphasis.
+        if let (Some((text, _)), Some(suffix)) = (base.as_mut(), motion.and_then(|m| m.thinking_suffix())) {
+            text.push_str(suffix);
+        }
         (alert, base)
     }
 
@@ -126,11 +133,21 @@ impl BoardView {
         }
     }
 
-    /// Draw one side's header: name (left), score (right, Strong),
-    /// rounds won (right), and a bust/stood note (left).
-    fn draw_side_header(&self, side: &SideLayout, name: &str, p: &PlayerState, frame: &mut Frame) {
+    /// Draw one side's header: name (left), score (right — Strong only
+    /// while the total is arriving, spec 027; Normal at rest), rounds won
+    /// (right), and a bust/stood note (left).
+    fn draw_side_header(
+        &self,
+        side: &SideLayout,
+        name: &str,
+        who: Player,
+        p: &PlayerState,
+        motion: Option<&BoardMotion>,
+        frame: &mut Frame,
+    ) {
         draw_text_in(frame, side.header, 0, Align::Left, &format!("{name}: {}", p.name), Emphasis::Normal);
-        draw_text_in(frame, side.header, 0, Align::Right, &format!("Score: {}", p.score()), Emphasis::Strong);
+        let score_emphasis = if arriving(motion, Elem::Score(who)) { Emphasis::Strong } else { Emphasis::Normal };
+        draw_text_in(frame, side.header, 0, Align::Right, &format!("Score: {}", p.score()), score_emphasis);
         draw_text_in(frame, side.header, 1, Align::Right, &format!("Rounds won: {}", p.rounds_won), Emphasis::Normal);
 
         if p.bust {
@@ -145,9 +162,9 @@ impl BoardView {
 
     /// Draw Top info (Player name, score, etc.)
     ///
-    fn draw_top_info(&self, state: &GameState, frame: &mut Frame) {
-        self.draw_side_header(&self.layout.player, "Player", &state.player, frame);
-        self.draw_side_header(&self.layout.opponent, "Opponent", &state.opponent, frame);
+    fn draw_top_info(&self, state: &GameState, motion: Option<&BoardMotion>, frame: &mut Frame) {
+        self.draw_side_header(&self.layout.player, "Player", Player::Player, &state.player, motion, frame);
+        self.draw_side_header(&self.layout.opponent, "Opponent", Player::Opponent, &state.opponent, motion, frame);
     }
 
     /// Draw one side's grid and hand. Dealer draws fill the grid from the
@@ -156,12 +173,15 @@ impl BoardView {
     /// unfilled slots between — filling from opposite ends so a new dealer
     /// draw never shifts an already-played card. The player's side passes
     /// `selection` and reveals its hand + number keys; the opponent's side
-    /// passes None and hides its hand.
+    /// passes None and hides its hand. A card whose arrival is in flight
+    /// (spec 027) draws Strong.
     fn draw_side(
         &self,
         side: &SideLayout,
         ps: &PlayerState,
+        who: Player,
         selection: Option<Selection>,
+        motion: Option<&BoardMotion>,
         frame: &mut Frame,
     ) {
         // Fixed grid: GRID_COLS per row, the same count the layout reserves.
@@ -182,7 +202,11 @@ impl BoardView {
         // Dealer draws: grid index i, Single border, bare value.
         for (i, c) in ps.dealer_row.iter().enumerate() {
             let (x, y) = card_slot(side.grid, i % per, i / per);
-            CardView::new(x, y, c.display_text()).draw(frame);
+            let mut v = CardView::new(x, y, c.display_text());
+            if arriving(motion, Elem::Dealer(who, i)) {
+                v.emphasis = Emphasis::Strong;
+            }
+            v.draw(frame);
         }
 
         // Played cards: filled from the back, Double border, signed value.
@@ -191,6 +215,9 @@ impl BoardView {
             let (x, y) = card_slot(side.grid, idx % per, idx / per);
             let mut v = CardView::new(x, y, c.display_text());
             v.weight = BorderWeight::Double;
+            if arriving(motion, Elem::Played(who, j)) {
+                v.emphasis = Emphasis::Strong;
+            }
             v.draw(frame);
         }
 
@@ -238,7 +265,9 @@ impl BoardView {
     /// match (spec 021) — `None` for Quick Play. On the wide layout it goes
     /// to the presence panel's extras along with `banter`; on the compact
     /// layout (spec 026) there is no panel, `banter` is not shown, and the
-    /// stake moves to the status band's upper row.
+    /// stake moves to the status band's upper row. `motion` is the in-flight
+    /// transitions (spec 027); `None` draws every element settled — the
+    /// Animations-off board.
     ///
     pub fn draw(
         &self,
@@ -247,9 +276,10 @@ impl BoardView {
         banter: Option<&str>,
         stake: Option<u32>,
         pulse: Emphasis,
+        motion: Option<&BoardMotion>,
         frame: &mut Frame,
     ) {
-        let (alert, base) = self.status_lines(state, cursor);
+        let (alert, base) = self.status_lines(state, cursor, motion);
 
         // Vertical divider spans the block: from the header down through
         // the hand, stopping above the status band below it.
@@ -262,20 +292,24 @@ impl BoardView {
             }
         }
 
-        self.draw_top_info(state, frame);
+        self.draw_top_info(state, motion, frame);
 
         let selection = Selection {
             index: cursor.index(),
             pulse,
         };
-        self.draw_side(&self.layout.player, &state.player, Some(selection), frame);
-        self.draw_side(&self.layout.opponent, &state.opponent, None, frame);
+        self.draw_side(&self.layout.player, &state.player, Player::Player, Some(selection), motion, frame);
+        self.draw_side(&self.layout.opponent, &state.opponent, Player::Opponent, None, motion, frame);
 
         // Status: the two-row band below the hand, left-aligned.
         self.draw_status(&alert, &base, self.layout.status, Align::Left, frame);
 
-        // Draw Round/Game Outcome if it exists
-        self.draw_round_outcome_text(state, frame);
+        // Draw Round/Game Outcome if it exists — held back for the popup
+        // beat after the round resolves (spec 027) so the deciding card is
+        // seen uncovered.
+        if motion.is_none_or(|m| m.popup_due()) {
+            self.draw_round_outcome_text(state, frame);
+        }
 
         match self.layout.opponent_panel {
             // Wide: the panel in the right margin, always visible (spec 016), with
@@ -313,6 +347,11 @@ impl BoardView {
 struct Selection {
     index: usize,
     pulse: Emphasis,
+}
+
+/// Whether `e` is in transition — settled when there is no motion.
+fn arriving(motion: Option<&BoardMotion>, e: Elem) -> bool {
+    motion.is_some_and(|m| m.is_arriving(e))
 }
 
 /// The single status message for the current game state, with its
@@ -564,18 +603,23 @@ mod tests {
         frame.iter().map(|col| col[y].ch).collect()
     }
 
-    fn drawn_board(cols: usize, stake: Option<u32>, gs: &GameState) -> (BoardView, Frame) {
+    fn drawn_board(
+        cols: usize,
+        stake: Option<u32>,
+        gs: &GameState,
+        motion: Option<&BoardMotion>,
+    ) -> (BoardView, Frame) {
         let config = Config { num_cols: cols, num_rows: 31 };
         let bv = BoardView::new(config);
         let mut frame = crate::frame::new_frame(&config);
-        bv.draw(gs, &HandCursor::default(), None, stake, Emphasis::Normal, &mut frame);
+        bv.draw(gs, &HandCursor::default(), None, stake, Emphasis::Normal, motion, &mut frame);
         (bv, frame)
     }
 
     #[test]
     fn the_compact_board_carries_the_stake_clear_of_the_alert() {
         let mut gs = over_20_game(); // PlayerTurn, score 25
-        let (bv, frame) = drawn_board(89, Some(999_999), &gs);
+        let (bv, frame) = drawn_board(89, Some(999_999), &gs, None);
         assert!(!bv.is_wide());
         let status = bv.layout.status;
 
@@ -601,7 +645,7 @@ mod tests {
 
         // The game-over popup never reaches the band: the stake stays.
         gs.game_phase = GamePhase::GameOver { winner: Player::Player };
-        let (_, frame) = drawn_board(89, Some(999_999), &gs);
+        let (_, frame) = drawn_board(89, Some(999_999), &gs, None);
         let row = row_text(&frame, status.y0);
         let chars: Vec<char> = row.chars().collect();
         let right: String = chars[stake_x0..=status.x1].iter().collect();
@@ -611,7 +655,7 @@ mod tests {
     #[test]
     fn quick_play_shows_no_stake_line() {
         let gs = over_20_game();
-        let (bv, frame) = drawn_board(89, None, &gs);
+        let (bv, frame) = drawn_board(89, None, &gs, None);
         let status = bv.layout.status;
         for y in [status.y0, status.y0 + 1] {
             assert!(!row_text(&frame, y).contains("Stake"), "no stake on row {y}");
@@ -621,7 +665,7 @@ mod tests {
     #[test]
     fn the_wide_board_keeps_the_stake_in_the_panel() {
         let gs = over_20_game();
-        let (bv, frame) = drawn_board(139, Some(999_999), &gs);
+        let (bv, frame) = drawn_board(139, Some(999_999), &gs, None);
         assert!(bv.is_wide());
         let status = bv.layout.status;
         for y in [status.y0, status.y0 + 1] {
@@ -630,6 +674,136 @@ mod tests {
         let panel = bv.layout.opponent_panel.unwrap();
         let row = row_text(&frame, panel.y0 + 18);
         assert!(row.contains("◈ 999999"), "panel stake row {row:?}");
+    }
+
+    use crate::card::PlayedCard;
+    use crate::{ARRIVAL_BEAT_MS, POPUP_BEAT_MS, THINKING_STEP_MS};
+    use std::time::Duration;
+
+    fn ms(n: u64) -> Duration {
+        Duration::from_millis(n)
+    }
+
+    fn dealer(n: u8) -> PlayedCard {
+        PlayedCard { card: Card::Dealer(n), value: n as i8 }
+    }
+
+    /// A motion seeded on `seed`, then observing `gs` after `dt`.
+    fn motion_from(seed: &GameState, gs: &GameState, dt: Duration) -> BoardMotion {
+        let mut m = BoardMotion::default();
+        m.observe(seed, Duration::ZERO);
+        m.observe(gs, dt);
+        m
+    }
+
+    /// The emphasis of every cell of `text` where it sits right-aligned on
+    /// header row `row` of `side`.
+    fn header_right_emphases(frame: &Frame, side: &SideLayout, row: usize, text: &str) -> Vec<Emphasis> {
+        let y = side.header.y0 + row;
+        let n = text.chars().count();
+        let x0 = side.header.x1 + 1 - n;
+        let found: String = (x0..=side.header.x1).map(|x| frame[x][y].ch).collect();
+        assert_eq!(found, text, "row {y} ends with {text:?}");
+        (x0..=side.header.x1).map(|x| frame[x][y].emphasis).collect()
+    }
+
+    fn slot_corner_emphasis(frame: &Frame, grid: Rect, col: usize, row: usize) -> Emphasis {
+        let (x, y) = card_slot(grid, col, row);
+        frame[x][y].emphasis
+    }
+
+    #[test]
+    fn arrivals_draw_strong_then_settle_on_both_layouts() {
+        for cols in [89, 139] {
+            let seed = GameState::new();
+            let mut gs = GameState::new();
+            gs.player.dealer_row = vec![dealer(5)];
+            gs.player.played_row = vec![PlayedCard { card: Card::Plus(3), value: 3 }];
+            gs.opponent.dealer_row = vec![dealer(7)];
+            let mut motion = motion_from(&seed, &gs, Duration::ZERO);
+
+            let (bv, first) = drawn_board(cols, None, &gs, Some(&motion));
+            let (player, opponent) = (&bv.layout.player, &bv.layout.opponent);
+            let all = |frame: &Frame, e: Emphasis| {
+                assert_eq!(slot_corner_emphasis(frame, player.grid, 0, 0), e, "{cols}: player dealer 0");
+                assert_eq!(slot_corner_emphasis(frame, player.grid, 3, 2), e, "{cols}: player played 0 (slot 11)");
+                assert_eq!(slot_corner_emphasis(frame, opponent.grid, 0, 0), e, "{cols}: opponent dealer 0");
+                for em in header_right_emphases(frame, player, 0, "Score: 8") {
+                    assert_eq!(em, e, "{cols}: player score");
+                }
+                for em in header_right_emphases(frame, opponent, 0, "Score: 7") {
+                    assert_eq!(em, e, "{cols}: opponent score");
+                }
+                for em in header_right_emphases(frame, player, 1, "Rounds won: 0") {
+                    assert_eq!(em, Emphasis::Normal, "{cols}: rounds won never transitions");
+                }
+            };
+            all(&first, Emphasis::Strong);
+
+            motion.observe(&gs, ms(ARRIVAL_BEAT_MS));
+            let (_, settled) = drawn_board(cols, None, &gs, Some(&motion));
+            all(&settled, Emphasis::Normal);
+
+            let (_, off) = drawn_board(cols, None, &gs, None);
+            assert!(settled == off, "{cols}: the settled frame is the Animations-off frame");
+            assert!(settled != first, "{cols}: the arrival frame differs from the settled one");
+        }
+    }
+
+    #[test]
+    fn the_popup_waits_and_the_deciding_card_shows_through() {
+        let mut seed = GameState::new(); // PlayerTurn
+        seed.player.dealer_row = vec![dealer(9)];
+        let mut gs = GameState::new();
+        gs.player.dealer_row = vec![dealer(9), dealer(10)];
+        gs.round_outcome = Some(RoundOutcome::PlayerWon);
+        gs.game_phase = GamePhase::AwaitingNextRound;
+        let mut motion = motion_from(&seed, &gs, Duration::ZERO);
+
+        let popup = "You won this round!";
+        let (bv, frame) = drawn_board(89, None, &gs, Some(&motion));
+        assert!((0..31).all(|y| !row_text(&frame, y).contains(popup)), "no popup during the beat");
+        assert_eq!(slot_corner_emphasis(&frame, bv.layout.player.grid, 1, 0), Emphasis::Strong);
+
+        motion.observe(&gs, ms(POPUP_BEAT_MS));
+        let (_, frame) = drawn_board(89, None, &gs, Some(&motion));
+        assert!((0..31).any(|y| row_text(&frame, y).contains(popup)), "popup after the beat");
+
+        let (_, frame) = drawn_board(89, None, &gs, None);
+        assert!((0..31).any(|y| row_text(&frame, y).contains(popup)), "popup at once when Off");
+    }
+
+    #[test]
+    fn the_thinking_line_steps_muted_and_stays_clear_of_the_stake() {
+        for cols in [89, 139] {
+            let mut gs = GameState::new();
+            gs.game_phase = GamePhase::OpponentThinking { until: std::time::Instant::now() };
+            let motion = motion_from(&gs, &gs, ms(2 * THINKING_STEP_MS));
+
+            let (bv, frame) = drawn_board(cols, Some(999_999), &gs, Some(&motion));
+            let status = bv.layout.status;
+            let line = "Opponent's Turn ...";
+            let y = status.y0 + 1;
+            let chars: Vec<char> = row_text(&frame, y).chars().collect();
+            let read: String = chars[status.x0..status.x0 + line.chars().count()].iter().collect();
+            assert_eq!(read, line, "{cols}: thinking line");
+            for x in status.x0..status.x0 + line.chars().count() {
+                assert_eq!(frame[x][y].emphasis, Emphasis::Muted, "{cols}: cell {x} is Muted");
+            }
+            if cols == 89 {
+                let stake = stake_line(999_999);
+                let row: Vec<char> = row_text(&frame, status.y0).chars().collect();
+                let right: String = row[status.x1 + 1 - stake.chars().count()..=status.x1].iter().collect();
+                assert_eq!(right, stake, "the stake still ends the upper row");
+            }
+
+            let (_, frame) = drawn_board(cols, Some(999_999), &gs, None);
+            let plain = "Opponent's Turn";
+            let chars: Vec<char> = row_text(&frame, y).chars().collect();
+            let read: String = chars[status.x0..status.x0 + plain.chars().count()].iter().collect();
+            assert_eq!(read, plain, "{cols}: static line when Off");
+            assert_eq!(chars[status.x0 + plain.chars().count()], ' ', "{cols}: no indicator when Off");
+        }
     }
 
     #[test]
