@@ -220,63 +220,90 @@ on screen.
 
 ## Acceptance criteria
 
-1. **Dealer card arrival** (Revisions 1 and 2). On a hit, the new card in
+1. [x] **Dealer card arrival** (Revisions 1 and 2). On a hit, the new card in
    the player's dealer row is drawn with the heavy border and Strong
    emphasis on the frame it appears, its face reading its value from that
    frame, and it is drawn single-border Normal once the arrival beat has
    elapsed; the cards already in the row are single-border Normal
    throughout. The same for a card dealt to the opponent.
-2. **Played card arrival** (Revision 1). On a play, the card in the played
+2. [x] **Played card arrival** (Revision 1). On a play, the card in the played
    row is drawn heavy-border Strong for the arrival beat, then
    double-border Normal, on both sides, and its face shows its value from
    the first frame; the hand slot it came from draws the source ghost (a
    full single-line outline, empty face, Normal) for the arrival beat and
    is blank after; when the opponent draws and plays in one move, the
    dealt card, the played card and the ghost transition together.
-3. **Total change.** When a side's Score changes, that figure is Strong for
+3. [x] **Total change.** When a side's Score changes, that figure is Strong for
    the arrival beat, then Normal; a Score that did not change is never
    Strong; `Rounds won` never transitions; the over-20 alert is unchanged.
-4. **Popup beat.** On the frame a round resolves the popup is absent and
+4. [x] **Popup beat.** On the frame a round resolves the popup is absent and
    the deciding card is visible and Strong; once the popup beat has
    elapsed the popup is drawn; `n` pressed during the beat starts the next
    round on that frame. The game-over popup behaves the same with `g` and
    `x`. The phase, the save and the banter/audio events are exactly as
    before this spec (existing tests untouched).
-5. **Thinking indicator.** During the opponent's thinking pause the status
+5. [x] **Thinking indicator.** During the opponent's thinking pause the status
    line shows at least two different indicator states across the pause,
    keeps Muted emphasis, and reverts to the plain text once the opponent
    has acted. On the compact layout the line never reaches the stake.
-6. **Keys are never delayed.** Every key handled on the board today has
+6. [x] **Keys are never delayed.** Every key handled on the board today has
    the same effect on the same frame with a transition running; no
    `GamePhase` variant, timing constant or `apply_*` method changes
    meaning. The opponent's pause is still `OPPONENT_THINKING_TIME_MS`.
-7. **Settled first frame.** The first drawn frame of a new match, a
+7. [x] **Settled first frame.** The first drawn frame of a new match, a
    rematch and a resumed save has no element in transition, and a resumed
    match at `AwaitingNextRound` shows its popup on that first frame.
-8. **The Animations setting.** Settings shows an Animations row that
+8. [x] **The Animations setting.** Settings shows an Animations row that
    toggles On/Off with `←`/`→`, is saved, defaults to On, reads On from a
    file without the key and Off from a file with it Off; with it Off the
    board's frames are identical to a settled draw (no heavy-border or
    Strong card, no source ghost, no Strong
    score, popup on the resolving frame, static thinking line);
    toggling it mid-match takes effect on the next frame.
-9. **Both layouts.** Criteria 1–5 hold at 89×31 and at 139×31; the
+9. [x] **Both layouts.** Criteria 1–5 hold at 89×31 and at 139×31; the
    presence panel is unchanged at 139.
-10. **The pulse keeps breathing.** The selection's emphasis alternates at
+10. [x] **The pulse keeps breathing.** The selection's emphasis alternates at
     its cadence while a transition runs; `design/brief.md`'s Motion
     section carries the one-sentence amendment.
-11. **Timing bounds.** The arrival beat and the popup beat are named
+11. [x] **Timing bounds.** The arrival beat and the popup beat are named
     constants within *Timing*'s bounds, and the popup beat is not shorter
     than the arrival beat.
-12. **No forbidden change.** No change to `card.rs`, `player.rs`,
+12. [x] **No forbidden change.** No change to `card.rs`, `player.rs`,
     `save.rs`, `profile.rs`, `economy.rs`, `wager.rs`, `campaign.rs`,
     `campaign_map.rs`, `opponent.rs`, `tests/balance.rs`, `Cargo.toml` or
     `Cargo.lock`; `game.rs` has no behavior change and its existing tests
     pass untouched; `SAVE_VERSION` and `PROFILE_VERSION` stay 1. No new
     crate. No color path: the only attributes emitted are the four
     existing emphasis levels.
-13. **README.** The settings mention in `Readme.md` names the Animations
+13. [x] **README.** The settings mention in `Readme.md` names the Animations
     row.
+
+**Checked off at T005 (2026-09-19)** — evidence: 1, 2, 3 and 9 by the
+board and motion tests (`board.rs`, `motion.rs`, both layouts) and the Phase
+1 and Phase 1b driver walkthroughs at 89×31 and 139×31 (heavy landing and
+value visible on the first frame, settled by 0.75 s; the source ghost with
+no number key, blank after; the opponent's card and Score landing together;
+the Score plain when a dealt 0 left it unchanged; `Rounds won` never bold;
+the panel unchanged at 139); 4 by the popup and app tests and the Phase 1
+walkthrough (no popup at two 0.4 s samples, popup by 0.8 s, `n` on the
+resolving frame with no popup ever drawn, game-over popup absent at 0.1 s
+and present at 1.1 s); 5 by the app tests and the walkthrough (dots
+stepping, plain line once the opponent acted, at 89 the dots on the band's
+lower row under the alert/stake row); 6 and 12 by the mechanical checks in
+`closeout-main-docs.md` §4 (the forbidden files untouched in `git diff
+main...HEAD`, `game.rs` untouched, both versions 1, no `Color` in the diff,
+no new crate, 0 warnings, 443 + 6 tests green three times); 7 by the app
+tests and the walkthrough (Continue on a save left at the popup drew it on
+the first frame with nothing bold, Continue mid-match and the `g` rematch
+drew settled); 8 by the settings tests (default, missing key, Off) and the
+Phase 2 walkthrough (`→` flipped Off and the file gained `"animations":
+false`; a hit then drew thin with its value, a plain `Opponent's Turn`, a
+double-bordered play with the slot blank and the popup on the resolving
+frame; a file with the key deleted read On); 10 by the walkthroughs (the
+cursor kept breathing through every landing) and the brief's Motion
+amendment on the branch; 11 by `beats_are_named_constants_within_bounds`
+(600 / 800 / 300 ms; `grep FLIP src/` empty); 13 by the README diff on the
+branch.
 
 ## Resolved decisions (the person, 2026-09-18)
 
