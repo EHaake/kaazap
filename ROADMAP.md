@@ -590,6 +590,24 @@ spec 005's versioning).
   full-universe **album** with placeholders, a **`c`** map launch key, and a
   return-path bug fix. Human-requested during spec 008.
 
+- **F · Tournament rounds: beat each opponent best-of-three, the final
+  best-of-five** (raised by the person 2026-09-19, after spec 027). Today a
+  single match win "defeats" a campaign opponent and opens the next; the
+  person rules that is too simple and makes the campaign too short. The
+  direction: each campaign opponent must be beaten **2 times out of 3
+  matches** to be defeated, and the final opponent **3 out of 5** — a
+  best-of series that fits the theme of competing in tournaments across the
+  galaxy. **Between the matches of a series the player can visit the shop
+  and their collection** to buy cards and change up their deck. Spec
+  questions to settle in the spec conversation, not here: how the series
+  interacts with the per-match stake and the loss condition (spec 021 — is
+  each match staked, or the series?), what a lost match inside a series
+  means for the run, how series progress is shown on the map and in the
+  records, and how a save mid-series resumes. Further down the road, the
+  person wants the campaign to **lean even further into the tournament
+  theme** — a direction to keep in mind when shaping the series, not a
+  commitment in this entry.
+
 ### Immersion & personality (now being sequenced)
 
 Making the opponents feel like people, not just AI parameters — two
