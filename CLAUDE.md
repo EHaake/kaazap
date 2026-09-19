@@ -131,7 +131,8 @@ further, and whenever something unexpected bears on spec adherence.
 
 ## Model policy
 
-**Standard profile** — this project's. Top tier `fable`; implementation
+**Standard profile** (the skill's default; this project's until
+2026-09-19). Top tier `fable`; implementation
 tier `opus`; session tier `fable` at medium effort (the top and session
 tiers are the same model at different effort; the fallback session model
 is `claude-opus-5`, the full ID, since the person's ruling of
@@ -139,15 +140,18 @@ is `claude-opus-5`, the full ID, since the person's ruling of
 model with no short alias). Settings from the skill's
 `project/.claude/settings.json`.
 
-**Economy profile** (a small or personal project, or one that should
-leave the top tier's separate allowance to other projects). One model
-family throughout: top tier `opus`; implementation tier `opus`; session
-tier `claude-opus-4-8` at medium effort. Nothing runs on Fable: the
+**Economy profile** — **this project's, since 2026-09-19**, when the
+person said to use Opus for everything from now on; it stands until they
+say otherwise, and nobody infers its end from an allowance reading or
+from a sign-off that keeps finding problems. One model family
+throughout: top tier `opus`; implementation tier `opus`; session tier
+`claude-opus-5` at medium effort — the full ID, the current Opus rather
+than the template's `claude-opus-4-8`, following the person's ruling of
+2026-09-16 and how spec 025 actually ran. Nothing runs on Fable: the
 planner and sign-off dispatches carry no override, and the top-tier
 fallback below never applies. Settings from the skill's
-`project/.claude/settings.economy.json`. Move to the standard profile
-when a spec's plan is the kind a stronger planner would change — a
-sign-off that keeps finding blocking problems is the signal.
+`project/.claude/settings.economy.json`, with `"model"` set to
+`claude-opus-5`.
 
 These names are the only place a model is spelled out; everything
 below refers to the roles.
@@ -165,11 +169,11 @@ every agent definition defaults to the implementation tier except
 | Role | Dispatched as | Model | Effort |
 |---|---|---|---|
 | Spec conversation | the spec session itself | session tier | high (raised per session) |
-| Plan and tasks draft | `sdd-planner` | **top tier** (override) | high |
-| Plan and tasks sign-off | `skeptical-reviewer` | **top tier** (override) | high |
-| Decision review | `skeptical-reviewer` | **top tier** (override) | high |
+| Plan and tasks draft | `sdd-planner` | **top tier** (no override) | high |
+| Plan and tasks sign-off | `skeptical-reviewer` | **top tier** (no override) | high |
+| Decision review | `skeptical-reviewer` | **top tier** (no override) | high |
 | Task implementation | `sdd-implementer` | implementation tier | high |
-| Close-out task | `sdd-implementer-fable` | top tier | medium |
+| Close-out task | `sdd-implementer` | top tier | high |
 | Per-task and phase review | `skeptical-reviewer` | implementation tier | high |
 | Pre-merge sweep | `skeptical-reviewer` | implementation tier | high |
 | Orchestration and bookkeeping | the session itself | session tier | medium |
@@ -179,9 +183,11 @@ replace **top tier** (override) with "implementation tier (no
 override)"; the dispatch then carries no override and the agent runs
 at its own default. To change the implementer, change the agent name
 in that row — both definitions stay installed, so it is a word, not a
-reinstall. Under the economy profile the top tier *is* the
-implementation tier, so the overrides become no-ops and the close-out
-row reads `sdd-implementer`; nothing else in the table changes.
+reinstall. On the economy profile — where this project is now — the
+top tier *is* the implementation tier, so every override column reads
+"no override" and the close-out row reads `sdd-implementer`; moving back
+to standard re-points those cells and nothing else in the table
+changes.
 
 **A change the person asks for gets written here before it is acted
 on.** If they say to move a role — for one window, for this project,
@@ -200,7 +206,7 @@ infer the end of a temporary change and revert it unasked.
   this repo's `.claude/settings.json` — written at project setup from
   the profile's settings file in the skill's `project/.claude/`
   (`settings.json` for the standard profile, `settings.economy.json`
-  for economy) (`"model": "claude-fable-5-1"`, `"effortLevel":
+  for economy) (`"model": "claude-opus-5"`, `"effortLevel":
   "medium"`, and a level under `"modelSettings"` for each tier's full
   model ID). If that file is missing or lacks these
   keys, recreate it from the template and commit it before dispatching
@@ -215,7 +221,9 @@ infer the end of a temporary change and revert it unasked.
   assembles bundles, dispatches, verifies, commits, and reports. The
   role never needs the top tier. Under the standard profile it sits on
   the top tier's model because, measured, Fable 5.1 at medium in this
-  seat cost about a third per task of Opus 4.8 and its allowance held.
+  seat cost about a third per task of Opus 4.8 and its allowance held;
+  on the economy profile it sits on Opus 5, whose reports read clearly
+  to the person, and the same discipline about turns applies.
   If it drops the protocol (a skipped review, a stale `tasks.md`
   edit, a task done by hand), the first fix is high effort, one line
   in the same file.
@@ -361,6 +369,13 @@ infer the end of a temporary change and revert it unasked.
   implementation, reviews and sweep — ran at `opus`/`claude-opus-5` with
   the top-tier override dropped. Its tier log is in
   `specs/025-outfitter-locked-cards/tasks.md`.
+  **2026-09-19: the project moved to the economy profile** — the person
+  said to use Opus for everything from now on, so every row resolves to
+  `opus`/`claude-opus-5`, the close-out row names `sdd-implementer`, and
+  `.claude/settings.json` puts new sessions on `claude-opus-5` at medium.
+  Recorded here rather than in a tier log because no spec was in flight;
+  the next spec's tier log opens with it. It holds until the person says
+  otherwise.
 
 ## Spec-driven workflow
 
@@ -392,7 +407,7 @@ plan in that feature's directory. When resuming a session, check
 
 Small, self-contained fixes the person rules do not need a spec — a
 one-line flow change, a layout spacing fix, a wording fix — run as a
-**chore**: a `chore-<slug>` branch off `main`, a draft PR, each fix
+**chore**: a `chore/<slug>` branch off `main`, a draft PR, each fix
 dispatched to the `sdd-implementer` with the person's words as the task
 line, one `skeptical-reviewer` pass on the combined diff, then merge
 (branch kept). No `specs/` directory. What makes something a chore is
@@ -400,7 +415,10 @@ the person's ruling plus the footprint: no engine, AI, save-format,
 balance-data, or dependency change, and no new screen or mode. If a fix
 supersedes a line in an earlier spec, the chore's merge gets a short
 `DECISIONS.md` entry saying so. (Ruled 2026-09-13 for the first chore:
-run-over returns to the menu; wager prompt spacing.)
+run-over returns to the menu; wager prompt spacing. The branch name was
+`chore-<slug>` until 2026-09-19, when it was reconciled with the git
+conventions' `chore/<short-description>`; branches already merged keep
+the names they merged under.)
 
 ## Collaboration workflow
 
