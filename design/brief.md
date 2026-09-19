@@ -127,7 +127,11 @@ eye-guiding moments during play — a dealt card arriving, a flip
 resolving, a total changing. Its rule is set now: build on the pulse's
 vocabulary (emphasis transitions over time), never particle effects,
 sweeps, or continuous ambient motion. If everything moves, nothing is
-emphasized.
+emphasized. **Amendment (spec 027).** The one-thing-moves rule counts
+*continuous* motion: a one-shot emphasis transition — a card arriving, a
+total changing, a popup held back a beat — may run alongside the
+selection pulse, because it ends on its own within a beat and never
+breathes.
 
 **Amendment (spec-D exploration — the campaign map).** Everything above
 governs *functional* surfaces — the board, menus, overlays — and still

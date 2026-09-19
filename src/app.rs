@@ -32,14 +32,11 @@ use crate::{
     profile::Profile,
     records::{RecordsOutcome, RecordsState},
     screen::Screen,
-    settings::{SettingRow, Settings, SettingsAction, SettingsState},
+    settings::{Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
     stats::{RunStats, run_summary_lines},
     wager::{WagerOutcome, WagerState},
 };
-
-/// How much one ←/→ press moves a volume slider on the settings screen.
-const VOLUME_STEP: f32 = 0.1;
 
 /// The one shared selection animation: a gentle two-phase breathe that
 /// modulates the emphasis of whatever is currently selected (a hand
@@ -1400,8 +1397,7 @@ impl App {
     }
 
     /// Route a key to the open settings panel: move between rows, adjust the
-    /// selected channel's volume (updating audio + persisting immediately),
-    /// or close the panel back to the menu with the back cue. The menu
+    /// selected row (updating audio + persisting immediately), or close the panel back to the menu with the back cue. The menu
     /// underneath is untouched, so its selection survives.
     fn handle_settings_input(&mut self, key: KeyCode) {
         let Some(Modal::Settings(state)) = self.modal.as_ref() else {
@@ -1423,19 +1419,9 @@ impl App {
                 }
                 self.audio.play(Sfx::MenuMove);
             }
-            SettingsAction::Louder | SettingsAction::Quieter => {
-                let delta = if matches!(action, SettingsAction::Louder) {
-                    VOLUME_STEP
-                } else {
-                    -VOLUME_STEP
-                };
-                if let Some(Modal::Settings(s)) = self.modal.as_ref() {
-                    let vol = match s.selected() {
-                        SettingRow::Music => &mut self.settings.music_volume,
-                        SettingRow::Sfx => &mut self.settings.sfx_volume,
-                    };
-                    *vol = (*vol + delta).clamp(0.0, 1.0);
-                }
+            SettingsAction::Left | SettingsAction::Right => {
+                let row = state.selected();
+                self.settings.adjust(row, matches!(action, SettingsAction::Right));
                 self.audio.set_settings(self.settings);
                 self.settings.save();
                 // A tick after set_settings so you hear the new SFX level
@@ -1782,7 +1768,7 @@ impl App {
                     self.banter,
                     self.stake_to_show(),
                     pulse,
-                    Some(&self.motion), // T004: gated by settings.animations
+                    self.settings.animations.then_some(&self.motion),
                     frame,
                 )
             }
@@ -2768,10 +2754,10 @@ mod tests {
         // No game key is pressed — every key that reaches the engine ends in
         // `save_game()`, which writes the real save file — so rows and phases
         // are set by hand and only `tick`/`draw` run; nothing here touches disk.
-        // (The Animations-off step lands with the setting in T004.)
         use crate::card::PlayedCard;
         use crate::game::RoundOutcome;
         use crate::layout::{BoardLayout, card_slot};
+        use crate::{CARD_HEIGHT, CARD_WIDTH};
         use std::time::Instant;
 
         fn row_text(frame: &Frame, y: usize) -> String {
@@ -2847,6 +2833,40 @@ mod tests {
         app.draw(&mut frame);
         assert!((0..31).all(|y| !row_text(&frame, y).contains(popup)), "no popup after n");
         assert!(!any_strong_in(&frame, grid), "a cleared row starts nothing");
+
+        // Animations Off (set directly — handle_settings_input writes the real
+        // settings file): the same hit draws settled from the first frame, the
+        // thin corner, the face at Normal reading 7, the plain thinking line.
+        // Back On, the transition returns on the next frame.
+        fn slot_face_row(frame: &Frame, x: usize, y: usize) -> String {
+            let y = y + CARD_HEIGHT / 2;
+            (x + 1..=x + CARD_WIDTH - 2).map(|cx| frame[cx][y].ch).collect()
+        }
+        let Screen::InGame { game_state, .. } = &mut app.screen else {
+            panic!("in the match");
+        };
+        game_state.player.dealer_row.push(PlayedCard { card: Card::Dealer(7), value: 7 });
+        game_state.game_phase =
+            GamePhase::OpponentThinking { until: Instant::now() + Duration::from_secs(3600) };
+        app.settings.animations = false;
+        app.tick(Duration::ZERO);
+        let mut frame = crate::frame::new_frame(&config);
+        app.draw(&mut frame);
+        assert_eq!(frame[slot0_x][slot0_y].ch, '┌', "Off: the thin corner");
+        assert_eq!(frame[slot0_x][slot0_y].emphasis, Emphasis::Normal, "Off: no Strong card");
+        assert_eq!(slot_face_row(&frame, slot0_x, slot0_y).trim(), "7", "Off: the face reads 7");
+        assert!(!any_strong_in(&frame, grid), "Off: no Strong cell in the grid");
+        let status = row_text(&frame, status_y);
+        assert!(
+            status.contains("Opponent's Turn") && !status.contains("Opponent's Turn ."),
+            "Off: the plain thinking line: {status:?}"
+        );
+        app.settings.animations = true;
+        let mut frame = crate::frame::new_frame(&config);
+        app.draw(&mut frame);
+        assert_eq!(frame[slot0_x][slot0_y].ch, '┏', "On: the heavy corner");
+        assert_eq!(frame[slot0_x][slot0_y].emphasis, Emphasis::Strong, "On: Strong again");
+        assert_eq!(slot_face_row(&frame, slot0_x, slot0_y).trim(), "7", "On: the face reads 7");
 
         // Leaving the board discards the transitions (the Menu arm saves nothing).
         app.handle_key(KeyCode::Esc);

@@ -17,7 +17,8 @@ run is over.
 
 > **Status:** actively being built. The core Pazaak engine, a terminal
 > UI overhaul, audio with a settings menu (music/SFX volume, a global
-> mute), mid-match save/resume (a **Continue** on the menu), a **ten-opponent**
+> mute, and an **Animations** on/off row for the board's card and score
+> transitions), mid-match save/resume (a **Continue** on the menu), a **ten-opponent**
 > roster with distinct difficulties, decks, and **board-aware AI**
 > (they read your board and play to beat the round, each with its own
 > strategy — up to a flawless final boss), a deck-builder for
