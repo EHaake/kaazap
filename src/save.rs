@@ -15,7 +15,6 @@ use std::{
     time::{Duration, Instant},
 };
 
-use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -138,8 +137,7 @@ fn from_saved(saved: SavedGame) -> GameState {
 
 /// `<data_dir>/saves/savegame.json`, if a data dir is resolvable.
 fn save_path() -> Option<PathBuf> {
-    ProjectDirs::from("", "", "kaazap")
-        .map(|dirs| dirs.data_dir().join("saves").join("savegame.json"))
+    crate::paths::data_dir().map(|dir| dir.join("saves").join("savegame.json"))
 }
 
 /// Write the in-progress match — or clear the save if the match is over.

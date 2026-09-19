@@ -1611,3 +1611,44 @@ changed one test's struct literals for the new field; `PROFILE_VERSION` and
 `SAVE_VERSION` both stay 1; no new crate; the build has no warnings. No color
 path: the only attributes emitted are the four existing emphasis levels and
 the existing border weights.
+
+## Chore: a path seam for the profile, match save and settings (2026-09-19)
+
+Closes the "known gap, deferred" noted in the 2026-09-13 chore entry above and
+the backlog's *A path-injection seam for the profile and save locations*.
+`Profile::path`, the match-save path and `Settings::config_path` each resolved
+`ProjectDirs` for themselves, with no override — so no `App`-level flow could
+be tested without reading and writing the real data folder, and every driver
+session had to back up the human's profile first.
+
+- **One module owns the locations.** A new `paths.rs` exposes `data_dir()` and
+  `config_dir()`; the three call sites go through it and `ProjectDirs` is
+  imported nowhere else in the crate.
+- **The root resolves once, in three steps:** an explicit `paths::set_root`,
+  then the `KAAZAP_DATA_DIR` environment variable, then the platform
+  directories. With neither override present the paths are exactly where they
+  have always been — the same `ProjectDirs::from("", "", "kaazap")`, the same
+  `data_dir()`/`config_dir()`, the same filenames and `saves/` subfolder.
+  Nothing moves, and no existing file is migrated.
+- **An override collapses the two directories into one.** `data_dir()` and
+  `config_dir()` both return the override root; `profile.json`,
+  `saves/savegame.json` and `settings.json` don't collide, and one temp
+  directory holding all three is the point. Only the platform case keeps them
+  distinct, as the OS wants.
+- **`KAAZAP_DATA_DIR` is the lever a driver uses.** `set_root` is an in-process
+  call, so a session driving the built binary can't reach it; the environment
+  variable can, and it applies as long as nothing in-process has resolved the
+  root first. This
+  supersedes the roadmap line saying every driver session must back up the
+  real profile first — pointing the run at a scratch directory is now enough.
+- **`set_root` is not `cfg(test)`-gated**, since integration tests call it from
+  outside the crate. It returns whether the override took: once the root is
+  resolved it stays put, so a late call is a truthful `false` rather than a
+  silent relocation mid-run.
+- **The seam is added, not yet used by the existing tests.** Seven `app.rs`
+  unit tests construct an `App`, which reads the real profile, settings and
+  save; taking them off the real folder changes those tests' behaviour and is
+  its own follow-up. The seam is what that follow-up needed to exist.
+- **Why a chore and not a spec.** One new module and three one-line call-site
+  changes, with no engine, AI, save-format, balance-data or dependency change
+  and no new screen or mode.

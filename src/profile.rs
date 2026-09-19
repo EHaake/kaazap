@@ -15,7 +15,6 @@
 
 use std::{fs, path::PathBuf};
 
-use directories::ProjectDirs;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -209,7 +208,7 @@ impl Profile {
 
     /// `<data_dir>/profile.json`, beside the match save's `saves/` subfolder.
     fn path() -> Option<PathBuf> {
-        ProjectDirs::from("", "", "kaazap").map(|dirs| dirs.data_dir().join("profile.json"))
+        crate::paths::data_dir().map(|dir| dir.join("profile.json"))
     }
 
     /// The built side deck, for dealing a match hand.

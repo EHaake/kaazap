@@ -729,13 +729,19 @@ human's stated priority is the first-run onboarding.
   commit, cancel, the payout math, the reset itself and every sound are
   untouched. The softer *keep-your-cards* restart (spec 021) and *archive the
   last run at reset* (above) stay separate levers, both still open.
-- **A path-injection seam for the profile and save locations.** `Profile::path`
-  and the match-save path go through `ProjectDirs` with no override, so no
+- **A path-injection seam for the profile and save locations** — ✅ **Shipped
+  (chore 2026-09-19**; see `DECISIONS.md`). `Profile::path`, the match-save path
+  and `Settings::config_path` each resolved `ProjectDirs` for themselves, so no
   `App`-level flow (e.g. "acknowledging the run-over lands on the start menu",
-  chore 2026-09-13) can have a test without touching the real data folder, and
-  every driver session has to back up the human's profile first. One small
-  chore (a `OnceLock<PathBuf>` root or a data-dir parameter); logged in
-  `DECISIONS.md` at that chore.
+  chore 2026-09-13) could be tested without touching the real data folder, and
+  every driver session had to back up the human's profile first. A new
+  `paths.rs` now owns all three locations behind a root resolved once —
+  `paths::set_root` for tests, the `KAAZAP_DATA_DIR` environment variable for a
+  run driving the built binary, the platform directories otherwise (unchanged,
+  nothing migrated). **Still open, the follow-up the seam exists for:** seven
+  `app.rs` unit tests construct an `App` and so still read the real profile,
+  settings and save — pointing them at a scratch root changes those tests'
+  behaviour and was left outside the chore's footprint.
 - **Release readiness** (chores, not a spec): a **CI workflow** running
   `cargo build --all-targets` and `cargo test` on push (none exists);
   **README screenshots** of the menu, a match, the map and the shop;
