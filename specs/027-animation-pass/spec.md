@@ -1,7 +1,8 @@
 # Spec: Animation pass — spec 027
 
 **Status**: Approved (2026-09-18; Q7 added at planning; **Revision 1** at the
-Phase 1 pause the same day — Q8–Q10, see the end of this file). Rulings Q1 a–e;
+Phase 1 pause the same day — Q8–Q10; **Revision 2** at the Phase 1b pause,
+2026-09-19 — Q11, the flip removed; see the end of this file). Rulings Q1 a–e;
 Q2 A, Q3 A, Q4 A, Q5 A, Q6 A delegated to the session and taken as
 recommended, under the person's standing constraint (Goal 1); Q2 A is
 superseded for dealer cards by Q8.
@@ -50,9 +51,8 @@ static.
    Emphasis here means the four text levels *and the border weight* — a
    card may land with the heavy border the hand cursor already uses and
    settle to its resting border (Revision 1). No element moves across the
-   screen and nothing is redrawn in a different shape; the one staged
-   appearance is a dealer card's face-down flip (Q8), which changes the
-   face, never the card's place or outline.
+   screen, nothing appears in stages and nothing is redrawn in a different
+   shape (the face-down flip Revision 1 allowed here was withdrawn by Q11).
 4. **Stillness stays the default.** Outside the moments listed under *Key
    behavior*, the board is exactly as still as it is today; the selection
    pulse stays the only continuous mover, and it keeps breathing while a
@@ -68,10 +68,10 @@ static.
 - **Anything outside the match board.** Menus, the Outfitter, the deck
   builder, the map, the wager prompt, the shop and the records screens do
   not change. No purchase flash, no credit-counter flash.
-- **A face-down reveal for any card other than a dealer card.** A played
-  side card shows its value from its first frame — the player chose it —
-  and the hand never flips. (The dealer-card flip itself is in, Q8; Q2 A's
-  emphasis-only arrival stands for played cards.)
+- **A face-down reveal** (a new card showing `?` for a beat and flipping to
+  its value). Revision 1 (Q8) let a dealer card flip; Revision 2 (Q11)
+  withdrew it after the person saw it — a card's content never changes
+  after it is drawn, on either side. Q2 A stands for every card.
 - **A stake flash** at game over; the presence panel's stake line, round
   pips and banter line are untouched.
 - **Portrait animation.** Spec 016 deferred "swapping portrait frames on
@@ -95,13 +95,12 @@ static.
   which the element draws as it does today. Transitions are drawing state
   only: they are never saved, never affect the engine, and are discarded
   when the board leaves the screen.
-- **Beat** — the duration of a transition. There are three lengths: the
+- **Beat** — the duration of a transition. There are two lengths: the
   **arrival beat** (a card arriving, a total changing, a source ghost
-  showing), the **flip beat** (how long a dealt card stays face down at
-  the start of its arrival beat, Revision 1) and the **popup beat** (the
-  wait before an outcome popup draws). All are constants the planner picks
-  within the bounds under *Timing*, and all may be tuned at the phase
-  walkthrough within those bounds.
+  showing) and the **popup beat** (the wait before an outcome popup draws).
+  Both are constants the planner picks within the bounds under *Timing*,
+  and both may be tuned at the phase walkthrough within those bounds. (A
+  third, the flip beat, existed between Revisions 1 and 2.)
 - **Source ghost** — the hand slot a side card was just played from, drawn
   for the arrival beat as a full single-line outline with an empty face at
   Normal emphasis (Revision 1, Q9). Today an emptied slot draws nothing;
@@ -121,14 +120,12 @@ All of the following apply to **both sides** of the board, in **both
 layouts** (wide and compact, spec 026), and only while the match board is
 on screen.
 
-1. **A dealer card arriving** (ruling a; Revision 1, Q8). When a card is
-   dealt to a side's dealer row, that card draws with the **heavy border**
-   and Strong emphasis from the first frame it exists, and for the **flip
-   beat** its face shows `?` — the same hidden face the opponent's hand
-   uses — then its value, still heavy; when the arrival beat ends it
+1. **A dealer card arriving** (ruling a; Revision 1, Q8; Revision 2, Q11).
+   When a card is dealt to a side's dealer row, that card draws with the
+   **heavy border** and Strong emphasis from the first frame it exists,
+   its value visible from that frame; when the arrival beat ends it
    settles to today's look (single border, Normal). The rest of the row is
-   unchanged. The card's value is never hidden from the engine or the
-   status line, only from the face during the flip beat.
+   unchanged.
 2. **A side card played** (ruling b; Revision 1, Q9). When a card lands in
    a side's played row, that card draws with the **heavy border** and
    Strong emphasis for the arrival beat, then settles to its resting look
@@ -196,8 +193,6 @@ on screen.
 
 - The **arrival beat** is at least one selection-pulse period (500 ms) and
   at most one second.
-- The **flip beat** is at least 150 ms and at most half the arrival beat,
-  so the value is readable for at least half of the card's highlight.
 - The **popup beat** is at least the arrival beat, so the deciding card's
   highlight is seen in full before the popup covers it, and at most one
   second.
@@ -215,7 +210,7 @@ on screen.
   volumes. A settings file without the key reads as **On**. A file with
   it Off starts the game with it Off.
 - **Off** means: cards and totals draw settled from the first frame — no
-  heavy border, no `?` face, no source ghost, no Strong — the outcome
+  heavy border, no source ghost, no Strong — the outcome
   popups draw on the same frame as today, and the thinking line is
   today's static `Opponent's Turn`. The board's frames are identical to
   the game's frames before this spec, apart from the Score figure resting
@@ -225,13 +220,12 @@ on screen.
 
 ## Acceptance criteria
 
-1. **Dealer card arrival** (Revision 1). On a hit, the new card in the
-   player's dealer row is drawn with the heavy border and Strong emphasis
-   on the frame it appears, its face reads `?` until the flip beat has
-   elapsed and its value after, and it is drawn single-border Normal once
-   the arrival beat has elapsed; the cards already in the row are
-   single-border Normal throughout. The same for a card dealt to the
-   opponent. The Score and the engine see the value from the first frame.
+1. **Dealer card arrival** (Revisions 1 and 2). On a hit, the new card in
+   the player's dealer row is drawn with the heavy border and Strong
+   emphasis on the frame it appears, its face reading its value from that
+   frame, and it is drawn single-border Normal once the arrival beat has
+   elapsed; the cards already in the row are single-border Normal
+   throughout. The same for a card dealt to the opponent.
 2. **Played card arrival** (Revision 1). On a play, the card in the played
    row is drawn heavy-border Strong for the arrival beat, then
    double-border Normal, on both sides, and its face shows its value from
@@ -263,7 +257,7 @@ on screen.
    toggles On/Off with `←`/`→`, is saved, defaults to On, reads On from a
    file without the key and Off from a file with it Off; with it Off the
    board's frames are identical to a settled draw (no heavy-border or
-   Strong card, no `?` face on a dealt card, no source ghost, no Strong
+   Strong card, no source ghost, no Strong
    score, popup on the resolving frame, static thinking line);
    toggling it mid-match takes effect on the next frame.
 9. **Both layouts.** Criteria 1–5 hold at 89×31 and at 139×31; the
@@ -271,10 +265,9 @@ on screen.
 10. **The pulse keeps breathing.** The selection's emphasis alternates at
     its cadence while a transition runs; `design/brief.md`'s Motion
     section carries the one-sentence amendment.
-11. **Timing bounds.** The arrival beat, the flip beat and the popup beat
-    are named constants within *Timing*'s bounds: the popup beat is not
-    shorter than the arrival beat, and the flip beat is at least 150 ms
-    and at most half the arrival beat.
+11. **Timing bounds.** The arrival beat and the popup beat are named
+    constants within *Timing*'s bounds, and the popup beat is not shorter
+    than the arrival beat.
 12. **No forbidden change.** No change to `card.rs`, `player.rs`,
     `save.rs`, `profile.rs`, `economy.rs`, `wager.rs`, `campaign.rs`,
     `campaign_map.rs`, `opponent.rs`, `tests/balance.rs`, `Cargo.toml` or
@@ -354,3 +347,16 @@ weight, a face-down beat, and a source-and-destination pair.
   The revision was made in the implementation session at the person's
   ruling ("revise the spec now so that we finish it here"), a stated
   deviation from the constitution's spec-session rule.
+
+## Revision 2 (the person, 2026-09-19, at the Phase 1b pause)
+
+**Finding.** Played with Revision 1 built, the person judged the heavy
+landings and the source ghost good and the dealer card's `?` flip as not
+making sense: "just remove the initial `?` and call it good."
+
+- **Q11 — the flip is withdrawn.** A dealt card lands heavy with its value
+  visible from its first frame. The flip beat, its constant and its bounds
+  go; Q8 now reads "a dealer card arrives heavy". The Non-goals' face-down
+  bullet is restored for every card, Goal 3 loses its staged-appearance
+  exception, and criteria 1, 8 and 11 and the Off state are amended in
+  place above. Everything else in Revision 1 (Q9, Q10) stands.

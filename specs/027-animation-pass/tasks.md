@@ -1,6 +1,6 @@
 # Tasks: Animation pass — spec 027
 
-> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-18; re-review after B1 and N1, N2, N4; R1 applied by the orchestrator). **Revision 1: Signed off** (skeptical-reviewer at fable, 2026-09-18; re-review after B1 and N1, N2, N4) (2026-09-18, at the Phase 1 pause; spec Q8–Q10). The new material is Phase 1b (T003b, T003c), the Revision 1 lines in T004 and T005, and the handoff note's Phase 1b review and pause.
+> **Status**: Signed off (skeptical-reviewer at fable, 2026-09-18; re-review after B1 and N1, N2, N4; R1 applied by the orchestrator). **Revision 2** (2026-09-19, spec Q11 at the Phase 1b pause — the flip withdrawn): T003d below; T004's and T005's flip lines read as struck. **Revision 1: Signed off** (skeptical-reviewer at fable, 2026-09-18; re-review after B1 and N1, N2, N4) (2026-09-18, at the Phase 1 pause; spec Q8–Q10). The new material is Phase 1b (T003b, T003c), the Revision 1 lines in T004 and T005, and the handoff note's Phase 1b review and pause.
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -267,6 +267,26 @@ app.rs change: the observer and the draw argument are already in place. -->
   bounds — **T003a**, editing only the four constants in `src/lib.rs` (the
   bounds test guards).*
 
+- [ ] **T003d** — Revision 2 (spec Q11, the person at the Phase 1b pause:
+  "just remove the initial `?` and call it good"): withdraw the flip. In
+  `src/lib.rs` remove `FLIP_BEAT_MS` and its clause in the bounds comment
+  (three constants again). In `src/motion.rs` remove `is_face_down`, the
+  `FLIP_BEAT_MS` import, the two flip assertions in
+  `beats_are_named_constants_within_bounds`, the test
+  `a_dealt_card_is_face_down_for_the_flip_beat_then_faces_up` and the
+  `flip()` helper; keep `Elem::Hand`, the ghost rule and every other test. In
+  `src/board.rs` remove the `face_down` free fn and the `?` branch of the
+  dealer loop (a dealt card draws `c.display_text()` heavy + Strong while
+  arriving); in the tests, drop the `?` assertion and the `observe(FLIP)`
+  intermediate step of `arrivals_draw_strong_then_settle_on_both_layouts`
+  (settle with one `observe(ARRIVAL_BEAT_MS)` as in Phase 1; keep the corner
+  glyph and face assertions, the face reading `5` on the first frame), and
+  the `FLIP_BEAT_MS` import. Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim; `grep -rn "FLIP\|face_down" src/` is empty; `git diff --stat`
+  shows only `src/lib.rs`, `src/motion.rs`, `src/board.rs`; the settled frame
+  still equals the `None` frame (existing assertions).*
+
 ## Phase 2 — The Animations setting and the documents
 
 <!-- T004 adds the row, gates the board and lands the README and brief lines;
@@ -298,8 +318,7 @@ the phase ends with the review and the last walkthrough. -->
   middle interior row (`slot0_x + 1 ..= slot0_x + CARD_WIDTH − 2` at
   `slot0_y + CARD_HEIGHT / 2`, trimmed) reading `7` — the card T003's test
   pushes is `Dealer(7)` — and the plain `Opponent's Turn`; `true` → `┏`,
-  `Strong` and `?` again —
-  no tick in between, so the flip has not elapsed (Revision 1) — set the field
+  `Strong` again (Revision 2: no `?` — the face reads `7` On and Off) — set the field
   directly, never through `handle_settings_input`, which writes the real
   settings file; the step reuses T003's hand-set `OpponentThinking` state, so
   its `until` stays the far-future deadline for the same reason). In
@@ -320,7 +339,7 @@ the phase ends with the review and the last walkthrough. -->
   and checksum-verified after — and reports in plain language: the third row
   and its `On`/`Off`; the settings file on disk showing `"animations": false`
   after a toggle; a match with it Off showing thin single-bordered dealt cards
-  with their value from the first frame, no `?`, double-bordered plays, no
+  with their value from the first frame, double-bordered plays, no
   outline in an emptied hand slot, no bold score, the popup on the resolving
   frame and the plain thinking line; back On, the Phase 1 and 1b checks
   holding; a settings file with the key removed reading On. Then the person
@@ -338,16 +357,18 @@ the phase ends with the review and the last walkthrough. -->
   brief's amendment; Q4 A the Animations row, missing key reads On; Q5 A
   portraits static; Q6 A board only; the person's ruling on plan §Open
   questions 1, the Score's resting weight; **Revision 1** — Q8 a dealer card
-  lands heavy and face down for the flip beat, Q9 a played card lands heavy
+  lands heavy (and, until Revision 2's Q11 withdrew it, face down for a
+  flip beat), Q9 a played card lands heavy
   with a source ghost in the hand slot it left, Q10 the Score transition as
   built, ruled at the Phase 1 pause after the bold arrivals did not register,
   and written into `spec.md` in the implementation session at the person's
   ruling — a stated deviation from the constitution's spec-session rule), plan
   tension §2 (one struct observed in `tick`, `None` is the settled draw), §4
   (a shrunk row is a clear), §7 (the `Left`/`Right` rename and
-  `Settings::adjust`), §9 (the flip is a read of the arrival's countdown, the
-  ghost is an `Elem`, and the heavy landing is the exception to the brief's
-  "distinct weights, distinct meanings"), and the four beat values as shipped
+  `Settings::adjust`), §9 (the ghost is an `Elem`, the heavy landing is the
+  exception to the brief's "distinct weights, distinct meanings", and the
+  flip — a read of the arrival's countdown — was built and withdrawn), and
+  the three beat values as shipped
   (after any T003a tuning) — to apply on `main` after the merge, never on the
   branch. Run `cargo test -q` three consecutive times and paste the tails.
   Mechanical checks (three-dot, since `main` may move): `git diff main...HEAD
@@ -360,8 +381,8 @@ the phase ends with the review and the last walkthrough. -->
   src/audio.rs` touches only `mod tests`; `grep -n "VERSION" src/save.rs
   src/profile.rs` still reads 1 and 1; `grep -rn "Color" src/` shows nothing
   new against `main`; `cargo build --all-targets` warning count equals
-  `main`'s; the four constants in `src/lib.rs` satisfy the bounds, the flip
-  beat included (the T001 test as extended by T003b is green). Check off
+  `main`'s; the three constants in `src/lib.rs` satisfy the bounds (the T001
+  test is green; `grep -n FLIP src/` is empty after T003d). Check off
   `spec.md`'s acceptance criteria with evidence (the T003, T003c and T004
   walkthrough reports are the evidence for the driver criteria). Request the
   pre-merge sweep; apply `closeout-main-docs.md`
