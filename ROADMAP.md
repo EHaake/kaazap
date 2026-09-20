@@ -870,6 +870,35 @@ human's stated priority is the first-run onboarding.
   Pazaak music, can't be used; see DECISIONS.md). Nothing in the CC0/CC-BY
   libraries surveyed got close to that specific flavor, so an original is
   the path. Human-requested during spec 004.
+- **Per-planet venue art** (deferred by spec 029, 2026-09-20). Spec 029 builds
+  the venue — the tournament hall the player stands in between the matches of a
+  series — and **reserves the art region but ships a plain placeholder in it**,
+  on the person's ruling. This item authors the actual art.
+
+  The layout is already settled, so this spec is authoring plus integration, not
+  design: at 139 columns and wider the venue draws a **30×15 cell** art region
+  with the **opponent's portrait beside it** as a separate element sharing its
+  top and bottom edge, and below 139 columns the venue is text only. The two are
+  separate by the person's explicit requirement — the art belongs to the planet
+  and does not change with the opponent, and a planet may later hold more than
+  one opponent. Replacing the region's contents moves nothing around it; the
+  canvas size is one constant and one test if it turns out wrong.
+
+  The authoring path is the one **spec 016** established for the portraits and
+  should be reused rather than re-invented: a brief written into the repo, the
+  art drawn by a more capable tool, Claude Code validating the format and
+  integrating it. Expect the same two obligations spec 016 hit — the art is
+  **monochrome by construction** (check whether it falls under `design/brief.md`'s
+  existing bounded exception for portraits or needs its own amendment), and the
+  format wants a spike before the authoring, not after.
+
+  Questions for its spec conversation, not here: one piece per planet (eight,
+  plus a fallback) or one per region (three or four), which is the same
+  granularity-versus-cost trade as **Per-planet music** below and probably wants
+  the same answer; whether the art is static, as spec 027 ruled the portraits
+  are; and whether anything shows in the region below 139 columns or the venue
+  stays text-only there.
+
 - **Per-planet music** (raised by the person 2026-09-20, during the spec 029
   conversation, and ruled out of scope there as its own spec). Today one
   looping track plays throughout (spec 004). The direction: a distinct track
