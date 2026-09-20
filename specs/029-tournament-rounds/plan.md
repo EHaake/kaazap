@@ -1,6 +1,6 @@
 # Plan: Tournament rounds — spec 029
 
-> **Status**: Draft — pending sign-off
+> **Status**: Signed off (skeptical-reviewer, 2026-09-20 — one review, one re-review, B1–B6 all resolved; two second-look notes carried to the tier log and the pre-merge sweep). Ready for implementation.
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -799,8 +799,17 @@ starter-deck entry changes.
 - `assets/primer_text.txt`, `assets/how_to_play_text.txt`, `src/overlay.rs` (one
   expected line count).
 - `specs/029-tournament-rounds/closeout-main-docs.md` (T011).
+- `src/wager.rs` — **doc only, no behavior change** (added at the sign-off
+  re-review, finding B6). `WagerState::new`'s `reserve` doc names
+  `economy::cheapest_floor` and calls it "the run's cheapest ante"; under ruling
+  O1 the caller passes `reserve_floor`, which while a series is locked is *that
+  opponent's* ante. The comment therefore becomes false in `src/` — the exact
+  defect the four renames exist to avoid — so T002 corrects it, along with the
+  test-helper doc that names the same function. Exempting `wager.rs` from
+  T002's grep gate instead would satisfy the gate and leave the false claim
+  standing, which is the wrong trade.
 - **No change**: `src/game.rs`, `src/card.rs`, `src/player.rs`, `src/save.rs`,
-  `src/opponent.rs`, `src/wager.rs`, `src/portrait.rs`, `src/frame.rs`,
+  `src/opponent.rs`, `src/portrait.rs`, `src/frame.rs`,
   `src/render.rs`, `src/main.rs`, `src/paths.rs`, `src/settings.rs`,
   `Cargo.toml`, `Cargo.lock`, the portrait assets.
 
