@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     SIDE_DECK_SIZE,
-    campaign::{CampaignRun, NodeRef},
+    campaign::{CampaignRun, NodeRef, SeriesOutcome},
     card::{ALL_SIDE_CARDS, Card},
     economy::{self, StakeOutcome},
     stats::{LifetimeStats, Mode},
@@ -52,6 +52,9 @@ pub struct Settlement {
     /// replayed campaign's final win is. The once-per-completion signal the
     /// victory notice rides on.
     pub completed_run: bool,
+    /// What this match did to the series (spec 029). `NotInSeries` for a
+    /// rematch, which is exactly this spec's no-op case.
+    pub series: SeriesOutcome,
 }
 
 /// The player's persistent profile: the collection and built deck, campaign
@@ -326,8 +329,9 @@ impl Profile {
     /// so the completing match must already be recorded when settlement runs.
     /// `Mode` is derived here from the in-flight pointer — settlement never
     /// clears it, so reading it first or last is the same answer. Returns `None`
-    /// for a Quick Play match (recorded, nothing to settle). Callers pair this
-    /// with [`Profile::save`].
+    /// for a Quick Play match (recorded, nothing to settle) and for a match
+    /// already settled once (spec 029 — [`CampaignRun::take_settlement`] hands
+    /// a match over exactly once). Callers pair this with [`Profile::save`].
     pub fn resolve_match(
         &mut self,
         opponent_id: &str,
@@ -342,7 +346,7 @@ impl Profile {
         };
         self.record_match(mode, opponent_id, player_won, player_rounds, opp_rounds);
         let was_complete = self.campaign.run_complete();
-        let outcome = self.settle_campaign_match(player_won)?;
+        let (outcome, series) = self.settle_campaign_match(player_won)?;
         let tally = self.campaign.run_stats_mut();
         match outcome {
             StakeOutcome::Won(stake) => {
@@ -353,20 +357,24 @@ impl Profile {
         Some(Settlement {
             outcome,
             completed_run: !was_complete && self.campaign.run_complete(),
+            series,
         })
     }
 
     /// Settle the campaign match in flight (spec 021): take the stake out of
-    /// escrow, pay [`economy::win_payout`] on a win, mark the opponent beaten,
-    /// and count a campaign completion on the `!was_complete && run_complete()`
-    /// edge — so a rematch of an already-beaten node changes no progress and
-    /// never re-counts a completion. Returns `None` when there is no campaign
-    /// pointer (a Quick Play match), leaving the balance untouched.
+    /// escrow, credit the match to the series (spec 029), pay
+    /// [`economy::win_payout`] on a win, mark the opponent beaten when the
+    /// **series** is won, and count a campaign completion on the
+    /// `!was_complete && run_complete()` edge — so a won match that does not
+    /// decide the series beats nobody, and a rematch of an already-beaten node
+    /// changes no progress and never re-counts a completion. Returns `None`
+    /// when there is no campaign pointer (a Quick Play match) and when the
+    /// match has already been settled once, leaving the balance untouched.
     ///
-    /// Paying exactly once is a data property, not an ordering rule:
+    /// Settling exactly once is a data property, not an ordering rule:
     /// [`CampaignRun::take_settlement`] hands the match over once, so a second
-    /// settlement takes nothing and changes nothing. Callers pair this with
-    /// [`Profile::save`].
+    /// settlement pays nothing, moves no series tally and beats nobody.
+    /// Callers pair this with [`Profile::save`].
     ///
     /// The completion edge hands the run tally's `matches_played()` to
     /// [`LifetimeStats::record_campaign_completion`] as the first-clear record
@@ -374,20 +382,40 @@ impl Profile {
     /// which holds because [`Profile::resolve_match`] records before it
     /// settles. Private since spec 024 — callers go through `resolve_match`;
     /// settling alone moves no run tally and no credit counter.
-    fn settle_campaign_match(&mut self, player_won: bool) -> Option<StakeOutcome> {
+    fn settle_campaign_match(
+        &mut self,
+        player_won: bool,
+    ) -> Option<(StakeOutcome, SeriesOutcome)> {
+        // One take, one time — the stake, the series credit and the right to
+        // beat the opponent all come out of it together (plan §Design tension 3).
         let (node, stake) = self.campaign.take_settlement()?;
+        let series = self
+            .campaign
+            .record_series_match(&node.planet, &node.opponent, player_won);
         if player_won {
             self.credits = self.credits.saturating_add(economy::win_payout(stake));
+        }
+        // The opponent is beaten when the series is won. A series match that did
+        // not decide it beats nobody. The `NotInSeries` arm is a rematch win,
+        // which since sign-off B1 can only ever re-mark an opponent who is
+        // *already* beaten — a no-op, kept because it preserves today's rematch
+        // path literally, not because it does work.
+        let beats = matches!(series, SeriesOutcome::Won)
+            || (matches!(series, SeriesOutcome::NotInSeries) && player_won);
+        if beats {
             let was_complete = self.campaign.run_complete();
             self.campaign.mark_beaten(&node.planet, &node.opponent);
             if !was_complete && self.campaign.run_complete() {
                 let matches = self.campaign.run_stats().matches_played();
                 self.stats.record_campaign_completion(matches);
             }
-            Some(StakeOutcome::Won(stake))
-        } else {
-            Some(StakeOutcome::Lost(stake))
         }
+        let outcome = if player_won {
+            StakeOutcome::Won(stake)
+        } else {
+            StakeOutcome::Lost(stake)
+        };
+        Some((outcome, series))
     }
 
     /// Whether the player can no longer afford the match they are allowed to
@@ -617,6 +645,7 @@ fn civil_from_days(days: i64) -> (i64, u64, u64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::campaign::{FINAL_OPPONENT, wins_needed};
 
     /// A profile with an explicit collection and deck, current version — for
     /// exercising the deck-building rules without the starter's contents.
@@ -667,14 +696,23 @@ mod tests {
             .expect("a staked campaign match settles")
     }
 
-    /// Win every campaign node in map order through [`play_node`], returning
+    /// Win a whole **series** against one node — [`wins_needed`] wins through
+    /// [`play_node`], which is what it takes to beat an un-beaten opponent
+    /// since spec 029 — returning each settlement in order.
+    fn play_series(p: &mut Profile, planet: &str, opponent: &str, stake: u32) -> Vec<Settlement> {
+        (0..wins_needed(opponent))
+            .map(|_| play_node(p, planet, opponent, stake, true))
+            .collect()
+    }
+
+    /// Win every campaign node in map order through [`play_series`], returning
     /// each settlement — a whole run driven through `resolve_match` only.
-    fn sweep_run(p: &mut Profile, stake: u32) -> Vec<Settlement> {
+    fn sweep_run_in_series(p: &mut Profile, stake: u32) -> Vec<Settlement> {
         use crate::campaign::PLANETS;
         let mut settled = Vec::new();
         for planet in PLANETS {
             for opp in planet.opponents {
-                settled.push(play_node(p, planet.id, opp, stake, true));
+                settled.extend(play_series(p, planet.id, opp, stake));
             }
         }
         settled
@@ -814,9 +852,13 @@ mod tests {
         assert!(p.stake_match(node("cinder", "greeb", 20)));
         assert_eq!(p.credits(), 30);
 
-        assert_eq!(p.settle_campaign_match(true), Some(StakeOutcome::Won(20)));
+        // The first win of a series pays, and beats nobody (spec 029).
+        assert_eq!(
+            p.settle_campaign_match(true),
+            Some((StakeOutcome::Won(20), SeriesOutcome::Continues)),
+        );
         assert_eq!(p.credits(), 70, "the stake back plus even-money winnings");
-        assert!(p.campaign().is_opponent_beaten("cinder", "greeb"));
+        assert!(!p.campaign().is_opponent_beaten("cinder", "greeb"), "one win takes no series");
         assert_eq!(
             p.campaign().in_progress().map(|n| n.stake),
             Some(0),
@@ -827,6 +869,15 @@ mod tests {
         // Settling twice can't pay twice — the `settled` flag is consumed.
         assert_eq!(p.settle_campaign_match(true), None);
         assert_eq!(p.credits(), 70);
+
+        // The deciding win of the series is the one that marks the node beaten.
+        assert!(p.stake_match(node("cinder", "greeb", 20)));
+        assert_eq!(
+            p.settle_campaign_match(true),
+            Some((StakeOutcome::Won(20), SeriesOutcome::Won)),
+        );
+        assert_eq!(p.credits(), 90, "the second stake back plus its winnings");
+        assert!(p.campaign().is_opponent_beaten("cinder", "greeb"));
     }
 
     #[test]
@@ -834,7 +885,10 @@ mod tests {
         let mut p = profile_with_credits(50);
         assert!(p.stake_match(node("cinder", "greeb", 20)));
 
-        assert_eq!(p.settle_campaign_match(false), Some(StakeOutcome::Lost(20)));
+        assert_eq!(
+            p.settle_campaign_match(false),
+            Some((StakeOutcome::Lost(20), SeriesOutcome::Continues)),
+        );
         assert_eq!(p.credits(), 30, "a loss pays nothing back");
         assert!(!p.campaign().is_opponent_beaten("cinder", "greeb"));
         assert_eq!(p.campaign().stake_at_risk(), None);
@@ -852,13 +906,24 @@ mod tests {
         assert_eq!(p.credits(), 50);
         assert!(!p.campaign().has_progress());
 
-        // A pre-021 save's pointer carries no stake: the win still marks the
-        // node beaten, and pays nothing.
+        // A pre-021 save's pointer carries no stake: the winning series still
+        // marks the node beaten, and pays nothing.
         let mut q = profile_with_credits(50);
         assert!(q.stake_match(node("cinder", "greeb", 0)));
         assert_eq!(q.credits(), 50);
         assert_eq!(q.campaign().stake_at_risk(), None);
-        assert_eq!(q.settle_campaign_match(true), Some(StakeOutcome::Won(0)));
+        assert_eq!(
+            q.settle_campaign_match(true),
+            Some((StakeOutcome::Won(0), SeriesOutcome::Continues)),
+        );
+        assert_eq!(q.credits(), 50);
+        assert!(!q.campaign().is_opponent_beaten("cinder", "greeb"), "one win takes no series");
+
+        assert!(q.stake_match(node("cinder", "greeb", 0)));
+        assert_eq!(
+            q.settle_campaign_match(true),
+            Some((StakeOutcome::Won(0), SeriesOutcome::Won)),
+        );
         assert_eq!(q.credits(), 50);
         assert!(q.campaign().is_opponent_beaten("cinder", "greeb"));
     }
@@ -879,7 +944,11 @@ mod tests {
         assert!(p.stake_match(node("zenith", "sovereign", 50)));
         assert_eq!(
             p.resolve_match("sovereign", true, 3, 1),
-            Some(Settlement { outcome: StakeOutcome::Won(50), completed_run: false }),
+            Some(Settlement {
+                outcome: StakeOutcome::Won(50),
+                completed_run: false,
+                series: SeriesOutcome::NotInSeries,
+            }),
         );
         assert_eq!(p.credits(), 150);
         // ...but counts no completion and un-beats nothing.
@@ -890,11 +959,248 @@ mod tests {
         assert!(p.stake_match(node("zenith", "sovereign", 50)));
         assert_eq!(
             p.resolve_match("sovereign", false, 1, 3),
-            Some(Settlement { outcome: StakeOutcome::Lost(50), completed_run: false }),
+            Some(Settlement {
+                outcome: StakeOutcome::Lost(50),
+                completed_run: false,
+                series: SeriesOutcome::NotInSeries,
+            }),
         );
         assert_eq!(p.credits(), 100);
         assert_eq!(p.stats().campaign_completions(), 0);
         assert!(p.campaign().run_complete(), "a loss un-beats nothing");
+    }
+
+    #[test]
+    fn a_series_beats_the_opponent_only_at_the_deciding_win() {
+        use crate::campaign::planet_by_id;
+        let cinder = planet_by_id("cinder").unwrap();
+        let mut p = profile_with_credits(100);
+
+        // Match one, won: the tally moves and nothing else does.
+        let first = play_node(&mut p, "cinder", "greeb", 10, true);
+        assert_eq!(first.series, SeriesOutcome::Continues);
+        assert!(!first.completed_run);
+        assert!(!p.campaign().is_opponent_beaten("cinder", "greeb"), "one win takes no series");
+        assert!(!p.campaign().planet_cleared(&cinder), "and clears no planet");
+        assert_eq!(
+            p.campaign().series().map(|s| (s.player_wins, s.opponent_wins)),
+            Some((1, 0)),
+        );
+
+        // Match two, won: the deciding win, and everything happens at once.
+        let second = play_node(&mut p, "cinder", "greeb", 10, true);
+        assert_eq!(second.series, SeriesOutcome::Won);
+        assert!(p.campaign().is_opponent_beaten("cinder", "greeb"));
+        assert!(p.campaign().planet_cleared(&cinder));
+        assert!(p.campaign().planet_unlocked(&planet_by_id("scree").unwrap()));
+        assert!(p.campaign().planet_unlocked(&planet_by_id("ashfall").unwrap()));
+        assert_eq!(p.campaign().series(), None, "a decided series releases the lock");
+        assert_eq!(
+            p.credits(),
+            100 + 2 * (economy::win_payout(10) - 10),
+            "exactly the two payouts",
+        );
+        assert_eq!(p.stats().campaign_completions(), 0, "no completion mid-run");
+    }
+
+    #[test]
+    fn a_lost_series_takes_nothing_beyond_the_stakes() {
+        use crate::campaign::planet_by_id;
+        let cinder = planet_by_id("cinder").unwrap();
+        let mut p = profile_with_credits(100);
+
+        assert_eq!(
+            play_node(&mut p, "cinder", "greeb", 10, false).series,
+            SeriesOutcome::Continues,
+        );
+        let lost = play_node(&mut p, "cinder", "greeb", 15, false);
+        assert_eq!(lost.series, SeriesOutcome::Lost);
+        assert!(!lost.completed_run);
+
+        assert!(!p.campaign().is_opponent_beaten("cinder", "greeb"));
+        assert!(!p.campaign().planet_cleared(&cinder));
+        assert_eq!(p.credits(), 75, "down by the two stakes and nothing more");
+        assert_eq!(p.campaign().series(), None, "a lost series clears the score");
+        assert_eq!(p.stats().campaign_completions(), 0);
+    }
+
+    #[test]
+    fn resolving_a_match_twice_pays_beats_and_counts_once() {
+        use crate::campaign::PLANETS;
+
+        // The tally moves once: a second resolution of one match hands nothing
+        // over, so the series stays where the first one left it.
+        let mut q = profile_with_credits(100);
+        assert_eq!(play_node(&mut q, "cinder", "greeb", 10, true).series, SeriesOutcome::Continues);
+        let credits = q.credits();
+        assert_eq!(
+            q.resolve_match("greeb", true, 3, 1),
+            None,
+            "a settled match hands nothing over a second time",
+        );
+        assert_eq!(q.credits(), credits, "credits move once");
+        assert_eq!(
+            q.campaign().series().map(|s| (s.player_wins, s.opponent_wins)),
+            Some((1, 0)),
+            "the tally reaches 1-0 once",
+        );
+
+        // The deciding match of the last series is also the run's completion —
+        // the counter most at risk from a second resolution.
+        let mut p = profile_with_credits(100);
+        for planet in PLANETS {
+            for opp in planet.opponents {
+                if *opp != FINAL_OPPONENT {
+                    p.campaign_mut().mark_beaten(planet.id, opp);
+                }
+            }
+        }
+        for _ in 0..wins_needed(FINAL_OPPONENT) - 1 {
+            assert_eq!(
+                play_node(&mut p, "zenith", FINAL_OPPONENT, 10, true).series,
+                SeriesOutcome::Continues,
+            );
+        }
+        let before = p.credits();
+        assert!(p.stake_match(node("zenith", FINAL_OPPONENT, 10)));
+        let deciding = p
+            .resolve_match(FINAL_OPPONENT, true, 3, 1)
+            .expect("the deciding match settles");
+        assert_eq!(deciding.series, SeriesOutcome::Won);
+        assert!(deciding.completed_run);
+        let after = p.credits();
+        assert_eq!(after, before + (economy::win_payout(10) - 10));
+        assert_eq!(p.stats().campaign_completions(), 1);
+        let won = p.campaign().run_stats().credits_won;
+
+        assert_eq!(
+            p.resolve_match(FINAL_OPPONENT, true, 3, 1),
+            None,
+            "a settled match hands nothing over a second time",
+        );
+        assert_eq!(p.credits(), after, "credits move once");
+        assert_eq!(p.campaign().run_stats().credits_won, won);
+        assert_eq!(p.stats().campaign_completions(), 1, "the completion counts once");
+        assert!(p.campaign().is_opponent_beaten("zenith", FINAL_OPPONENT));
+        assert_eq!(p.campaign().series(), None);
+    }
+
+    #[test]
+    fn the_deciding_match_and_the_series_agree() {
+        // Over both series lengths and both winners: the series is won exactly
+        // when the match that decided it was won — what keeps the map banner
+        // out of a mixed case (won the match, lost the series).
+        for (planet, opponent) in [("cinder", "greeb"), ("zenith", FINAL_OPPONENT)] {
+            for player_takes_it in [true, false] {
+                let mut p = profile_with_credits(1000);
+                let needed = wins_needed(opponent);
+                let mut deciding = None;
+                for i in 1..=needed {
+                    let settled = play_node(&mut p, planet, opponent, 10, player_takes_it);
+                    if i < needed {
+                        assert_eq!(
+                            settled.series,
+                            SeriesOutcome::Continues,
+                            "{planet}/{opponent}: match {i} of {needed} decides nothing",
+                        );
+                    }
+                    deciding = Some(settled);
+                }
+                let deciding = deciding.expect("a series has a deciding match");
+                let won_the_match = matches!(deciding.outcome, StakeOutcome::Won(_));
+                assert_eq!(won_the_match, player_takes_it, "sanity: the match result");
+                assert_eq!(
+                    matches!(deciding.series, SeriesOutcome::Won),
+                    won_the_match,
+                    "{planet}/{opponent}: the deciding match and the series disagree",
+                );
+                assert_eq!(
+                    p.campaign().is_opponent_beaten(planet, opponent),
+                    won_the_match,
+                    "{planet}/{opponent}: beaten iff the series was won",
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_final_opponent_needs_three() {
+        use crate::campaign::{PLANETS, planet_by_id};
+        let mut p = profile_with_credits(100);
+        for planet in PLANETS {
+            for opp in planet.opponents {
+                if *opp != FINAL_OPPONENT {
+                    p.campaign_mut().mark_beaten(planet.id, opp);
+                }
+            }
+        }
+
+        for i in 1..=2 {
+            let settled = play_node(&mut p, "zenith", FINAL_OPPONENT, 10, true);
+            assert_eq!(settled.series, SeriesOutcome::Continues, "win {i} of a best of five");
+            assert!(!settled.completed_run);
+            assert!(!p.campaign().run_complete(), "two wins don't take the final opponent");
+        }
+
+        let deciding = play_node(&mut p, "zenith", FINAL_OPPONENT, 10, true);
+        assert_eq!(deciding.series, SeriesOutcome::Won, "the third win takes it");
+        assert!(deciding.completed_run);
+        assert!(p.campaign().planet_cleared(&planet_by_id("zenith").unwrap()));
+        assert!(p.campaign().run_complete());
+        assert_eq!(p.stats().campaign_completions(), 1, "the completion counts once");
+    }
+
+    #[test]
+    fn every_reset_clears_the_lock() {
+        let mut p = profile_with_credits(100);
+        play_node(&mut p, "cinder", "greeb", 10, true);
+        assert_eq!(
+            p.campaign().series().map(|s| (s.player_wins, s.opponent_wins)),
+            Some((1, 0)),
+            "sanity: a series is running at 1-0",
+        );
+        p.reset_campaign_run();
+        assert_eq!(p.campaign().series(), None, "New Campaign clears the lock");
+
+        let mut q = profile_with_credits(100);
+        play_node(&mut q, "cinder", "greeb", 10, true);
+        assert!(q.campaign().series().is_some(), "sanity: a series is running at 1-0");
+        q.reset_to_starter();
+        assert_eq!(
+            q.campaign().series(),
+            None,
+            "Reset Everything — and the run-over reset, which is the same call — clears it too",
+        );
+    }
+
+    #[test]
+    fn a_pre_029_match_in_flight_does_not_beat_its_opponent() {
+        use crate::campaign::planet_by_id;
+        // The shape a profile written before spec 029 has: a node in flight
+        // with no `settled` flag, and no `series` key on the run at all. Such a
+        // match "resolves as the first match of a fresh series against that
+        // opponent" (spec.md, Saving and resuming) — it must not beat anyone.
+        let doc = r#"{"version":1,"collection":[],"deck":[],"credits":100,
+            "campaign":{"beaten":{},"in_progress":{"planet":"cinder","opponent":"greeb","stake":10}}}"#;
+        let mut p = Profile::from_json(doc).expect("a pre-029 profile still loads");
+        assert_eq!(p.campaign().series(), None, "sanity: the document has no series");
+        assert_eq!(p.campaign().stake_at_risk(), Some(10), "sanity: the stake is in escrow");
+
+        let settled = p.resolve_match("greeb", true, 3, 1).expect("the match in flight settles");
+        assert_eq!(settled.outcome, StakeOutcome::Won(10), "the stake is paid");
+        assert_eq!(settled.series, SeriesOutcome::Continues, "the first match of a fresh series");
+        assert!(!settled.completed_run);
+        assert_eq!(p.credits(), 100 + economy::win_payout(10));
+        assert!(
+            !p.campaign().is_opponent_beaten("cinder", "greeb"),
+            "a match in flight across the upgrade beats nobody on its own",
+        );
+        assert!(!p.campaign().planet_cleared(&planet_by_id("cinder").unwrap()));
+        assert_eq!(
+            p.campaign().series().map(|s| (s.player_wins, s.opponent_wins)),
+            Some((1, 0)),
+            "it is credited to the series it started",
+        );
     }
 
     #[test]
@@ -975,16 +1281,14 @@ mod tests {
     #[test]
     fn campaign_completion_counts_only_a_final_clearing_win_and_recounts_after_reset() {
         use crate::campaign::PLANETS;
-        // Clear a node the way the real seam does: stake it, then resolve the
-        // match — `resolve_match` records it and settles the stake in that
-        // order (spec 024). Settlement — not `record_match` — owns
-        // `mark_beaten` and the completion edge.
+        // Clear a node the way the real seam does: a whole series (spec 029),
+        // each match staked and then resolved — `resolve_match` records it and
+        // settles the stake in that order (spec 024). Settlement — not
+        // `record_match` — owns `mark_beaten` and the completion edge.
         fn win_node(p: &mut Profile, planet: &str, opponent: &str) {
-            assert!(p.stake_match(node(planet, opponent, 10)));
-            assert_eq!(
-                p.resolve_match(opponent, true, 3, 0).map(|s| s.outcome),
-                Some(StakeOutcome::Won(10)),
-            );
+            for settled in play_series(p, planet, opponent, 10) {
+                assert_eq!(settled.outcome, StakeOutcome::Won(10));
+            }
         }
 
         // Beat every campaign opponent except the final boss; none of these
@@ -1111,11 +1415,14 @@ mod tests {
         let mut p = profile_with_credits(1000);
         // A loss along the way still counts toward the run's matches played.
         play_node(&mut p, "cinder", "greeb", 10, false);
-        sweep_run(&mut p, 10);
+        sweep_run_in_series(&mut p, 10);
         assert!(p.campaign().run_complete());
 
         let played = p.campaign().run_stats().matches_played();
-        assert_eq!(played, 11, "ten campaign nodes plus the loss on the way");
+        assert_eq!(
+            played, 22,
+            "nine best-of-three series, the final best-of-five, plus the loss on the way",
+        );
         assert_eq!(p.stats().campaign_completions(), 1);
         assert_eq!(
             p.stats().first_clear_matches(),
@@ -1130,7 +1437,7 @@ mod tests {
 
         // A second full run completes again, but never re-sets the record.
         p.reset_campaign_run();
-        sweep_run(&mut p, 10);
+        sweep_run_in_series(&mut p, 10);
         assert_eq!(p.stats().campaign_completions(), 2, "a replay completes again");
         assert_eq!(
             p.stats().first_clear_matches(),
@@ -1142,7 +1449,7 @@ mod tests {
     #[test]
     fn resolve_match_reports_the_completion_edge_and_skips_quick_play() {
         let mut p = profile_with_credits(1000);
-        let settled = sweep_run(&mut p, 10);
+        let settled = sweep_run_in_series(&mut p, 10);
         let (last, rest) = settled.split_last().expect("a run has nodes");
         assert!(rest.iter().all(|s| !s.completed_run), "no earlier win completes the run");
         assert!(last.completed_run, "the final clearing win does");
@@ -1184,7 +1491,9 @@ mod tests {
         for planet in PLANETS {
             for opp in planet.opponents {
                 check(&mut p, planet.id, opp, false); // a loss first...
-                check(&mut p, planet.id, opp, true); // ...then the win
+                for _ in 0..wins_needed(opp) {
+                    check(&mut p, planet.id, opp, true); // ...then the series
+                }
             }
         }
         assert!(p.campaign().run_complete());

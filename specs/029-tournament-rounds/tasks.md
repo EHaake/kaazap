@@ -229,7 +229,7 @@ something the person can see. Marked honestly, not generously; the reviewer's
   eight changed call sites verbatim, and pastes the `docs/economy.md` diff and
   the two corrected `src/wager.rs` comments.*
 
-- [ ] **T003** — `src/profile.rs` + `docs/economy.md`: the settlement rule. `review: per-task`. Per
+- [x] **T003** — `src/profile.rs` + `docs/economy.md`: the settlement rule. `review: per-task`. Per
   plan §Design 3: `Settlement` gains `pub series: SeriesOutcome` with the
   plan's doc; `settle_campaign_match` becomes the plan's listing exactly —
   one `take_settlement`, then `record_series_match`, then the payout, then
@@ -789,6 +789,50 @@ roadmap follow-up, so the next person to touch this code finds them. -->
    and recorded in the plan; **one line on the close-out walkthrough list**
    rather than a new task.
 
+**From T002 (returned by the implementer, resolved by the orchestrator):**
+
+7. plan §Tests' `can_afford` illustrative numbers were arithmetically impossible
+   (it asked for `can_afford(20)` to be true with no series, but the free floor
+   is 10, so `20 >= 20 + 10` is false). The plan bullet is corrected in place
+   with a dated note; the test asserts the same claim at `can_afford(10)`, where
+   the locked and free floors actually differ.
+8. The grep gate forced `docs/economy.md` to stop naming the still-existing test
+   `cheapest_floor_is_the_min_over_launchable_nodes` (the name contains the
+   string). The guards list describes it in prose instead. If a later spec wants
+   the exact name back in the document, the gate has to be relaxed or the test
+   renamed. **Sweep should decide** whether that is worth doing.
+9. `docs/economy.md` now names `enter_campaign` / `open_campaign_home` ahead of
+   T006, with a parenthetical saying the renames land later in this spec. **If
+   T006 lands different names**, that paragraph and the venue sentence under
+   "The shop and its reserve" are the two places to recheck.
+
+**From T003's per-task review (2026-09-20, no blocking findings):**
+
+10. `the_deciding_match_and_the_series_agree` never plays a **mixed** series —
+    each series is all wins or all losses, where "the deciding match's result
+    equals the series' result" is structurally unavoidable. It is what plan
+    §Tests asked for ("over both lengths and both winners") and it is not
+    vacuous (the `Continues` arm is real), but it cannot fail for the reason the
+    claim exists: §Design 7's mixed case, won the match and lost the series.
+    **T007's `banner_line` leans on this claim**, so the sweep should weigh
+    adding the two-line win-loss-win case.
+11. `resolving_a_match_twice_pays_beats_and_counts_once` infers "beats once"
+    from the series tally rather than asserting it. One line
+    (`assert!(!q.campaign().is_opponent_beaten("cinder", "greeb"))`) would state
+    the claim the test is named for.
+12. `docs/economy.md` step 1 attributes the `settled`-flag check to step 1 while
+    step 2 is the `take_settlement()` that owns it. Accurate in substance,
+    muddled in the step split.
+13. `docs/economy.md`'s test list was not extended with the new series tests,
+    though T002 added `reserve_floor_follows_the_lock` to the `economy.rs` list.
+    Outside T003's scoped doc work; **sweep to decide**.
+14. The double-resolve test is deliberately silent on `matches_played`: the
+    second `resolve_match` still runs `record_match` before settlement returns
+    `None`, so match counters **do** double-count. Plan §Design tension 3 says
+    so explicitly and says `take_settlement` does not cover it. Noted because a
+    reader could mistake the test's name ("counts once") for a claim about
+    match counters.
+
 ---
 
 ## Tier log (this spec, under the model policy)
@@ -809,3 +853,5 @@ redo, and why). -->
 | T001 completion (sdd-implementer, fresh context) | opus → opus | 53K | 1 | yes | — | Applied the ruling's five edits and nothing else. Green: 461 lib tests, 0 warnings, `grep -rn "take_stake" src/ tests/` empty |
 | T001 per-task review (skeptical-reviewer) | opus → opus | 86K | 1 | — | **0 blocking** | **Signed off.** Verified the B1 shape (`is_opponent_beaten` is the first test and the only path to `NotInSeries`), that `take_settlement`'s doc does not overclaim (the `record_match` carve-out is present), that `node.stake` — now `0` in the returned clone — is never read at the call site, that the migration tests are non-vacuous at both levels, and that the four sanctioned exceptions are the only assertions that moved in value. 6 second-look notes, recorded above |
 | T002 (sdd-implementer) | opus → opus | 108K | 1 | yes | — | All eight call sites moved in one task, `cheapest_floor` private, the grep gate satisfied across `src/ tests/ docs/`, `docs/economy.md` corrected in all seven places plus the O1 consequence paragraph. **Returned three deviations, all sound**: (1) plan §Tests' `can_afford` numbers were **arithmetically impossible** — it asked for `can_afford(20)` to be true with no series, but the free floor is 10, so `20 >= 20 + 10` is false; the implementer asserted the true values and flagged it rather than bending the test, and the orchestrator corrected the plan bullet. (2) `is_broke`/`can_afford`'s own doc comments still claimed "the cheapest ante on the map" — the identical defect B6 raised against `wager.rs`, so corrected. (3) `tests/balance.rs`'s import moved with its two call sites. **Also returned a finding the task did not cover**: `docs/economy.md`'s step 3 still describes pre-029 settlement, which **T003** falsifies — folded into T003's scope with its diff-stat gate widened, rather than deferred to a close-out that lands on `main` |
+| T003 (sdd-implementer) | opus → opus | 131K | 1 | yes | — | The task where the campaign's central rule changes. Hit no judgment call; every existing-test change fell inside one of the two sanctioned kinds, and the implementer returned the required per-test list. **Three declared deviations**: `sweep_run` **removed** rather than kept (all three callers moved to `sweep_run_in_series`, so keeping it would be `dead_code` against the no-new-warnings bar — the review confirmed this does not leak the two-kinds bar, because all three call sites appear in the diff as explicit edits); `matches_played` **11 → 22**, the one numeric expectation that moved; two `docs/economy.md` edits slightly beyond the literal "step 3" instruction, both of statements this task falsified |
+| T003 per-task review (skeptical-reviewer) | opus → opus | 75K | 1 | — | **0 blocking** | **Signed off.** Enumerated every hunk against the implementer's list and found no unlisted value move. Verified the 11 → 22 arithmetic **against the roster rather than the formula** (8 planets, 10 nodes, 9 × 2 + 3 + 1 = 22), that `mark_beaten` did not move into `record_series_match`, that the call site never reads the now-always-zero `node.stake`, that `record_match` still runs before settlement, and that the rematch path moved no value. 5 second-look notes, recorded above |

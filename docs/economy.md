@@ -94,23 +94,31 @@ owns the **order** (spec 024): it derives the `Mode` from the in-flight pointer,
 `record_match`es first, then settles, then moves the run's credit counters
 (`credits_won` by the net gain `win_payout(stake) - stake` on a win,
 `credits_lost` by the forfeited stake on a loss) from the returned outcome. It
-returns `Some(Settlement { outcome, completed_run })` for a campaign match —
-`completed_run` being the `!was_complete && run_complete()` edge the victory
-notice rides on — and `None` for a Quick Play match (recorded, nothing to
-settle). Recording first is what makes the first-clear record count the
-completing match. `settle_campaign_match` and `record_match` are private to
-`profile.rs`; `resolve_match` is the only caller of either.
+returns `Some(Settlement { outcome, completed_run, series })` for a campaign
+match — `completed_run` being the `!was_complete && run_complete()` edge the
+victory notice rides on, `series` what the match did to the series (spec 029) —
+and `None` for a Quick Play match (recorded, nothing to settle) or a match
+already settled once. Recording first is what makes the first-clear record
+count the completing match. `settle_campaign_match` and `record_match` are
+private to `profile.rs`; `resolve_match` is the only caller of either.
 
 `settle_campaign_match(player_won)`, inside it:
 
-1. Reads the in-flight pointer; `None` (Quick Play) settles nothing.
+1. Reads the in-flight pointer; `None` — Quick Play, or a match already
+   settled once — settles nothing.
 2. `CampaignRun::take_settlement()` — hands over the node and its stake
    **once**: it marks the node settled and zeroes the escrow, and every later
    call returns `None` (spec 029).
-3. On a win, adds `win_payout(stake)`, calls `mark_beaten`, and counts a campaign
-   completion only on the **edge** `!was_complete && run_complete()`.
-4. Returns `StakeOutcome::Won(stake)` / `Lost(stake)` for the map banner ("★ Won
-   N credits" — the winnings — or "Lost N credits").
+3. `record_series_match` credits the match to the series. On a win it adds
+   `win_payout(stake)` — the payout is unchanged — and it calls `mark_beaten`
+   when the **series** was won (spec 029): a won match that does not decide the
+   series beats nobody. The other branch that marks is a rematch win against an
+   already-beaten opponent (`NotInSeries`), which re-marks someone already
+   beaten — a no-op. The campaign completion is counted inside that same
+   branch, still only on the **edge** `!was_complete && run_complete()`.
+4. Returns `StakeOutcome::Won(stake)` / `Lost(stake)` — for the map banner ("★
+   Won N credits" — the winnings — or "Lost N credits") — paired with the
+   `SeriesOutcome`.
 
 Settling exactly once is therefore a *data* property rather than an ordering
 rule, and spec 029 **strengthens** it: spec 021 bought it for the payout alone
