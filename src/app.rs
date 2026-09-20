@@ -622,6 +622,8 @@ impl App {
         let settings = Settings::load();
         // T008 raises the data notice from this
         let (profile, _profile_failure) = Profile::load();
+        // T008 raises the data notice from this
+        let _save_unreadable = crate::save::check_at_launch();
         let has_save = crate::save::exists();
         Self {
             config,
