@@ -576,7 +576,10 @@ or in the roadmap follow-up, so the next person to touch this code finds them.
 - **`write_whole` is a convention, not an enforced rule.** The three writers go
   through it; nothing in the test suite would catch a fourth writer calling
   `fs::write` directly. The `grep -rn "fs::write" src/` check is a one-shot at
-  merge, not a regression guard. Say so, so the next writer knows the rule.
+  merge, not a regression guard, and it would not catch a writer built from
+  `File::create` + `write_all` or `serde_json::to_writer` (Phase 2 review N6) —
+  T009's footprint grep should widen to match those too. Say so, so the next
+  writer knows the rule.
 - **Two kaazap processes writing at once is the one case the fixed temp name
   doesn't cover.** Both would write the same `<stem>.tmp`, and an interleaving
   can splice them before either renames. The plan bought this deliberately —
