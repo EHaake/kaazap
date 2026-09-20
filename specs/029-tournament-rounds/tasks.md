@@ -560,7 +560,17 @@ reachable only after T006. -->
   each name the two-of-three rule and the three-of-five final. In **`README.md`**
   (~80–81), "Launching a match opens a **wager prompt**" is no longer what
   launching an un-beaten planet does — correct that paragraph to name the venue
-  and the series, and leave the rematch sentence true. Change no other
+  and the series, and leave the rematch sentence true. **Two more lines in the
+  same paragraph, added by the orchestrator at the Phase 1 review (2026-09-20)
+  from a finding the phase review returned**: (a) ~79–80, "at each you play its
+  opponents to clear it" now needs series language — an opponent is taken by two
+  matches of three, the final one by three of five; (b) ~84–86, "If your credits
+  ever drop below the cheapest ante on the map, the **run is over**" is a rule
+  **T002 falsified** — while a series is locked it is the locked opponent's own
+  ante, which can be five times that. Neither had an owner: T009 is the only task
+  that touches `README.md`, and CLAUDE.md's git conventions put a README change
+  describing a spec's behavior on that spec's branch, so both ride here rather
+  than reaching the sweep undiscovered. Change no other
   text and no other asset. Do not run `cargo fmt`.
   (Copies: `assets/primer_text.txt`'s own voice — short lines, no more than the
   current widest; `README.md`'s own campaign paragraph for register.)
@@ -833,6 +843,35 @@ roadmap follow-up, so the next person to touch this code finds them. -->
     reader could mistake the test's name ("counts once") for a claim about
     match counters.
 
+**From the Phase 1 review (2026-09-20, no blocking findings):**
+
+15. **The Phase 1 walkthrough attests a path Phase 2 stops using.** `begin_series`
+    has no production caller until T006, so in Phase 1 *every* campaign match
+    against an un-beaten opponent goes through the "match left in flight across
+    the upgrade" branch. The player-visible result is identical, but **Phase 2's
+    walkthrough must re-attest the two-wins rule** rather than treat Phase 1's
+    attestation as covering the launch-time `begin_series` path.
+16. `is_broke_reads_the_balance_against_the_cheapest_launchable_ante`
+    (`src/profile.rs`) now reads `reserve_floor` and its name is accurate only
+    for the no-series half it tests. Cosmetic; **sweep to decide**.
+17. AC 14 is two-thirds instrumented: `every_reset_clears_the_lock` covers
+    `reset_campaign_run` and `reset_to_starter`, while the run-over reset is
+    covered by a comment asserting it is the same call. plan §Tests sanctions
+    that ("`run_over` reaches the same code"), and `series` is a plain field
+    cleared by both resets. Recorded so the coverage statement is honest rather
+    than implied.
+18. T003 renamed `sweep_run` to `sweep_run_in_series` and changed its behavior,
+    where the task line said helpers should *gain* a series form. The rename is
+    total, so every call site appears in the diff and the 11 → 22 move is
+    visible — which is the property the "gain, not change" bar existed to
+    protect. For the record, not as a defect.
+19. **The phase review's confinement caveat, for the Phase 2 review to close**:
+    the mid-series replacement is unreachable from Phase 2 onward only because
+    T006's lock makes the map unreachable while a series runs, and plan §Tests
+    deliberately gives that mapping no unit test — it is a grep plus the
+    walkthrough. The **Phase 2 review must run the grep itself** and confirm the
+    claim, rather than take T006's report for it.
+
 ---
 
 ## Tier log (this spec, under the model policy)
@@ -855,3 +894,4 @@ redo, and why). -->
 | T002 (sdd-implementer) | opus → opus | 108K | 1 | yes | — | All eight call sites moved in one task, `cheapest_floor` private, the grep gate satisfied across `src/ tests/ docs/`, `docs/economy.md` corrected in all seven places plus the O1 consequence paragraph. **Returned three deviations, all sound**: (1) plan §Tests' `can_afford` numbers were **arithmetically impossible** — it asked for `can_afford(20)` to be true with no series, but the free floor is 10, so `20 >= 20 + 10` is false; the implementer asserted the true values and flagged it rather than bending the test, and the orchestrator corrected the plan bullet. (2) `is_broke`/`can_afford`'s own doc comments still claimed "the cheapest ante on the map" — the identical defect B6 raised against `wager.rs`, so corrected. (3) `tests/balance.rs`'s import moved with its two call sites. **Also returned a finding the task did not cover**: `docs/economy.md`'s step 3 still describes pre-029 settlement, which **T003** falsifies — folded into T003's scope with its diff-stat gate widened, rather than deferred to a close-out that lands on `main` |
 | T003 (sdd-implementer) | opus → opus | 131K | 1 | yes | — | The task where the campaign's central rule changes. Hit no judgment call; every existing-test change fell inside one of the two sanctioned kinds, and the implementer returned the required per-test list. **Three declared deviations**: `sweep_run` **removed** rather than kept (all three callers moved to `sweep_run_in_series`, so keeping it would be `dead_code` against the no-new-warnings bar — the review confirmed this does not leak the two-kinds bar, because all three call sites appear in the diff as explicit edits); `matches_played` **11 → 22**, the one numeric expectation that moved; two `docs/economy.md` edits slightly beyond the literal "step 3" instruction, both of statements this task falsified |
 | T003 per-task review (skeptical-reviewer) | opus → opus | 75K | 1 | — | **0 blocking** | **Signed off.** Enumerated every hunk against the implementer's list and found no unlisted value move. Verified the 11 → 22 arithmetic **against the roster rather than the formula** (8 planets, 10 nodes, 9 × 2 + 3 + 1 = 22), that `mark_beaten` did not move into `record_series_match`, that the call site never reads the now-always-zero `node.stake`, that `record_match` still runs before settlement, and that the rematch path moved no value. 5 second-look notes, recorded above |
+| **Phase 1 review** (skeptical-reviewer) | opus → opus | 110K | 1 | — | **0 blocking** | **Signed off.** Walked all eight ACs Phase 1 owns (1, 7, 8, 10, 13-in-part, 14, 15, 20) and found each met by code *and* a test. Verified the seam the per-task reviews could not see — the `settled` flag across a save/quit/resume, which holds because `stake_match` always receives a freshly-built `NodeRef` rather than mutating the old one — and that `reserve_floor` and the wager prompt's floor are one expression rather than two that agree today. On the no-lock question: the replacement is confined to Phase 1 only by a **Phase 2** check that plan §Tests deliberately leaves to a grep and a walkthrough, so **the confinement claim is scheduled, not yet demonstrated, and Phase 2's review must make it good**; no persisted shape Phase 1 can write is one a Phase 2 build misreads. 7 second-look notes, two of which changed the Phase 1 pause report |
