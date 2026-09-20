@@ -285,6 +285,10 @@ handled today inside the `else` branch that runs only when **no** modal is open
 ahead of the modal chain, opening and closing help would set `self.modal =
 None` and the notice would be gone for good, with nothing to bring it back.
 
+The review enumerated the set and confirmed it (Phase 4, 2026-09-19), and the
+`?` ordering constraint was then carried past the review into the code as a
+comment at the `?` site (T008a), so it outlives the review that found it.
+
 ### 9. What `cargo test` can now do to a real profile
 
 Seven `app.rs` unit tests construct an `App`, and `App::new` calls

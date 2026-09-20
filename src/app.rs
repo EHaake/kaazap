@@ -1219,6 +1219,11 @@ impl App {
             self.handle_confirm_input(key);
         } else {
             // No modal open: ? opens the help overlay for the current screen.
+            // ? has to stay inside this no-modal branch: hoisted ahead of the
+            // ladder the way m is, it would overwrite Modal::DataNotice, and that
+            // notice cannot be rebuilt — data_notice_lines is called only from
+            // App::new, its inputs aren't stored, and by the time the notice is up
+            // the on-disk conditions are repaired, so a lost notice is lost for good.
             if let KeyCode::Char(c) = key
                 && c == '?'
             {

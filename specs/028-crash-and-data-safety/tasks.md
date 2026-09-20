@@ -532,7 +532,7 @@ binds both results with a placeholder until T008 raises the notice. -->
   review enumerated — at minimum `?`, `L`, `m`, an arrow, a digit and a letter
   — doing nothing that loses the notice or acts on the menu underneath.*
 
-- [ ] **T008a** — `src/app.rs`: give the `?` ordering constraint a durable
+- [x] **T008a** — `src/app.rs`: give the `?` ordering constraint a durable
   form. Logged 2026-09-19 from the Phase 4 review (non-blocking B).
   The review enumerated the keys and confirmed the set is exactly `q`
   (`main.rs`, before `App`), `m` (ahead of the modal ladder), and
@@ -743,3 +743,4 @@ spec under a policy — this is it for the economy profile. -->
 | T007a (sdd-implementer) | opus → opus | 36K | 1 | yes | — | chmod-back moved ahead of the assertions; duplicate `save()` collapsed. Mutation-checked: commenting out the suspension guard fails it at line 74 (`a save wrote over the file that couldn't be read`). **The property was observed, not argued** — the passing re-run happened on the scratch root the failing run left behind, and needed no human `chmod` |
 | T008 (sdd-implementer) | opus → opus | 71K | 1 | yes | — | `Modal::DataNotice` + `data_notice_lines` + draw/input arms + `Readme.md`; pure test at both `fit_sizes()`. **One line of the plan's wording replaced** on the orchestrator's constraint (Phase 3 review note 3): *"nothing from this session is kept"* was false — only `Profile::save` no-ops under suspension — now *"the campaign you play this session won't be kept"*. Widest line is 79 chars -> an 87-wide box at 89 columns |
 | Phase 4 review (skeptical-reviewer) | opus → opus | 80K | 1 | — | 0 blocking | Signed off, clean. Enumerated the keys top-down: `q` (main.rs, before `App`), `m` (ahead of the ladder), Enter/Space/Esc in the arm — everything else a no-op, incl. `?`, `L`, `Q`, `M`, arrows, digits, and Ctrl+P/N/B/F (which arrive as arrows). Also verified shrink-below-minimum-then-grow preserves the notice, so the no-`resize`-arm call is right. Fit worked longhand: worst line 79 chars -> 87-wide box at 89 cols, 9 content lines -> 13 rows at 31 — **two characters of headroom**. Non-blocking B (the `?` guard is a review artifact with no durable form) -> **T008a**; A (the 2-char width budget), C (the title over-claims on the wrong-version path; plan-verbatim), D (`App::new` repairs the real data dir — close-out note), E (walkthrough wording: `m` mutes silently, it does not "do nothing") |
+| T008a (sdd-implementer) | opus → opus | 41K | 1 | yes | — | Five comment lines at the `?` site + one sentence in plan tension 8; additions only, no logic touched. Finding for the sweep: plan tension 8 cites `app.rs:1169-1188`, now `1221-1235` — plan line citations have drifted as tasks landed |
