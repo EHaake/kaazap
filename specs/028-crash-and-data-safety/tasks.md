@@ -89,7 +89,7 @@ ending restores the terminal and a crash says so. -->
   `pub mod` line; the implementer's report quotes `install_hook` and
   `restore_terminal` verbatim.*
 
-- [ ] **T002** — `src/main.rs`: the terminal guard and the crash seam. Per plan
+- [x] **T002** — `src/main.rs`: the terminal guard and the crash seam. Per plan
   §Design 2: add `struct TerminalGuard` with `fn enter() -> anyhow::Result<Self>`
   (construct the value **first**, then `crash::install_hook()` **before**
   `enable_raw_mode` — installing it after the screen switch would leave a
@@ -489,3 +489,4 @@ spec under a policy — this is it for the economy profile. -->
 | plan + tasks sign-off (skeptical-reviewer) | opus → opus | 126K (82K in / 9K out over both passes) | 2 (review + re-review) | — | 3 (B1: T004's integration test breaks T005's build and its stated footprint; B2: `write_whole` lands with no caller and is `dead_code` against its own no-warnings bar; B3: `q`/`m` under the notice contradicts an acceptance criterion — **with the person**) + S1–S8 | B1 and B2 applied by the planner (T003 now carries the three call sites, T004 is the test alone, T005 owns the test's one-line update); B3 ruled by the person as Q6 (both keys stay live) and `spec.md` amended; S1–S8 folded in. Re-review: every finding fixed, nothing new blocking, **signed off**. Its one non-blocking sweep item — three passages still describing B3 as open — was applied by the orchestrator in the same commit as this row. |
 | Planning: sign-off notes (sdd-planner, same context) | opus → opus | 39K harness-measured (264K cumulative for the planner across both dispatches, less the 225K first pass; the planner's own estimate for the revision was ~25K) | 1 | yes | — | B1, B2 and S1–S8 applied. Premise confirmed by the reviewer and now recorded in plan tension 1: `Cargo.toml` sets no `panic = "abort"`, so `Drop` runs in release and the Phase 1 design holds. Both files still Draft |
 | T001 (sdd-implementer) | opus → opus | 38K | 1 | yes | — | `src/crash.rs` + `pub mod crash;`; both named tests pass; toolchain is rustc 1.91.1 so `payload_as_str` is in (no `rust-version` added) |
+| T002 (sdd-implementer) | opus → opus | 38K | 1 | yes | — | `TerminalGuard` + `crash_if_requested` in `main.rs`; teardown greps empty; no `panic = "abort"` in `Cargo.toml` re-confirmed. Note for the walkthrough: under `=key`, `q` still quits cleanly (the `q` arm precedes the seam) — press another key to crash |
