@@ -133,7 +133,7 @@ with:
   healthy files nothing happens; on a machine whose data folder is damaged, a
   `cargo test` run now *changes* it — doing what the next launch would have
   done, so nothing recoverable is lost, but doing it from a test run rather
-  than from the game. Three of those seven tests also call `draw` without
+  than from the game. Some of those tests also call `draw` without
   overwriting `app.modal`, and since spec 028 `App::new` can set it, so on such
   a machine the launch notice would draw over the board and fail their row
   assertions (before spec 028 the modal was unconditionally `None` at
@@ -385,11 +385,17 @@ Design calls made during planning:
   is fixed at launch and its inputs are gone by the second frame, so it is
   carried and `App` gains no field. Dismissal reuses the existing
   `notice_dismissed` and `draw_notice`, so there is no new drawing code and no
-  `resize` arm. One line of the plan's drafted wording was **replaced at T008**
+  `resize` arm. One line of the drafted wording was **replaced at T008**
   on a Phase 3 review finding: "nothing from this session is kept" was
   literally false, because only `Profile::save` no-ops under suspension while
-  `save::save` and `Settings::save` still write. It now reads "kaazap won't
-  save over it, so the campaign you play this session won't be kept."
+  `save::save` and `Settings::save` still write. Both documents carried the
+  claim — `plan.md`'s §Design 7 code block, and `spec.md`'s *Key behavior*
+  line "nothing from that session persists, and the notice says that too" —
+  and the notice's shipped wording is the correction for both: "kaazap won't
+  save over it, so the campaign you play this session won't be kept." The
+  match save and the settings file still persist under profile suspension.
+  `plan.md` was amended to match; `spec.md` was left as the person wrote it,
+  and no acceptance criterion repeats the claim.
 
 Two things a future reader should know that have no other home:
 
@@ -472,14 +478,15 @@ reuses `draw_notice`'s existing emphasis levels and adds none.
   than a writer, and the plan's drifted line citations (§Design tension 8
   cites `app.rs:1169-1188`, now `1221-1235`). Process evidence, not project
   decisions.
-- **Three `app.rs` test comments say "nothing here writes to disk"** and stay
-  as written: they are true of what those tests *press*, and the thing that
-  now touches disk is `App::new` itself, which the roadmap follow-up in §1b
-  covers. Fixing them belongs with that follow-up, not here.
+- **Five `app.rs` test comments say nothing there writes to or touches disk**
+  (lines 2534, 2861, 2918, 3044 and 3090) and stay as written: they are true
+  of what those tests *press*, and the thing that now touches disk is
+  `App::new` itself, which the roadmap follow-up in §1b covers. Fixing them
+  belongs with that follow-up, not here.
 
 ---
 
-## 4. Mechanical checks (T009, run on the branch at `07f8500`, 2026-09-20)
+## 4. Mechanical checks (T009, run on the branch at `07f8500`, 2026-09-20; the diff stat re-run at `adf27fd`, 2026-09-20)
 
 `main` was at `cd015c5` for every comparison below. Nothing was applied to
 `main` and no branch was switched: `main`'s content was read with
@@ -655,32 +662,40 @@ the loop), for the reason §1b now records in the roadmap.
 
 ### The branch's whole diff against `main` (three-dot, since `main` may move)
 
+Re-run at the pre-merge sweep, with the branch at `adf27fd` (`main` still
+`cd015c5`); the file list is one longer and the insertions higher than the
+first run at `07f8500`, because this close-out document and its tier-log row
+are themselves commits on the branch. No code file moved between the two.
+A stat can only ever count the commits that exist when it runs, so the
+sweep-fix commit that follows this paragraph is not in it either.
+
 ```
-$ git diff main...HEAD --stat
- Readme.md                                |   6 +-
- specs/028-crash-and-data-safety/plan.md  | 974 +++++++++++++++++++++++++++++++
- specs/028-crash-and-data-safety/spec.md  | 310 ++++++++++
- specs/028-crash-and-data-safety/tasks.md | 747 ++++++++++++++++++++++++
- src/app.rs                               | 168 +++++-
- src/crash.rs                             | 122 ++++
- src/lib.rs                               |   1 +
- src/main.rs                              | 113 +++-
- src/paths.rs                             | 126 +++-
- src/profile.rs                           | 211 ++++++-
- src/save.rs                              |  20 +-
- src/settings.rs                          |   2 +-
- tests/match_save_recovery.rs             |  58 ++
- tests/profile_recovery.rs                | 195 +++++++
- tests/profile_save_suspended.rs          |  82 +++
- tests/whole_file_write.rs                | 137 +++++
- 16 files changed, 3234 insertions(+), 38 deletions(-)
+$ git diff main...HEAD --stat=120
+ Readme.md                                             |   6 +-
+ specs/028-crash-and-data-safety/closeout-main-docs.md | 961 ++++++++++++++++++
+ specs/028-crash-and-data-safety/plan.md               | 974 +++++++++++++++++++
+ specs/028-crash-and-data-safety/spec.md               | 310 ++++++++
+ specs/028-crash-and-data-safety/tasks.md              | 748 +++++++++++++++
+ src/app.rs                                            | 168 +++++-
+ src/crash.rs                                          | 122 +++
+ src/lib.rs                                            |   1 +
+ src/main.rs                                           | 113 ++-
+ src/paths.rs                                          | 126 ++-
+ src/profile.rs                                        | 211 +++++-
+ src/save.rs                                           |  20 +-
+ src/settings.rs                                       |   2 +-
+ tests/match_save_recovery.rs                          |  58 ++
+ tests/profile_recovery.rs                             | 195 ++++
+ tests/profile_save_suspended.rs                       |  82 ++
+ tests/whole_file_write.rs                             | 137 +++
+ 17 files changed, 4196 insertions(+), 38 deletions(-)
 ```
 
 **None of the ten forbidden paths appears in that list**, and the explicit
-query is empty:
+query, re-run at `adf27fd`, is still empty:
 
 ```
-$ git diff main...HEAD --stat -- src/card.rs src/game.rs src/player.rs src/opponent.rs src/economy.rs src/campaign.rs src/wager.rs tests/balance.rs Cargo.toml Cargo.lock
+$ git diff main...HEAD --stat=120 -- src/card.rs src/game.rs src/player.rs src/opponent.rs src/economy.rs src/campaign.rs src/wager.rs tests/balance.rs Cargo.toml Cargo.lock
 (empty, exit 0)
 ```
 
@@ -869,8 +884,11 @@ temporary and is removed after the check; nothing about it reaches `main`.
   `src/paths.rs` unit tests `write_whole_replaces_the_file_and_leaves_no_debris`
   (125) and `a_failed_write_leaves_the_previous_file_untouched` (139). **The
   assertions were shown to bite** (T004a): reverting each of the three writers
-  to `fs::write` in turn fires *that writer's own* byte comparison, at lines
-  108, 109 and 110 respectively.
+  to `fs::write` in turn fires *that writer's own* byte comparison — the
+  `assert_eq!` on `fs::read(&settings_path)`, on `fs::read(&profile_path)` and
+  on `fs::read(&save_path)` respectively, under the comment "Each file is
+  byte-for-byte what it was, and each loader still returns it." (cited by text
+  rather than line number, which T005a already shifted once).
 - [x] **Debris is never loaded and never accumulates** —
   `repeated_failed_writes_do_not_accumulate` (`src/paths.rs:158`) and
   `a_failed_rename_cleans_up_its_temp_file` (175, added at T003a because the

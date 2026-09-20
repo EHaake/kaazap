@@ -673,7 +673,7 @@ fn data_notice_lines(profile: Option<&ProfileFailure>, save_unreadable: bool) ->
             }
             None => {
                 lines.push("The old file couldn't be moved out of the way.".to_string());
-                lines.push("kaazap won't save over it, so nothing from this session is kept.".to_string());
+                lines.push("kaazap won't save over it, so the campaign you play this session won't be kept.".to_string());
             }
         }
     }
@@ -691,6 +691,12 @@ fn data_notice_lines(profile: Option<&ProfileFailure>, save_unreadable: bool) ->
 
 Blank rows can only ever appear *between* sections and above the dismiss line,
 so two consecutive blanks are unreachable by construction.
+
+**The "nothing is kept" line was corrected before it shipped (T008, 2026-09-19)**:
+the Phase 3 review found the drafted sentence false — suspension only no-ops
+`Profile::save`, while `save::save` and `Settings::save` still write — so the
+notice says "kaazap won't save over it, so the campaign you play this session
+won't be kept." instead, and the block above is the shipped wording.
 
 `App::new`:
 
