@@ -49,6 +49,17 @@ fn a_profile_that_cannot_be_moved_aside_stops_every_save_for_the_launch() {
     let before = entries(&root);
 
     let (played_on, failure) = Profile::load();
+
+    // Writable again the moment the load is done, before any assertion: a
+    // failing assertion would otherwise leave a read-only directory behind,
+    // and the next run's opening `remove_dir_all` cannot unlink entries inside
+    // one — one failure would make this test permanently red until a human
+    // chmods a directory under /tmp. It costs the test nothing: the suspension
+    // is already set, and the saves below then get every chance to land, so
+    // what blocks them is the flag rather than the permissions — which is all
+    // this chmod was ever here for.
+    fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("scratch root writable");
+
     let failure = failure.expect("an unreadable profile is reported");
     assert_eq!(failure.problem, ProfileProblem::Unreadable);
     assert_eq!(failure.set_aside, None, "the move failed, so no file was kept");
@@ -57,12 +68,6 @@ fn a_profile_that_cannot_be_moved_aside_stops_every_save_for_the_launch() {
     // Nothing this session does may write over the file it couldn't read.
     let mut profile = played_on;
     profile.earn_credits(500);
-    profile.save();
-
-    // Still read-only, so give the save every chance: with the directory
-    // writable again, a save that wasn't suspended would land — this is the
-    // assertion that pins the suspension rather than the permissions.
-    fs::set_permissions(&root, fs::Permissions::from_mode(0o755)).expect("scratch root writable");
     profile.save();
     Profile::default().save();
 
