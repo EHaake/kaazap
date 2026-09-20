@@ -126,8 +126,83 @@ approve technical work: `plan.md` and `tasks.md` are drafted by the
 (and any task the planner marked for its own review) is reviewed by
 the `skeptical-reviewer` rather than the person, and what reaches the
 person is a spec-conformance summary, not an architecture review.
-Implementation pauses after each phase unless the person says to run
-further, and whenever something unexpected bears on spec adherence.
+Implementation pauses on the cadence set below, and whenever something
+unexpected bears on spec adherence.
+
+## Pause cadence
+
+<!-- A separate question from the involvement level, asked at the same
+time and answered here. Involvement level says who approves technical
+work; this says how often the build stops for the person. Changing it
+later is one word on this line plus a tier-log row, same as a role
+table row — and it can change mid-spec. Adopted 2026-09-20, after the
+skill made cadence its own setting on 2026-09-19; this project ran
+"every phase" from its first spec until then, which is what specs
+001-028 did. -->
+
+**When there's something to try** (the skill's default; this project's
+since 2026-09-20, from spec 029 onward).
+
+The three values:
+
+- **When there's something to try.** Pause after a phase the planner
+  marked with a walkthrough, and run straight through the phases it
+  marked `walkthrough: none`. A foundational phase that adds a type,
+  a shared helper, or a test harness changes nothing the person can
+  observe, so a pause there asks them to attest to something they
+  cannot see — which is a gate in appearance only.
+- **Every phase.** Pause after each one regardless. The most
+  conservative setting, and the right one for a project whose phases
+  are hard to tell apart from outside, or early in a project where
+  nobody trusts the marking yet.
+- **Only when blocked.** No phase pauses at all. The spec runs to the
+  pre-merge sweep and the person does one walkthrough at the end,
+  against the accumulated list. The most hands-off setting, and the
+  one that costs the most to unwind if something went wrong early.
+
+**The marking belongs to the planner.** From spec 029 onward the
+`sdd-planner` marks **every** phase header `walkthrough: <what the
+person can try>` or `walkthrough: none — <why>`, and marks honestly
+rather than generously: marking everything as a walkthrough to be safe
+reproduces exactly the problem the setting exists to fix. The call
+belongs at planning time because the planner sees the whole spec at
+once, while an orchestrator mid-phase cannot tell a phase with nothing
+to show from one it has merely failed to describe. The test is
+observability: does this phase change something the person could see
+by using the app? A type, a shared helper, a test harness, an internal
+refactor — no. A screen, a flow, different behavior — yes.
+
+**Blockers pause under every cadence, including "only when blocked".**
+These are not phase pauses and are never skipped:
+
+- Either escalation trigger: something in the design turns out
+  infeasible or needs real rework, or an unknown surfaces that would
+  materially change the project's direction.
+- A product question `spec.md` doesn't settle.
+- The escape hatch firing twice on one task, which means the task
+  list itself is wrong.
+- A sweep or review finding that can't be resolved without changing
+  what the spec promised.
+
+**Nothing skipped is dropped.** A phase that runs without a pause
+still gets its `skeptical-reviewer` phase review — what is skipped is
+the person's attestation, not the check. And every unpaused phase
+appends its walkthrough items — or, if it had none, its one-line
+reason — to a running **walkthrough list in `tasks.md`**, and that
+list is what the person walks through at the close-out. Skipping a
+pause defers the person's check; it does not remove it. The tier log
+records which phases ran unpaused, so a defect found late can be
+traced to the phase that introduced it.
+
+**The cost, stated plainly, because this is a trade.** A problem
+introduced in phase one and found at the merge is more expensive to
+unwind than the same problem caught in phase one. Fewer pauses buy
+autonomy with late detection. Spec 028 is the evidence on both sides:
+its Phase 1 walkthrough caught a garbled crash report in twelve runs
+out of twelve, which a deferred check would have found four phases
+later — and its Phases 2 and 3 were run straight through under the old
+cadence anyway, because there was nothing to see, which is the case
+this setting generalizes.
 
 ## Model policy
 
@@ -243,9 +318,10 @@ infer the end of a temporary change and revert it unasked.
   the spec and why, and what needs a decision. Technical detail
   belongs in `plan.md` and the commit log, not in the report.
 - **What the person's walkthrough finds is a finding, not a task
-  line.** When the person reports at a phase pause that something is
-  wrong, the session restates it — which acceptance criterion, what
-  they saw, what the spec says — and dispatches a diagnosis bundle to
+  line.** The person reports something wrong, at a phase pause or at
+  the close-out walking the list the unpaused phases left. The session
+  restates it — which acceptance criterion, what they saw, what the
+  spec says — and dispatches a diagnosis bundle to
   the implementer the role table names (the report, the restatement,
   the task line, the plan section, the acceptance criterion, the
   files). The implementer finds the cause and fixes it if the fix is
@@ -381,12 +457,17 @@ infer the end of a temporary change and revert it unasked.
 
 This project follows spec → plan → tasks → implement, gated by review
 between each phase — the person's or the `skeptical-reviewer`'s, per
-the involvement level above. Artifacts live in `specs/<NNN>-<slug>/`:
+the involvement level above. Every phase gets the reviewer's review;
+*Pause cadence* decides which of them also stop for the person.
+Artifacts live in `specs/<NNN>-<slug>/`:
 
 - `spec.md` — what and why, user-facing behavior, acceptance criteria,
   explicit non-goals. No implementation detail.
 - `plan.md` — technical design: types, data flow, what changes where.
-- `tasks.md` — ordered, small, independently verifiable tasks.
+- `tasks.md` — ordered, small, independently verifiable tasks. From
+  spec 029 onward every phase header carries a `walkthrough:` marking
+  (see *Pause cadence*), and the file carries the running walkthrough
+  list that the unpaused phases append to.
 
 Authorship: `spec.md` is written in the chat design conversation.
 Until this project has shipped code, `plan.md` and `tasks.md` are too;
