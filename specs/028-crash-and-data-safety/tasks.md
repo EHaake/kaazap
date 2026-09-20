@@ -1,6 +1,8 @@
 # Tasks: Crash & data safety — spec 028
 
-> **Status**: Draft — pending sign-off
+> **Status**: Final — signed off 2026-09-19 (`skeptical-reviewer`, one review
+> and one re-review; B1 and B2 fixed, B3 ruled by the person as Q6, S1–S8
+> folded in)
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -27,10 +29,10 @@ every writer then goes through; Phase 3 is the load contract the notice in
 Phase 4 reads. Phase 1 is independent of both and comes first because it is the
 most visible and the person can attest it on its own.
 
-**Two tasks carry `review: per-task`** — T003 (`paths::write_whole`, which
-three writers and every future one inherit) and T005 (the one task in this spec
-that can move a player's file, and whose disk-level tests don't land until
-T006). Every other task is covered by its phase review.
+**Two tasks carry `review: per-task`** — T003 (`paths::write_whole` and the
+three writers it lands with, which every future writer inherits) and T005 (the
+one task in this spec that can move a player's file, and whose disk-level tests
+don't land until T006). Every other task is covered by its phase review.
 
 **No new unit test may construct an `App`** (plan §Design tension 9):
 `App::new` reads the real data directory, and from T005 on it can *move* a file
@@ -39,6 +41,13 @@ everything else goes through a pure function.
 
 **Never run `cargo fmt`** (the repo is not rustfmt-clean; it would rewrite ~28
 files).
+
+**Settled — Q6, the person, 2026-09-19** (plan §Design tension 8, §Open
+questions 2): `q` and `m` act under every modal in the game today, which a
+literal reading of the acceptance criterion "no other key does anything while
+it is up" would have forbidden for this one. The person ruled that both stay
+live, and `spec.md` is amended to name them as the standing exception. T008's
+input arm is as drafted; no task line needs editing.
 
 ---
 
@@ -52,8 +61,14 @@ ending restores the terminal and a crash says so. -->
   OnceLock<CrashReport>`; `pub struct CrashReport { message: String, location:
   Option<String> }` deriving `Debug, Clone, PartialEq, Eq`; `pub fn
   install_hook()` setting a hook that **records and prints nothing** (first
-  panic wins — `let _ = REPORT.set(…)`), reading `info.payload_as_str()` and
-  `info.location()`; `pub fn report() -> Option<&'static CrashReport>`; `pub fn
+  panic wins — `let _ = REPORT.set(…)`), reading the payload and
+  `info.location()`. **`PanicHookInfo::payload_as_str` is stable only from Rust
+  1.91** and `Cargo.toml` declares no `rust-version` (AC 17 forbids adding
+  one): if the toolchain in use doesn't have it, use the two-arm downcast
+  (`info.payload().downcast_ref::<&str>()`, then
+  `downcast_ref::<String>()`, else `"(no message)"`) — no version floor either
+  way, and say in the report which one you used. Then `pub fn report() ->
+  Option<&'static CrashReport>`; `pub fn
   restore_terminal()` doing `Show`, `LeaveAlternateScreen`,
   `disable_raw_mode`, **every error swallowed with `let _ =`, never
   unwrapped** (it runs from a `Drop` during unwinding, where a panic aborts the
@@ -76,8 +91,12 @@ ending restores the terminal and a crash says so. -->
 
 - [ ] **T002** — `src/main.rs`: the terminal guard and the crash seam. Per plan
   §Design 2: add `struct TerminalGuard` with `fn enter() -> anyhow::Result<Self>`
-  (construct the value **first**, then `enable_raw_mode`, `EnterAlternateScreen`,
-  `Hide`, then `crash::install_hook()`) and `impl Drop` (`crash::restore_terminal()`,
+  (construct the value **first**, then `crash::install_hook()` **before**
+  `enable_raw_mode` — installing it after the screen switch would leave a
+  window in which the default hook prints onto the alternate screen and that
+  output is discarded with nothing recorded to reprint — then
+  `enable_raw_mode`, `EnterAlternateScreen`, `Hide`) and `impl Drop`
+  (`crash::restore_terminal()`,
   then `eprintln!` each of `crash::crash_lines(report)` if `crash::report()` is
   `Some`); in `main`, replace the three setup lines and the `let mut stdout`
   with `let _terminal = TerminalGuard::enter()?;` **declared immediately after
@@ -95,7 +114,11 @@ ending restores the terminal and a crash says so. -->
   read **once** before the loop (cloned into the render closure), called at
   `key` (before `app.handle_key`), `tick`, `draw` and `render`, plus the
   `input` arm that `anyhow::bail!`s at the top of the loop body with the plan's
-  comment. No other change to the loop, the resize arm, or the frame plumbing.
+  comment. Add `.context("kaazap couldn't read the terminal")` to the
+  `event::poll(…)?` and `event::read()?` calls (importing `anyhow::Context`),
+  so the AC 4 path prints a line that names kaazap instead of a bare
+  `Os { code: … }` — plan §Design 2's table is what each ending must print. No
+  other change to the loop, the resize arm, or the frame plumbing.
   No tests (terminal side-effect and process-exit behaviour — the constitution
   says verify it by running it; the walkthrough below is the verification).
   Do not run `cargo fmt`.
@@ -113,63 +136,79 @@ ending restores the terminal and a crash says so. -->
   scrollback intact, nothing printed and a zero exit; each of
   `KAAZAP_CRASH_AT=key|tick|draw|render|input` leaving a usable terminal with
   the crash line and the panic's message and location readable on it (and the
-  `input` run showing the error with no panic text), each with a non-zero
-  exit.*
+  `input` run showing `Error: kaazap couldn't read the terminal: …` with no
+  panic text), each with a non-zero exit. **For `=draw` and `=tick` the report
+  must say explicitly whether the cursor was visible afterwards and whether
+  anything was garbled above the crash line** — that is the render-thread race
+  in plan §Design tension 1, and a hidden cursor is exactly what AC 2 tests. If
+  either shows, log **T002a** and turn on the fallback the plan names (the
+  guard owns the sender and the `JoinHandle` and joins in its `Drop`); it is a
+  sub-lettered task, not a redesign.*
 
 ## Phase 2 — Every file is written whole (foundational; walkthrough: none — the same three files are written at the same moments with the same contents, so nothing the person can see changes; the criteria are pinned by tests)
 
-<!-- T003 is the one function; T004 points the three writers at it. -->
+<!-- T003 is the function AND its three call sites — they cannot be split: a
+pub(crate) fn whose only callers are #[cfg(test)] is dead_code in the plain lib
+target that `cargo build --all-targets` also builds, and every task here has a
+"no new warnings" bar. T004 is the integration test that pins it on disk. -->
 
-- [ ] **T003** — `src/paths.rs`: the whole-file write. `review: per-task`. Per
-  plan §Design 3: `pub(crate) fn write_whole(path: &Path, contents: &str) ->
-  bool` — write to `path.with_extension("tmp")`, then `fs::rename` it over
-  `path`; on either failure remove the temp file (best-effort) and return
-  `false`; with the plan's doc comment, including the fixed-temp-name reason
-  and the **no-fsync** note. Extend the module doc with a second paragraph:
-  this module now owns both where the files live and how they are written. **No
-  `sync_all`** (plan §Design tension 3 and §Open questions 1) and no unique
-  temp names. Tests, in `paths.rs`'s tests module (plan §Tests), each using its
-  own uniquely-named directory under `std::env::temp_dir()` and removing it at
-  the end — **none of them may call `data_dir`, `config_dir` or `set_root`**,
-  which would resolve the process root:
+- [ ] **T003** — `src/paths.rs` + `src/profile.rs` + `src/settings.rs` +
+  `src/save.rs`: the whole-file write, and the three writers that use it.
+  `review: per-task`. Per plan §Design 3: `pub(crate) fn write_whole(path:
+  &Path, contents: &str) -> bool` — write to `path.with_extension("tmp")`, then
+  `fs::rename` it over `path`; on either failure remove the temp file
+  (best-effort) and return `false`; with the plan's doc comment **as written
+  there**, including the fixed-temp-name reason, the POSIX/Windows wording (do
+  not claim atomicity on Windows) and the **no-fsync** note. Extend the module
+  doc with a second paragraph: this module now owns both where the files live
+  and how they are written. **No `sync_all`** (plan §Design tension 3 and
+  §Open questions 1) and no unique temp names.
+  Then, per plan §Design 4–6, in each of `Profile::save`, `Settings::save` and
+  `save::save` the single `fs::write(path, json)` becomes
+  `crate::paths::write_whole(&path, &json)` — **three one-line changes, in this
+  same task**, so the new function has a real caller the moment it lands.
+  Nothing else in those three functions changes: same moments, same contents,
+  same `create_dir_all`, same swallowed failure. Do not remove any `fs` import
+  unless the compiler says it is unused (all three files still use `fs`
+  elsewhere — check, don't assume).
+  Tests, in `paths.rs`'s tests module (plan §Tests), each using its own
+  uniquely-named directory under `std::env::temp_dir()` and removing it at the
+  end — **none of them may call `data_dir`, `config_dir` or `set_root`**, which
+  would resolve the process root:
   `write_whole_replaces_the_file_and_leaves_no_debris`,
   `a_failed_write_leaves_the_previous_file_untouched` (create the temp path as
   a **directory** so the write fails portably; assert `false` and the original
   bytes), `repeated_failed_writes_do_not_accumulate` (three failed writes; the
   directory's entry set is unchanged). Do not run `cargo fmt`. (Copies:
   `src/paths.rs`'s own doc voice and test module.)
-  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
-  verbatim with the three new tests passing; `git diff --stat` shows only
-  `src/paths.rs`; the implementer's report quotes `write_whole` verbatim. The
-  orchestrator re-runs the verification command itself before committing
-  (per-task review), then dispatches a `skeptical-reviewer` on T003's diff
-  alone before T004 starts.*
+  *Verify: `cargo build --all-targets` no new warnings — **in particular no
+  `dead_code` on `write_whole`**; `cargo test -q` green verbatim with the three
+  new tests passing and every existing `settings.rs`, `profile.rs` and `save.rs`
+  test unedited; `git diff --stat` shows only those four files, with one changed
+  line each in the three writers; `grep -rn "fs::write" src/` matches **only**
+  `src/paths.rs` (the one inside `write_whole`); the implementer's report quotes
+  `write_whole` and the three changed call sites verbatim. The orchestrator
+  re-runs the verification command itself before committing (per-task review),
+  then dispatches a `skeptical-reviewer` on T003's diff alone before T004
+  starts.*
 
-- [ ] **T004** — `src/profile.rs` + `src/settings.rs` + `src/save.rs` +
-  `tests/whole_file_write.rs` (new): the three writers go through it. Per plan
-  §Design 4–6: in each of `Profile::save`, `Settings::save` and `save::save`,
-  the single `fs::write(path, json)` becomes `crate::paths::write_whole(&path,
-  &json)`. Nothing else in those three functions changes — same moments, same
-  contents, same `create_dir_all`, same swallowed failure. Remove the now-unused
-  `fs` import only if the compiler says it is unused (each file still uses
-  `fs` elsewhere — check, don't assume). New integration test
-  `tests/whole_file_write.rs`, **one `#[test]` only** (the data root resolves
-  once per process): `paths::set_root` at a fresh scratch directory under
-  `std::env::temp_dir()`; save settings, a profile and a match save; assert
-  each file holds its contents and no `*.tmp` is left; then plant a `*.tmp`
-  **directory** beside each of the three and save again — each save fails
-  silently, each `*.json` is byte-for-byte unchanged, and `Settings::load`,
-  `Profile::load` and `save::load` all return the previous contents; remove the
-  scratch directory at the end. Do not run `cargo fmt`. (Copies:
-  `tests/paths_override.rs` for the one-test-per-binary discipline and its
-  header comment saying why; `src/save.rs`'s test module for building a
-  `GameState` to save.)
+- [ ] **T004** — `tests/whole_file_write.rs` (new): the three writers pinned on
+  disk. **One `#[test]` only** (the data root resolves once per process):
+  `paths::set_root` at a fresh scratch directory under `std::env::temp_dir()`;
+  save settings, a profile and a match save; assert each file holds its
+  contents and no `*.tmp` is left; then plant a `*.tmp` **directory** beside
+  each of the three and save again — each save fails silently, each `*.json` is
+  byte-for-byte unchanged, and `Settings::load`, `Profile::load` and
+  `save::load` all return the previous contents; remove the scratch directory
+  at the end. Write it against **today's** `Profile::load() -> Self`; **T005
+  changes that signature and updates this file** — that is in T005's footprint,
+  not a surprise at its build step. No `src/` change in this task. Do not run
+  `cargo fmt`. (Copies: `tests/paths_override.rs` for the one-test-per-binary
+  discipline and its header comment saying why; `src/save.rs`'s test module for
+  building a `GameState` to save.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
-  verbatim with the new integration test passing and every existing
-  `settings.rs`, `profile.rs` and `save.rs` test unedited; `git diff --stat`
-  shows only those four files; `grep -rn "fs::write" src/` matches **only**
-  `src/paths.rs` (the one inside `write_whole`); the
-  implementer's report quotes the three changed lines and confirms the scratch
+  verbatim with the new integration test passing; `git diff --stat` shows only
+  `tests/whole_file_write.rs`; the implementer's report confirms the scratch
   directory it used and that it removed it.*
 
 ## Phase 3 — A profile that can't be read is kept, not replaced (foundational; walkthrough: none — the file is set aside silently until the notice lands in Phase 4, so there is nothing on screen for the person to judge yet)
@@ -178,8 +217,9 @@ ending restores the terminal and a crash says so. -->
 disk-level criteria; T007 does the same, smaller, for the match save. App::new
 binds both results with a placeholder until T008 raises the notice. -->
 
-- [ ] **T005** — `src/profile.rs` + `src/app.rs` (one call site):
-  classification, the set-aside, and the suspension. `review: per-task`. Per
+- [ ] **T005** — `src/profile.rs` + `src/app.rs` (one call site) +
+  `tests/whole_file_write.rs` (one call site): classification, the set-aside,
+  and the suspension. `review: per-task`. Per
   plan §Design 4: `pub enum ProfileProblem { Unreadable, WrongVersion }` and
   `pub struct ProfileFailure { pub problem: ProfileProblem, pub set_aside:
   Option<String> }` with the plan's docs; `static SAVES_SUSPENDED:
@@ -197,7 +237,12 @@ binds both results with a placeholder until T008 raises the notice. -->
   `civil_from_days`. In `app.rs`, `App::new`'s `let profile =
   Profile::load();` becomes `let (profile, _profile_failure) =
   Profile::load();` with a `// T008 raises the data notice from this` comment —
-  **no other `app.rs` change**. Do **not** add a field to `Profile` (the plan
+  **no other `app.rs` change**. In `tests/whole_file_write.rs` (T004), the
+  `Profile::load()` call becomes `let (profile, _) = Profile::load();` —
+  **the signature change breaks that test binary, and `cargo build
+  --all-targets` builds it**, so it is part of this task, not a later
+  discovery; change nothing else in that file. Do **not** add a field to
+  `Profile` (the plan
   rejects it: `reset_to_starter` would clear it) and do **not** touch
   `PROFILE_VERSION`, any `#[serde(default)]`, or the two test helpers. Tests,
   in `profile.rs`'s tests module (plan §Tests):
@@ -210,9 +255,11 @@ binds both results with a placeholder until T008 raises the notice. -->
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim with the two new tests passing and **every existing `profile.rs`
   test unedited** (`a_wrong_version_document_is_discarded` and the serde-default
-  tests especially); `git diff --stat` shows only `src/profile.rs` and
-  `src/app.rs`; `git diff -- src/app.rs` is the one changed line plus its
-  comment; `git diff -- src/profile.rs` leaves `PROFILE_VERSION`, every
+  tests especially); `git diff --stat` shows exactly `src/profile.rs`,
+  `src/app.rs` and `tests/whole_file_write.rs`; `git diff -- src/app.rs` is the
+  one changed line plus its comment; `git diff --
+  tests/whole_file_write.rs` is the one destructuring line;
+  `git diff -- src/profile.rs` leaves `PROFILE_VERSION`, every
   `#[serde(default)]` and the struct's fields untouched; the implementer's
   report quotes `load`, `classify` and `set_aside` verbatim. The orchestrator
   re-runs the verification command itself before committing (per-task review),
@@ -232,8 +279,15 @@ binds both results with a placeholder until T008 raises the notice. -->
   `profile.json`, the set-aside file still byte-identical, **exactly one**
   set-aside file in the directory; a `"version": 2` document → `WrongVersion` +
   a *different* set-aside name, both set-aside files intact; a `#[cfg(unix)]`
-  step with a `chmod 0o000` profile → `Unreadable` (chmod back before
-  cleanup); remove the directory at the end.
+  step with a `chmod 0o000` profile → `Unreadable`; remove the directory at the
+  end. **Two traps in that step**: `set_aside` has already *renamed* the file
+  by the time you clean up, so a chmod-back must target the **set-aside path**,
+  not `profile.json` — or skip it entirely, since removing a file needs write
+  permission on the directory, not on the file; and a `0o000` file is still
+  readable **as root**, where the step would silently pass as "readable" and
+  prove nothing. Assert the failure rather than tolerating it — under root the
+  test then fails loudly, which is the honest outcome — and say so in the
+  file's header comment.
   `tests/profile_save_suspended.rs`, one `#[test]`, `#[cfg(unix)]` (say why in
   the header: a read-only directory doesn't block creation on Windows, so there
   is no portable way to make `fs::rename` fail) — a malformed `profile.json` in
@@ -306,6 +360,14 @@ binds both results with a placeholder until T008 raises the notice. -->
   verbatim with the new test passing; `git diff --stat` shows only `src/app.rs`
   and `Readme.md`; `grep -rn "KAAZAP_CRASH_AT" Readme.md` is empty; the
   implementer's report quotes `data_notice_lines` and the input arm verbatim.
+  **The Phase 4 review must enumerate**, reading `handle_key` from the top
+  down, exactly which keys reach an open modal and what each does — not assert
+  that the set is `q` and `m` (plan §Design tension 8). `?` is the one that
+  would hurt: it lives inside the branch that runs only when no modal is open
+  (`app.rs:1169-1188`), so it cannot reach the notice today, but if it ever
+  moved ahead of the modal chain, opening and closing help would set
+  `self.modal = None` and lose the notice permanently, with nothing to bring it
+  back.
   **PAUSE for the person** (after the Phase 4 review): the orchestrator drives
   the Phase 4 walkthrough in plan §Verification with the `run-kaazap` skill —
   `KAAZAP_DATA_DIR` at a scratch directory, confirmed in the report, the real
@@ -315,8 +377,9 @@ binds both results with a placeholder until T008 raises the notice. -->
   disk afterwards and not overwritten by playing on; a wrong-version profile
   reading differently; a damaged match save reported once with no Continue and
   silence next launch; both damaged at once in one notice that fits an
-  89-column terminal; Enter, Space and Esc dismissing it and other keys doing
-  nothing.*
+  89-column terminal; Enter, Space and Esc dismissing it, and the keys the
+  review enumerated — at minimum `?`, `L`, `m`, an arrow, a digit and a letter
+  — doing nothing that loses the notice or acts on the menu underneath.*
 
 ## Final phase — Spec close-out
 
@@ -325,8 +388,10 @@ binds both results with a placeholder until T008 raises the notice. -->
   **ROADMAP** — mark crash & data safety shipped as spec 028 (`grep -n -i
   "crash\|data safety\|whole-file\|corrupt" ROADMAP.md`, read and judge), and
   amend the path-injection seam's **still open** follow-up (line ~741) to note
-  that `App::new` can now *move* an unreadable profile, so pointing the seven
-  `app.rs` tests at a scratch root matters more than it did; **DECISIONS** —
+  that `App::new` can now *move* an unreadable profile **and *delete* an
+  unreadable match save**, so a `cargo test` run on a machine with a damaged
+  data folder changes it — pointing the seven `app.rs` tests at a scratch root
+  matters more than it did; **DECISIONS** —
   the spec's rulings (Q1 a set aside under a dated name; Q2 a a modal on the
   start menu; Q3 b the notice says why; Q4 a a bad match save gets a line and
   no kept file; Q5 a one kaazap line plus the panic's own message), and the
@@ -336,8 +401,14 @@ binds both results with a placeholder until T008 raises the notice. -->
   `write_whole` in `paths.rs`, a fixed temp name, **and no fsync** — with the
   reason, so a later power-cut question finds it), §4 (a process-scoped
   suspension flag rather than a field), §6 (a hand-rolled UTC stamp, no date
-  crate), §8 (`q` and `m` still act under the notice) — to apply on `main`
-  after the merge, never on the branch. Run `cargo test -q` three consecutive
+  crate), §8 (`q` and `m` under the notice — **record what the person actually
+  ruled**, and the `spec.md` amendment that went with it). Describe the
+  terminal guarantee as **the endings `spec.md` enumerates** — `q`, an input
+  error, a panic on either thread — never as "however kaazap ends": a
+  `SIGTERM` or `kill -9` still leaves the terminal unrestored, and the driver's
+  kill-to-leave-a-save trick shows it. Signals are outside this spec, and the
+  close-out is where that would otherwise be overclaimed. All of it applies on
+  `main` after the merge, never on the branch. Run `cargo test -q` three consecutive
   times and paste the tails. Mechanical checks (three-dot, since `main` may
   move): `git diff main...HEAD --stat` lists none of `src/card.rs`,
   `src/game.rs`, `src/player.rs`, `src/opponent.rs`, `src/economy.rs`,
@@ -415,3 +486,5 @@ spec under a policy — this is it for the economy profile. -->
 |---|---|---|---|---|---|---|
 | **Economy profile, first spec under it** — adopted 2026-09-19 (recorded in `CLAUDE.md`'s History, no spec in flight at the time). Every role resolves to `opus` / `claude-opus-5`; no per-call override anywhere, including the planner, the sign-off and the close-out; session at `claude-opus-5` medium. Compare against spec 027's log (planning + sign-offs ≈ 651K at fable, implementer 8 dispatches ≈ 504K, reviewer ≈ 486K) and spec 025's (the whole spec on Opus at the person's choice). | — | — | — | — | — | header |
 | Planning: draft (sdd-planner) | opus → opus | 225K | 1 | — | — | drafted; 9 tasks in 5 phases, Phases 2 and 3 foundational, T003 and T005 `review: per-task`; no product question; 6 design choices flagged for sign-off |
+| plan + tasks sign-off (skeptical-reviewer) | opus → opus | 126K (82K in / 9K out over both passes) | 2 (review + re-review) | — | 3 (B1: T004's integration test breaks T005's build and its stated footprint; B2: `write_whole` lands with no caller and is `dead_code` against its own no-warnings bar; B3: `q`/`m` under the notice contradicts an acceptance criterion — **with the person**) + S1–S8 | B1 and B2 applied by the planner (T003 now carries the three call sites, T004 is the test alone, T005 owns the test's one-line update); B3 ruled by the person as Q6 (both keys stay live) and `spec.md` amended; S1–S8 folded in. Re-review: every finding fixed, nothing new blocking, **signed off**. Its one non-blocking sweep item — three passages still describing B3 as open — was applied by the orchestrator in the same commit as this row. |
+| Planning: sign-off notes (sdd-planner, same context) | opus → opus | 39K harness-measured (264K cumulative for the planner across both dispatches, less the 225K first pass; the planner's own estimate for the revision was ~25K) | 1 | yes | — | B1, B2 and S1–S8 applied. Premise confirmed by the reviewer and now recorded in plan tension 1: `Cargo.toml` sets no `panic = "abort"`, so `Drop` runs in release and the Phase 1 design holds. Both files still Draft |

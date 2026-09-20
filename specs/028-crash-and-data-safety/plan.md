@@ -1,6 +1,8 @@
 # Plan: Crash & data safety — spec 028
 
-> **Status**: Draft — pending sign-off
+> **Status**: Final — signed off 2026-09-19 (`skeptical-reviewer`, one review
+> and one re-review; B1 and B2 fixed, B3 ruled by the person as Q6, S1–S8
+> folded in)
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -47,10 +49,12 @@ which of the two failures it was.
   `onboarding_texts_breathe_only_around_the_dismiss_line` /
   `both_notices_read_right_breathe_and_fit_the_minimum_terminal` tests are the
   pattern for pinning the *acted-on element stands apart* rule on content.
-- **`Profile::load` has exactly one caller** (`App::new:623`), and so does
-  `save::exists` (`App::new:624`). Changing `load`'s signature costs one line.
-  `Profile::save` has **twelve** callers, so the suspension must live behind
-  `save` itself, not at the call sites.
+- **`Profile::load` has exactly one caller in `src/`** (`App::new:623`), and so
+  does `save::exists` (`App::new:624`). Changing `load`'s signature costs one
+  line there — **plus every integration test that calls it**, including the one
+  this spec adds at T004 (`tests/whole_file_write.rs`), which is why T005's
+  footprint names that file too. `Profile::save` has **twelve** callers, so the
+  suspension must live behind `save` itself, not at the call sites.
 - **An env-var seam is already the project's idiom** for aiming a run at
   something unusual: `KAAZAP_DATA_DIR` (chore 2026-09-19, documented in
   `Readme.md`). The crash seam below follows it.
@@ -92,14 +96,38 @@ Consequences, each deliberate:
   top of its loop, `if crash::report().is_some() { break; }`, so a frame queued
   at the moment of the panic can't be drawn over the report. The hook sets the
   report before unwinding begins, so the flag is up before the sender drops.
+  **This narrows the window, it does not close it**: a frame already past that
+  check is drawn while the main thread is running `LeaveAlternateScreen` and
+  `eprintln!`, and nothing joins the render thread on the panic path. If
+  `render.rs` emits a per-frame cursor `Hide`, the visible consequence is a
+  hidden cursor after the restore — which is exactly what AC 2 checks. The
+  Phase 1 walkthrough therefore has to *say*, for `KAAZAP_CRASH_AT=draw` and
+  `=tick`, that the cursor was visible and nothing was garbled above the crash
+  line. **Fallback if it isn't**: give the guard the sender and the
+  `JoinHandle`, and have its `Drop` drop the sender and `join` (ignoring an
+  `Err` — the hook already recorded it) before restoring. That is
+  deterministic and costs one small struct; it is held back only because the
+  simpler version is expected to hold, and the walkthrough is what decides.
 - **Restoring twice is harmless** because `crash::restore_terminal()` ignores
   every error (`let _ = …`) rather than unwrapping — which it must anyway: a
   panic inside `Drop` during unwinding aborts the process.
-- The hook is installed **inside** `TerminalGuard::enter`, after the three
-  terminal commands. Before that point the default hook still prints normally,
-  so no window exists where a panic is silently swallowed. `enter` constructs
-  the guard value *first*, so a failure of `EnterAlternateScreen` or `Hide`
-  still restores raw mode on the way out.
+- The hook is installed **inside** `TerminalGuard::enter`, immediately after
+  `let guard = Self;` and **before** `enable_raw_mode`. (An earlier draft put
+  it after the three terminal commands; that leaves a window — between
+  `EnterAlternateScreen` and the install — where the default hook prints onto
+  the alternate screen and the output is discarded with nothing recorded to
+  reprint. Installing first is strictly safer and no more code: the guard
+  already exists, so anything recorded gets printed after the restore.)
+- **`Drop` runs**: `Cargo.toml` sets no `panic = "abort"` in any profile
+  (checked), so a panic unwinds in release as well as debug and the guard's
+  `Drop` is reached. If that ever changes, this whole design stops working and
+  the crash path has to move into the hook.
+- **Scope: the endings `spec.md` enumerates.** `q`, an input error, and a panic
+  on either thread. A `SIGTERM` or `kill -9` still leaves the terminal
+  unrestored — a signal handler is not in this spec, and the driver's
+  kill-to-leave-a-save trick will show it. That is not a gap against the spec,
+  but the close-out must not claim "however kaazap ends" more broadly than the
+  spec's own list (T009).
 
 Rejected: `catch_unwind` around the loop (the spec's non-goal — no recovery —
 and more code for the same teardown); printing from the hook and restoring in
@@ -126,10 +154,17 @@ pub(crate) fn write_whole(path: &Path, contents: &str) -> bool
 ```
 
 It writes to a fixed sibling temp path (`path.with_extension("tmp")`), then
-`fs::rename`s it over the target. Rename within a directory replaces
-atomically on every platform kaazap targets (`MOVEFILE_REPLACE_EXISTING` on
-Windows), so an interrupted write leaves the previous file byte-for-byte
-unchanged. The temp name is **fixed, not unique**: the next write reuses it, so
+`fs::rename`s it over the target. What that buys, stated no more strongly than
+it is true: the bytes are complete before anything replaces the file the game
+reads, so an interrupted write leaves the previous file byte-for-byte unchanged
+and never leaves a half-written file *under the real name*. On POSIX the
+replacement is atomic; on Windows `std::fs::rename` prefers `FileRenameInfoEx`
+(POSIX semantics) and falls back to `MoveFileEx`, which Microsoft does not
+guarantee to be atomic in every case — safe either way for this purpose. One
+Windows-only consequence: if the target file is open in another process the
+rename fails, so the save is a silent no-op, which is exactly the best-effort
+contract all three callers already have. The temp name is **fixed, not
+unique**: the next write reuses it, so
 repeated interrupted writes leave exactly one piece of debris rather than a
 growing pile, and it is never named `*.json`, so no loader looks at it. On any
 failure the temp file is removed (best-effort) and `false` comes back.
@@ -229,14 +264,33 @@ anything while it is up" would require an exception for this modal alone;
 this plan keeps the existing behaviour and **flags it** (§Open questions 2)
 rather than making the notice the one modal you can't quit under.
 
+**Ruled by the person, 2026-09-19, at sign-off (Q6): `q` and `m` stay live.**
+`spec.md` is amended in two places and carries a dated Q6 amendment section
+naming them as the standing exception, so the criterion and this design now
+agree. The plan is unchanged by the ruling; nothing else depended on it.
+
+And the set is a claim, not a reading: the Phase 4 review must **enumerate**
+which keys actually reach an open modal, from the top of `handle_key` down, and
+not take "`q` and `m`" on trust. The one that would matter most is `?`: it is
+handled today inside the `else` branch that runs only when **no** modal is open
+(`app.rs:1169-1188`), so it cannot reach the notice — but if that ever moved
+ahead of the modal chain, opening and closing help would set `self.modal =
+None` and the notice would be gone for good, with nothing to bring it back.
+
 ### 9. What `cargo test` can now do to a real profile
 
 Seven `app.rs` unit tests construct an `App`, and `App::new` calls
 `Profile::load` — which, from this spec on, *moves a file* when the real
-profile can't be read. On a healthy profile nothing happens. On an already
-broken one, a test run renames it to the dated name instead of the game doing
-it at the next launch; the file is kept either way, which is the whole point of
-the move. Fixing this properly is the open `ROADMAP.md` follow-up (point those
+profile can't be read — and (from T007) `save::check_at_launch`, which
+**deletes** the real match save when it can't be read. On healthy files nothing
+happens. On an already broken profile, a test run renames it to the dated name
+instead of the game doing it at the next launch; the file is kept either way,
+which is the whole point of the move. On an already broken match save, a test
+run removes it — the same removal the next launch would do, and nothing
+recoverable is lost, since a save that can't be read is a save that can't be
+resumed. Both are worth knowing before someone runs `cargo test` on a machine
+with a damaged profile folder.
+Fixing this properly is the open `ROADMAP.md` follow-up (point those
 seven tests at a scratch root), explicitly outside this spec's footprint. This
 plan therefore **adds no new unit test that constructs an `App`** — every new
 disk-level check is an integration test with its own root, and every new pure
@@ -267,10 +321,15 @@ static REPORT: OnceLock<CrashReport> = OnceLock::new();
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CrashReport { pub message: String, pub location: Option<String> }
 
-/// Record every panic, print nothing. Installed by the terminal guard, after
-/// the alternate screen is up — before that the default hook still prints.
+/// Record every panic, print nothing. Installed by the terminal guard as its
+/// first act, before raw mode — the guard exists by then, so anything recorded
+/// is printed after the restore, and no window is left where a panic prints
+/// onto the alternate screen and is thrown away with it.
 pub fn install_hook() {
     panic::set_hook(Box::new(|info: &PanicHookInfo| {
+        // `payload_as_str` is stable from 1.91 and the crate pins no
+        // rust-version; the two-arm `&str` / `String` downcast is the
+        // equivalent with no version floor (T001).
         let _ = REPORT.set(CrashReport {
             message: info.payload_as_str().unwrap_or("(no message)").to_string(),
             location: info.location().map(|l| l.to_string()),
@@ -338,9 +397,20 @@ fn main() -> anyhow::Result<()> {
         if crash_at.as_deref() == Some("input") {
             // The `?` path below, forced: an input error leaves main through
             // a return, restoring the terminal on the way (spec 028 AC 4).
-            anyhow::bail!("terminal input failed (KAAZAP_CRASH_AT=input)");
+            anyhow::bail!("kaazap couldn't read the terminal (KAAZAP_CRASH_AT=input)");
         }
-        if event::poll(…)? { … crash_if_requested(&crash_at, "key"); app.handle_key(code) … }
+        // `.context` so the line the player sees names kaazap, like the crash
+        // line does — an input error is not a panic and records no report.
+        if event::poll(…).context("kaazap couldn't read the terminal")? {
+            match event::read().context("kaazap couldn't read the terminal")? {
+                Event::Key(key_event) => {
+                    …
+                    crash_if_requested(&crash_at, "key");
+                    app.handle_key(code)
+                }
+                … // the Resize arm and the rest, unchanged
+            }
+        }
         …
         crash_if_requested(&crash_at, "tick");
         app.tick(dt);
@@ -354,21 +424,23 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Raw mode, the alternate screen and a hidden cursor — undone however kaazap
-/// ends (spec 028). `Drop` runs on a clean quit, on an error returned from
-/// `main`, and while a panic unwinds, so the restore has exactly one home and
-/// the crash report is printed after it, on the real terminal.
+/// Raw mode, the alternate screen and a hidden cursor — undone on every ending
+/// spec 028 names: a clean quit, an error returned from `main`, and a panic on
+/// either thread. `Drop` covers all three, so the restore has exactly one home
+/// and the crash report is printed after it, on the real terminal. (Not a
+/// signal: `kill` still leaves the terminal as it was.)
 struct TerminalGuard;
 
 impl TerminalGuard {
     fn enter() -> anyhow::Result<Self> {
-        let guard = Self; // from here on, an early `?` restores too
+        let guard = Self;      // from here on, an early `?` restores too
+        crash::install_hook(); // …and from here on, a panic is recorded and
+                               // printed by the Drop above, after the restore
         terminal::enable_raw_mode()?;
         let mut stdout = io::stdout();
         stdout.execute(EnterAlternateScreen)?;
         stdout.execute(Hide)?;
-        crash::install_hook(); // after the screen switch: before it, the
-        Ok(guard)              // default hook still prints normally
+        Ok(guard)
     }
 }
 
@@ -395,6 +467,19 @@ The three old teardown lines (`Show`, `LeaveAlternateScreen`,
 end of `main`; `drop(render_tx)` and `render_handle.join().unwrap()` stay
 exactly as they are.
 
+**What each ending prints**, so the walkthrough knows what it is looking at:
+
+| Ending | On the restored terminal | Exit |
+|---|---|---|
+| `q` | nothing | 0 |
+| input error (AC 4) | `Error: kaazap couldn't read the terminal: <io detail>`, printed by `Termination` after `main` returns and after the guard has restored — **no panic text**, because no panic was recorded | 1 |
+| panic on either thread (AC 2, 3) | the crash line, the panic's message, its location | 101 |
+
+The input line is `anyhow`'s Debug rendering of the context chain, not our
+`crash_lines`. AC 4 asks for the same *restore* and an unsuccessful exit, not
+for the kaazap crash line; the `.context` is what keeps it from reading as a
+bare `Os { code: 5, … }`.
+
 ### 3. `src/paths.rs`
 
 Module doc gains a second paragraph: the root, *and* the one way the three
@@ -402,13 +487,17 @@ files are written. Then:
 
 ```rust
 /// Write `contents` to `path` whole (spec 028): the bytes go to a temp file
-/// beside it, which is then renamed over it. Rename replaces atomically on
-/// every platform kaazap targets, so an interrupted write leaves the previous
-/// file exactly as it was. The temp name is fixed, so repeated interrupted
-/// writes leave one piece of debris rather than a pile, and it is never
-/// `*.json`, so no loader reads it. Best-effort like the three callers it
-/// serves: any failure removes the temp file and returns `false`, leaving the
-/// previous file alone. Not durable against a power cut — see plan §3.
+/// beside it, which is then renamed over it, so the contents are complete
+/// before they become the file the game reads and an interrupted write leaves
+/// the previous file exactly as it was. (The replacement is atomic on POSIX;
+/// on Windows it is a rename that may not be, but still never leaves a
+/// half-written file under the real name — and fails outright, as a silent
+/// no-op save, if another process holds the target open.) The temp name is
+/// fixed, so repeated interrupted writes leave one piece of debris rather than
+/// a pile, and it is never `*.json`, so no loader reads it. Best-effort like
+/// the three callers it serves: any failure removes the temp file and returns
+/// `false`, leaving the previous file alone. Not durable against a power cut —
+/// see plan §3.
 pub(crate) fn write_whole(path: &Path, contents: &str) -> bool {
     let tmp = path.with_extension("tmp");
     if fs::write(&tmp, contents).is_err() || fs::rename(&tmp, path).is_err() {
@@ -642,6 +731,10 @@ Two sentences appended to the **Saved data** paragraph (~line 120), before the
   render loop's stop check, `crash_if_requested`; the three teardown lines and
   the `stdout` local removed.
 - `src/paths.rs` — `write_whole`, the module doc's second paragraph; tests.
+  The three one-line call-site changes land **with it** (T003), not after it:
+  a `pub(crate)` function whose only non-test caller arrives a task later is
+  `dead_code` in the plain lib target, which `cargo build --all-targets`
+  builds and every task's "no new warnings" bar fails on.
 - `src/profile.rs` — `ProfileProblem`, `ProfileFailure`, `SAVES_SUSPENDED`,
   `load`, `save`, `classify` (+ `from_json` as a `#[cfg(test)]` wrapper),
   `set_aside`, `set_aside_names`, `utc_stamp`, `civil_from_days`; tests.
@@ -652,6 +745,10 @@ Two sentences appended to the **Saved data** paragraph (~line 120), before the
 - `tests/whole_file_write.rs`, `tests/profile_recovery.rs`,
   `tests/profile_save_suspended.rs`, `tests/match_save_recovery.rs` — new, one
   `#[test]` each (the root resolves once per process).
+  `tests/whole_file_write.rs` is written at T004 against today's
+  `Profile::load() -> Self` and **updated at T005** when the signature changes
+  (`let (profile, _) = Profile::load();`) — it is part of T005's footprint, not
+  a surprise at its build step.
 - `Readme.md` — two sentences.
 - `specs/028-crash-and-data-safety/closeout-main-docs.md` (T009).
 - **No change**: `src/card.rs`, `src/game.rs`, `src/player.rs`,
@@ -751,10 +848,11 @@ touches the real data directory, and no new test constructs an `App`.
   arm against `Modal::Victory`'s and the Phase 4 walkthrough. Not unit-tested
   further: the routing needs an `App`, and an `App` in a unit test reads the
   real data directory (§Design tension 9). See §Open questions 3.
-- **A settings file that can't be read is still silent** (AC 15) — T004:
+- **A settings file that can't be read is still silent** (AC 15) — T003:
   `settings.rs`'s existing `settings_malformed_or_empty_json_falls_back_to_default`
   and `settings_missing_or_legacy_fields_use_defaults` pass unedited, and
-  `Settings::load`'s body is untouched (the T004 diff).
+  `Settings::load`'s body is untouched (the T003 diff, which changes exactly
+  one line in that file).
 - **The version gates and the field defaults are unchanged** (AC 17) — T005:
   every existing `profile.rs` test (`a_wrong_version_document_is_discarded`,
   `missing_or_garbage_json_is_rejected_but_an_empty_object_is_the_starter`, the
@@ -786,8 +884,14 @@ touches the real data directory, and no new test constructs an `App`.
     `echo $?` is 0. Then, one at a time, `KAAZAP_CRASH_AT=key` (press a key),
     `=tick`, `=draw`, `=render` (press `q` to reach the join), and `=input`:
     each time the terminal is usable, the crash line and the panic's message
-    and location are readable on the terminal (and the `input` run shows the
-    error with **no panic text**), and `echo $?` is non-zero. Report what the
+    and location are readable on the terminal (and the `input` run shows
+    `Error: kaazap couldn't read the terminal: …` with **no panic text**), and
+    `echo $?` is non-zero. **For `=draw` and `=tick` the report must state
+    explicitly** that the cursor was visible afterwards and that nothing was
+    garbled above the crash line — that is the race in tension 1, and a hidden
+    cursor or a smear of frame output is the symptom. If either shows, the
+    fallback named there (the guard owns the sender and the `JoinHandle` and
+    joins in `Drop`) is a sub-lettered task, not a redesign. Report what the
     terminal looked like in plain language.
   - **After the Phase 4 review (T008)**, at 89×31, against the scratch root:
     (a) delete everything → launch → no notice, a normal start menu, a fresh
@@ -801,8 +905,10 @@ touches the real data directory, and no new test constructs an `App`.
     only the match line, **Continue** is absent, the file is gone, and the next
     launch is silent; (e) both damaged at once → **one** notice carrying both,
     fitting the 89-column terminal with nothing clipped and an empty row above
-    and below the dismiss line; (f) Enter and Space also dismiss, and a few
-    other keys do nothing while it is up. Report in plain language.
+    and below the dismiss line; (f) Enter and Space also dismiss, and the keys
+    the Phase 4 review enumerated as reaching an open modal — at minimum `?`,
+    `L`, `m`, an arrow, a digit and a letter — do nothing that loses the notice
+    or acts on the menu underneath. Report in plain language.
 
 ## Non-goals (from spec)
 
@@ -823,7 +929,11 @@ Settled here as design and flagged for sign-off:
 2. **`q` and `m` still act under the notice** (tension 8), as they do under
    every other modal in the game. A literal reading of the "no other key does
    anything while it is up" criterion would make this notice the one modal you
-   cannot quit or mute under.
+   cannot quit or mute under. Raised as a blocking finding at sign-off and
+   **ruled by the person, 2026-09-19 (Q6): both stay live.** `spec.md` carries
+   the amendment naming them as the standing exception, so this is settled and
+   T008's input arm is as drafted. The Phase 4 review still enumerates the keys
+   that actually reach an open modal rather than taking this set on trust.
 3. **The notice's dismissal is not unit-tested** (tension 9) — the routing arm
    needs an `App`, and an `App` in a unit test reads the real data directory,
    which the bundle says not to make worse. It is the same three lines as
@@ -840,3 +950,13 @@ Settled here as design and flagged for sign-off:
    criteria are about what a crash looks like, and there is no other way to
    produce one. Not documented in `Readme.md`, not reachable by any key, file
    or menu.
+7. **The render thread can still, in principle, draw over the crash report**
+   (tension 1) — narrowed to a microsecond window by one flag check, not
+   closed. The deterministic fix is named and held back on Simplicity grounds;
+   the Phase 1 walkthrough has to report on it explicitly for `=draw` and
+   `=tick`, and turning the fallback on is a sub-lettered task.
+8. **Signals are out of scope** (tension 1) — `SIGTERM` and `kill -9` still
+   leave the terminal unrestored. `spec.md` enumerates the endings it means and
+   signals are not among them, so this is a boundary rather than a gap; the
+   close-out must describe the guarantee as the spec's list, not as "however
+   kaazap ends".
