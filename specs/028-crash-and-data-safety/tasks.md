@@ -257,7 +257,7 @@ target that `cargo build --all-targets` also builds, and every task here has a
   **failing** when the cleanup line is commented out, then passing with it
   restored — that is the point of the task.*
 
-- [ ] **T004** — `tests/whole_file_write.rs` (new): the three writers pinned on
+- [x] **T004** — `tests/whole_file_write.rs` (new): the three writers pinned on
   disk. **One `#[test]` only** (the data root resolves once per process):
   `paths::set_root` at a fresh scratch directory under `std::env::temp_dir()`;
   save settings, a profile and a match save; assert each file holds its
@@ -599,3 +599,4 @@ spec under a policy — this is it for the economy profile. -->
 | T003 (sdd-implementer) | opus → opus | 48K | 1 | yes | — | `paths::write_whole` + the three one-line call sites; 3 tests; zero warnings, no `dead_code`; `fs::write` now only in `paths.rs`. Orchestrator re-ran verification (per-task): green |
 | T003 per-task review (skeptical-reviewer) | opus → opus | 44K | 1 | 0 blocking | 0 blocking | Signed off. Walked every failure mode; guarantee holds. Non-blocking: **the accumulation test is vacuous** (the temp-path-as-directory trick fails before `fs::rename`, so the cleanup line is never executed) -> **T003a** logged; plus 5 close-out notes, now in *Notes for the close-out* above |
 | T003a (sdd-implementer) | opus → opus | 32K | 1 | yes | — | Fourth test reaches `fs::rename`'s failure branch (target-as-directory). Demonstrated failing with the cleanup line commented out (`the temp file was left behind: ["data.json", "data.tmp"]`) and passing with it restored. Doc comment now names `fsync` and cites §Design tension 3 |
+| T004 (sdd-implementer) | opus → opus | 54K | 1 | yes | — | `tests/whole_file_write.rs`, one test, scratch root under `temp_dir()`, removed after. Mutation-checked: with the blocking directories removed it fails on the settings byte comparison, so the assertions bite. Two `Profile::load()` call sites for T005 to update |
