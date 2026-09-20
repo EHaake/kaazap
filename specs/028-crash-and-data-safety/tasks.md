@@ -359,7 +359,7 @@ binds both results with a placeholder until T008 raises the notice. -->
   then dispatches a `skeptical-reviewer` on T005's diff alone before T006
   starts.*
 
-- [ ] **T005a** — `src/profile.rs` (tests only) + `tests/whole_file_write.rs`
+- [x] **T005a** — `src/profile.rs` (tests only) + `tests/whole_file_write.rs`
   (two lines): the three assertions T005's review found missing. Logged
   2026-09-19 from T005's per-task review (second-look notes 1, 3, 4). All
   filesystem-free or one-line; none of them waits on T006.
@@ -666,3 +666,4 @@ spec under a policy — this is it for the economy profile. -->
 | T004a (sdd-implementer) | opus → opus | 48K | 1 | yes | — | N2 closed for settings: a real `settings.tmp` holding garbage is neither read nor consumed by `Settings::load`. N1 closed properly: reverting each writer in turn fires **that writer's own** comparison, at lines 108/109/110. `src/` byte-identical after (SHA-1s checked). Note: the three loader assertions sit behind the byte comparisons and can only be shown live by mutating a loader, not a writer |
 | T005 (sdd-implementer) | opus → opus | 89K | 1 | yes | — | `ProfileProblem`/`ProfileFailure`, `load -> (Self, Option<ProfileFailure>)`, `SAVES_SUSPENDED`, `set_aside`/`set_aside_names`/`utc_stamp`/`civil_from_days`; `from_json` kept as a `#[cfg(test)]` wrapper so all 36 `profile.rs` tests stand unedited. Orchestrator re-ran verification (per-task): green |
 | T005 per-task review (skeptical-reviewer) | opus → opus | 50K | 1 | 0 blocking | 0 blocking | Signed off. Walked every `load` path: no input or filesystem state loses the file; first launch still exactly silent (incl. Windows `ERROR_PATH_NOT_FOUND`); suspension set on exactly the right condition and the guard genuinely first; `classify` decision-for-decision the old gate; Hinnant's civil-from-days verified longhand on all three vectors. Second-look 1/3/4 -> **T005a**; 2 already handled (T006's suspension test is its own binary); 6 = the task line's call-site count, corrected above |
+| T005a (sdd-implementer) | opus → opus | 52K | 1 | yes | — | `classify_tells_a_bad_document_from_a_bad_version` pins the variant split the `from_json` wrapper hid; pre-epoch stamp vector added; both `whole_file_write.rs` call sites now assert `failure.is_none()`. `src/profile.rs` diff starts at line 1389, `#[cfg(test)]` at 615 — test module only |

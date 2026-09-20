@@ -1387,6 +1387,31 @@ mod tests {
     }
 
     #[test]
+    fn classify_tells_a_bad_document_from_a_bad_version() {
+        // The two failures read differently to the player ("couldn't be read"
+        // vs "saved by a different version of kaazap"), and `from_json`
+        // collapses both to `None` — so pin the split on `classify` itself.
+        let good = serde_json::to_string(&Profile::default()).unwrap();
+        let mut val: serde_json::Value = serde_json::from_str(&good).unwrap();
+        val["version"] = serde_json::json!(PROFILE_VERSION + 1);
+
+        assert_eq!(
+            Profile::classify("not json").unwrap_err(),
+            ProfileProblem::Unreadable,
+            "a document that doesn't parse is unreadable",
+        );
+        assert_eq!(
+            Profile::classify(&val.to_string()).unwrap_err(),
+            ProfileProblem::WrongVersion,
+            "a document that parses but names another version says so",
+        );
+        assert!(
+            Profile::classify(&good).is_ok(),
+            "a current-version document classifies as a profile",
+        );
+    }
+
+    #[test]
     fn try_add_respects_ownership() {
         // Own two +1 and one -1, deck empty.
         let mut p = profile_with(
@@ -1476,6 +1501,11 @@ mod tests {
         assert_eq!(at(0), "19700101-000000", "the epoch itself");
         assert_eq!(at(1_600_000_000), "20200913-122640", "a round unix timestamp");
         assert_eq!(at(1_583_020_799), "20200229-235959", "the leap-day branch");
+        assert_eq!(
+            utc_stamp(UNIX_EPOCH - std::time::Duration::from_secs(1)),
+            "19700101-000000",
+            "a time before the epoch reads as the epoch itself",
+        );
     }
 
     #[test]
