@@ -13,7 +13,12 @@
 //! by spec 022, distinct from `card::DEFAULT_SIDE_DECK` (the standard deck).
 //! See `specs/008-side-deck-customization` and `specs/022-balance-pass`.
 
-use std::{fs, path::PathBuf};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+    sync::atomic::{AtomicBool, Ordering},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use serde::{Deserialize, Serialize};
 
@@ -144,26 +149,78 @@ impl Default for Profile {
     }
 }
 
+/// Why a profile couldn't be read (spec 028). Two cases, because only one of
+/// them is something the player can act on: a file saved by a different build
+/// can be read by finding that build. "Couldn't be read" covers an I/O error,
+/// a permissions failure and a malformed document alike — the player does the
+/// same thing about all three (spec Q3 b).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProfileProblem {
+    Unreadable,
+    WrongVersion,
+}
+
+/// A profile that couldn't be read: what was wrong, and the name the old file
+/// was kept under — `None` if it couldn't be moved, in which case nothing may
+/// overwrite it for the rest of the launch (see [`SAVES_SUSPENDED`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProfileFailure {
+    pub problem: ProfileProblem,
+    pub set_aside: Option<String>,
+}
+
+/// Set when the profile on disk couldn't be read *and* couldn't be moved
+/// aside. Process-scoped, because "the rest of this launch" is exactly the
+/// process — and because `save` has a dozen callers, none of which should have
+/// to remember this.
+static SAVES_SUSPENDED: AtomicBool = AtomicBool::new(false);
+
 impl Profile {
-    /// Load the profile from disk, or the starter profile on any error —
-    /// missing dir/file, unreadable, malformed, or an incompatible version.
-    /// Never panics (like `Settings::load`).
-    pub fn load() -> Self {
-        Self::path()
-            .and_then(|path| fs::read_to_string(path).ok())
-            .and_then(|text| Self::from_json(&text))
-            .unwrap_or_default()
+    /// Load the profile from disk, or the starter profile if it can't be read —
+    /// unreadable, malformed, or an incompatible version. Since spec 028 the
+    /// failure is reported rather than swallowed: a file that is there and
+    /// unusable is first moved aside under a dated name, and if even that
+    /// fails, saving is suspended for the rest of the launch so nothing
+    /// overwrites it. A missing file or an unresolvable data directory is a
+    /// first launch: silent, `None`. Never panics (like `Settings::load`).
+    pub fn load() -> (Self, Option<ProfileFailure>) {
+        let Some(path) = Self::path() else {
+            return (Self::default(), None);
+        };
+        let problem = match fs::read_to_string(&path) {
+            // No file and no data directory are a first launch: silent.
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return (Self::default(), None),
+            Err(_) => ProfileProblem::Unreadable,
+            Ok(text) => match Self::classify(&text) {
+                Ok(profile) => return (profile, None),
+                Err(problem) => problem,
+            },
+        };
+        // The file is there and unusable: keep it, and never write over it.
+        let set_aside = set_aside(&path);
+        if set_aside.is_none() {
+            SAVES_SUSPENDED.store(true, Ordering::Relaxed);
+        }
+        (
+            Self::default(),
+            Some(ProfileFailure { problem, set_aside }),
+        )
     }
 
     /// Save the profile. Best-effort: a missing data dir or unwritable path is
     /// swallowed — a profile you can't write isn't worth crashing over.
     pub fn save(&self) {
+        // The profile on disk couldn't be read and couldn't be moved aside:
+        // nothing this session does may overwrite it (spec 028).
+        if SAVES_SUSPENDED.load(Ordering::Relaxed) {
+            return;
+        }
         let Some(path) = Self::path() else { return };
         if let Some(dir) = path.parent() {
             let _ = fs::create_dir_all(dir);
         }
         if let Ok(json) = serde_json::to_string_pretty(self) {
-            let _ = fs::write(path, json);
+            crate::paths::write_whole(&path, &json);
         }
     }
 
@@ -198,12 +255,22 @@ impl Profile {
         self.campaign = CampaignRun::default();
     }
 
-    /// Parse profile JSON, discarding a document whose version doesn't match
-    /// rather than mis-reading it. The filesystem-free core of `load`, so the
-    /// fallback and version check are testable without disk.
+    /// Parse profile JSON: a document that doesn't parse is `Unreadable`, one
+    /// whose version doesn't match is `WrongVersion` — discarded rather than
+    /// mis-read, exactly as before; the gate only says which failure it was.
+    /// The filesystem-free core of `load`.
+    fn classify(text: &str) -> Result<Self, ProfileProblem> {
+        let profile: Profile =
+            serde_json::from_str(text).map_err(|_| ProfileProblem::Unreadable)?;
+        (profile.version == PROFILE_VERSION)
+            .then_some(profile)
+            .ok_or(ProfileProblem::WrongVersion)
+    }
+
+    /// The filesystem-free core as the tests have always used it.
+    #[cfg(test)]
     fn from_json(text: &str) -> Option<Self> {
-        let profile: Profile = serde_json::from_str(text).ok()?;
-        (profile.version == PROFILE_VERSION).then_some(profile)
+        Self::classify(text).ok()
     }
 
     /// `<data_dir>/profile.json`, beside the match save's `saves/` subfolder.
@@ -492,6 +559,57 @@ impl Profile {
     fn count_in_deck(&self, card: Card) -> usize {
         self.deck.iter().filter(|&&c| c == card).count()
     }
+}
+
+/// Move an unreadable profile out of the way, returning the name it now has —
+/// `None` if there is nowhere to put it or the move failed, which suspends
+/// saving. Checked before renaming, because `fs::rename` would replace an
+/// existing set-aside file rather than fail.
+fn set_aside(path: &Path) -> Option<String> {
+    let dir = path.parent()?;
+    let name = set_aside_names(&utc_stamp(SystemTime::now()))
+        .into_iter()
+        .find(|n| !dir.join(n).exists())?;
+    fs::rename(path, dir.join(&name)).ok()?;
+    Some(name)
+}
+
+/// The names an unreadable profile is kept under, in order: the dated name,
+/// then `-2` … `-9` if it is taken. Past that, nothing — the move fails and
+/// saving is suspended, which is the safe end.
+fn set_aside_names(stamp: &str) -> Vec<String> {
+    std::iter::once(format!("profile-{stamp}.json"))
+        .chain((2..=9).map(|n| format!("profile-{stamp}-{n}.json")))
+        .collect()
+}
+
+/// `YYYYMMDD-HHMMSS` in UTC. Hand-rolled: the toolbox has no date crate, and
+/// local time would need the platform's zone database, which does. A time
+/// before the epoch (a badly set clock) reads as the epoch itself — a stamp is
+/// a name here, not a measurement.
+fn utc_stamp(time: SystemTime) -> String {
+    let secs = time
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |since| since.as_secs());
+    let (days, rest) = (secs / 86_400, secs % 86_400);
+    let (year, month, day) = civil_from_days(days as i64);
+    let (hour, minute, second) = (rest / 3_600, (rest % 3_600) / 60, rest % 60);
+    format!("{year:04}{month:02}{day:02}-{hour:02}{minute:02}{second:02}")
+}
+
+/// Days since the epoch to a civil `(year, month, day)` — Howard's
+/// `civil_from_days`, the standard shift-the-year-to-March form, so leap years
+/// and the century rules fall out of the arithmetic rather than a table.
+fn civil_from_days(days: i64) -> (i64, u64, u64) {
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1_460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = (doy - (153 * mp + 2) / 5 + 1) as u64;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 } as u64;
+    (yoe + era * 400 + i64::from(month <= 2), month, day)
 }
 
 #[cfg(test)]
@@ -1269,6 +1387,31 @@ mod tests {
     }
 
     #[test]
+    fn classify_tells_a_bad_document_from_a_bad_version() {
+        // The two failures read differently to the player ("couldn't be read"
+        // vs "saved by a different version of kaazap"), and `from_json`
+        // collapses both to `None` — so pin the split on `classify` itself.
+        let good = serde_json::to_string(&Profile::default()).unwrap();
+        let mut val: serde_json::Value = serde_json::from_str(&good).unwrap();
+        val["version"] = serde_json::json!(PROFILE_VERSION + 1);
+
+        assert_eq!(
+            Profile::classify("not json").unwrap_err(),
+            ProfileProblem::Unreadable,
+            "a document that doesn't parse is unreadable",
+        );
+        assert_eq!(
+            Profile::classify(&val.to_string()).unwrap_err(),
+            ProfileProblem::WrongVersion,
+            "a document that parses but names another version says so",
+        );
+        assert!(
+            Profile::classify(&good).is_ok(),
+            "a current-version document classifies as a profile",
+        );
+    }
+
+    #[test]
     fn try_add_respects_ownership() {
         // Own two +1 and one -1, deck empty.
         let mut p = profile_with(
@@ -1350,5 +1493,43 @@ mod tests {
         );
         assert_eq!(p.deck().len(), SIDE_DECK_SIZE); // the length clause passes
         assert!(!p.deck_is_valid(), "over-owning a card must fail the sub-multiset check");
+    }
+
+    #[test]
+    fn the_set_aside_stamp_is_the_utc_date_and_time() {
+        let at = |secs: u64| utc_stamp(UNIX_EPOCH + std::time::Duration::from_secs(secs));
+        assert_eq!(at(0), "19700101-000000", "the epoch itself");
+        assert_eq!(at(1_600_000_000), "20200913-122640", "a round unix timestamp");
+        assert_eq!(at(1_583_020_799), "20200229-235959", "the leap-day branch");
+        assert_eq!(
+            utc_stamp(UNIX_EPOCH - std::time::Duration::from_secs(1)),
+            "19700101-000000",
+            "a time before the epoch reads as the epoch itself",
+        );
+    }
+
+    #[test]
+    fn set_aside_names_start_dated_then_number() {
+        let names = set_aside_names("20200913-122640");
+        assert_eq!(names[0], "profile-20200913-122640.json", "the dated name comes first");
+        assert_eq!(
+            &names[1..],
+            &[
+                "profile-20200913-122640-2.json",
+                "profile-20200913-122640-3.json",
+                "profile-20200913-122640-4.json",
+                "profile-20200913-122640-5.json",
+                "profile-20200913-122640-6.json",
+                "profile-20200913-122640-7.json",
+                "profile-20200913-122640-8.json",
+                "profile-20200913-122640-9.json",
+            ],
+            "then -2 through -9",
+        );
+        assert!(names.iter().all(|n| n.ends_with(".json")), "every candidate is a json name");
+        let mut distinct = names.clone();
+        distinct.sort();
+        distinct.dedup();
+        assert_eq!(distinct.len(), names.len(), "the candidates are all distinct");
     }
 }

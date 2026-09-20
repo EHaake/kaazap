@@ -29,7 +29,7 @@ use crate::{
     overlay::{Overlay, OverlayKind, draw_scrollable_overlay, draw_text_overlay, overlay_text},
     play_log::PlayLog,
     player::Player,
-    profile::Profile,
+    profile::{Profile, ProfileFailure, ProfileProblem},
     records::{RecordsOutcome, RecordsState},
     screen::Screen,
     settings::{Settings, SettingsAction, SettingsState},
@@ -309,6 +309,11 @@ enum Modal {
     /// while it is up. Transient: no seen mark, so quitting under it loses the
     /// notice but not the completion or its payout, both already persisted.
     Victory,
+    /// The data notice (spec 028): what a launch found unreadable, and where the
+    /// old file went. Carries its lines because they are fixed at launch and their
+    /// inputs are gone by the second frame. Enter, Space or Esc dismiss it back to
+    /// the untouched start menu. Transient: never saved, never re-shown.
+    DataNotice(Vec<String>),
     /// The first-run campaign primer (spec 023): raised over a freshly opened
     /// campaign map the first time the player reaches it from the start menu,
     /// naming the stake loop and the outfitter. Unit-like — it carries no data;
@@ -470,6 +475,42 @@ fn run_over_notice_lines(run: &RunStats, cleared: usize, total: usize) -> Vec<St
     lines
 }
 
+/// The data notice's content, title first and dismiss line last, blank rows
+/// included — `None` when the launch found nothing wrong, which is also the
+/// "raise no modal" answer. Pure, so the wording, the breathing room and the
+/// fit are testable without a terminal. One notice covers both files.
+fn data_notice_lines(profile: Option<&ProfileFailure>, save_unreadable: bool) -> Option<Vec<String>> {
+    if profile.is_none() && !save_unreadable { return None; }
+    let mut lines = vec!["Some of your saved data couldn't be read.".to_string()];
+    if let Some(f) = profile {
+        lines.push(String::new());
+        lines.push(match f.problem {
+            ProfileProblem::Unreadable => "Your campaign profile couldn't be read.",
+            ProfileProblem::WrongVersion =>
+                "Your campaign profile was saved by a different version of kaazap.",
+        }.to_string());
+        match &f.set_aside {
+            Some(name) => {
+                lines.push(format!("The old file is kept as {name}."));
+                lines.push("You're playing on a new starter profile.".to_string());
+            }
+            None => {
+                lines.push("The old file couldn't be moved out of the way.".to_string());
+                lines.push("kaazap won't save over it, so the campaign you play this session won't be kept.".to_string());
+            }
+        }
+    }
+    if save_unreadable {
+        lines.push(String::new());
+        lines.push("Your in-progress match couldn't be read, so it wasn't kept.".to_string());
+    }
+    // The dismiss line is the acted-on element: an empty row above it, and the
+    // box's own padding below (constitution, *acted-on element stands apart*).
+    lines.push(String::new());
+    lines.push("Enter  continue".to_string());
+    Some(lines)
+}
+
 /// The gap between adjacent choices on a choice panel's row.
 const CHOICE_GAP: usize = 6;
 
@@ -620,7 +661,10 @@ pub struct App {
 impl App {
     pub fn new(config: Config) -> Self {
         let settings = Settings::load();
-        let profile = Profile::load();
+        let (profile, profile_failure) = Profile::load();
+        // A match save that can't be read is reported and removed, so `has_save` below
+        // sees the truth and the notice doesn't repeat next launch.
+        let save_unreadable = crate::save::check_at_launch();
         let has_save = crate::save::exists();
         Self {
             config,
@@ -628,7 +672,7 @@ impl App {
                 menu_state: MenuState::new(has_save),
             },
             board_view: BoardView::new(config),
-            modal: None,
+            modal: data_notice_lines(profile_failure.as_ref(), save_unreadable).map(Modal::DataNotice),
             has_save,
             menu_selection: MenuItem::StartCampaign,
             pulse: SelectionPulse::default(),
@@ -1151,6 +1195,13 @@ impl App {
                 self.modal = None;
                 self.audio.play(Sfx::MenuSelect);
             }
+        } else if matches!(self.modal, Some(Modal::DataNotice(_))) {
+            // Raised at launch over the start menu: Enter/Space/Esc dismiss it,
+            // nothing else acts, and nothing underneath is touched (spec 028).
+            if notice_dismissed(key) {
+                self.modal = None;
+                self.audio.play(Sfx::MenuSelect);
+            }
         } else if matches!(self.modal, Some(Modal::Primer | Modal::FirstMatch)) {
             // The first-run pieces take all input while open (spec 023): only
             // Enter/Space/Esc get past them, and they dismiss. Nothing on the
@@ -1168,6 +1219,11 @@ impl App {
             self.handle_confirm_input(key);
         } else {
             // No modal open: ? opens the help overlay for the current screen.
+            // ? has to stay inside this no-modal branch: hoisted ahead of the
+            // ladder the way m is, it would overwrite Modal::DataNotice, and that
+            // notice cannot be rebuilt — data_notice_lines is called only from
+            // App::new, its inputs aren't stored, and by the time the notice is up
+            // the on-disk conditions are repaired, so a lost notice is lost for good.
             if let KeyCode::Char(c) = key
                 && c == '?'
             {
@@ -1800,6 +1856,7 @@ impl App {
                     victory_notice_lines(self.run_tally(), self.worlds_cleared(), PLANETS.len());
                 self.draw_notice(frame, &lines)
             }
+            Some(Modal::DataNotice(lines)) => self.draw_notice(frame, lines),
             // The first-run primer and the first-match popup (spec 023): the same
             // bordered text box the other overlays use, rebuilt from its asset
             // every frame — so, like the play log, they need no resize arm.
@@ -2640,6 +2697,111 @@ mod tests {
             .position(|l| l == reset_note)
             .expect("the run-over notice keeps its reset note");
         assert!(note_at > run_over_at + 2, "the reset note follows the summary");
+    }
+
+    #[test]
+    fn the_data_notice_reads_right_breathes_and_fits_the_minimum_terminal() {
+        // Spec 028 (AC 13, 14): a launch that found nothing wrong raises no
+        // notice; each failure reads in plain words; both failures share one
+        // notice; and at its longest the notice still ends on the dismiss line
+        // with an empty row above it, doubles no blank row, and fits both fit
+        // sizes unclamped. Pure — no `App` is built here, because `App::new`
+        // reads (and now repairs) the real data directory.
+        fn failed(problem: ProfileProblem) -> ProfileFailure {
+            ProfileFailure { problem, set_aside: None }
+        }
+        fn set_aside(problem: ProfileProblem, name: &str) -> ProfileFailure {
+            ProfileFailure { problem, set_aside: Some(name.to_string()) }
+        }
+
+        // Nothing wrong: no notice at all.
+        assert!(data_notice_lines(None, false).is_none());
+
+        // Unreadable, kept under a dated name: the problem, then the file name.
+        let kept = set_aside(ProfileProblem::Unreadable, "profile-20260919-143005.json");
+        let lines = data_notice_lines(Some(&kept), false).expect("a failure raises the notice");
+        assert_eq!(lines[0], "Some of your saved data couldn't be read.");
+        assert_eq!(lines[2], "Your campaign profile couldn't be read.");
+        assert_eq!(lines[3], "The old file is kept as profile-20260919-143005.json.");
+        assert_eq!(lines[4], "You're playing on a new starter profile.");
+
+        // A wrong-version profile reads differently — the profile line names the
+        // version, not a damaged file (the title line says that for both).
+        let version = set_aside(ProfileProblem::WrongVersion, "profile-20260919-143005.json");
+        let lines = data_notice_lines(Some(&version), false).unwrap();
+        assert_eq!(
+            lines[2],
+            "Your campaign profile was saved by a different version of kaazap."
+        );
+        assert!(!lines[2].contains("couldn't be read"), "the version case is not a damaged file");
+
+        // The move failed: no file name is offered, and the notice says what
+        // that costs — kaazap won't write over the old file, so this session's
+        // campaign is not kept (settings and the match save still write).
+        let stuck = failed(ProfileProblem::Unreadable);
+        let lines = data_notice_lines(Some(&stuck), false).unwrap();
+        assert!(
+            !lines.iter().any(|l| l.contains("is kept as")),
+            "no file name when the move failed: {lines:?}"
+        );
+        assert_eq!(lines[3], "The old file couldn't be moved out of the way.");
+        assert_eq!(
+            lines[4],
+            "kaazap won't save over it, so the campaign you play this session won't be kept."
+        );
+
+        // The match save alone: its line, and no profile line.
+        let match_line = "Your in-progress match couldn't be read, so it wasn't kept.";
+        let lines = data_notice_lines(None, true).expect("an unreadable save raises the notice");
+        assert!(lines.iter().any(|l| l == match_line), "the match line: {lines:?}");
+        assert!(
+            !lines.iter().any(|l| l.contains("campaign profile")),
+            "no profile line when only the save failed: {lines:?}"
+        );
+
+        // Both at once: one notice carrying both failures.
+        let lines = data_notice_lines(Some(&kept), true).unwrap();
+        assert!(lines.iter().any(|l| l == "Your campaign profile couldn't be read."));
+        assert!(lines.iter().any(|l| l == match_line));
+
+        // The longest content either branch can produce, at both fit sizes.
+        let longest = [
+            data_notice_lines(Some(&failed(ProfileProblem::WrongVersion)), true).unwrap(),
+            data_notice_lines(
+                Some(&set_aside(ProfileProblem::WrongVersion, "profile-20260919-143005-9.json")),
+                true,
+            )
+            .unwrap(),
+        ];
+        for lines in &longest {
+            assert_eq!(lines.last().unwrap(), "Enter  continue", "the dismiss line is last");
+            assert_eq!(
+                lines[lines.len() - 2],
+                "",
+                "the dismiss line needs an empty row above it"
+            );
+            assert!(
+                lines.windows(2).all(|w| !(w[0].is_empty() && w[1].is_empty())),
+                "no slab of empty rows: {lines:?}"
+            );
+
+            let width = lines.iter().map(|l| l.chars().count()).max().unwrap_or(0);
+            for config in Config::fit_sizes() {
+                let (cols, rows) = (config.num_cols, config.num_rows);
+                let layout = OverlayLayout::new(config, width, lines.len());
+                assert_eq!(
+                    layout.outer.height(),
+                    lines.len() + crate::V_PAD,
+                    "box height clamped — the notice outgrew {cols}x{rows}"
+                );
+                assert_eq!(
+                    layout.outer.width(),
+                    width + 2 * crate::H_PAD,
+                    "box width clamped at {cols}x{rows}"
+                );
+                assert!(layout.outer.y1 < rows && layout.outer.x1 < cols, "box off-frame at {cols}x{rows}");
+            }
+        }
     }
 
     #[test]

@@ -10,7 +10,7 @@
 //! `plan.md`).
 
 use std::{
-    fs,
+    fs, io,
     path::PathBuf,
     time::{Duration, Instant},
 };
@@ -153,7 +153,7 @@ pub fn save(game: &GameState) {
         let _ = fs::create_dir_all(dir);
     }
     if let Ok(json) = serde_json::to_string_pretty(&saved) {
-        let _ = fs::write(path, json);
+        crate::paths::write_whole(&path, &json);
     }
 }
 
@@ -182,6 +182,22 @@ pub fn clear() {
     if let Some(path) = save_path() {
         let _ = fs::remove_file(path);
     }
+}
+
+/// Check the match save at launch (spec 028). `false` when it is missing or
+/// loadable — the ordinary cases, silent as today. When the file is there but
+/// unreadable, malformed or the wrong version, **remove it** and return
+/// `true`: that match is gone for good, so the notice reports it once instead
+/// of on every later launch (spec Q4 a). Nothing is kept — a match is not a
+/// run.
+pub fn check_at_launch() -> bool {
+    let Some(path) = save_path() else { return false };
+    let unreadable = match fs::read_to_string(&path) {
+        Err(e) => e.kind() != io::ErrorKind::NotFound,
+        Ok(text) => from_json(&text).is_none(),
+    };
+    if unreadable { clear(); }
+    unreadable
 }
 
 #[cfg(test)]

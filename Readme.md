@@ -115,7 +115,11 @@ This project is built using spec-driven development with Claude:
 `profile.json`, an in-progress match in `saves/savegame.json`, and your
 settings in `settings.json` — the first two in the per-platform application
 data directory, the settings in the config directory (on Linux, `~/.local/share`
-and `~/.config`). Setting `KAAZAP_DATA_DIR` puts all three in that directory
+and `~/.config`). If `profile.json` can't be read — damaged, or written by a
+different version of kaazap — kaazap keeps it under a dated name beside it (for
+example `profile-20260919-143005.json`), says so at the start menu, and plays on
+a fresh starter profile. An in-progress match that can't be read is reported the
+same way and removed. Setting `KAAZAP_DATA_DIR` puts all three in that directory
 instead — handy for trying a throwaway run, or a change, without touching
 your real save:
 
