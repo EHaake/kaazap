@@ -47,14 +47,21 @@ files).
 
 ---
 
-## Phase 1 — The series in the run (foundational; walkthrough: none — nothing creates a series yet, so every campaign match still launches from the map, settles and clears a planet exactly as it does today; the phase's whole claim is that nothing the person can see changed, and that is what the unedited existing tests pin)
+## Phase 1 — The series in the run (foundational; walkthrough: beat Cinder's opponent once — the planet does **not** clear and the map relaunches the same opponent; beat him a second time and it clears and the next worlds unlock. Two wins now take an opponent. There is no venue yet, so the map is still where matches start)
 
 <!-- T001 is the persisted model, T002 the one floor, T003 the settlement rule.
-After T003 a win still beats an opponent, because with no series every match
-settles through the NotInSeries path. -->
 
-- [ ] **T001** — `src/campaign.rs`: the series, and the exactly-once settlement
-  take. `review: per-task`. Per plan §Design 1 and §Design tension 3:
+This phase was marked `walkthrough: none` in the first draft, on the strength of
+a settlement rule that sign-off finding B1 replaced. Under B1's fix a match
+against an un-beaten opponent with no series running *starts* one, so from T003
+onward a single campaign win no longer beats anyone — the spec's central rule
+becomes true here, three tasks before the venue exists, and it is very much
+something the person can see. Marked honestly, not generously; the reviewer's
+"these markings are honest" note was written against the pre-B1 draft. -->
+
+- [ ] **T001** — `src/campaign.rs` + `src/profile.rs` + `src/app.rs` +
+  `src/campaign_map.rs`: the series, and the exactly-once settlement take.
+  `review: per-task`. Per plan §Design 1 and §Design tension 3:
   `pub struct Series { planet: String, opponent: String, player_wins: u32,
   opponent_wins: u32 }` deriving `Debug, Clone, PartialEq, Eq, Serialize,
   Deserialize`; `pub enum SeriesOutcome { NotInSeries, Continues, Won, Lost }`
@@ -63,8 +70,24 @@ settles through the NotInSeries path. -->
   `FINAL_OPPONENT`, else 2) and `pub fn series_length_label(opponent: &str) ->
   &'static str` (`"Best of 5"` / `"Best of 3"`). On `CampaignRun`, add
   `#[serde(default)] series: Option<Series>` and `series()`, `begin_series`,
-  `record_series_match` exactly as the plan's listing. On `NodeRef`, add
-  `#[serde(default)] pub settled: bool` with the plan's doc.
+  `record_series_match` exactly as the plan's listing — **three cases, and the
+  discriminator is `is_opponent_beaten`, not whether a series exists (sign-off
+  B1)**: the locked node's series is tallied; an **already-beaten** opponent is
+  a rematch and returns `NotInSeries`; anything else is a match against an
+  un-beaten opponent with no series of its own — a match left in flight across
+  the upgrade — so `begin_series` for it and credit the match (1–0,
+  `Continues`), which is `spec.md` §Saving and resuming's "resolves as the first
+  match of a fresh series against that opponent". Without that branch such a
+  match beats its opponent outright and clears a world in one. Carry the plan's
+  doc comment in full, including why a *different* series running in that third
+  case is replaced rather than special-cased.
+  On `NodeRef`, add `#[serde(default)] pub settled: bool` with the plan's doc —
+  `NodeRef` derives no `Default` and is built as a struct literal in
+  **`src/app.rs`** (the wager `Commit` arm, ~941, production), **`src/app.rs`**
+  again and **`src/campaign_map.rs`** in tests, `src/profile.rs`'s `node` test
+  helper, and twice in `campaign.rs`'s own tests. **Every one of those gains
+  `settled: false`, in this task** — the build breaks otherwise, and
+  `cargo build --all-targets` is this task's bar.
   **Replace `take_stake` with `take_settlement`** per the plan's listing —
   `std::mem::replace(&mut node.settled, true)` guards, then `mem::take` empties
   the escrow, returning `(NodeRef, u32)`. `take_stake` is **deleted**, and its
@@ -84,8 +107,15 @@ settles through the NotInSeries path. -->
   `a_series_resolves_only_at_the_required_wins` (drive `record_series_match`
   through best-of-three both ways and best-of-five, asserting `Continues` until
   the required win, then `Won`/`Lost`, and `series()` is `None` after);
-  `record_series_match_ignores_a_node_that_is_not_the_series`
-  (`NotInSeries` for a different planet/opponent, and the tally does not move);
+  `a_match_in_flight_with_no_series_starts_one` (**sign-off B1**: no series, an
+  **un-beaten** opponent → `Continues` and a series at 1–0 against that node;
+  the same call with an **already-beaten** opponent → `NotInSeries` and still no
+  series);
+  `no_settled_match_beats_an_unbeaten_opponent_outright` (the property B1
+  exists for, stated directly: over a series against one node, a settled match
+  against a *different* un-beaten node, and a match with no series at all, the
+  result is never one that would beat an un-beaten opponent — i.e.
+  `NotInSeries` is returned **only** when `is_opponent_beaten` is true);
   `take_settlement_hands_over_the_match_exactly_once` (the shape of the existing
   `take_stake_empties_the_escrow_exactly_once`, which this replaces: a staked
   node yields the node and the stake, then `None`, and `stake_at_risk()` is
@@ -95,28 +125,57 @@ settles through the NotInSeries path. -->
   carrying a series. Do not run `cargo fmt`. (Copies: `campaign.rs`'s own
   `NodeRef`/`take_stake` doc voice and its tests module.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
-  verbatim with the new tests passing and **every existing `campaign.rs` and
-  `profile.rs` test passing unedited except the one `take_stake` call site**;
-  `git diff --stat` shows only `src/campaign.rs` and `src/profile.rs`, with
-  `profile.rs` changed on two lines; `grep -n "take_stake" src/ tests/` is
-  empty; the implementer's report quotes `take_settlement` and
-  `record_series_match` verbatim. The orchestrator re-runs the verification
+  verbatim with the new tests passing and **every existing assertion in
+  `campaign.rs`, `profile.rs`, `app.rs` and `campaign_map.rs` unchanged in
+  value** — this task adds a field and a method, it does not change what
+  settlement does (that is T003), so the only edits outside `campaign.rs` are
+  the `settled: false` additions to `NodeRef` literals and the one
+  `take_settlement` call site; `git diff --stat` shows exactly
+  `src/campaign.rs`, `src/profile.rs`, `src/app.rs` and `src/campaign_map.rs`,
+  with `app.rs` and `campaign_map.rs` changed on literal lines only;
+  `grep -rn "take_stake" src/ tests/` is empty; the implementer's report quotes
+  `take_settlement` and `record_series_match` verbatim. The orchestrator re-runs the verification
   command itself before committing (per-task review), then dispatches a
   `skeptical-reviewer` on T001's diff alone before T002 starts.*
 
 - [ ] **T002** — `src/economy.rs` + `src/profile.rs` + `src/shop.rs` +
-  `tests/balance.rs`: one floor, and the four callers that read it. Per plan
-  §Design tension 2: make `cheapest_floor` **private** (`fn`, not `pub fn`) and
-  add `pub fn reserve_floor(run: &CampaignRun) -> u32` exactly as the plan's
-  listing, with its doc naming ruling O1 and the reason. Then move **all four
-  callers in the same task** — a `pub fn` whose only callers are
-  `#[cfg(test)]` is `dead_code` against `cargo build --all-targets`, and a
-  private `cheapest_floor` with no in-crate caller is too (spec 028's T003
-  lesson): `Profile::is_broke`, `Profile::can_afford`, `shop.rs`'s `spendable`
-  line, and `app.rs`'s `WagerState::new` reserve argument in
-  `launch_campaign_node`. `tests/balance.rs` imports `cheapest_floor` for one
-  report line — move it to `reserve_floor` (same value for a default run, so the
-  report is unchanged). Nothing else in any of those functions changes.
+  `src/app.rs` + `tests/balance.rs` + `docs/economy.md` + `docs/balance.md`:
+  one floor, every caller that reads it, and the document that explains it. Per
+  plan §Design tension 2: make `cheapest_floor` **private** (`fn`, not `pub fn`)
+  and add `pub fn reserve_floor(run: &CampaignRun) -> u32` exactly as the plan's
+  listing, with its doc naming ruling O1 and the reason. Then move **every
+  caller in the same task** — a `pub fn` whose only callers are `#[cfg(test)]`
+  is `dead_code` against `cargo build --all-targets`, and a private
+  `cheapest_floor` with no in-crate caller is too (spec 028's T003 lesson).
+  The callers, all of them, because the previous draft of this task named four
+  and there are seven: `Profile::is_broke`, `Profile::can_afford`, **two
+  `economy::cheapest_floor` calls in `profile.rs`'s own tests (~901, ~1274)**,
+  `shop.rs`'s `spendable` line, **`src/app.rs`'s `WagerState::new` reserve
+  argument in `launch_campaign_node` (~920)**, and **two sites in
+  `tests/balance.rs` (~455 and ~596)** — not one. `reserve_floor` returns the
+  same value for a default run, so the simulator's report is unchanged. Nothing
+  else in any of those functions changes.
+  Then the documentation, which rides the branch (CLAUDE.md git conventions),
+  not the close-out — plan §Files: **`docs/economy.md`** asserts the old rule in
+  seven places and must be corrected to the new one: `take_stake`'s entry
+  (~107), the exactly-once paragraph (~113–118, which this spec *strengthens* —
+  say so, and say what it still does not cover: `record_match` runs before
+  settlement), the `is_broke` sentence (~125–128 — the floor, the function name
+  and the `enter_campaign_map` seam all move; this is the most load-bearing line
+  in the document), the shop reserve and the "cheapest_floor is 10 in every run
+  state" tuning note (~134, ~151–153, ~157, ~165–167 — no longer true while
+  locked), "reached from the campaign map with `b`" (~239, ~262 — the Outfitter
+  is now also reached from the venue), and the named test (~287). **The one
+  prose line in `docs/balance.md` (~195) that names `cheapest_floor` belongs to
+  this task too**, not to T010 — which is why T010's "additions only" bar is not
+  weakened by it. Describe `is_broke`'s seams as they will be *after* T006
+  (`App::enter_campaign`), and say so in a parenthetical if that function does
+  not exist yet at this task.
+  **Name the visible consequence in the `docs/economy.md` edit** (plan §Design
+  tension 2): the wager prompt's "lose this and the run is over" warning is
+  driven by this floor, so while locked against a deep opponent it fires at far
+  lower stakes than it does today. Correct under O1, unreachable in any of this
+  spec's walkthroughs, and therefore written down rather than attested.
   Tests: in `economy.rs`, `reserve_floor_follows_the_lock` — with no series it
   equals `cheapest_floor` on a fresh, a half-cleared and a complete run; with a
   series against `rix` it is 50 while the cheapest is 10; **and for every roster
@@ -128,10 +187,13 @@ settles through the NotInSeries path. -->
   same profile with no series is neither. Do not run `cargo fmt`. (Copies:
   `economy.rs`'s own doc voice and its `cleared()` test helper.)
   *Verify: `cargo build --all-targets` no new warnings — in particular no
-  `dead_code` on either floor function; `cargo test -q` green verbatim;
-  `git diff --stat` shows only those four files; `grep -rn "cheapest_floor"
-  src/ tests/` matches **only** `src/economy.rs`; the implementer's report
-  quotes `reserve_floor` and the four changed call sites verbatim.*
+  `dead_code` on either floor function; `cargo test -q` green verbatim with
+  every existing assertion unchanged in value; `git diff --stat` shows exactly
+  `src/economy.rs`, `src/profile.rs`, `src/shop.rs`, `src/app.rs`,
+  `tests/balance.rs`, `docs/economy.md` and `docs/balance.md`;
+  `grep -rn "cheapest_floor" src/ tests/ docs/` matches **only**
+  `src/economy.rs`; the implementer's report quotes `reserve_floor` and all
+  seven changed call sites verbatim, and pastes the `docs/economy.md` diff.*
 
 - [ ] **T003** — `src/profile.rs`: the settlement rule. `review: per-task`. Per
   plan §Design 3: `Settlement` gains `pub series: SeriesOutcome` with the
@@ -141,13 +203,21 @@ settles through the NotInSeries path. -->
   at all and the match was won, with the completion edge unmoved inside that
   branch; `resolve_match` carries `series` into the `Settlement` it returns and
   is otherwise unchanged (it still records statistics before settling — spec
-  024's ordering, which the first-clear record depends on). Existing
-  `Settlement { … }` literals in `profile.rs`'s tests gain
-  `series: SeriesOutcome::NotInSeries` — **that is the expected mechanical
-  edit, and the only one**: no existing assertion about credits, progress,
-  completions or the run tally may change value, because a run with no series
-  settles through the `NotInSeries` path exactly as before this spec. If one
-  does change, stop and report it rather than adjusting the expectation.
+  024's ordering, which the first-clear record depends on).
+  **This is the task where the campaign's central rule changes, so existing
+  tests change with it — deliberately, and in exactly two ways.** (1) Every
+  `Settlement { … }` literal gains `series: …` — mechanical. (2) Every test that
+  plays **one** campaign match against an **un-beaten** opponent and then
+  asserts the opponent is beaten or the planet cleared must now play the
+  **series**: the helpers `play_node` and `sweep_run` gain a play-a-whole-series
+  form (win `wins_needed(opponent)` matches), and the assertions move from "one
+  win clears" to "two wins clear, one does not". That is the spec, not a
+  weakened test, and the intermediate assertion (after one win the opponent is
+  still un-beaten) is worth adding where it is cheap. **Rematch tests must not
+  change value** — an already-beaten opponent still settles through
+  `NotInSeries` exactly as before. If any *other* assertion changes value, or
+  it is unclear which of the two cases a test is, **stop and report rather than
+  adjusting the expectation**.
   Tests (plan §Tests), in `profile.rs`'s tests module:
   `a_series_beats_the_opponent_only_at_the_deciding_win` (best of three on
   `cinder`/`greeb`: after one win the opponent is **not** beaten and the planet
@@ -166,17 +236,33 @@ settles through the NotInSeries path. -->
   `the_final_opponent_needs_three` (a best-of-five on `zenith`/`sovereign`: two
   wins do not complete the run, the third does and counts the completion once);
   `every_reset_clears_the_lock` (`reset_campaign_run` and `reset_to_starter`
-  each leave `series()` `None` from 1–0). Do not run `cargo fmt`. (Copies:
+  each leave `series()` `None` from 1–0); and — **sign-off B1, the one this
+  task exists to get right** —
+  `a_pre_029_match_in_flight_does_not_beat_its_opponent`: deserialize a
+  `CampaignRun` from JSON with an `in_progress` node and **no `series` key**
+  (the shape a profile written before this spec has), `resolve_match` with a
+  win, and assert the opponent is **un-beaten**, the planet **uncleared**, the
+  stake paid, and the series at 1–0 against that node. Do not run `cargo fmt`. (Copies:
   `profile.rs`'s own `node`/`play_node`/`sweep_run` test helpers — use them
   rather than writing new ones.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
-  verbatim with the new tests passing and every pre-existing `profile.rs`
-  assertion **unchanged in value**; `git diff --stat` shows only
+  verbatim with the new tests passing; `git diff --stat` shows only
   `src/profile.rs`; `git diff -- src/profile.rs` shows `resolve_match`'s
-  record-then-settle order intact; the implementer's report quotes
-  `settle_campaign_match` verbatim. The orchestrator re-runs the verification
-  command itself before committing (per-task review), then dispatches a
-  `skeptical-reviewer` on T003's diff alone before T004 starts.*
+  record-then-settle order intact; **the implementer's report lists every
+  existing test it changed and which of the two sanctioned reasons each change
+  was** (a `Settlement` literal, or one-win-clears becoming two-wins-clear), so
+  the per-task review can check that list rather than re-deriving it; the report
+  quotes `settle_campaign_match` verbatim. The orchestrator re-runs the
+  verification command itself before committing (per-task review), then
+  dispatches a `skeptical-reviewer` on T003's diff alone before T004 starts.
+  **PAUSE for the person** (after the Phase 1 review): the orchestrator drives
+  the Phase 1 walkthrough in plan §Verification with the `run-kaazap` skill —
+  `KAAZAP_DATA_DIR` at a scratch directory, confirmed in the report — and
+  reports in plain language that one win against Cinder's opponent no longer
+  clears the planet, that the map offers him again, that the second win clears
+  it and unlocks the next two worlds, and that a loss along the way costs only
+  its stake. There is no venue yet and the map is still where matches start;
+  say so, so the person is not looking for one.*
 
 ## Phase 2 — The venue and the lock (walkthrough: Enter on an un-beaten planet now opens the venue at 0–0 with nothing staked; play matches from it, come back to it between them, open the Outfitter and the collection and return to it, quit to the menu and re-enter the campaign to land back at it — and win the series to be handed back to the map)
 
@@ -256,18 +342,24 @@ reachable only after T006. -->
 
 - [ ] **T006** — `src/screen.rs` + `src/app.rs` + `src/deck_builder.rs`: the
   wiring, and the one routing rule. Per plan §Design tension 1 and §Design 6:
-  `Screen::Venue { state: VenueState }`; the pure
-  `enum CampaignHome { Map, Venue }` + `fn campaign_home(in_series: bool)` with
-  the plan's doc; `fn open_campaign_home(&mut self)` — **the only place
-  `Screen::CampaignMap` or `Screen::Venue` is constructed**, which is what keeps
-  the return target from drifting (`open_campaign_map` is absorbed into it);
+  `Screen::Venue { state: VenueState }`; `fn open_campaign_home(&mut self)` —
+  an inline `if` over `series().is_some()`, and **the only place
+  `self.screen` is assigned a campaign screen**, which is what keeps the return
+  target from drifting (`open_campaign_map` is absorbed into it). **No
+  `CampaignHome` enum and no `campaign_home` mapping function** — an earlier
+  draft had them for testability and sign-off was right that the test would be a
+  tautology; the invariant that matters is "no second assignment site", which is
+  a grep, below.
   `enter_campaign_map` renamed to `enter_campaign` and its body's screen line
   replaced by `open_campaign_home()`; `map_entry_modal` renamed to
   `campaign_entry_modal` (and its test's name); `BuilderOrigin::Map` →
   `BuilderOrigin::Campaign` and `BackTo::Map` → `BackTo::Campaign`, with
   `BackTo::Campaign => self.open_campaign_home()`; the Outfitter's
   `ShopOutcome::Back` arm → `self.open_campaign_home()`; all four
-  `enter_campaign_map` call sites → `enter_campaign`. Split
+  `enter_campaign_map` call sites → `enter_campaign`, **and the
+  `open_campaign_map()` call in `app.rs`'s own test
+  `the_primer_swallows_map_keys` (~3092), which the previous draft of this task
+  missed**. Split
   `launch_campaign_node` into `launch_from_map(planet, opponent)` (the deck
   guard, then `is_opponent_beaten` → `open_wager` for a rematch, else
   `begin_series` + `save` + `open_campaign_home`) and `open_wager(planet,
@@ -279,19 +371,21 @@ reachable only after T006. -->
   (`state.draw(frame, &self.config, &self.profile, pulse)`). **No `tick`,
   `resize` or `save_game` arm** — the venue has no animation, rebuilds from
   `self.config` each draw, and holds no match.
-  Test (plan §Tests), in `app.rs`'s tests module: `campaign_home_follows_the_lock`
-  — the pure mapping both ways. **Pure; it must not construct an `App`.**
-  Do not run `cargo fmt`. (Copies: `app.rs`'s own `Screen::CampaignMap` input
-  arm and `back_destination` for the pure-routing-decision idiom.)
+  **No new unit test** (plan §Tests): the routing rule is an `if` over a
+  boolean, and what needs checking is that no *other* line assigns a campaign
+  screen — a grep, not a test. Do not run `cargo fmt`. (Copies: `app.rs`'s own
+  `Screen::CampaignMap` input arm for the screen-arm shape.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim; `git diff --stat` shows only `src/screen.rs`, `src/app.rs` and
-  `src/deck_builder.rs`; **`grep -n "Screen::CampaignMap {\|Screen::Venue {"
-  src/app.rs` shows construction in `open_campaign_home` only** (the match arms
-  and tests may still pattern-match on them — the check is that nothing else
-  *assigns* a campaign screen); `grep -rn "enter_campaign_map\|open_campaign_map\|
-  launch_campaign_node\|BuilderOrigin::Map\|BackTo::Map" src/` is empty; the
-  report quotes `open_campaign_home`, `launch_from_map` and the venue input arm
-  verbatim.
+  `src/deck_builder.rs`;
+  **`grep -n "self\.screen = Screen::\(CampaignMap\|Venue\)" src/app.rs` returns
+  exactly two lines, both inside `open_campaign_home`** — this is the invariant
+  the whole routing design rests on, and the grep is written this way because
+  the obvious one (`"Screen::CampaignMap {"`) also matches every pattern-match
+  arm and would pass while saying nothing; `grep -rn
+  "enter_campaign_map\|open_campaign_map\|launch_campaign_node\|BuilderOrigin::Map\|BackTo::Map"
+  src/` is empty; the report quotes `open_campaign_home`, `launch_from_map` and
+  the venue input arm verbatim, and pastes the two-line grep output.
   **PAUSE for the person** (after the Phase 2 review): the orchestrator drives
   the Phase 2 walkthrough in plan §Verification with the `run-kaazap` skill —
   `KAAZAP_DATA_DIR` pointed at a scratch directory, confirmed in the report —
@@ -299,12 +393,23 @@ reachable only after T006. -->
   planet opens the venue at 0–0 with the credit balance untouched; what the
   venue shows at each width (and that the art region and the portrait sit beside
   each other, unclipped, at the wider one, and that neither appears at the
-  narrower); that `b` and `c` come back to the venue rather than the map; that a
+  narrower); that `b` and `c` come back to the venue rather than the map;
+  **that choosing Play and then pressing Esc at the wager prompt comes back to
+  the venue with nothing staked** (AC 4, which no test covers); that a
   lost match returns to the venue with the score at 0–1; that quitting to the
   menu and re-entering the campaign lands back at the venue with the same score
-  and the map cannot be reached; that winning two hands the player back to the
+  and the map cannot be reached; **that a match quit mid-play resumes from
+  Continue and then lands on the venue or the map by the same rules** (AC 13,
+  likewise uncovered); that winning two hands the player back to the
   map with the planet cleared; and that Enter on a cleared planet goes straight
-  to the wager prompt with no venue.*
+  to the wager prompt with no venue.
+  **The report ends with two questions for the person** — questions, not
+  findings, because both are about what the venue shows and that is theirs to
+  decide: (a) the art region's placeholder is the **planet's name**, which the
+  venue already prints six rows above it — do they want it emptier? (b) the
+  venue shows **no credit balance**, on the screen where the player chooses
+  between playing and shopping. Neither is in this design; both are one small
+  task if they say yes.*
 
 ## Phase 3 — The series where the player already looks (walkthrough: the map's planet detail names what a launch commits you to before you take it, the status band carries the running score through every match of a series and nothing during a rematch, and the map banner after the deciding match names the series result beside the credits)
 
@@ -368,12 +473,20 @@ reachable only after T006. -->
   what a launch commits you to before you take it; that the running score is
   readable during every match of a series at 89 columns with nothing
   overlapping the turn prompt, and at 139; that a rematch shows no score; and
-  what the map banner said after the match that decided a series.*
+  what the map banner said after the match that decided a series.
+  **One question for the person in this report** (plan §Open questions 1,
+  which sign-off confirmed is not an AC 11 failure but is an inconsistency):
+  after a match that does **not** decide the series, the band shows the
+  freshly-updated score while the game-over popup is up; after the match that
+  **does** decide it — won or lost — the band shows nothing, because the series
+  is over by then. Show them both frames and ask what the last one should say.
+  Holding the final score there is a sub-lettered task, not a redesign.*
 
 ## Phase 4 — What the player is told (walkthrough: start a fresh campaign and read the first-campaign primer, then open How to Play — both now state the two-of-three rule, the three-of-five final, and that a series once started is played out)
 
 - [ ] **T009** — `assets/primer_text.txt` + `assets/how_to_play_text.txt` +
-  `src/overlay.rs`: the rule, written down. Per plan §Design 9: add the plan's
+  `src/overlay.rs` + `README.md`: the rule, written down. Per plan §Design 9
+  and §Files: add the plan's
   three lines (preceded by a blank row) to the primer after the Outfitter
   paragraph, and the plan's **two lines only** to How to Play's campaign
   paragraph. **How to Play has a hard ceiling of 27 lines** — `height + V_PAD`
@@ -385,15 +498,18 @@ reachable only after T006. -->
   line count moves **10 → 14** — that is this task's deliberate edit, not a
   weakened test — and add two assertions to
   `help_texts_name_the_new_keys_and_nothing_old`: the Primer and How to Play
-  each name the two-of-three rule and the three-of-five final. Change no other
+  each name the two-of-three rule and the three-of-five final. In **`README.md`**
+  (~80–81), "Launching a match opens a **wager prompt**" is no longer what
+  launching an un-beaten planet does — correct that paragraph to name the venue
+  and the series, and leave the rematch sentence true. Change no other
   text and no other asset. Do not run `cargo fmt`.
   (Copies: `assets/primer_text.txt`'s own voice — short lines, no more than the
-  current widest.)
+  current widest; `README.md`'s own campaign paragraph for register.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim with all three `overlay.rs` fit/breathing tests passing;
-  `git diff --stat` shows only the two assets and `src/overlay.rs`;
-  `wc -l assets/how_to_play_text.txt` is **≤ 27**; the report pastes both files
-  in full.
+  `git diff --stat` shows only the two assets, `src/overlay.rs` and
+  `README.md`; `wc -l assets/how_to_play_text.txt` is **≤ 27**; the report
+  pastes both assets in full and the `README.md` diff.
   **PAUSE for the person** (after the Phase 4 review): the orchestrator drives
   the Phase 4 walkthrough in plan §Verification — a fresh scratch profile, the
   primer on first campaign entry, then How to Play from the menu — and reports
@@ -422,8 +538,10 @@ reachable only after T006. -->
   rates for the five decks × ten opponents, and two sentences naming what it
   shows — the curve sharpens in both directions, which is what ruling G1 and
   spec 022's gates wanted, and the sovereign's best-of-five is the sharpest
-  case. Do not edit any existing row of `docs/balance.md`. Do not run
-  `cargo fmt`.
+  case. **Do not edit any existing row of `docs/balance.md`** — the one prose
+  line that names `cheapest_floor` (~195) was already corrected in T002, so this
+  task is purely additive to that file and the bar below is unambiguous. Do not
+  run `cargo fmt`.
   (Copies: `tests/balance.rs`'s own `ev_per_match`/`pct` for the pure-report-
   helper idiom; `docs/balance.md`'s *The measured curve* table for the new
   table's shape.)
@@ -434,7 +552,7 @@ reachable only after T006. -->
   additions only; `git diff main...HEAD -- src/opponent.rs src/economy.rs` shows
   no changed balance value.*
 
-## Final phase — Spec close-out
+## Final phase — Spec close-out (walkthrough: none — documentation, mechanical checks and the pre-merge sweep; the person's walkthrough list above is what they walk at this phase)
 
 - [ ] **T011** — Close-out. Draft
   `specs/029-tournament-rounds/closeout-main-docs.md` in spec 028's shape:
@@ -455,21 +573,31 @@ reachable only after T006. -->
   placeholder with the portrait **beside** it; N1 139 columns; O1 the locked
   floor; P1 campaign entry goes to the venue; Q music deferred), and the plan's
   design calls: the return target **derived from the lock** rather than
-  remembered (and why — spec 015's bug), one `reserve_floor` rather than two
-  floor calculations, `take_settlement` extending spec 021's exactly-once
-  *data* property to cover the series tally and `mark_beaten`, the series stored
-  beside the in-flight pointer rather than inside it (so a Quick Play match
-  cannot end a series), the required wins derived from the opponent id, and the
-  four renames with their reasons. Record the two items the walkthroughs may
-  have ruled on (plan §Open questions 1 and 2). Run `cargo test -q` three
+  remembered (and why — spec 015's bug, and that the invariant is held by a
+  reviewed grep rather than by the type system), one `reserve_floor` rather than
+  two floor calculations, `take_settlement` extending spec 021's exactly-once
+  *data* property to cover the series tally and `mark_beaten` — **and what it
+  still does not cover** (`record_match`, which runs before settlement), the
+  series stored beside the in-flight pointer rather than inside it (so a Quick
+  Play match cannot end a series), the required wins derived from the opponent
+  id, **the migration rule that `is_opponent_beaten` — not the presence of a
+  series — decides whether a settled match can beat its opponent** (sign-off
+  B1), and the four renames with their reasons. Record the **O1 side effect no
+  walkthrough could reach**: the wager prompt's "run is over" warning now fires
+  at much lower stakes while locked against a deep opponent, because the reserve
+  is that opponent's ante rather than the map's cheapest. Record whatever the
+  person ruled at the pauses on plan §Open questions 1 and 2, and on the two
+  venue questions the Phase 2 report asked (the art label, the credit balance). Run `cargo test -q` three
   consecutive times and paste the tails. Mechanical checks (three-dot, since
   `main` may move): `git diff main...HEAD --stat` lists none of `src/game.rs`,
   `src/card.rs`, `src/player.rs`, `src/save.rs`, `src/opponent.rs`,
   `Cargo.toml`, `Cargo.lock`; `grep -n "VERSION" src/save.rs src/profile.rs`
   still reads 1 and 1; `grep -rn "serde(default" src/campaign.rs` shows the two
-  new fields among the old; `grep -rn "cheapest_floor" src/ tests/` matches only
-  `src/economy.rs`; `grep -rn "Screen::CampaignMap {\|Screen::Venue {"
-  src/app.rs` shows one construction site each; `cargo build --all-targets`
+  new fields among the old; `grep -rn "cheapest_floor" src/ tests/ docs/`
+  matches only `src/economy.rs`;
+  `grep -n "self\.screen = Screen::\(CampaignMap\|Venue\)" src/app.rs` returns
+  exactly two lines, both in `open_campaign_home`; `grep -rn "wager prompt"
+  README.md` no longer claims a launch opens one; `cargo build --all-targets`
   warning count equals `main`'s (compare via a throwaway `git worktree` with its
   own `CARGO_TARGET_DIR`, as spec 028's close-out did — never switch the branch).
   Check off `spec.md`'s 20 acceptance criteria with evidence (the Phase 2, 3 and
@@ -506,20 +634,27 @@ task starts.
 **Foundational phase: Phase 1.** One `skeptical-reviewer` pass at the end of
 each phase — after T003, T006, T008, T009 and T010 — on a shell-assembled bundle
 (the phase diff, the task lines, plan §Design and §Tests, the acceptance
-criteria), one review plus at most one re-review. The Phase 2 review also checks
-the venue against the constitution's *acted-on element stands apart* rule and
-the modal's even padding, and checks by reading that `open_campaign_home` is the
-only place a campaign screen is assigned.
+criteria), one review plus at most one re-review. The Phase 1 review also checks
+that the only existing tests T003 changed are the two sanctioned kinds. The
+Phase 2 review also checks the venue against the constitution's *acted-on
+element stands apart* rule and the modal's even padding, and runs the
+single-assignment grep itself rather than taking T006's report for it.
 
 **Pause cadence — when there's something to try.** Pause for the person after
-**Phase 2**, **Phase 3** and **Phase 4**, once each phase's review and its
-walkthrough are done. **Phases 1 and 5 are marked `walkthrough: none`** — Phase
-1 changes nothing the person can observe (with no series yet created, every
-campaign match behaves exactly as today, which is the phase's own claim and what
-its tests pin), and Phase 5 touches only an `#[ignore]`d simulator and a
-document — so they run through without a pause, and each appends its one-line
-reason to the walkthrough list below. Their criteria are pinned by tests and by
-the close-out's checks.
+**Phase 1**, **Phase 2**, **Phase 3** and **Phase 4**, once each phase's review
+and its walkthrough are done. **Only Phase 5 and the close-out are marked
+`walkthrough: none`** — the simulator is `#[ignore]`d and `docs/balance.md` is a
+document, and the close-out is documentation, checks and the sweep. They run
+through without a pause and append their one-line reason to the walkthrough list
+below; their criteria are pinned by tests and by the close-out's own checks.
+
+**Phase 1's marking changed at sign-off, and the change matters.** The first
+draft marked it `walkthrough: none` on the strength of a settlement rule that
+blocking finding B1 replaced. Under the fix, a match against an un-beaten
+opponent with no series running *starts* one — so from T003 onward a single
+campaign win no longer beats anyone, which is the spec's central rule becoming
+true three tasks before the venue exists. That is observable, so it is marked
+`yes` and paused. Four pauses, not three.
 
 **Every driver session runs with `KAAZAP_DATA_DIR` pointed at a scratch
 directory**, and the report says which. These walkthroughs play campaign
@@ -570,3 +705,5 @@ redo, and why). -->
 |---|---|---|---|---|---|---|
 | **Economy profile** — the project's since 2026-09-19; spec 028 was the first spec under it (its log: planning 390K, implementer 891K over 16 dispatches, reviewer 553K over 9, total ≈1.83M, no tier misses). Every role resolves to `opus` / `claude-opus-5`; no per-call override anywhere, including the planner, the sign-off and the close-out; session at `claude-opus-5` medium. **Also the first spec under the `walkthrough:` pause cadence** — Phases 1 and 5 are marked `none` and run unpaused, so this log is the evidence for whether the marking held. | — | — | — | — | — | header |
 | Planning: draft (sdd-planner) | opus → opus | 272K | 1 | — | — | drafted; 11 tasks in 6 phases, Phase 1 foundational, T001 and T003 `review: per-task`, Phases 1 and 5 marked `walkthrough: none`; no product question returned; 5 design choices flagged for sign-off |
+| plan + tasks sign-off (skeptical-reviewer) | opus → opus | 127K | 1 | — | **5 blocking** | B1: a match left in flight across the upgrade would beat its opponent outright and clear a world in one match — contradicts an approved `spec.md` clause. B2, B3: two Verify gates mutually unsatisfiable (unnamed `NodeRef` literal sites; three unnamed `cheapest_floor` call sites and a missing `app.rs`). B4: `docs/economy.md` and `README.md` left asserting the old rule, by a spec that renames four symbols *because* false names are defects. B5: the close-out phase header carried no `walkthrough:` marking. All five flagged design choices upheld; 8 second-look notes |
+| Planning: sign-off revision (sdd-planner, fresh context) | opus → opus | 64K | 1 | yes | — | All five applied. **B1 carried a knock-on the finding did not state**: once a match with no series starts one, a single campaign win stops beating anyone from T003 onward — so Phase 1 is no longer invisible, its marking flipped to `walkthrough: yes` (**four pauses, not three**), and T003's "no existing assertion changes value" bar became "two sanctioned kinds of change; anything else stops and reports". Also tightened B1's rule from *does a series exist* to `is_opponent_beaten`, closing a mismatched-node hole the literal fix would have left. Second-look: `CampaignHome` **dropped** (its test would be a tautology aimed at the wrong risk — replaced by a `self\.screen = Screen::` grep that catches a second assignment site); the venue credit balance **not** added to the design but routed to the person at the Phase 2 pause; AC 4 and AC 13 given keystrokes in the Phase 2 script, since both rested on assertion. Both files still Draft |

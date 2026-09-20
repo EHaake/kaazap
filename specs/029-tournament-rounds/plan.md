@@ -86,22 +86,17 @@ Spec 015's bug was a *remembered* origin that one path forgot to set. Adding a
 second remembered target (a `BuilderOrigin::Venue`, a `ShopOrigin`) would double
 the number of places that can forget. So the venue introduces no origin at all:
 
-```rust
-/// Which screen a return to the campaign lands on (spec 029): the venue while a
-/// series is in progress, the map otherwise. A pure mapping in the
-/// `back_destination` spirit, so the one rule every campaign door routes
-/// through is unit-testable without an `App`.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-enum CampaignHome { Map, Venue }
-
-fn campaign_home(in_series: bool) -> CampaignHome {
-    if in_series { CampaignHome::Venue } else { CampaignHome::Map }
-}
-```
-
-`App::open_campaign_home` is then the **only** place that sets
+`App::open_campaign_home` is the **only** place that assigns
 `Screen::CampaignMap` or `Screen::Venue`, and it reads
-`self.profile.campaign().series().is_some()`. Every door goes through it:
+`self.profile.campaign().series().is_some()` — three lines, an inline `if`, no
+new type. (An earlier draft wrapped the choice in a `CampaignHome` enum plus a
+`campaign_home(bool)` mapping in the `back_destination` spirit, for
+testability. Dropped at sign-off: a unit test of a two-variant mapping over a
+boolean is a tautology, and it would test the wrong thing — the real failure
+mode is a *second* assignment site somewhere else in `app.rs`, which no mapping
+test can catch and a grep can. See §Tests.)
+
+Every door goes through it:
 
 | Door | Before | After |
 |---|---|---|
@@ -113,13 +108,18 @@ fn campaign_home(in_series: bool) -> CampaignHome {
 | Back from the deck builder (`BackTo::Map`) | `open_campaign_map()` | `open_campaign_home()` |
 | Map → Enter on an un-beaten opponent | opened the wager prompt | writes the series, then `open_campaign_home()` |
 
-Why this cannot drift: the venue exists *exactly* when a series is in progress,
-which is exactly what the function reads. There is no second copy of the answer
-to keep in step, and no path that can set the lock without also changing what
-the doors do — the map's launch does not pick the venue, it writes the lock and
-asks the same function everyone else asks. The deck-builder divert from an
-invalid deck gets the venue return for free for the same reason, which a
-remembered origin would have needed a third variant for.
+Why this does not drift — **given one invariant that is reviewed, not enforced
+by the type system**: the venue exists *exactly* when a series is in progress,
+which is exactly what `open_campaign_home` reads, **and nothing else assigns a
+campaign screen**. There is no second copy of the answer to keep in step, and no
+path that can set the lock without also changing what the doors do — the map's
+launch does not pick the venue, it writes the lock and asks the same function
+everyone else asks. The deck-builder divert from an invalid deck gets the venue
+return for free for the same reason, which a remembered origin would have needed
+a third variant for. The invariant is checked mechanically at T006 and at the
+Phase 2 review with
+`grep -n "self\.screen = Screen::\(CampaignMap\|Venue\)" src/app.rs`, which must
+return exactly two lines, both inside `open_campaign_home`.
 
 `BuilderOrigin::Map` is renamed to `BuilderOrigin::Campaign` and `BackTo::Map`
 to `BackTo::Campaign`, because "the map" is no longer where either of them
@@ -168,9 +168,23 @@ venue, and the venue needs no banner. The branch stays (the map still needs it)
 and the venue simply draws nothing for it. This is a claim, so it is a test
 (T002).
 
-`tests/balance.rs` imports `cheapest_floor` for one report line; it moves to
-`reserve_floor`, which returns the same value for a default run, so the
-simulator's output is unchanged.
+`tests/balance.rs` calls `cheapest_floor` at **two** sites (a bound and the
+report header); both move to `reserve_floor`, which returns the same value for a
+default run, so the simulator's output is unchanged. `profile.rs`'s tests call
+it at two more; they move too. `docs/economy.md` and one prose line in
+`docs/balance.md` name the old function and the old rule, and are part of this
+change rather than the close-out's (§Files).
+
+**One visible consequence, named because no walkthrough can reach it.** The
+wager prompt's warning row ("lose this and the run is over") is driven by
+`WagerState`'s `reserve`, which is this floor. While locked against a deep
+opponent the reserve rises from the map's cheapest (10, Cinder's rematch
+forever) to that opponent's own ante — 50 against Rix and up — so the warning
+fires at far lower stakes than it does today. That is correct under O1 and
+probably desirable, but it is a real change in how often a player sees that row,
+it is unreachable in any walkthrough this spec runs (it needs a Core-depth run),
+and it is therefore recorded here and in the close-out's DECISIONS entry rather
+than attested.
 
 Rejected: a `floor_for(run, opponent)` two-argument function (two call shapes,
 two chances to pass the wrong one); leaving `is_broke` alone and special-casing
@@ -205,6 +219,9 @@ pub struct NodeRef {
 /// data, not an ordering rule about who calls what: spec 021 bought that for the
 /// payout with `take_stake`'s zeroing, and spec 029 extends it to cover the
 /// series tally and `mark_beaten`, neither of which is idempotent on its own.
+/// It does **not** cover `Profile::record_match`, which runs before settlement —
+/// a second `resolve_match` would still double-count statistics, as it would
+/// before this spec; that one is still guarded only by the `GameOver` edge.
 pub fn take_settlement(&mut self) -> Option<(NodeRef, u32)> {
     let node = self.in_progress.as_mut()?;
     if std::mem::replace(&mut node.settled, true) { return None; }
@@ -224,9 +241,44 @@ The returned clone carries `settled: true` and `stake: 0`; the caller uses only
 itself is **not** cleared — it still clears on the player's acknowledgement,
 which is what routes a finished campaign match back into the campaign.
 
+**What it does not cover, stated so the doc comment doesn't overclaim.**
+`take_settlement` guards the payout, the series tally and `mark_beaten` — the
+three things settlement does. It does **not** guard `record_match`, which
+`resolve_match` runs *before* settling, so a second `resolve_match` on one match
+would still double-count lifetime and run statistics. That is pre-existing and
+still guarded only by the `phase_changed && GameOver` edge; this spec neither
+fixes nor worsens it, and `take_settlement`'s doc says so in one clause rather
+than claiming the whole resolution is idempotent.
+
+**A match already in flight when this spec ships belongs to a series too**
+(sign-off B1). `spec.md` §Saving and resuming is explicit: *"a match left in
+flight resolves as the first match of a fresh series against that opponent."*
+The first draft of this plan settled such a match through the `NotInSeries`
+path, which beats the opponent on a win — a player mid-match against Greeb when
+they upgrade would have cleared Cinder in one match, the exact outcome this spec
+exists to remove. The approved clause drove the fix, not the other way round:
+`record_series_match` **begins a series** when none is running and the opponent
+is not yet beaten, and credits the match to it (→ `Continues` at 1–0, routed to
+the venue by the derived door like any other undecided series).
+
+The discriminator is `is_opponent_beaten`, not whether a series happens to
+exist, which is what makes the property airtight: **a beaten opponent is a
+rematch, an un-beaten one is always in a series, so no settled match can beat an
+opponent who has not lost one.** `SeriesOutcome::NotInSeries` therefore means
+exactly one thing — a rematch against an already-beaten opponent — and the
+`NotInSeries && player_won` arm of `beats` (§Design 3) can only ever re-mark
+someone already beaten: a no-op, kept because it preserves today's rematch path
+literally and costs nothing, not because it does work.
+
+It also means the rule "two wins take an opponent" becomes true in **Phase 1**,
+before the venue exists — so Phase 1 is not the invisible phase the first draft
+claimed, and its `walkthrough:` marking changes accordingly (`tasks.md`).
+
 Rejected: relying on the `phase_changed && GameOver` edge alone (true today, and
 an ordering rule — exactly what spec 021's comment says the design is not); a
-separate "matches already counted" ledger on `Series` (more state, same answer).
+separate "matches already counted" ledger on `Series` (more state, same answer);
+migrating in-flight nodes at load (`Profile::load` would need campaign rules, and
+a node that is never settled would be migrated for nothing).
 
 ### 4. The series is its own field, not part of the in-flight node
 
@@ -346,8 +398,11 @@ pub struct Series {
 /// What a settled campaign match did to the series (spec 029).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SeriesOutcome {
-    /// No series was running against this node — a rematch, which settles
-    /// exactly as it did before this spec.
+    /// A **rematch against an already-beaten opponent** — the only match that
+    /// belongs to no series, and the one case that settles exactly as it did
+    /// before this spec. A match against an un-beaten opponent never lands
+    /// here: if it arrives with no series running (a match left in flight
+    /// across the upgrade to this spec), one is started for it.
     NotInSeries,
     /// The tally moved; the series is still undecided.
     Continues,
@@ -366,11 +421,32 @@ impl CampaignRun {
     /// only caller and is unreachable while locked).
     pub fn begin_series(&mut self, planet: &str, opponent: &str) { … }
 
-    /// Credit a settled match to the series in progress. `NotInSeries` when no
-    /// series is running against this node. Otherwise the winner's tally goes up
-    /// by one, and if it reaches `wins_needed` the series ends and the lock is
-    /// released — the score is discarded either way it ends. Called once per
-    /// match: `take_settlement` is the guard (§Design tension 3).
+    /// Credit a settled match to the series in progress, in three cases and no
+    /// others:
+    ///
+    /// - **The series being played** — this node is the locked one. The
+    ///   winner's tally goes up by one, and if it reaches `wins_needed` the
+    ///   series ends and the lock is released; the score is discarded either
+    ///   way it ends.
+    /// - **A rematch** — the opponent is *already beaten*, so this match
+    ///   belongs to no series: `NotInSeries`, and nothing moves. This is the
+    ///   **only** case that returns it.
+    /// - **Anything else is a match against an un-beaten opponent with no
+    ///   series of its own**, which means a match left in flight across the
+    ///   upgrade to this spec. `spec.md` §Saving and resuming: it "resolves as
+    ///   the first match of a fresh series against that opponent" — so one is
+    ///   started here and credited (1–0, `Continues`). Without this the match
+    ///   would beat its opponent outright and clear a world in one.
+    ///
+    /// The test is therefore [`Self::is_opponent_beaten`], not whether a series
+    /// happens to exist: a beaten opponent is a rematch and an un-beaten one is
+    /// always in a series, so no settled match can beat an opponent who has not
+    /// lost one. (A *different* series running when that third case fires is
+    /// unreachable — the lock means only the locked node can be played — and it
+    /// is replaced rather than special-cased, because the alternative is a
+    /// variant that exists only for a state the design forbids.)
+    ///
+    /// Called once per match: `take_settlement` is the guard (§Design tension 3).
     pub fn record_series_match(&mut self, planet: &str, opponent: &str, player_won: bool)
         -> SeriesOutcome { … }
 }
@@ -405,9 +481,11 @@ fn settle_campaign_match(&mut self, player_won: bool) -> Option<(StakeOutcome, S
     if player_won {
         self.credits = self.credits.saturating_add(economy::win_payout(stake));
     }
-    // The opponent is beaten when the series is won — or, with no series at all
-    // (a rematch), on a win, exactly as before this spec. A series match that
-    // did not decide it beats nobody.
+    // The opponent is beaten when the series is won. A series match that did
+    // not decide it beats nobody. The `NotInSeries` arm is a rematch win, which
+    // since sign-off B1 can only ever re-mark an opponent who is *already*
+    // beaten — a no-op, kept because it preserves today's rematch path
+    // literally, not because it does work.
     let beats = matches!(series, SeriesOutcome::Won)
         || (matches!(series, SeriesOutcome::NotInSeries) && player_won);
     if beats {
@@ -539,9 +617,10 @@ so rather than unwrapping.
 /// remembered by whoever is returning, so there is no origin for a path to
 /// forget to set (spec 015's return-path bug).
 fn open_campaign_home(&mut self) {
-    self.screen = match campaign_home(self.profile.campaign().series().is_some()) {
-        CampaignHome::Venue => Screen::Venue { state: VenueState::new() },
-        CampaignHome::Map => Screen::CampaignMap { state: CampaignMapState::new(&self.profile) },
+    self.screen = if self.profile.campaign().series().is_some() {
+        Screen::Venue { state: VenueState::new() }
+    } else {
+        Screen::CampaignMap { state: CampaignMapState::new(&self.profile) }
     };
 }
 
@@ -681,16 +760,34 @@ starter-deck entry changes.
   (replacing `take_stake`), `series`/`begin_series`/`record_series_match`; tests.
 - `src/economy.rs` — `reserve_floor`; `cheapest_floor` made private; tests.
 - `src/profile.rs` — `Settlement::series`, `settle_campaign_match`,
-  `resolve_match`, `is_broke`, `can_afford`; tests (existing `Settlement`
-  literals gain `series: SeriesOutcome::NotInSeries`).
+  `resolve_match`, `is_broke`, `can_afford`; tests (the `Settlement` literals
+  gain a field, the two `economy::cheapest_floor` calls at ~901 and ~1274 move,
+  and the settlement helpers learn to play a whole series).
 - `src/shop.rs` — one line (`reserve_floor`).
-- `tests/balance.rs` — one import/call line (`reserve_floor`); then
-  `series_rate`, the report column and its guard test.
+- `tests/balance.rs` — **two** `cheapest_floor` call sites (~455 and ~596) move
+  to `reserve_floor` (T002); then `series_rate`, the report column and its guard
+  test (T010).
+- `docs/economy.md` (**T002**) — the reference document for exactly this
+  machinery, and this spec falsifies it in seven places: `take_stake`'s entry
+  (~107), the exactly-once paragraph (~113–118), the `is_broke` sentence
+  (~125–128, the most load-bearing line in the document — the floor, the
+  function name and the `enter_campaign_map` seam all move), the shop reserve
+  and the "cheapest_floor is 10 in every run state" tuning note (~134, ~151–153,
+  ~157, ~165–167), "reached from the campaign map with `b`" (~239, ~262) and the
+  named test (~287). A spec that renames four symbols because a false name is a
+  defect cannot leave the document that explains them asserting the old rule.
+  Rides the branch (CLAUDE.md git conventions), not the close-out.
+- `docs/balance.md` — line ~195 names `cheapest_floor` in prose and moves with
+  the rename in **T002**; the *Series rates* section is added in **T010**. T010's
+  "additions only" bar is therefore about T010's own diff and is not weakened by
+  this.
+- `README.md` (**T009**) — ~80–81 says "Launching a match opens a **wager
+  prompt**", which is no longer what launching an un-beaten planet does.
 - `src/layout.rs` — `VENUE_ART_W`, `VENUE_PANEL_H`, `VenueRail`, `VenueLayout`;
   tests.
 - `src/venue.rs` (new) + `src/lib.rs` (one `pub mod` line) — the screen; tests.
 - `src/screen.rs` — the `Venue` variant.
-- `src/app.rs` — `CampaignHome`/`campaign_home`, `open_campaign_home`,
+- `src/app.rs` — `open_campaign_home`,
   `enter_campaign` (renamed), `launch_from_map`, `open_wager` (renamed),
   `play_series_match`, the three `Screen::Venue` arms, the four door call sites,
   `campaign_entry_modal` (renamed), `BackTo::Campaign`, `board_series_line`, the
@@ -701,7 +798,6 @@ starter-deck entry changes.
 - `src/board.rs` — the `series` parameter and its one draw call; tests.
 - `assets/primer_text.txt`, `assets/how_to_play_text.txt`, `src/overlay.rs` (one
   expected line count).
-- `docs/balance.md` — the Series rates section.
 - `specs/029-tournament-rounds/closeout-main-docs.md` (T011).
 - **No change**: `src/game.rs`, `src/card.rs`, `src/player.rs`, `src/save.rs`,
   `src/opponent.rs`, `src/wager.rs`, `src/portrait.rs`, `src/frame.rs`,
@@ -730,14 +826,23 @@ on `CampaignRun`/`Profile`.
   `resolving_a_match_twice_pays_beats_and_counts_once` (a series at 1–0,
   `resolve_match` twice: credits move once, the tally reaches 2 once,
   `mark_beaten` happens once, `campaign_completions` moves at most once).
-- **A pre-029 node settles normally** (AC 13) — T001: a `NodeRef` deserialized
-  from `{"planet":…,"opponent":…}` has `settled: false` and `stake: 0`, and
-  `take_settlement` hands it over once.
-- **With no series, nothing changes** (AC 15, and the reason Phase 1 has no
-  walkthrough) — T003: every existing `profile.rs` settlement test passes with
-  no change beyond `Settlement`'s new field — `a rematch win pays and beats
-  nothing`, the completion-edge tests, `sweep_run` — because a run with no
-  series yields `NotInSeries` on every match.
+- **A pre-029 node deserializes unsettled and unstaked** (AC 13) — T001: a
+  `NodeRef` from `{"planet":…,"opponent":…}` has `settled: false` and `stake: 0`,
+  and `take_settlement` hands it over once.
+- **A match left in flight across the upgrade becomes the first match of a fresh
+  series, and does not win a world** (AC 13, sign-off B1) — T001
+  `a_match_in_flight_with_no_series_starts_one` (`record_series_match` against
+  an un-beaten opponent with `series()` `None` → `Continues`, series 1–0 against
+  that node) and T003 `a_pre_029_match_in_flight_does_not_beat_its_opponent` (a
+  `CampaignRun` deserialized with an `in_progress` node and no `series` key,
+  `resolve_match` with a win → the opponent is **un-beaten**, the planet
+  **uncleared**, the stake paid, and the series at 1–0). This is the claim that
+  a confident sentence stood in for in the first draft; it is the test that
+  would have caught it.
+- **A rematch still settles exactly as it did** (AC 12, 15) — T003: the existing
+  rematch tests keep their values — a rematch win pays, beats nothing new,
+  counts no completion — because an already-beaten opponent is the one case that
+  still reaches `NotInSeries`.
 - **A series win beats the opponent exactly then; a series loss takes nothing
   further** (AC 1, 7, 8) — T003 `profile.rs`: a full best-of-three against
   `cinder`/`greeb` — after match 1 (won) the opponent is **not** beaten and the
@@ -765,12 +870,14 @@ on `CampaignRun`/`Profile`.
   the same profile with no series is not broke; and `can_afford(20)` is false in
   the first and true in the second, so the Outfitter reserves the locked floor.
 - **Every campaign door lands on the venue iff a series is in progress** (AC 9,
-  and the bundle's point 2) — T006 `app.rs`:
-  `campaign_home_follows_the_lock` (the pure mapping, both ways) plus the review
-  check that `Screen::CampaignMap` and `Screen::Venue` are constructed in
-  `open_campaign_home` and nowhere else (`grep -n "Screen::CampaignMap\|Screen::Venue"
-  src/app.rs`, in the task's Verify). The routing itself is attested in the
-  Phase 2 walkthrough.
+  and the bundle's point 2) — **not a unit test, deliberately.** The mapping
+  itself is an `if` over a boolean and a test of it would be a tautology; the
+  failure that actually costs something is a *second* assignment site elsewhere
+  in `app.rs`, which no mapping test can see. So this rule is pinned by a
+  mechanical check in T006's Verify and at the Phase 2 review —
+  `grep -n "self\.screen = Screen::\(CampaignMap\|Venue\)" src/app.rs` returning
+  exactly two lines, both inside `open_campaign_home` — and attested in the
+  Phase 2 walkthrough, which presses every door.
 - **The venue fits both layouts, and the rail is wide-only and non-overlapping**
   (AC 16) — T004 `layout.rs`: at 89×31 `rail` is `None` and the block is
   on-frame; at 139×31 `rail` is `Some`, `art.x1 + PANEL_GAP < portrait.x0`, both
@@ -784,6 +891,13 @@ on `CampaignRun`/`Profile`.
   `Config::fit_sizes()`, centered on `VenueLayout::center_x`, lands inside the
   frame and — at 139 — left of the rail); `series_line` reads
   `Series  1 – 0   ·   first to 2` and `first to 3` for the final opponent.
+- **Declining the wager returns to the venue** (AC 4) and **a match saved
+  mid-play resumes and then routes by AC 5 and AC 6** (AC 13) — **walkthrough
+  only**, Phase 2. Neither has a unit test and neither can get one without
+  constructing an `App`: the first is the wager modal's existing Esc arm leaving
+  the screen underneath untouched, the second spans a quit, a relaunch and a
+  resume. Both are keystrokes in the Phase 2 script (§Verification) rather than
+  claims left standing on the plan's word.
 - **The venue's keys** (AC 3) — T005: `←`/`→`/`a`/`d` wrap over four actions;
   Enter and Space take the highlighted one; `b` and `c` give `OpenShop` and
   `OpenCollection` from any cursor position; Esc and `x` give `QuitToMenu`;
@@ -832,6 +946,17 @@ on `CampaignRun`/`Profile`.
   `KAAZAP_DATA_DIR` pointed at a scratch directory** — these walkthroughs play
   campaign matches and reset runs; the real profile is never in play, and the
   report says which directory was used).
+  - **After the Phase 1 review**, at 89×31: from a fresh scratch profile, Start
+    Campaign → Enter on Cinder → wager → win the match. **The planet does not
+    clear**, the map still shows Greeb as the next opponent, and Enter launches
+    him again. Win a second time: now Cinder clears and Scree and Ashfall
+    unlock. Then lose the first match of the next opponent and win the two
+    after it — still cleared. There is no venue yet and the map is still
+    reachable between matches; that arrives in Phase 2. (Phase 1 was marked
+    `walkthrough: none` in the first draft of this plan on the strength of a
+    settlement rule that sign-off B1 replaced; the two-wins rule now becomes
+    true here, which is something the person can see and therefore something
+    they should.)
   - **After the Phase 2 review**, at 89×31 and again at 139×31: from a fresh
     scratch profile, Start Campaign → Enter on Cinder — **the venue opens, at
     0–0, with nothing staked** (the credit balance is unchanged). Read the
@@ -839,18 +964,37 @@ on `CampaignRun`/`Profile`.
     with one marked, a hint line; at 139 a bordered art region with the planet's
     name in it and the opponent's portrait beside it, neither overlapping nor
     clipped; at 89 neither, and nothing clipped. Press `b` and Esc — back at the
-    venue, not the map. Press `c` and Esc — back at the venue. Play a match and
+    venue, not the map. Press `c` and Esc — back at the venue. **Choose Play,
+    then Esc at the wager prompt** — back at the venue, nothing staked, the
+    balance unchanged (AC 4, which nothing else checks). Play a match and
     lose it deliberately (bust twice): the popup, then **the venue at 0 – 1**.
     Quit to the menu from the venue, re-enter the campaign — **the venue again,
-    at 0 – 1**, and the map is not reachable. Win two: the second win lands on
-    the **map**, Cinder cleared. Then Enter on cleared Cinder: the **wager
-    prompt**, no venue (AC 12).
+    at 0 – 1**, and the map is not reachable. **Start the next match, quit to the
+    menu mid-play, relaunch, take Continue** — the match resumes where it was;
+    finish it and confirm it lands on the venue with the score moved, or on the
+    map if it decided the series (AC 13, likewise otherwise unchecked). Win two:
+    the second win lands on the **map**, Cinder cleared. Then Enter on cleared
+    Cinder: the **wager prompt**, no venue (AC 12).
+    **Two questions for the person in this pause report**, asked as questions
+    rather than reported as findings, because both are about what the venue
+    shows and that is theirs to decide: (a) the art region's placeholder is the
+    **planet's name**, and the venue's second row already names the planet six
+    rows above it — do they want it emptier (§Open questions 2)? (b) the venue
+    shows **no credit balance**, and it is the screen where the player chooses
+    between playing and shopping, which is the choice a balance informs. It is
+    deliberately not in this design; ask before it becomes one.
   - **After the Phase 3 review**, at both widths: on the map, the planet detail
     of an un-cleared planet says `Best of 3` (and Zenith's, once reachable or by
     inspection, `Best of 5`); during a series match the status band's lower row
     carries `Series 1 – 0` with the turn prompt beside it and nothing overlapping
     at 89 columns; during a **rematch** the line is absent. After the deciding
     match the map banner names the series result and the stake together.
+    **One question for the person**: after a match that does *not* decide the
+    series, the band shows the freshly-updated score while the game-over popup is
+    up; after the match that *does* decide it — won or lost — the band shows
+    nothing, because the series is over by then (§Open questions 1). Show them
+    both frames and ask what that last frame should say. Holding the final score
+    there is a sub-lettered task, not a redesign.
   - **After the Phase 4 review**: on a fresh scratch profile, the first-campaign
     primer names the two-of-three rule, the three-of-five final and the
     commitment, fits 89×31 unclamped, and has one empty row above its dismiss
@@ -866,22 +1010,30 @@ balance data.
 
 ## Open questions
 
-Settled here as design and flagged for sign-off:
+Settled here as design. **All five were reviewed at sign-off (2026-09-20) and
+stand**; the first two carry a walkthrough obligation recorded with them.
 
 1. **The in-match series line is gone on the deciding match's game-over frame**
    (§Design tension 6). It is derived from the live series, and the deciding
    match ends the series during settlement, one tick before the popup. Every
    *playable* frame of every series match shows it, and the map banner that
-   follows names the result — but a literal reading of AC 11 ("visible during
-   every series match") would want it held. The fix, if the person wants it, is
+   follows names the result. **Sign-off: not an AC 11 violation — it is present
+   on every frame the player can act in.** But it leaves the two game-over
+   frames *inconsistent* with each other: after a non-deciding match the band
+   shows the freshly-updated score, after the deciding one (won or lost) it
+   shows nothing. **The Phase 3 walkthrough must show the person both frames and
+   ask what the last one should say.** If they want the final score held, it is
    a one-shot field on `App` in the `victory_due` idiom, taken at the
-   acknowledgement: a sub-lettered task, not a redesign. Held back because one
-   meaning of "a series is in progress" is worth more than one frame of a
-   number.
+   acknowledgement: a sub-lettered task, not a redesign. Held back for now
+   because one meaning of "a series is in progress" is worth more than one frame
+   of a number.
 2. **The art placeholder carries the planet's name** (§Design 5). Ruling M1 says
    a plain placeholder; an empty bordered box reads as a rendering fault at a
-   walkthrough, and one muted label reads as a reservation. If the person wants
-   it emptier, it is one line.
+   walkthrough, and one muted label reads as a reservation. **Sign-off: the
+   person's to rule, and the walkthrough is the moment — stands as drafted
+   provided the Phase 2 pause report names it as an open choice.** Note the
+   venue's second row already names the planet six rows above the region, so the
+   label repeats a fact. One line to empty it.
 3. **Esc and `x` at the venue quit to the menu**, the same as the Quit action.
    `spec.md` lists four actions and does not bind Esc; every other screen in the
    game backs out on Esc/`x`, and there is nothing else for it to mean here (no
@@ -894,6 +1046,22 @@ Settled here as design and flagged for sign-off:
    otherwise spends on behaviour.
 5. **The venue draws no banner.** The wager prompt's `CantCover` refusal is
    unreachable from the venue (§Design tension 2), so the only banner the venue
-   could show cannot fire there. If the unreachable branch ever did fire, the
-   player would hear the back cue and see nothing change. Pinned by T002's test
-   rather than by a branch.
+   could show cannot fire there. **Sign-off verified the reasoning** —
+   `MapBanner::CantCover` is set in exactly one place, `reserve_floor` equals the
+   locked opponent's ante while locked, `is_broke` is checked at both seams,
+   `can_afford` reserves the same floor, and credits otherwise only fall by
+   staking, so not-broke ⇒ the branch cannot fire from the venue — **and
+   corrected the consequence sentence**: if it *did* fire, the player would not
+   merely "hear the back cue and see nothing change". `self.banner` is `App`
+   state cleared only by the map's own input arm, so a stale `CantCover` would
+   surface on their next visit to the map. Pinned by T002's test rather than by
+   a branch, and this is the reason the test matters rather than being
+   defensive decoration.
+6. **`CampaignHome` was dropped** (§Design tension 1). The first draft wrapped
+   the map-or-venue choice in a two-variant enum plus a `campaign_home(bool)`
+   mapping, for testability. Sign-off observed that the unit test would be a
+   near-tautology, and on reflection it would also have tested the wrong thing:
+   the failure that costs something is a second `self.screen = Screen::…`
+   assignment elsewhere, which only a grep catches. The enum is gone, the `if`
+   is inline, and the grep is in T006's Verify and the Phase 2 review. One fewer
+   type, one fewer test, and the check now points at the real risk.
