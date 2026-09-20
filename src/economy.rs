@@ -125,8 +125,11 @@ pub fn win_payout(stake: u32) -> u32 {
 
 /// The lowest ante over every node the player could launch right now (unlocked
 /// planets × their launchable opponent); 0 if there are none — unreachable,
-/// since the start planet is always unlocked and always has a rematch.
-pub fn cheapest_floor(run: &CampaignRun) -> u32 {
+/// since the start planet is always unlocked and always has a rematch. Private
+/// since spec 029: [`reserve_floor`] is what callers outside this module read,
+/// because while a series is locked this minimum is not the ante the player
+/// must be able to cover.
+fn cheapest_floor(run: &CampaignRun) -> u32 {
     PLANETS
         .iter()
         .filter(|p| run.planet_unlocked(p))
@@ -134,6 +137,20 @@ pub fn cheapest_floor(run: &CampaignRun) -> u32 {
         .map(ante_floor_for)
         .min()
         .unwrap_or(0)
+}
+
+/// The ante the player must be able to cover for the run to continue — the one
+/// floor `is_broke`, the Outfitter's reserve and the wager prompt's warning all
+/// read. While a series is in progress it is the **locked opponent's** floor:
+/// that is the only campaign match the player may play, so a cheaper ante on a
+/// planet they are not allowed to visit must not keep a lost run alive
+/// (spec 029, ruling O1). Otherwise it is the cheapest ante over every
+/// launchable node, exactly as spec 021 had it.
+pub fn reserve_floor(run: &CampaignRun) -> u32 {
+    match run.series() {
+        Some(series) => ante_floor_for(&series.opponent),
+        None => cheapest_floor(run),
+    }
 }
 
 /// How a staked campaign match settled (for the map banner) — the stake that
@@ -314,6 +331,46 @@ mod tests {
             assert_eq!(cheapest_floor(run), expected(run), "{label}");
             // Cinder's rematch keeps the cheapest match at the floor forever.
             assert_eq!(cheapest_floor(run), 10, "{label}");
+        }
+    }
+
+    #[test]
+    fn reserve_floor_follows_the_lock() {
+        use crate::opponent::OPPONENTS;
+
+        // With no series running the reserve is exactly spec 021's rule.
+        let fresh = CampaignRun::default();
+        let half = cleared(&[("cinder", "greeb"), ("scree", "dax"), ("ashfall", "vessa")]);
+        let mut complete = CampaignRun::default();
+        for p in PLANETS {
+            for o in p.opponents {
+                complete.mark_beaten(p.id, o);
+            }
+        }
+        for (label, run) in [("fresh", &fresh), ("half-cleared", &half), ("complete", &complete)] {
+            assert_eq!(reserve_floor(run), cheapest_floor(run), "{label}: no lock, no change");
+            assert_eq!(reserve_floor(run), 10, "{label}: Cinder's rematch is the cheapest");
+        }
+
+        // A series locks the run to one opponent, so their ante is the floor —
+        // the cheaper match on Cinder sits on a planet the player may not visit.
+        let mut locked = half.clone();
+        locked.begin_series("the-spindle", "rix");
+        assert_eq!(cheapest_floor(&locked), 10, "sanity: Cinder is still the cheapest node");
+        assert_eq!(reserve_floor(&locked), 50, "locked against rix, the reserve is rix's ante");
+
+        // For every roster opponent, a run locked against them reserves exactly
+        // their own ante — so a player who is not broke can always cover the
+        // match the venue offers (spec 029, ruling O1).
+        for opponent in OPPONENTS {
+            let mut run = CampaignRun::default();
+            run.begin_series("cinder", opponent.id);
+            assert_eq!(
+                reserve_floor(&run),
+                ante_floor_for(opponent.id),
+                "locked against {}",
+                opponent.id
+            );
         }
     }
 }

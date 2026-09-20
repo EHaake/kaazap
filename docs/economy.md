@@ -104,34 +104,51 @@ completing match. `settle_campaign_match` and `record_match` are private to
 `settle_campaign_match(player_won)`, inside it:
 
 1. Reads the in-flight pointer; `None` (Quick Play) settles nothing.
-2. `CampaignRun::take_stake()` — returns the stake **and zeroes the escrow**.
+2. `CampaignRun::take_settlement()` — hands over the node and its stake
+   **once**: it marks the node settled and zeroes the escrow, and every later
+   call returns `None` (spec 029).
 3. On a win, adds `win_payout(stake)`, calls `mark_beaten`, and counts a campaign
    completion only on the **edge** `!was_complete && run_complete()`.
 4. Returns `StakeOutcome::Won(stake)` / `Lost(stake)` for the map banner ("★ Won
    N credits" — the winnings — or "Lost N credits").
 
-Paying exactly once is therefore a *data* property rather than an ordering rule:
-a second settlement would pay `win_payout(0) = 0` and `mark_beaten` is
-idempotent. One visible consequence: the escrow reads 0 from the game-over tick
-on, so the in-match stake line disappears there while the popup and the map
-banner carry the result. The in-progress pointer is cleared by the player's
-acknowledgement, not by settlement.
+Settling exactly once is therefore a *data* property rather than an ordering
+rule, and spec 029 **strengthens** it: spec 021 bought it for the payout alone
+(a second settlement pays `win_payout(0) = 0`, and `mark_beaten` is idempotent),
+but the series tally is not idempotent, so the `settled` flag on the node now
+makes the whole hand-over once-only. What it still does **not** cover is
+`record_match`, which `resolve_match` runs *before* settlement: a second
+`resolve_match` would double-count lifetime statistics exactly as it would
+before this spec, and that one is guarded only by the `GameOver` edge. One
+visible consequence: the escrow reads 0 from the game-over tick on, so the
+in-match stake line disappears there while the popup and the map banner carry
+the result. The in-progress pointer is cleared by the player's acknowledgement,
+not by settlement.
 
 A loss simply keeps the escrow: the credits left the balance at launch, the node
 stays open to retry.
 
 ## Going broke
 
-`Profile::is_broke()` is a pure predicate: `credits < economy::cheapest_floor(run)`,
-where `cheapest_floor` is the minimum ante over every unlocked planet's
-launchable opponent. It is evaluated at exactly two seams, both through
-`App::enter_campaign_map()` (open the map, then raise `Modal::RunOver` if broke):
+`Profile::is_broke()` is a pure predicate: `credits < economy::reserve_floor(run)`,
+where `reserve_floor` is the ante the player must be able to cover: **the locked
+opponent's own ante while a series is in progress** (spec 029, ruling O1 — a
+cheaper match on a planet the lock forbids must not keep a lost run alive), and
+otherwise the minimum ante over every unlocked planet's launchable opponent, as
+spec 021 had it. It is evaluated at exactly two seams, both through
+`App::enter_campaign()` (open the campaign — the venue while a series runs, the
+map otherwise — then raise `Modal::RunOver` if broke):
 
 - the **game-over acknowledgement** of a campaign match, and
 - **campaign entry** — Continue's no-save branch and the confirmed
   discard-and-enter.
 
-Back from the shop or the deck-builder keeps the plain `open_campaign_map`: the
+(`enter_campaign` and `open_campaign_home` are spec 029's names for these two
+doors; the renames land with the venue screen later in that spec, and until then
+the code reads `enter_campaign_map` and `open_campaign_map`. The seams
+themselves do not move — only what the door opens onto does.)
+
+Back from the shop or the deck-builder keeps the plain `open_campaign_home`: the
 shop reserve makes those paths unable to create a broke state, and keeping the
 check at the two spec'd seams keeps the intent legible. A *staked* win can never
 leave the player broke (`credits ≥ win_payout(stake) ≥ 2 × floor`), so the
@@ -149,12 +166,23 @@ operation since spec 024; **New Campaign** is now the map-only reset
 (`Profile::reset_campaign_run`), which keeps credits, collection and deck.
 
 Note for tuning: with rematches, Cinder's final opponent is always launchable, so
-`cheapest_floor` is **10 in every run state today**. The unlocked-planet filter is
-written for correctness, not because any current run exercises it.
+the unlocked-planet minimum is **10 in every run state**, and the unlocked-planet
+filter is written for correctness rather than because any current run exercises
+it. Since spec 029 that is no longer the whole story: while a series is locked
+the reserve is the locked opponent's ante instead, so it ranges from 10 up to
+**50** against the deepest opponents.
+
+One visible consequence, named here because no walkthrough reaches it: the wager
+prompt's "lose this and the run is over" warning row is driven by this same
+floor. While locked against a deep opponent the reserve rises from the map's
+cheapest 10 to that opponent's own ante, so the warning fires at far lower
+stakes than it did before — correct under ruling O1, and a real change in how
+often a player deep in the map sees that row.
 
 ## The shop and its reserve
 
-Reached from the campaign map with **`b`** (the "Outfitter"). Since spec 025 it
+Reached with **`b`** (the "Outfitter") — from the campaign map, and since spec
+029 from the venue too, while a series is in progress. Since spec 025 it
 lists **all 15 cards**, grouped Outer Rim / Mid Rim / Core, each with its price
 and how many you own. A group you haven't reached is dimmed under the heading
 `<Region>  ·  reach the <Region> to unlock`, its prices and owned counts still
@@ -162,9 +190,10 @@ showing; the cursor visits unlocked cards only, so a locked card can't be
 bought. The grouping reads `economy::card_tier` and `economy::deepest_reached`,
 the same functions `available_pool` does, so the unlocked groups are exactly the
 buyable pool. Alongside the list sit the balance *and* the **spendable**
-amount, `credits − cheapest_floor`. A purchase must leave that cheapest ante
-behind, so shopping can never end a run:
-`Profile::can_afford(price)` is `credits ≥ price + cheapest_floor`, and
+amount, `credits − reserve_floor`. A purchase must leave that ante behind, so
+shopping can never end a run — and while a series is locked the ante held back
+is that opponent's, not the map's cheapest (ruling O1):
+`Profile::can_afford(price)` is `credits ≥ price + reserve_floor`, and
 `try_purchase` deducts only `price`, never the reserve. The shop's
 *affordability* dimming reads the same predicate `try_purchase` enforces, so the
 readout and the refusal can't disagree; a reserved-out card is dimmed and a buy
@@ -236,8 +265,12 @@ In `economy.rs`:
 - `ante_floor_is_the_difficulty_scalar` — 15→10 … 19→50, and an unknown
   opponent id falls back to the baseline rather than to free.
 - `payout_is_even_money` — `win_payout(20) == 40`, `win_payout(0) == 0`.
-- `cheapest_floor_is_the_min_over_launchable_nodes` — checked against an
-  independently spelled-out minimum across fresh / half-cleared / complete runs.
+- `reserve_floor_follows_the_lock` — with no series it is the minimum over
+  launchable nodes on fresh / half-cleared / complete runs; with one it is that
+  opponent's ante, checked for every opponent on the roster, which is what makes
+  the venue's match always affordable to a player who isn't broke. Spec 021's
+  min-over-launchable-nodes guard stands beside it unedited, checking that
+  minimum against an independently spelled-out computation.
 - `card_tier_partitions_the_universe`, `every_planet_region_maps_to_a_known_tier`,
   `the_pool_grows_monotonically_with_depth`,
   `every_card_has_a_positive_price_that_rises_with_tier` — the pool and pricing
@@ -252,14 +285,16 @@ In `profile.rs`:
 - `a_rematch_settles_for_credits_but_changes_no_progress_or_completions` and
   `campaign_completion_counts_only_a_final_clearing_win_and_recounts_after_reset`
   — the completion edge.
-- `is_broke_reads_the_balance_against_the_cheapest_launchable_ante`.
+- `is_broke_reads_the_balance_against_the_cheapest_launchable_ante` and
+  `broke_and_affordable_follow_the_locked_floor` — broke and the shop reserve
+  both read the locked opponent's ante while a series runs.
 - `earning_grows_the_balance_and_purchase_holds_back_the_ante_reserve`.
 - `credits_seed_a_fresh_profile_but_default_to_zero_for_older_profiles` and
   `a_staked_match_in_flight_round_trips_through_the_profile_json` — both assert
   `PROFILE_VERSION == 1`.
 
 Elsewhere: `the_stake_rides_on_the_in_flight_node_and_defaults_to_zero` and
-`take_stake_empties_the_escrow_exactly_once` (`campaign.rs`),
+`take_settlement_hands_over_the_match_exactly_once` (`campaign.rs`),
 `launchable_opponent_falls_back_to_a_rematch_once_cleared` (`campaign.rs`), the
 wager prompt's grid/commit/fit tests (`wager.rs`, including
 `every_line_fits_seventy_columns`), `run_over_acknowledged_only_on_enter_or_space`
@@ -284,7 +319,7 @@ command, the bounds and what to re-run after changing a constant.
 
 - [`src/economy.rs`](../src/economy.rs) — constants, antes, payout, tiers, pricing.
 - [`src/profile.rs`](../src/profile.rs) — staking, settlement, broke, purchases.
-- [`src/campaign.rs`](../src/campaign.rs) — `NodeRef.stake`, rematches, `take_stake`.
+- [`src/campaign.rs`](../src/campaign.rs) — `NodeRef.stake`, rematches, `take_settlement`.
 - [`src/wager.rs`](../src/wager.rs) — the wager prompt.
 - [`src/shop.rs`](../src/shop.rs) — the shop screen and its reserve readout.
 - [`docs/opponents.md`](opponents.md) — the difficulty scalar antes ride on.

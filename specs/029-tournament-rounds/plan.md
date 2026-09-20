@@ -891,8 +891,14 @@ on `CampaignRun`/`Profile`.
   `cheapest_floor_is_the_min_over_launchable_nodes` stands unedited.
 - **Broke is judged against that floor at the two seams** (AC 10) — T002
   `profile.rs`: credits 20, locked against `rix` (floor 50) → `is_broke`, while
-  the same profile with no series is not broke; and `can_afford(20)` is false in
-  the first and true in the second, so the Outfitter reserves the locked floor.
+  the same profile with no series is not broke; and the Outfitter reserves the
+  locked floor. **Corrected at T002 (2026-09-20)**: this bullet originally asked
+  for `can_afford(20)` to be false while locked and **true** while free, which is
+  arithmetically impossible — free, the floor is 10, so `can_afford(20)` is
+  `20 >= 20 + 10`, false. The claim is real, the illustrative numbers were not;
+  the test asserts it at a price the difference can show, `can_afford(10)`
+  (`20 >= 10 + 50` false while locked, `20 >= 10 + 10` true while free), and
+  keeps `!can_afford(20)` while locked.
 - **Every campaign door lands on the venue iff a series is in progress** (AC 9,
   and the bundle's point 2) — **not a unit test, deliberately.** The mapping
   itself is an `if` over a boolean and a test of it would be a tautology; the

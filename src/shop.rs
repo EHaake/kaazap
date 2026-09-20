@@ -164,7 +164,7 @@ impl ShopState {
         // The balance row also shows the *spendable* amount — credits minus the
         // ante reserve `Profile::can_afford` holds back — so a card dimmed while
         // `credits ≥ price` is explicable rather than mysterious (spec 021).
-        let spendable = credits.saturating_sub(economy::cheapest_floor(profile.campaign()));
+        let spendable = credits.saturating_sub(economy::reserve_floor(profile.campaign()));
         let balance = format!("Credits: ◈ {credits}  ·  spendable ◈ {spendable}");
         draw_text_centered(frame, center_x, title_y + 1, &balance, Emphasis::Strong);
 

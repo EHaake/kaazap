@@ -390,11 +390,13 @@ impl Profile {
         }
     }
 
-    /// Whether the player can no longer afford any launchable match — spec
-    /// 021's run-over condition. A pure predicate over the balance and the
-    /// cheapest ante on the map, evaluated at the app's two spec'd seams.
+    /// Whether the player can no longer afford the match they are allowed to
+    /// play — spec 021's run-over condition. A pure predicate over the balance
+    /// and [`economy::reserve_floor`], evaluated at the app's two spec'd seams:
+    /// the cheapest ante on the map, or — while a series is locked — that
+    /// opponent's own ante (spec 029, ruling O1).
     pub fn is_broke(&self) -> bool {
-        self.credits < economy::cheapest_floor(&self.campaign)
+        self.credits < economy::reserve_floor(&self.campaign)
     }
 
     /// Whether anything the campaign-entry choices would affect exists (spec
@@ -409,12 +411,13 @@ impl Profile {
             || self.deck != starter.deck
     }
 
-    /// Whether `price` is spendable: it must leave the cheapest launchable ante
-    /// behind, so a purchase can never strand the player (spec 021's shop
-    /// reserve). One rule in one place — [`Profile::try_purchase`] enforces it
-    /// and the shop's dimming reads it.
+    /// Whether `price` is spendable: it must leave [`economy::reserve_floor`]
+    /// behind — the cheapest launchable ante, or the locked opponent's own ante
+    /// while a series is running (spec 029, ruling O1) — so a purchase can never
+    /// strand the player (spec 021's shop reserve). One rule in one place —
+    /// [`Profile::try_purchase`] enforces it and the shop's dimming reads it.
     pub fn can_afford(&self, price: u32) -> bool {
-        self.credits >= price.saturating_add(economy::cheapest_floor(&self.campaign))
+        self.credits >= price.saturating_add(economy::reserve_floor(&self.campaign))
     }
 
     /// The player's lifetime statistics (spec 020).
@@ -898,7 +901,7 @@ mod tests {
     fn is_broke_reads_the_balance_against_the_cheapest_launchable_ante() {
         use crate::campaign::PLANETS;
         let mut p = profile_with_credits(9);
-        assert_eq!(economy::cheapest_floor(p.campaign()), 10, "sanity: Cinder sets the floor");
+        assert_eq!(economy::reserve_floor(p.campaign()), 10, "sanity: Cinder sets the floor");
         assert!(p.is_broke(), "a credit short of the cheapest ante is broke");
         p.earn_credits(1);
         assert!(!p.is_broke(), "exactly the cheapest ante is still playable");
@@ -922,6 +925,25 @@ mod tests {
         let mut in_flight = profile_with_credits(20);
         assert!(in_flight.stake_match(node("cinder", "greeb", 10)));
         assert!(!in_flight.is_broke());
+    }
+
+    #[test]
+    fn broke_and_affordable_follow_the_locked_floor() {
+        // Locked against rix (ante 50), a cheaper match on Cinder is one the
+        // player may not play, so it must not keep the run alive (ruling O1).
+        let mut locked = profile_with_credits(20);
+        locked.campaign_mut().begin_series("the-spindle", "rix");
+        assert_eq!(economy::reserve_floor(locked.campaign()), 50, "sanity: rix's ante");
+        assert!(locked.is_broke(), "20 credits can't cover the only match on offer");
+        assert!(!locked.can_afford(20), "the Outfitter reserves the locked floor");
+
+        // The same balance with no series running is spec 021's case unchanged:
+        // not broke, and the Outfitter holds back only Cinder's 10.
+        let free = profile_with_credits(20);
+        assert_eq!(economy::reserve_floor(free.campaign()), 10, "sanity: Cinder's floor");
+        assert!(!free.is_broke(), "20 covers the cheapest ante on the map");
+        assert!(free.can_afford(10), "10 spent still leaves the 10 reserve");
+        assert!(!locked.can_afford(10), "the same card is out of reach while locked");
     }
 
     #[test]
@@ -1273,7 +1295,7 @@ mod tests {
         let before = owned(&p, Card::PlusMinus(6));
         p.earn_credits(9);
         assert_eq!(p.credits(), 59);
-        assert_eq!(economy::cheapest_floor(p.campaign()), 10, "sanity: a fresh run's floor");
+        assert_eq!(economy::reserve_floor(p.campaign()), 10, "sanity: a fresh run's floor");
 
         // 59 covers the 50-credit price but would leave 9 — under the cheapest
         // ante, so the shop refuses it and reads it as unaffordable.

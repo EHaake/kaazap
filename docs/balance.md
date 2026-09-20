@@ -192,8 +192,8 @@ Notes on how T8 and C are actually evaluated:
 ### The economy bounds
 
 Live constants the bounds are computed from: `SEED_PURSE` **50**, reserve
-(`cheapest_floor` of a fresh run) **10**, `P_outer` **20**, `P_mid` **100**,
-`P_core` **200**.
+(`reserve_floor` of a fresh run, with no series locked) **10**, `P_outer` **20**,
+`P_mid` **100**, `P_core` **200**.
 
 | # | Bound | Arithmetic | Measured | |
 |---|---|---|---|---|

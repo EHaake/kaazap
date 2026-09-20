@@ -59,9 +59,12 @@ impl WagerState {
     ///
     /// Precondition: `balance >= ante_floor(opponent.stand_threshold)` — the
     /// launch gate checks it, and `max` is the full balance (not a post-reserve
-    /// amount), so an all-in stake is always reachable. `reserve` is the run's
-    /// cheapest ante (`economy::cheapest_floor`): stakes are still uncapped,
-    /// it only decides whether the run-over warning row shows.
+    /// amount), so an all-in stake is always reachable. `reserve` is the ante
+    /// the run must keep covered (`economy::reserve_floor`): stakes are still
+    /// uncapped, it only decides whether the run-over warning row shows. While
+    /// a series is locked that is the locked opponent's *own* ante rather than
+    /// the map's cheapest (spec 029, ruling O1), so deep in the map the warning
+    /// fires at far lower stakes than it did before.
     pub fn new(planet: Planet, opponent: OpponentProfile, balance: u32, reserve: u32) -> Self {
         Self {
             planet,
@@ -208,7 +211,7 @@ mod tests {
         state_with_reserve(balance, 10)
     }
 
-    /// Greeb on Cinder with an explicit run reserve (`economy::cheapest_floor`
+    /// Greeb on Cinder with an explicit run reserve (`economy::reserve_floor`
     /// at the call site), for the cases where it differs from this prompt's
     /// floor.
     fn state_with_reserve(balance: u32, reserve: u32) -> WagerState {

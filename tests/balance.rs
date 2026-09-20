@@ -6,7 +6,7 @@
 use kaazap::campaign::{CampaignRun, PLANETS};
 use kaazap::card::{ALL_SIDE_CARDS, Card, DEFAULT_SIDE_DECK, FlipKind, PlayedCard};
 use kaazap::economy::{
-    RegionTier, SEED_PURSE, ante_floor, card_price, card_tier, cheapest_floor, region_tier,
+    RegionTier, SEED_PURSE, ante_floor, card_price, card_tier, region_tier, reserve_floor,
 };
 use kaazap::game::{GameAction, GamePhase, GameState};
 use kaazap::opponent::{OPPONENTS, OpponentProfile, opponent_by_id};
@@ -452,7 +452,7 @@ fn count_text(k: Option<usize>) -> String {
 
 /// B1–B5: arithmetic on the measured rates and the live constants.
 fn bounds(rows: &[Row]) -> Vec<(String, bool)> {
-    let reserve = cheapest_floor(&CampaignRun::default());
+    let reserve = reserve_floor(&CampaignRun::default());
     let p_outer = tier_price(RegionTier::Outer);
     let p_mid = tier_price(RegionTier::Mid);
     let p_core = tier_price(RegionTier::Core);
@@ -593,7 +593,7 @@ fn balance_table() {
     let bounds = bounds(&rows);
     println!(
         "bounds (SEED {SEED_PURSE}, reserve {}, P_outer {}, P_mid {}, P_core {})",
-        cheapest_floor(&CampaignRun::default()),
+        reserve_floor(&CampaignRun::default()),
         tier_price(RegionTier::Outer),
         tier_price(RegionTier::Mid),
         tier_price(RegionTier::Core)

@@ -163,7 +163,7 @@ something the person can see. Marked honestly, not generously; the reviewer's
   command itself before committing (per-task review), then dispatches a
   `skeptical-reviewer` on T001's diff alone before T002 starts.*
 
-- [ ] **T002** — `src/economy.rs` + `src/profile.rs` + `src/shop.rs` +
+- [x] **T002** — `src/economy.rs` + `src/profile.rs` + `src/shop.rs` +
   `src/app.rs` + `tests/balance.rs` + `docs/economy.md` + `docs/balance.md`:
   one floor, every caller that reads it, and the document that explains it. Per
   plan §Design tension 2: make `cheapest_floor` **private** (`fn`, not `pub fn`)
@@ -229,7 +229,7 @@ something the person can see. Marked honestly, not generously; the reviewer's
   eight changed call sites verbatim, and pastes the `docs/economy.md` diff and
   the two corrected `src/wager.rs` comments.*
 
-- [ ] **T003** — `src/profile.rs`: the settlement rule. `review: per-task`. Per
+- [ ] **T003** — `src/profile.rs` + `docs/economy.md`: the settlement rule. `review: per-task`. Per
   plan §Design 3: `Settlement` gains `pub series: SeriesOutcome` with the
   plan's doc; `settle_campaign_match` becomes the plan's listing exactly —
   one `take_settlement`, then `record_series_match`, then the payout, then
@@ -257,6 +257,21 @@ something the person can see. Marked honestly, not generously; the reviewer's
   `NotInSeries` exactly as before. If any *other* assertion changes value, or
   it is unclear which of the two cases a test is, **stop and report rather than
   adjusting the expectation**.
+  **`docs/economy.md` rides with it** (added by the orchestrator at T002,
+  2026-09-20, from a finding the T002 implementer returned). Step 3 of that
+  document's `settle_campaign_match` walkthrough still reads "On a win, adds
+  `win_payout(stake)`, calls `mark_beaten`, and counts a campaign completion
+  only on the **edge**" — which is exactly the rule this task replaces. It was
+  not among the seven places T002 enumerated, because T002 did not falsify it;
+  this task does. Correct step 3 to name the series: the payout is unchanged, but
+  `mark_beaten` now fires when the **series** is won (or on a rematch win against
+  an already-beaten opponent, which re-marks someone already beaten — a no-op),
+  and the completion edge is unmoved inside that branch. Also correct the two
+  `profile.rs` doc comments that say `None` means "a Quick Play match" — since
+  T001 it also means an already-settled match (close-out note 1). Same principle
+  as sign-off finding B4: a spec that renames symbols because a false name is a
+  defect cannot leave the document that explains them asserting the old rule, and
+  `docs/economy.md` rides the branch rather than the close-out.
   Tests (plan §Tests), in `profile.rs`'s tests module:
   `a_series_beats_the_opponent_only_at_the_deciding_win` (best of three on
   `cinder`/`greeb`: after one win the opponent is **not** beaten and the planet
@@ -286,7 +301,8 @@ something the person can see. Marked honestly, not generously; the reviewer's
   rather than writing new ones.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim with the new tests passing; `git diff --stat` shows only
-  `src/profile.rs`; `git diff -- src/profile.rs` shows `resolve_match`'s
+  `src/profile.rs` and `docs/economy.md` (the latter added at T002 — see the
+  paragraph above); `git diff -- src/profile.rs` shows `resolve_match`'s
   record-then-settle order intact; **the implementer's report lists every
   existing test it changed and which of the two sanctioned reasons each change
   was** (a `Settlement` literal, or one-win-clears becoming two-wins-clear), so
@@ -792,3 +808,4 @@ redo, and why). -->
 | T001 decision review (skeptical-reviewer) | opus → opus | 95K | 1 | — | — | Ruled option (a): the one-exception list is a planner **enumeration error**, not a design constraint — the three second-settlement lines move to `None`, the property they assert (settling twice settles once) is unchanged, only the evidence moves from an emptied escrow to a consumed flag. Gave the exact amended Verify bar (four named exceptions, each with its new value, surrounding credit assertions held to their current values). On the doc/grep conflict: reword the clause to "by zeroing the escrow" and **keep** the grep, rather than weaken a mechanical check into a judgment call. Also **corrected the orchestrator**: T011 does *not* carry the `take_stake` grep, so the fix had one site, not two. Transcribed to `plan.md` + `tasks.md` in `fda7eaf` **before** the next dispatch |
 | T001 completion (sdd-implementer, fresh context) | opus → opus | 53K | 1 | yes | — | Applied the ruling's five edits and nothing else. Green: 461 lib tests, 0 warnings, `grep -rn "take_stake" src/ tests/` empty |
 | T001 per-task review (skeptical-reviewer) | opus → opus | 86K | 1 | — | **0 blocking** | **Signed off.** Verified the B1 shape (`is_opponent_beaten` is the first test and the only path to `NotInSeries`), that `take_settlement`'s doc does not overclaim (the `record_match` carve-out is present), that `node.stake` — now `0` in the returned clone — is never read at the call site, that the migration tests are non-vacuous at both levels, and that the four sanctioned exceptions are the only assertions that moved in value. 6 second-look notes, recorded above |
+| T002 (sdd-implementer) | opus → opus | 108K | 1 | yes | — | All eight call sites moved in one task, `cheapest_floor` private, the grep gate satisfied across `src/ tests/ docs/`, `docs/economy.md` corrected in all seven places plus the O1 consequence paragraph. **Returned three deviations, all sound**: (1) plan §Tests' `can_afford` numbers were **arithmetically impossible** — it asked for `can_afford(20)` to be true with no series, but the free floor is 10, so `20 >= 20 + 10` is false; the implementer asserted the true values and flagged it rather than bending the test, and the orchestrator corrected the plan bullet. (2) `is_broke`/`can_afford`'s own doc comments still claimed "the cheapest ante on the map" — the identical defect B6 raised against `wager.rs`, so corrected. (3) `tests/balance.rs`'s import moved with its two call sites. **Also returned a finding the task did not cover**: `docs/economy.md`'s step 3 still describes pre-029 settlement, which **T003** falsifies — folded into T003's scope with its diff-stat gate widened, rather than deferred to a close-out that lands on `main` |
