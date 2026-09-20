@@ -25,8 +25,10 @@ prompted and settled exactly as it is today.
 Between the matches of a series the player is at the **venue**: a new
 screen standing for the tournament hall on that planet, where they start
 the next match, visit the Outfitter, open their collection, or quit to the
-menu. The venue is where every match of a series begins, and it reserves a
-region for per-planet art that a later spec will author.
+menu. The venue is where every match of a series begins. It reserves a region
+for per-planet art **beside** the opponent's portrait — two separate
+elements, so that one later spec can author the art and another can show
+more than one opponent on a planet, neither needing a layout rework.
 
 Starting a series **commits** the player to it. While one is in progress
 the map is not reachable and no other planet can be played; entering the
@@ -53,7 +55,7 @@ construction.
    there is no banking a win and going elsewhere.
 4. **The between-match moment is a place, not a menu.** The venue reads as
    somewhere the player is standing, and is built so that per-planet art
-   drops into it later without a layout rework.
+   and a second opponent each drop into it later without a layout rework.
 5. **Nothing about playing a match changes.** The board, the keys, the
    phases, the wager prompt and the settlement are what they are today.
 6. **It all works at 89×31.**
@@ -97,10 +99,15 @@ construction.
   planet where the series is being played. It is where a series begins,
   where the player returns after every match that does not end the series,
   and the only door to the Outfitter and the collection while locked.
-- **The art region** — a region of the venue reserved for per-planet art,
-  drawn only at the wide layout's width. In this spec it carries the
-  opponent's existing portrait; a later spec replaces its contents without
+- **The planet art region** — a region of the venue reserved for art of
+  the venue itself, drawn only at the wide layout's width. In this spec it
+  holds a plain placeholder; a later spec replaces its contents without
   changing the layout around it.
+- **The opponent portrait** — the existing portrait art (spec 016), drawn
+  at the venue **beside** the planet art region as its own element, not
+  inside it. The two are separate because they answer to different things:
+  the art is the planet's and does not change with the opponent, and a
+  later spec may show more than one opponent on a planet.
 
 ## Key behavior
 
@@ -127,9 +134,11 @@ construction.
   map.
 - The constitution's density rule applies: the action the player is about
   to take gets an empty row above and below it; the rest stays compact.
-- At **139 columns or wider** the venue draws its **art region**. In this
-  spec that region carries the opponent's portrait. Below 139 columns the
-  venue is text only, exactly as the presence panel behaves on the board.
+- At **139 columns or wider** the venue draws the **planet art region**
+  and the **opponent's portrait beside it**, as two distinct elements with
+  room between them. The art region holds a plain placeholder in this
+  spec. Below 139 columns the venue is text only, exactly as the presence
+  panel behaves on the board.
 - At 89×31 the venue is fully legible, with no horizontal overflow and
   nothing clipped.
 
@@ -266,8 +275,9 @@ and no series. The opponent stays beaten either way.
     matches, campaign completion still counts once, and no new counter
     appears anywhere.
 16. [ ] **Both layouts.** The venue is legible at 89×31 with no overflow and
-    nothing clipped; at 139 columns and wider it draws its art region,
-    carrying the opponent's portrait.
+    nothing clipped; at 139 columns and wider it draws the planet art
+    region holding its placeholder, with the opponent's portrait beside it
+    as a separate element, neither overlapping nor clipped.
 17. [ ] **Density.** The venue's acted-on row has an empty row above and
     below it and the rest of its text stays compact; any modal it shows
     pads evenly.
@@ -310,8 +320,14 @@ and no series. The opponent stays beaten either way.
 - **K1 — the venue offers play, Outfitter, collection and quit**, with the
   Outfitter and collection returning to the venue. No abandon action.
 - **L1 — rematches keep today's flow**: map → wager → match → map.
-- **M1 — the art region is reserved now and filled with a placeholder**;
-  authoring per-planet art is its own spec.
+- **M1 — the art region is reserved now and filled with a plain
+  placeholder**; authoring per-planet art is its own spec. **Amended by
+  the person the same day**: the placeholder stays plain, and the
+  opponent's portrait sits **next to** the region rather than inside it.
+  Their reason: the eventual venue will show planet art *and* an opponent
+  portrait side by side, and a planet may later hold more than one
+  opponent — so the two elements are laid out separately now, and neither
+  later spec has to rework the layout.
 - **N1 — the art region draws at 139 columns and wider only**, matching the
   presence panel's rule.
 - **O1 — while locked, broke is judged against the locked opponent's ante
@@ -337,9 +353,9 @@ and no series. The opponent stays beaten either way.
 
 ### Session calls within a delegated ruling
 
-- **The placeholder in the art region is the opponent's existing
-  portrait** (spec 016), rather than an empty bordered panel. It is art
-  the repo already has, it makes the venue immersive from this spec
-  rather than after the art spec, and the later spec replaces the
-  region's contents without touching the layout around it. Within M1;
-  flagged for the person to correct if they meant an empty reservation.
+- **The map shows the series length, not a score.** I1 asked for the
+  series to be visible "on the map and in the match," but E2 and P1 mean
+  the player is never on the map while a series is live, so there is no
+  live score for it to show. Resolved as the length before a launch
+  ("Best of 3"), with the score on the venue and the board. Confirmed by
+  the person, 2026-09-20.
