@@ -59,7 +59,7 @@ becomes true here, three tasks before the venue exists, and it is very much
 something the person can see. Marked honestly, not generously; the reviewer's
 "these markings are honest" note was written against the pre-B1 draft. -->
 
-- [ ] **T001** — `src/campaign.rs` + `src/profile.rs` + `src/app.rs` +
+- [x] **T001** — `src/campaign.rs` + `src/profile.rs` + `src/app.rs` +
   `src/campaign_map.rs`: the series, and the exactly-once settlement take.
   `review: per-task`. Per plan §Design 1 and §Design tension 3:
   `pub struct Series { planet: String, opponent: String, player_wins: u32,
@@ -738,6 +738,41 @@ remove it. The orchestrator writes these rows; nobody else. -->
 changes: they belong in `closeout-main-docs.md`'s DECISIONS entry or in a
 roadmap follow-up, so the next person to touch this code finds them. -->
 
+**From T001's per-task review (2026-09-20, no blocking findings):**
+
+1. `src/profile.rs` ~328 and ~363 — `resolve_match`'s and
+   `settle_campaign_match`'s docs still say `None` means "a Quick Play match".
+   After T001 `None` has a second meaning, an already-settled match, which is
+   what the three amended tests now pin. Outside T001's enumerated footprint,
+   so: correct in **T003**, which reworks this seam anyway, or at the sweep.
+2. `src/app.rs` ~2877 — the test `NodeRef` carries `settled: false` while the
+   test's own header says the match has already settled, so it models a state
+   production cannot produce. Harmless (nothing on that path reads `settled`,
+   and `stake_at_risk` filters on `stake > 0`), and it is an artifact of T001's
+   "every literal gains `settled: false`" instruction rather than drift. Sweep.
+3. The orchestrator's T001 re-run evidence was shown as `--lib` plus a warning
+   count rather than the constitution's full command. The reviewer checked the
+   8 integration targets itself — none constructs a `NodeRef` or asserts on
+   profile JSON text, so nothing was missed — but the **T003 per-task review
+   bundle must carry the full command's verbatim output**.
+4. `wins_needed_is_two_except_for_the_final_opponent`'s loop computes its
+   expectation with the function's own expression, so the loop body alone would
+   survive a wrong `FINAL_OPPONENT`. The test is rescued by its other two
+   assertions (`series_length_label("greeb")` and the `PLANETS` tail check).
+   Non-vacuous as a whole; noted so nobody trims it to the loop.
+5. `no_settled_match_beats_an_unbeaten_opponent_outright` pins only the
+   biconditional its task line asked for; the other half of the property it is
+   named for lives in two sibling tests. **Carries a warning for T003**: it
+   reads `is_opponent_beaten` *after* the call, which is sound only because
+   `record_series_match` marks nobody beaten. If `mark_beaten` ever moves into
+   it, that assertion silently changes meaning. (This is second-look note (8)
+   from sign-off, now with a concrete reason it matters.)
+6. plan §Design tension 3's "nowhere in production" claim for the
+   `Some(Won(0))` → `None` change rests on inspection of the
+   `phase_changed && GameOver` discriminant edge, not on a test. Pre-existing
+   and recorded in the plan; **one line on the close-out walkthrough list**
+   rather than a new task.
+
 ---
 
 ## Tier log (this spec, under the model policy)
@@ -753,3 +788,7 @@ redo, and why). -->
 | Planning: draft (sdd-planner) | opus → opus | 272K | 1 | — | — | drafted; 11 tasks in 6 phases, Phase 1 foundational, T001 and T003 `review: per-task`, Phases 1 and 5 marked `walkthrough: none`; no product question returned; 5 design choices flagged for sign-off |
 | plan + tasks sign-off (skeptical-reviewer) | opus → opus | 127K | 1 | — | **5 blocking** | B1: a match left in flight across the upgrade would beat its opponent outright and clear a world in one match — contradicts an approved `spec.md` clause. B2, B3: two Verify gates mutually unsatisfiable (unnamed `NodeRef` literal sites; three unnamed `cheapest_floor` call sites and a missing `app.rs`). B4: `docs/economy.md` and `README.md` left asserting the old rule, by a spec that renames four symbols *because* false names are defects. B5: the close-out phase header carried no `walkthrough:` marking. All five flagged design choices upheld; 8 second-look notes |
 | Planning: sign-off revision (sdd-planner, fresh context) | opus → opus | 64K | 1 | yes | — | All five applied. **B1 carried a knock-on the finding did not state**: once a match with no series starts one, a single campaign win stops beating anyone from T003 onward — so Phase 1 is no longer invisible, its marking flipped to `walkthrough: yes` (**four pauses, not three**), and T003's "no existing assertion changes value" bar became "two sanctioned kinds of change; anything else stops and reports". Also tightened B1's rule from *does a series exist* to `is_opponent_beaten`, closing a mismatched-node hole the literal fix would have left. Second-look: `CampaignHome` **dropped** (its test would be a tautology aimed at the wrong risk — replaced by a `self\.screen = Screen::` grep that catches a second assignment site); the venue credit balance **not** added to the design but routed to the person at the Phase 2 pause; AC 4 and AC 13 given keystrokes in the Phase 2 script, since both rested on assertion. Both files still Draft |
+| T001 (sdd-implementer) | opus → opus | 87K | 1 | no — **stopped on a judgment call** | — | Wrote T001's code in full, then stopped rather than adjust three `profile.rs` assertions T001's Verify bar forbade it to touch. **Correct behavior**: the `take_settlement` swap makes a second settlement return `None` where it returned `Some(StakeOutcome::Won(0))`, which those three pin, so the Verify bar and plan §Design tension 3 could not both hold. Not an escape-hatch case — the orchestrator did **not** consider it well-specified, because resolving it meant widening the one gate this spec's sign-off had already had to fix twice (B2, B3, both unsatisfiable Verify gates from under-enumerated call sites) |
+| T001 decision review (skeptical-reviewer) | opus → opus | 95K | 1 | — | — | Ruled option (a): the one-exception list is a planner **enumeration error**, not a design constraint — the three second-settlement lines move to `None`, the property they assert (settling twice settles once) is unchanged, only the evidence moves from an emptied escrow to a consumed flag. Gave the exact amended Verify bar (four named exceptions, each with its new value, surrounding credit assertions held to their current values). On the doc/grep conflict: reword the clause to "by zeroing the escrow" and **keep** the grep, rather than weaken a mechanical check into a judgment call. Also **corrected the orchestrator**: T011 does *not* carry the `take_stake` grep, so the fix had one site, not two. Transcribed to `plan.md` + `tasks.md` in `fda7eaf` **before** the next dispatch |
+| T001 completion (sdd-implementer, fresh context) | opus → opus | 53K | 1 | yes | — | Applied the ruling's five edits and nothing else. Green: 461 lib tests, 0 warnings, `grep -rn "take_stake" src/ tests/` empty |
+| T001 per-task review (skeptical-reviewer) | opus → opus | 86K | 1 | — | **0 blocking** | **Signed off.** Verified the B1 shape (`is_opponent_beaten` is the first test and the only path to `NotInSeries`), that `take_settlement`'s doc does not overclaim (the `record_match` carve-out is present), that `node.stake` — now `0` in the returned clone — is never read at the call site, that the migration tests are non-vacuous at both levels, and that the four sanctioned exceptions are the only assertions that moved in value. 6 second-look notes, recorded above |

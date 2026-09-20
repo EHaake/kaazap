@@ -942,6 +942,7 @@ impl App {
                     planet: state.planet_id().to_string(),
                     opponent: state.opponent().id.to_string(),
                     stake: state.stake(),
+                    settled: false,
                 };
                 let opponent = state.opponent();
                 self.modal = None;
@@ -2873,7 +2874,8 @@ mod tests {
             app.profile.campaign_mut().set_in_progress(Some(NodeRef {
                 planet: "cinder".to_string(),
                 opponent: "greeb".to_string(),
-                stake: 0, // settled: the escrow is already taken
+                stake: 0, // unstaked: this test never settles
+                settled: false,
             }));
             app.banner = Some(MapBanner::Settled(StakeOutcome::Won(30)));
             let mut game_state = GameState::new();

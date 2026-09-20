@@ -364,9 +364,9 @@ impl Profile {
     /// pointer (a Quick Play match), leaving the balance untouched.
     ///
     /// Paying exactly once is a data property, not an ordering rule:
-    /// [`CampaignRun::take_stake`] zeroes the escrow, so a second settlement
-    /// pays `win_payout(0) == 0` and `mark_beaten` is idempotent. Callers pair
-    /// this with [`Profile::save`].
+    /// [`CampaignRun::take_settlement`] hands the match over once, so a second
+    /// settlement takes nothing and changes nothing. Callers pair this with
+    /// [`Profile::save`].
     ///
     /// The completion edge hands the run tally's `matches_played()` to
     /// [`LifetimeStats::record_campaign_completion`] as the first-clear record
@@ -375,8 +375,7 @@ impl Profile {
     /// settles. Private since spec 024 — callers go through `resolve_match`;
     /// settling alone moves no run tally and no credit counter.
     fn settle_campaign_match(&mut self, player_won: bool) -> Option<StakeOutcome> {
-        let node = self.campaign.in_progress()?.clone();
-        let stake = self.campaign.take_stake();
+        let (node, stake) = self.campaign.take_settlement()?;
         if player_won {
             self.credits = self.credits.saturating_add(economy::win_payout(stake));
             let was_complete = self.campaign.run_complete();
@@ -646,6 +645,7 @@ mod tests {
             planet: planet.to_string(),
             opponent: opponent.to_string(),
             stake,
+            settled: false,
         }
     }
 
@@ -821,8 +821,8 @@ mod tests {
         );
         assert_eq!(p.campaign().stake_at_risk(), None);
 
-        // Settling twice can't pay twice — the escrow is already empty.
-        assert_eq!(p.settle_campaign_match(true), Some(StakeOutcome::Won(0)));
+        // Settling twice can't pay twice — the `settled` flag is consumed.
+        assert_eq!(p.settle_campaign_match(true), None);
         assert_eq!(p.credits(), 70);
     }
 
@@ -836,7 +836,7 @@ mod tests {
         assert!(!p.campaign().is_opponent_beaten("cinder", "greeb"));
         assert_eq!(p.campaign().stake_at_risk(), None);
 
-        assert_eq!(p.settle_campaign_match(false), Some(StakeOutcome::Lost(0)));
+        assert_eq!(p.settle_campaign_match(false), None);
         assert_eq!(p.credits(), 30);
     }
 
@@ -1016,12 +1016,14 @@ mod tests {
         assert_eq!(p.campaign().run_stats().credits_won, net);
         assert_eq!(p.campaign().run_stats().credits_lost, 0);
 
-        // Settling the same pointer again adds nothing — the escrow is empty.
+        // Settling the same pointer again adds nothing — the `settled` flag is
+        // consumed, so the match hands itself over no second time.
         assert_eq!(
-            p.resolve_match("greeb", true, 3, 1).map(|s| s.outcome),
-            Some(StakeOutcome::Won(0)),
+            p.resolve_match("greeb", true, 3, 1),
+            None,
+            "a settled match hands nothing over a second time",
         );
-        assert_eq!(p.campaign().run_stats().credits_won, net, "an emptied escrow pays nothing");
+        assert_eq!(p.campaign().run_stats().credits_won, net, "a settled match pays nothing");
         assert_eq!(p.campaign().run_stats().credits_lost, 0);
 
         // A loss adds the forfeited stake, and nothing to the win counter.

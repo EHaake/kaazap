@@ -491,7 +491,12 @@ mod tests {
         // staked win is exactly what the run tally gained.
         let mut p = Profile::default();
         let stake = 40;
-        let node = NodeRef { planet: "cinder".to_string(), opponent: "greeb".to_string(), stake };
+        let node = NodeRef {
+            planet: "cinder".to_string(),
+            opponent: "greeb".to_string(),
+            stake,
+            settled: false,
+        };
         assert!(p.stake_match(node), "the seed purse covers a {stake}-credit stake");
 
         let before = p.campaign().run_stats().credits_won;
