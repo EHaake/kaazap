@@ -532,6 +532,38 @@ binds both results with a placeholder until T008 raises the notice. -->
   review enumerated — at minimum `?`, `L`, `m`, an arrow, a digit and a letter
   — doing nothing that loses the notice or acts on the menu underneath.*
 
+- [ ] **T008a** — `src/app.rs`: give the `?` ordering constraint a durable
+  form. Logged 2026-09-19 from the Phase 4 review (non-blocking B).
+  The review enumerated the keys and confirmed the set is exactly `q`
+  (`main.rs`, before `App`), `m` (ahead of the modal ladder), and
+  Enter/Space/Esc in the notice's own arm — nothing else acts. But it also
+  found that **the entire protection for `?` is positional**: it is handled in
+  the terminal `else` block that runs only when `self.modal.is_none()`, and
+  `m` sits ahead of the ladder precisely because someone wanted it global, so
+  `?` is the obvious next candidate for the same treatment.
+  If `?` ever moved ahead of the ladder, opening help would overwrite
+  `Modal::DataNotice(Vec<String>)` and closing it would set `self.modal =
+  None`. **The loss is permanent and unrecoverable**: `data_notice_lines` is
+  called from exactly one site, its inputs are consumed in `App::new` and
+  deliberately not stored (the no-new-field decision), and by the time the
+  notice is up the on-disk conditions are already repaired — the profile
+  renamed, the match save deleted — so re-running the load would report
+  nothing wrong. The player would never learn their campaign had been reset.
+  The mitigation the plan chose (§Design tension 8) was "the Phase 4 review
+  enumerates", and that expires the moment the review is read. Add a one-line
+  comment at the `?` site saying it must stay inside the no-modal branch
+  because `Modal::DataNotice` cannot be rebuilt. **A comment, not a test**: a
+  test would have to construct an `App`, which is the one thing plan §Design
+  tension 9 forbids, and `App::new` now reads *and repairs* the real data
+  directory.
+  Also append one sentence to plan.md §Design tension 8 recording that the
+  ordering constraint was carried past the review into the code.
+  Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim; `git diff --stat` shows only `src/app.rs` and
+  `specs/028-crash-and-data-safety/plan.md`; the report quotes the comment and
+  the five lines around it.*
+
 ## Final phase — Spec close-out
 
 - [ ] **T009** — Close-out. Draft
@@ -651,6 +683,17 @@ or in the roadmap follow-up, so the next person to touch this code finds them.
   had, and a symlink at the target is replaced rather than written through.
   Neither matters for a game's saves; both are inherited by every future
   writer.
+- **`App::new` now repairs the real data directory, and five `app.rs` tests
+  still carry comments saying it doesn't.** It renames a damaged profile and
+  deletes an unreadable match save, and since T008 it also sets `self.modal`
+  from the result — so three tests that call `App::new` then `draw` without
+  overwriting `app.modal` would get a notice box over the board and fail their
+  row assertions, on a machine whose data folder happens to be damaged. Before
+  T008 the modal was unconditionally `None` at construction. This is the
+  roadmap follow-up T009 already amends; the stale comments are worth naming
+  with it. Related trap for anyone testing by hand: **never run `cargo test`
+  from a shell with `KAAZAP_DATA_DIR` exported at a fixture directory** — it
+  repairs the scenario you were about to test.
 - **`payload_as_str` pins the crate to Rust >= 1.91** with nothing in the tree
   saying so (AC 17 forbids adding `rust-version`). Worth a line.
 - **The guard's `Drop` join is only bounded because `render_tx` is declared
@@ -699,3 +742,4 @@ spec under a policy — this is it for the economy profile. -->
 | Phase 3 review (skeptical-reviewer) | opus → opus | 77K | 1 | — | 0 blocking | Signed off, clean. T005a confirmed to close all three parent notes. Non-blocking: (3) **the plan's notice line "nothing from this session is kept" is literally false** — `save::save` and `Settings::save` still write under suspension; AC 11 only scopes to *profile* saves, so it is a wording problem, not a divergence -> constraint carried into T008's bundle; (4) `profile_save_suspended` poisons its scratch dir on a mid-test failure -> **T007a**; (2) T007's stated placement rationale is false, corrected above; (6) §Design tension 9 is now live and belongs in the person's phase report; (1) the orchestrator's diff base was one commit early (my error, harmless) |
 | T007a (sdd-implementer) | opus → opus | 36K | 1 | yes | — | chmod-back moved ahead of the assertions; duplicate `save()` collapsed. Mutation-checked: commenting out the suspension guard fails it at line 74 (`a save wrote over the file that couldn't be read`). **The property was observed, not argued** — the passing re-run happened on the scratch root the failing run left behind, and needed no human `chmod` |
 | T008 (sdd-implementer) | opus → opus | 71K | 1 | yes | — | `Modal::DataNotice` + `data_notice_lines` + draw/input arms + `Readme.md`; pure test at both `fit_sizes()`. **One line of the plan's wording replaced** on the orchestrator's constraint (Phase 3 review note 3): *"nothing from this session is kept"* was false — only `Profile::save` no-ops under suspension — now *"the campaign you play this session won't be kept"*. Widest line is 79 chars -> an 87-wide box at 89 columns |
+| Phase 4 review (skeptical-reviewer) | opus → opus | 80K | 1 | — | 0 blocking | Signed off, clean. Enumerated the keys top-down: `q` (main.rs, before `App`), `m` (ahead of the ladder), Enter/Space/Esc in the arm — everything else a no-op, incl. `?`, `L`, `Q`, `M`, arrows, digits, and Ctrl+P/N/B/F (which arrive as arrows). Also verified shrink-below-minimum-then-grow preserves the notice, so the no-`resize`-arm call is right. Fit worked longhand: worst line 79 chars -> 87-wide box at 89 cols, 9 content lines -> 13 rows at 31 — **two characters of headroom**. Non-blocking B (the `?` guard is a review artifact with no durable form) -> **T008a**; A (the 2-char width budget), C (the title over-claims on the wrong-version path; plan-verbatim), D (`App::new` repairs the real data dir — close-out note), E (walkthrough wording: `m` mutes silently, it does not "do nothing") |
