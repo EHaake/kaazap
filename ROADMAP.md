@@ -870,6 +870,29 @@ human's stated priority is the first-run onboarding.
   Pazaak music, can't be used; see DECISIONS.md). Nothing in the CC0/CC-BY
   libraries surveyed got close to that specific flavor, so an original is
   the path. Human-requested during spec 004.
+- **Per-planet music** (raised by the person 2026-09-20, during the spec 029
+  conversation, and ruled out of scope there as its own spec). Today one
+  looping track plays throughout (spec 004). The direction: a distinct track
+  per planet — or per region, which may be the better granularity for eight
+  worlds — so travelling core-ward *sounds* different, alongside the venue
+  art that spec 029 defers. The two are the same immersion push and were
+  raised in the same breath; they are separate specs because one is an audio
+  change and the other is art plus layout.
+
+  Not a data-only change, and worth knowing before it is picked up: spec 004's
+  audio layer is a **single looping music sink** (see CLAUDE.md's dependency
+  note), so playing a different track per location means teaching that layer to
+  swap what is playing on a screen transition — start, stop, and the question of
+  whether a swap cuts or crossfades. The existing Music volume slider and the
+  global `m` mute must keep working across a swap.
+
+  Questions for its spec conversation, not here: per planet or per region; what
+  plays on the map, at the venue, and during a match (three surfaces, and the
+  match may want to stay neutral); whether the track follows the planet or the
+  opponent; and where the tracks come from. That last one is the real cost and
+  it compounds — **Original cantina-vibe music** below is already the unsolved
+  sourcing problem for *one* track, and this item multiplies it by the number of
+  regions, with the bundled repo size growing to match.
 - **More side-card types** (raised by the person 2026-09-16). The
   collectible universe is 15 types (spec 001), and specs 012 and 022 treated
   it as complete, but the original game also has **+5, +6, −5, −6, ±4 and ±5**.
