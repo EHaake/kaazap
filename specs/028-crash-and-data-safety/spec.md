@@ -188,7 +188,9 @@ The same four cases, with a smaller consequence and no file kept.
 - Raised at launch, over the start menu, before the player does anything.
 - Covers everything that went wrong at that launch — profile, match save,
   or both — in one modal.
-- Enter, Space or Esc dismiss it. Nothing else acts while it is up.
+- Enter, Space or Esc dismiss it. `q` still quits and `m` still mutes,
+  as they do under every other modal in the game; nothing else acts while
+  it is up. (Amended 2026-09-19 at sign-off — Q6.)
 - Transient: it is shown once, for the launch it belongs to. It is not
   saved, not re-shown after dismissal, and dismissing it is not recorded
   anywhere.
@@ -255,7 +257,9 @@ The same four cases, with a smaller consequence and no file kept.
 - [ ] The notice draws inside an 89×31 terminal with its longest content,
       nothing clipped, with an empty row above and below the dismiss line
       and even padding inside the box; Enter, Space and Esc each dismiss it
-      to the start menu, and no other key does anything while it is up.
+      to the start menu, and no other key does anything while it is up —
+      apart from `q` and `m`, which quit and mute as they do under every
+      other modal (Q6).
 - [ ] A settings file that can't be read is still silent, and still falls
       back to defaults.
 - [ ] `cargo build --all-targets` and `cargo test` are green, and the
@@ -293,3 +297,14 @@ The same four cases, with a smaller consequence and no file kept.
 - **Q5 a — the crash report is one kaazap line plus the panic message and
   location**, rather than raw panic output alone, so the player knows it
   was kaazap and a bug report has something in it.
+
+## Amendment (the person, 2026-09-19, at plan sign-off)
+
+- **Q6 a — `q` and `m` still act while the notice is up.** The sign-off
+  found the plan keeping both live against this spec's original "no other
+  key does anything while it is up", and raised it rather than deciding it.
+  Both keys are handled before the modal chain — `q` in the game loop
+  itself — so suppressing them would make this the one modal in the game
+  you cannot quit or mute under, and would mean the game loop has to start
+  asking `App` which modal is open. The two lines above are amended to say
+  so; Enter, Space and Esc still dismiss, and nothing else acts.
