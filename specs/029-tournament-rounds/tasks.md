@@ -127,17 +127,38 @@ something the person can see. Marked honestly, not generously; the reviewer's
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
   verbatim with the new tests passing and **every existing assertion in
   `campaign.rs`, `profile.rs`, `app.rs` and `campaign_map.rs` unchanged in
-  value, with exactly one named exception** —
+  value, with exactly four named exceptions** (amended 2026-09-20 by a decision
+  review, which found the original one-exception list an enumeration error that
+  made this gate unsatisfiable) — (1)
   `take_stake_empties_the_escrow_exactly_once` in `campaign.rs`, which this
   task replaces with `take_settlement_hands_over_the_match_exactly_once`, so
-  its assertions change shape by design; any *other* assertion that moves means
-  stop and report. Otherwise this task adds a field and a method, it does not change what
-  settlement does (that is T003), so the only edits outside `campaign.rs` are
-  the `settled: false` additions to `NodeRef` literals and the one
-  `take_settlement` call site; `git diff --stat` shows exactly
+  its assertions change shape by design; and the **second-settlement line** in
+  each of three `profile.rs` tests, which pinned the *old* mechanism (an
+  emptied escrow paying `win_payout(0)`) and must now pin the new one (a
+  consumed `settled` flag returning `None`, plan §Design tension 3): (2)
+  `settling_a_win_pays_double_the_stake_and_marks_the_node_beaten` — the second
+  `settle_campaign_match(true)` is `None`, not `Some(StakeOutcome::Won(0))`;
+  (3) `settling_a_loss_keeps_the_stake_and_leaves_the_node_unbeaten` — the
+  second `settle_campaign_match(false)` is `None`, not
+  `Some(StakeOutcome::Lost(0))`; (4)
+  `resolve_match_moves_the_run_credit_counters_and_nothing_else_does` — the
+  second `resolve_match("greeb", true, 3, 1)` is `None`, asserted whole rather
+  than through `.map(|s| s.outcome)`. In all three the surrounding credit and
+  counter assertions — `credits() == 70`, `credits() == 30`, `credits_won ==
+  net`, `credits_lost == 0`, and `in_progress().map(|n| n.stake) == Some(0)` —
+  are **unchanged in value**; the property (settling twice settles once) is
+  what still holds, only the evidence moves. Reword the three comments that
+  call the escrow "already empty" to name the `settled` flag instead. **Any
+  assertion outside those four tests that moves, and any *value* change to the
+  credit or counter assertions inside them, means stop and report.** Otherwise
+  the only edits outside `campaign.rs` are the `settled: false` additions to
+  `NodeRef` literals, the one `take_settlement` call site and those three
+  assertions; `git diff --stat` shows exactly
   `src/campaign.rs`, `src/profile.rs`, `src/app.rs` and `src/campaign_map.rs`,
   with `app.rs` and `campaign_map.rs` changed on literal lines only;
-  `grep -rn "take_stake" src/ tests/` is empty; the implementer's report quotes
+  `grep -rn "take_stake" src/ tests/` is empty — the doc comment carried from
+  the plan names the mechanism ("by zeroing the escrow"), not the deleted
+  method, so this gate is satisfiable without weakening it; the implementer's report quotes
   `take_settlement` and `record_series_match` verbatim. The orchestrator re-runs the verification
   command itself before committing (per-task review), then dispatches a
   `skeptical-reviewer` on T001's diff alone before T002 starts.*

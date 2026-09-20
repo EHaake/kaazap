@@ -217,8 +217,8 @@ pub struct NodeRef {
 /// call returns `None`, so a second settlement pays nothing, moves no series
 /// tally and beats nobody. Settling exactly once is therefore a property of the
 /// data, not an ordering rule about who calls what: spec 021 bought that for the
-/// payout with `take_stake`'s zeroing, and spec 029 extends it to cover the
-/// series tally and `mark_beaten`, neither of which is idempotent on its own.
+/// payout by zeroing the escrow, and spec 029 extends it to cover the series
+/// tally and `mark_beaten`, neither of which is idempotent on its own.
 /// It does **not** cover `Profile::record_match`, which runs before settlement —
 /// a second `resolve_match` would still double-count statistics, as it would
 /// before this spec; that one is still guarded only by the `GameOver` edge.
@@ -231,8 +231,23 @@ pub fn take_settlement(&mut self) -> Option<(NodeRef, u32)> {
 ```
 
 `take_stake` is **deleted** — `take_settlement` is its only caller's
-replacement, and two ways to empty one escrow is one too many. `stake_at_risk()`
-is untouched, so `App::stake_to_show`'s "escrow while playing, banner at game
+replacement, and two ways to empty one escrow is one too many.
+
+**One consequence, recorded because it moves three existing assertions**
+(decision review, 2026-09-20). Because `settle_campaign_match` now opens with
+`take_settlement()?`, a **second** settlement of one match returns `None` where
+it previously returned `Some(StakeOutcome::Won(0))` / `Some(Lost(0))` — the
+escrow was empty, so it paid nothing, but it still returned a value. That is
+visible in exactly three `profile.rs` tests (`settling_a_win_…`,
+`settling_a_loss_…`, `resolve_match_moves_the_run_credit_counters_…`), whose
+second-settlement lines move to `None` in T001, and **nowhere in production**:
+`app.rs`'s one caller already handles `None` for every Quick Play match, and the
+`phase_changed && GameOver` discriminant edge fires once. The run credit tally is
+unaffected either way, because the old second call recorded `win_payout(0)` — a
+zero. Acceptance criterion 15 therefore still holds, and this is the evidence for
+it.
+
+`stake_at_risk()` is untouched, so `App::stake_to_show`'s "escrow while playing, banner at game
 over" behaviour (spec 026) is unchanged: the escrow still reads zero the moment
 settlement runs.
 
