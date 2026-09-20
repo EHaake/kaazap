@@ -145,6 +145,47 @@ ending restores the terminal and a crash says so. -->
   guard owns the sender and the `JoinHandle` and joins in its `Drop`); it is a
   sub-lettered task, not a redesign.*
 
+- [x] **T002a** — `src/main.rs`: the guard joins the render thread. Logged
+  2026-09-19 from the Phase 1 walkthrough, which the task line required: with
+  `KAAZAP_CRASH_AT=tick` and `=draw`, **all six runs of each** put render-thread
+  `MoveTo` sequences on the real terminal after `LeaveAlternateScreen`, and in
+  five of the twelve the crash text itself was visibly broken by stray escape
+  fragments and blank padding. The cursor was visible in every run (AC 2's
+  cursor half holds — `render.rs` emits no `Hide`), so the failure is the
+  garbling, not the cursor. `=key`, `=render`, `=input` and a normal `q` quit
+  were clean in all six runs each.
+  The Phase 1 review found *why* the in-loop `crash::report()` check doesn't
+  cover it, and it is not the interleaving the plan modelled: the **forced
+  first render before the loop** (`main.rs:51`, `render(&mut stdout, …, true)`)
+  can never reach that check, and `tick`, `draw` and `input` all fire on the
+  first game-loop iteration, microseconds after `thread::spawn` returns. The
+  window is structural, not rare.
+  Turn on the fallback plan §Design tension 1 pre-authorizes: give
+  `TerminalGuard` an `Option<JoinHandle<()>>`, set after the spawn, and have its
+  `Drop` `take()` and `join()` it (ignoring an `Err` — the hook already recorded
+  it) **before** `crash::restore_terminal()`. The sender does not move into the
+  guard: `render_tx` is declared after `_terminal`, so reverse drop order
+  already drops it first, and the join is then bounded.
+  **Keep `main`'s own `join().unwrap()` on the `q` path** — that is what turns
+  a panicked render thread into an unsuccessful exit (AC 3). Main takes the
+  handle out of the guard and joins/unwraps it exactly as today; the guard's
+  `Drop` joins only what main left behind. Collapsing the two would make AC 3
+  exit 0.
+  Also correct the two sentences in `plan.md` §Design tension 1 the review
+  found false — "a frame already past that check" (it is the pre-loop forced
+  render) and the "if `render.rs` emits a per-frame cursor `Hide`" conditional
+  (it does not) — and the over-claiming parenthetical in `main.rs`'s drop-order
+  comment, "(and with it the render thread)": dropping a `SyncSender`
+  disconnects the thread, it does not join it — which is precisely what this
+  task changes.
+  No tests (same terminal side-effect and process-exit behaviour as T002). Do
+  not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim; `git diff --stat` shows only `src/main.rs` and
+  `specs/028-crash-and-data-safety/plan.md`; the orchestrator re-runs the
+  walkthrough harness, six runs of each crash point, and the report says
+  whether `=tick` and `=draw` are clean.*
+
 ## Phase 2 — Every file is written whole (foundational; walkthrough: none — the same three files are written at the same moments with the same contents, so nothing the person can see changes; the criteria are pinned by tests)
 
 <!-- T003 is the function AND its three call sites — they cannot be split: a
@@ -490,3 +531,6 @@ spec under a policy — this is it for the economy profile. -->
 | Planning: sign-off notes (sdd-planner, same context) | opus → opus | 39K harness-measured (264K cumulative for the planner across both dispatches, less the 225K first pass; the planner's own estimate for the revision was ~25K) | 1 | yes | — | B1, B2 and S1–S8 applied. Premise confirmed by the reviewer and now recorded in plan tension 1: `Cargo.toml` sets no `panic = "abort"`, so `Drop` runs in release and the Phase 1 design holds. Both files still Draft |
 | T001 (sdd-implementer) | opus → opus | 38K | 1 | yes | — | `src/crash.rs` + `pub mod crash;`; both named tests pass; toolchain is rustc 1.91.1 so `payload_as_str` is in (no `rust-version` added) |
 | T002 (sdd-implementer) | opus → opus | 38K | 1 | yes | — | `TerminalGuard` + `crash_if_requested` in `main.rs`; teardown greps empty; no `panic = "abort"` in `Cargo.toml` re-confirmed. Note for the walkthrough: under `=key`, `q` still quits cleanly (the `q` arm precedes the seam) — press another key to crash |
+| Phase 1 review (skeptical-reviewer) | opus → opus | 61K | 1 | — | 0 blocking | Signed off. Non-blocking: the pre-loop forced render is outside the in-loop crash check and is the real window (plan tension 1's model corrected); the drop-order comment over-claims; `eprintln!` in `Drop` can panic on a closed stderr; `payload_as_str` now pins Rust >= 1.91 with nothing saying so. Predicted the `=tick`/`=draw` garbling the walkthrough then confirmed |
+| Phase 1 walkthrough (orchestrator) | — | — | 5 points x 6 runs + quit | — | — | `q` exit 0 silent; `=key`, `=render` exit 101 clean; `=input` exit 1, `Error: kaazap couldn't read the terminal`, no panic text; **`=tick` and `=draw` garbled 6/6 each** -> T002a logged. Cursor visible in every run. Scratch `KAAZAP_DATA_DIR` throughout |
+| T002a (sdd-implementer) | opus → opus | 40K | 1 | yes | — | Guard owns `Option<JoinHandle>`, joins before restoring; `main` keeps its own `join().unwrap()` for AC 3's exit 101; plan tension 1's two false sentences and its Rejected entry corrected. **Re-walkthrough: 33 runs (3 quit + 6 each of tick/draw/input/key/render) all CLEAN, cursor visible, exit codes 0/101/101/1/101 as the plan's table** |

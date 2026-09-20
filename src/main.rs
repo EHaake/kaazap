@@ -25,9 +25,10 @@ fn main() -> anyhow::Result<()> {
     let mut config = Config::from_terminal()?;
 
     // Declared first, so it is dropped *last*: locals drop in reverse order,
-    // so the render thread's sender (and with it the render thread) is gone
+    // so the render thread's sender is dropped — disconnecting the thread —
     // before the terminal is restored and any crash report printed on it.
-    let _terminal = TerminalGuard::enter()?;
+    // That ordering is also what bounds the join in the guard's `Drop`.
+    let mut _terminal = TerminalGuard::enter()?;
 
     // The deliberate-crash seam (spec 028); `None` on every ordinary run.
     let crash_at = std::env::var("KAAZAP_CRASH_AT").ok();
@@ -66,6 +67,11 @@ fn main() -> anyhow::Result<()> {
             last_frame = curr_frame;
         }
     });
+
+    // Hand the handle to the guard: on the panic path nothing else joins the
+    // render thread, so its `Drop` does, before restoring. On the `q` path
+    // main takes it back below and joins it itself.
+    _terminal.render = Some(render_handle);
 
     // Game loop
     //
@@ -143,9 +149,14 @@ fn main() -> anyhow::Result<()> {
 
     // Cleanup and close
     //
-    // First make sure threads are cleaned up
+    // First make sure threads are cleaned up. Take the handle back from the
+    // guard and join it here: this `unwrap` is what turns a panicked render
+    // thread into an unsuccessful exit (spec 028 AC 3); the guard's own join
+    // ignores the error.
     drop(render_tx);
-    render_handle.join().unwrap(); // a panicked render thread surfaces here
+    if let Some(render_handle) = _terminal.render.take() {
+        render_handle.join().unwrap(); // a panicked render thread surfaces here
+    }
 
     Ok(())
 }
@@ -155,11 +166,14 @@ fn main() -> anyhow::Result<()> {
 /// either thread. `Drop` covers all three, so the restore has exactly one home
 /// and the crash report is printed after it, on the real terminal. (Not a
 /// signal: `kill` still leaves the terminal as it was.)
-struct TerminalGuard;
+struct TerminalGuard {
+    /// The render thread, unless `main` already took it back to join itself.
+    render: Option<std::thread::JoinHandle<()>>,
+}
 
 impl TerminalGuard {
     fn enter() -> anyhow::Result<Self> {
-        let guard = Self; // from here on, an early `?` restores too
+        let guard = Self { render: None }; // from here on, an early `?` restores too
         crash::install_hook(); // …and from here on, a panic is recorded and
         // printed by the Drop below, after the restore
         terminal::enable_raw_mode()?;
@@ -172,6 +186,14 @@ impl TerminalGuard {
 
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
+        // Join the render thread first, so no frame it still had in flight is
+        // drawn on the real terminal after the restore or over the report. The
+        // sender is declared after the guard and has therefore already been
+        // dropped, so the thread's `recv` has failed and this join is bounded.
+        // An `Err` here is the thread's own panic, already recorded by the hook.
+        if let Some(handle) = self.render.take() {
+            let _ = handle.join();
+        }
         crash::restore_terminal();
         if let Some(report) = crash::report() {
             for line in crash::crash_lines(report) {

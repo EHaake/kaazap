@@ -96,18 +96,27 @@ Consequences, each deliberate:
   top of its loop, `if crash::report().is_some() { break; }`, so a frame queued
   at the moment of the panic can't be drawn over the report. The hook sets the
   report before unwinding begins, so the flag is up before the sender drops.
-  **This narrows the window, it does not close it**: a frame already past that
-  check is drawn while the main thread is running `LeaveAlternateScreen` and
-  `eprintln!`, and nothing joins the render thread on the panic path. If
-  `render.rs` emits a per-frame cursor `Hide`, the visible consequence is a
-  hidden cursor after the restore — which is exactly what AC 2 checks. The
-  Phase 1 walkthrough therefore has to *say*, for `KAAZAP_CRASH_AT=draw` and
-  `=tick`, that the cursor was visible and nothing was garbled above the crash
-  line. **Fallback if it isn't**: give the guard the sender and the
-  `JoinHandle`, and have its `Drop` drop the sender and `join` (ignoring an
-  `Err` — the hook already recorded it) before restoring. That is
-  deterministic and costs one small struct; it is held back only because the
-  simpler version is expected to hold, and the walkthrough is what decides.
+  **This narrows the window, it does not close it**, and the gap is structural
+  rather than rare: the **forced first render before the loop** never reaches
+  that check at all, and `tick`, `draw` and `input` all fire on the first
+  game-loop iteration, microseconds after `thread::spawn` returns. So a frame
+  is drawn while the main thread is running `LeaveAlternateScreen` and
+  `eprintln!`, and nothing joins the render thread on the panic path. The
+  visible consequence is not a hidden cursor — `render.rs` emits no per-frame
+  `Hide`, so AC 2's cursor half holds either way — but the render thread's
+  `MoveTo` sequences landing on the real terminal, garbling the crash report.
+  **Fallback if it isn't**: give the guard the `JoinHandle` and have its `Drop`
+  `join` it (ignoring an `Err` — the hook already recorded it) before
+  restoring. That is deterministic and costs one field.
+  **The Phase 1 walkthrough took the fallback (T002a, 2026-09-19)**: six runs
+  each of `KAAZAP_CRASH_AT=tick` and `=draw` were garbled every time, so
+  `TerminalGuard` now carries `render: Option<JoinHandle<()>>`, set just after
+  the spawn, and joins it at the top of its `Drop`. The sender stays in `main`:
+  `render_tx` is declared after the guard, so reverse drop order disconnects
+  the thread first and the join is bounded. `main`'s own
+  `join().unwrap()` on the `q` path stays as it is — it takes the handle back
+  out of the guard — because that `unwrap`, not the guard's ignored `Err`, is
+  what makes a panicked render thread exit 101 (AC 3).
 - **Restoring twice is harmless** because `crash::restore_terminal()` ignores
   every error (`let _ = …`) rather than unwrapping — which it must anyway: a
   panic inside `Drop` during unwinding aborts the process.
@@ -132,9 +141,8 @@ Consequences, each deliberate:
 Rejected: `catch_unwind` around the loop (the spec's non-goal — no recovery —
 and more code for the same teardown); printing from the hook and restoring in
 the guard (the report lands on the alternate screen); a guard that also owns
-the channel and joins the render thread in its `Drop` (deterministic, but a
-second lifetime-shaped abstraction for a window measured in microseconds on a
-path that ends the process).
+the channel as well as the handle (the sender has to drop *before* the join
+for it to terminate, which reverse drop order already gives for free).
 
 ### 2. `KAAZAP_CRASH_AT` — the only way to demonstrate a crash
 
