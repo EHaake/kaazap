@@ -1652,3 +1652,270 @@ session had to back up the human's profile first.
 - **Why a chore and not a spec.** One new module and three one-line call-site
   changes, with no engine, AI, save-format, balance-data or dependency change
   and no new screen or mode.
+
+## Crash & data safety (spec 028)
+
+An audit found three ways kaazap failed badly, all confirmed in the code. The
+terminal was restored in exactly one place, reachable only by `break
+'gameloop` on `q`, so any panic or input error dropped the player into a shell
+with no cursor and no echo. All three writers replaced a file in place with
+`fs::write`, so an interrupted write destroyed the progress it was meant to
+preserve. And `Profile::load` collapsed missing, unreadable, malformed and
+wrong-version into `unwrap_or_default()`, after which the first `save()` wrote
+a starter profile over the campaign it could not read — silently. This is a
+repair spec: one new module (`src/crash.rs`), one shared function
+(`paths::write_whole`), one modal variant, one enum and one struct on
+`Profile`. No new screen, no new phase, no new crate, no engine, AI, economy
+or balance change. Ruled by the person on 2026-09-19, with Q6 added at plan
+sign-off the same day.
+
+- **Q1 a — an unreadable profile is moved aside under a dated name, and the
+  notice says where it went.** The alternatives were to leave it and refuse to
+  save (nothing persists, and the player has to know that), or to leave it and
+  let the next save overwrite it after a warning. Setting it aside is the only
+  one where a recoverable campaign is actually recoverable, and it is the same
+  instinct as the *archive the last run at reset* backlog item — which stays
+  separate and still open.
+- **Q2 a — the notice is a modal on the start menu, dismissed with a key.** A
+  persistent line, and a banner that clears on the first navigation, were both
+  offered. Losing a run deserves a stop, not a line the player scrolls past.
+- **Q3 b — the notice says why.** "Couldn't be read" and "saved by a different
+  version of kaazap" are separate messages, because the version case is the
+  only one where the player can act, by finding the build that wrote it. The
+  two internal cases the player *can't* act on differently — an I/O or
+  permission failure and a malformed document — are deliberately one message
+  (`ProfileProblem::Unreadable`).
+- **Q4 a — a bad match save gets a notice too, but no file is kept.** Before
+  this spec **Continue** simply disappeared with no explanation. The accepted
+  consequence: the unreadable save is removed so the notice doesn't repeat
+  every launch, so that one match is gone for good. A match is not a run.
+- **Q5 a — the crash report is one kaazap line plus the panic's message and
+  location**, rather than raw panic output alone, so the player knows it was
+  kaazap and a bug report has something in it.
+- **Q6 a — `q` and `m` still act while the notice is up** (the person,
+  2026-09-19, at plan sign-off). The sign-off raised this as blocking rather
+  than deciding it: the plan kept both keys live against the spec's original
+  "no other key does anything while it is up". Both are handled before the
+  modal chain — `q` in the game loop itself, before `App` sees the key; `m`
+  ahead of modal routing since spec 004 — so suppressing them would have made
+  this the one modal in the game you cannot quit or mute under, and would have
+  meant the game loop asking `App` which modal is open. **`spec.md` was
+  amended** in two places and carries a dated Q6 section naming them as the
+  standing exception, so the acceptance criterion and the design now agree.
+  Enter, Space and Esc dismiss; nothing else acts.
+
+Design calls made during planning:
+
+- **A panic hook that records, and a guard that restores and prints** (§1).
+  Two mechanisms, neither doing its usual job. The **guard** (`TerminalGuard`
+  in `main.rs`) is the only way to reach the restore on the non-panic paths —
+  `q`, and an `Err` from `event::poll`/`event::read` leaving `main` through
+  `?` — and its `Drop` also runs while a panic unwinds, so the restore has
+  exactly one home and the three teardown lines left the end of `main`. The
+  **hook** prints nothing: the default hook prints *before* unwinding reaches
+  any guard, i.e. while the alternate screen is still up, and that output is
+  thrown away when we leave it. So the hook records the first panic's message
+  and location into a `OnceLock` in `crash.rs`, and the guard's `Drop` prints
+  the report **after** the restore. Consequences, each deliberate: **first
+  panic wins**, so a render-thread panic (the cause) is what gets reported and
+  the `join().unwrap()` that surfaces it on the main thread (the symptom) is a
+  no-op against an already-set `OnceLock`, and the process still exits 101;
+  the hook is installed **inside `TerminalGuard::enter`, before raw mode**, so
+  no window exists where the default hook prints onto the alternate screen
+  with nothing recorded to reprint; `restore_terminal` swallows every error
+  (`let _ = …`) rather than unwrapping, because a panic inside a `Drop` during
+  unwinding aborts the process, and because restoring twice must change
+  nothing. The whole design depends on `Drop` running: `Cargo.toml` sets no
+  `panic = "abort"` in any profile (checked at planning and re-checked at
+  T002), so a panic unwinds in release as well as debug. If that ever changes,
+  the crash path has to move into the hook.
+  - **The guard joins the render thread before restoring**, and that was not
+    the first design. The plan shipped with one flag check at the top of the
+    render loop (`if crash::report().is_some() { break; }`) and named a
+    deterministic fallback in case it wasn't enough. The Phase 1 walkthrough
+    found `KAAZAP_CRASH_AT=tick` and `=draw` garbled the crash report **6 runs
+    out of 6** — the forced first render before the loop never reaches the
+    check at all — so the fallback was taken (T002a): the guard carries
+    `render: Option<JoinHandle<()>>` and joins it at the top of its `Drop`.
+    The re-walkthrough was clean in all 33 runs.
+  - **The join is only bounded because `render_tx` is declared *after* the
+    guard.** Locals drop in reverse declaration order, so the channel sender
+    goes first, the render thread's `recv` fails, and the thread ends — then
+    the join returns. Hoisting the channel above the guard would deadlock
+    every ending. Two comments in `main.rs` say so; it cannot be unit-tested,
+    so it is checked at review and in the walkthrough.
+  - **`main` keeps its own `join().unwrap()` on the `q` path**, taking the
+    handle back out of the guard. That `unwrap`, not the guard's ignored
+    `Err`, is what makes a panicked render thread exit 101.
+  - **Scope: the endings `spec.md` enumerates.** `q`, an input error, and a
+    panic on either thread. A `SIGTERM` or `kill -9` still leaves the terminal
+    unrestored; a signal handler is not in this spec. That is a boundary, not
+    a gap — but nothing should describe the guarantee as "however kaazap
+    ends".
+  - Rejected: `catch_unwind` around the loop (the spec's own non-goal — no
+    recovery — and more code for the same teardown); printing from the hook
+    (the report lands on the alternate screen); a guard owning the channel as
+    well as the handle (the sender has to drop *before* the join, which
+    reverse drop order already gives for free).
+- **`KAAZAP_CRASH_AT` ships in the binary, and is deliberately undocumented**
+  (§2). Four acceptance criteria are about what a crash looks like, and a
+  shipped binary cannot otherwise panic on purpose. `main` reads the variable
+  **once** before the loop; `key`, `tick`, `draw` and `render` panic at those
+  points, and `input` returns `Err` from `main` at the same place
+  `event::poll`'s `?` would — the no-panic path of AC 4. Nothing in the game
+  sets it, and no key, file or menu reaches it. It matches the existing
+  `KAAZAP_DATA_DIR` idiom, and it is **not** in `Readme.md`: it is a review
+  and walkthrough seam, not a player feature.
+- **One `write_whole` in `paths.rs`, a fixed temp name, and no `fsync`** (§3).
+  `pub(crate) fn write_whole(path: &Path, contents: &str) -> bool` writes to
+  `path.with_extension("tmp")` and `fs::rename`s it over the target. Stated no
+  more strongly than it is true: the bytes are complete before anything
+  replaces the file the game reads, so an interrupted write leaves the
+  previous file byte-for-byte unchanged and never leaves a half-written file
+  *under the real name*. On POSIX the replacement is atomic; on Windows
+  `std::fs::rename` prefers `FileRenameInfoEx` and falls back to `MoveFileEx`,
+  which Microsoft does not guarantee atomic in every case — safe either way
+  for this purpose, with one Windows-only consequence: if another process
+  holds the target open the rename fails and the save is a silent no-op, which
+  is exactly the best-effort contract all three callers already had. The temp
+  name is **fixed, not unique**, so repeated interrupted writes leave one
+  piece of debris rather than a growing pile, and it is never `*.json`, so no
+  loader looks at it. It lives in `paths.rs` — "where kaazap's files live"
+  becomes "…and how they are written" — rather than in a module whose whole
+  content would be one function, and it takes an explicit `&Path`, so its own
+  unit tests need no data root and can't race the `OnceLock`.
+  - **No `fsync`, and here is the reason, so a later power-cut question finds
+    it.** `File::create` + `write_all` + `sync_all` would additionally survive
+    a *machine* crash, but Rust's `sync_all` is `F_FULLFSYNC` on macOS — a
+    full device flush — and the match save is written on **every state
+    change**, i.e. effectively every key press. The acceptance criteria are
+    about a write that fails partway, which rename alone covers completely;
+    the power cut appears only in the spec's narrative. A durable version
+    would also have to fsync the *directory*. This is one line to change if
+    the person ever wants to pay for it; `write_whole`'s doc comment names
+    `fsync` and cites plan §Design tension 3 so the trade is findable from the
+    code.
+  - **`write_whole` is a convention, not an enforced rule.** All three writers
+    go through it, and nothing in the test suite would catch a fourth writer
+    calling `fs::write` directly — or one built from `File::create` +
+    `write_all`, or `serde_json::to_writer`. The greps in T009 are a one-shot
+    check at merge, not a regression guard. **The next writer of a kaazap file
+    goes through `paths::write_whole`.**
+  - **Two kaazap processes writing at once is the one case the fixed temp name
+    does not cover.** Both would write the same `<stem>.tmp` and an
+    interleaving could splice them before either renames. This was bought
+    deliberately: unique temp names would trade a rare two-instance corruption
+    for certain debris accumulation across crashes. A known limit, not an
+    oversight.
+  - **Write-then-rename changes two things `fs::write` did not.** The file
+    gets fresh permission bits at the default umask rather than keeping the
+    ones it had, and a symlink at the target is replaced rather than written
+    through. Neither matters for a game's saves; both are now inherited by
+    every future writer.
+- **The save suspension is a process-scoped flag, not a field** (§4). When an
+  unreadable profile cannot be moved aside, nothing may overwrite it for the
+  rest of the launch — and "the rest of that launch" *is* the process, so
+  `static SAVES_SUSPENDED: AtomicBool` in `profile.rs`, set by `load` when the
+  move fails and read as the first line of `save`. With twelve `save()` call
+  sites the guard has to live behind `save` itself. Rejected: a
+  `#[serde(skip)]` field on `Profile`, because `reset_to_starter` does `*self
+  = Profile::default()`, which would silently clear the flag and let **Reset
+  Everything** write over the very file the flag exists to protect; and a flag
+  on `App`, because twelve call sites and every future one would have to
+  remember it. The static is the same shape as `paths::ROOT`.
+- **A dated name, hand-rolled, in UTC** (§6). `profile-YYYYMMDD-HHMMSS.json`,
+  beside the file it replaces. The spec wants a name the player can find, and
+  the toolbox has no date crate and is not getting one, so `profile.rs` gained
+  about twenty pure lines: seconds since the epoch split into a day count and
+  a time of day, plus the standard civil-from-days conversion (verified
+  longhand against all three test vectors at review, including a pre-epoch
+  one). **UTC**, because local time needs the platform's zone database, which
+  needs a crate — so a player well east or west of UTC may see a name a day
+  off their local clock. If the name is taken — two bad launches in the same
+  second, or a hand-made copy — `-2` … `-9` follow; past that the move is not
+  attempted, which lands in the suspended branch, the safe end. The caller
+  takes the first name whose path doesn't exist, because `fs::rename` would
+  otherwise *replace* an existing set-aside file. The integration test
+  produced `profile-20260920-023255{,-2,-3}.json` with all three collisions in
+  one second, so the numbered branch is what actually ran. Rejected:
+  `profile-<unix-seconds>.json` (no date math, but unreadable to a player) and
+  the file's own mtime (the same formatting problem).
+- **Two keys still act under the notice, and the `?` ordering is now a
+  comment** (§8). See Q6 above for the ruling. The plan's own claim — that the
+  set is just `q` and `m` — was treated as a claim, not a reading: the Phase 4
+  review **enumerated** the keys from the top of `handle_key` down and
+  confirmed it (`q` in `main.rs` before `App`; `m` ahead of the modal ladder;
+  Enter/Space/Esc in the arm; everything else a no-op, including `?`, `L`,
+  `Q`, `M`, the arrows, the digits and Ctrl+P/N/B/F, which arrive as arrows).
+  One ordering is load-bearing and invisible: **`?` is handled inside the
+  `else` branch that runs only when no modal is open**, so it cannot reach the
+  notice — but if it ever moved ahead of the modal chain, opening and closing
+  help would set `self.modal = None` and the notice would be gone for good,
+  with nothing to bring it back. That constraint was carried out of the review
+  and into the code as a comment at the `?` site (T008a), so it outlives the
+  review that found it. For the record, `m` under the notice **mutes
+  silently** — it is not a no-op, it simply has nothing to draw.
+- **The notice is a `Modal` carrying its lines** (§7). `Modal::DataNotice(
+  Vec<String>)`, built once in `App::new` by a pure `data_notice_lines(profile,
+  save_unreadable) -> Option<Vec<String>>` whose `None` *is* the "raise no
+  modal" answer, so there is no separate predicate. The other notices rebuild
+  their lines each draw because their content is live run state; this content
+  is fixed at launch and its inputs are gone by the second frame, so it is
+  carried and `App` gains no field. Dismissal reuses the existing
+  `notice_dismissed` and `draw_notice`, so there is no new drawing code and no
+  `resize` arm. One line of the drafted wording was **replaced at T008**
+  on a Phase 3 review finding: "nothing from this session is kept" was
+  literally false, because only `Profile::save` no-ops under suspension while
+  `save::save` and `Settings::save` still write. Both documents carried the
+  claim — `plan.md`'s §Design 7 code block, and `spec.md`'s *Key behavior*
+  line "nothing from that session persists, and the notice says that too" —
+  and the notice's shipped wording is the correction for both: "kaazap won't
+  save over it, so the campaign you play this session won't be kept." The
+  match save and the settings file still persist under profile suspension.
+  `plan.md` was amended to match; `spec.md` was left as the person wrote it,
+  and no acceptance criterion repeats the claim.
+
+Two things a future reader should know that have no other home:
+
+- **`payload_as_str` pins the crate to Rust ≥ 1.91.** The panic hook uses
+  `PanicHookInfo::payload_as_str`, stable from 1.91, and nothing in the tree
+  says so — AC 17 forbids adding `rust-version` to `Cargo.toml`. The toolchain
+  in use is 1.91.1. The two-arm `&str` / `String` downcast is the equivalent
+  with no version floor if that ever bites.
+- **`eprintln!` inside `TerminalGuard::drop` can panic on a closed stderr**
+  (`kaazap 2>&1 | head -1`), and a panic inside a `Drop` during unwinding
+  aborts the process. `restore_terminal` is unwrap-free by design; this is the
+  one unguarded panic site left on that path. No acceptance criterion covers
+  it, so it is recorded here rather than fixed under this spec.
+
+Attested by driver walkthroughs at 89×31 with `KAAZAP_DATA_DIR` pointed at a
+scratch directory throughout — the real profile, save and settings were never
+in play. **Phase 1** (T002, then T002a after the fix): 33 runs — 3 quits plus
+6 each of `=tick`, `=draw`, `=input`, `=key` and `=render` — all clean, the
+cursor visible every time, exit codes 0 for the quit, 101 for each panic and 1
+for the input error, with the `input` run printing `Error: kaazap couldn't
+read the terminal` and **no panic text**. **Phase 4** (T008), ten runs: (a) a
+clean launch showed no notice and created nothing; (b) a malformed profile
+raised the notice naming the dated file, the kept bytes were identical, and
+playing a **whole match** afterwards left the kept file md5-identical with
+exactly one set-aside file and a fresh `profile.json`; (c) a `"version": 2`
+profile gave the wrong-version wording; (d) a malformed match save gave its
+line, no **Continue**, the file removed, and a **silent next launch**; (e)
+both damaged at once gave **one** notice, box 73 wide, nothing clipped, and
+the move-failed case gave the widest box — 87 columns with one column of
+margin each side, exactly the review's arithmetic — with the unreadable file
+still there unchanged; (f) `?`, `L`, `m`, an arrow, `3` and `x` left the
+screen byte-identical with the menu selection unmoved, Enter, Space and Esc
+each dismissed to the menu with the selection where it starts, and `q` quit
+with exit 0 and a clean terminal.
+
+No engine, AI, economy, wager, balance-data or dependency change: `card.rs`,
+`game.rs`, `player.rs`, `opponent.rs`, `economy.rs`, `campaign.rs`,
+`wager.rs`, `tests/balance.rs`, `Cargo.toml` and `Cargo.lock` are untouched;
+`PROFILE_VERSION` and `SAVE_VERSION` both stay 1; the version comparisons and
+every `#[serde(default)]` are unchanged — `Profile::from_json` became a
+`#[cfg(test)]` wrapper over a new `classify(text) -> Result<Self,
+ProfileProblem>` precisely so every existing profile test stands unedited and
+the gate's behaviour is visibly the same; no new crate; the build has no
+warnings, the same count as `main`. Monochrome by construction: the notice
+reuses `draw_notice`'s existing emphasis levels and adds none.

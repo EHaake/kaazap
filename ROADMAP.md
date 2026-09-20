@@ -507,6 +507,51 @@ of, not guessed at here in advance.
   arrivals, the ghost, the popup beat, the dots and the settled first
   frames at 89×31 and 139×31, and the Off state at 89×31. `Readme.md`'s settings mention names the
   row.
+- **Crash & data safety** (spec 028) — three ways kaazap failed badly, found
+  by an audit of the existing code and all three fixed. **The terminal now
+  comes back at every ending `spec.md` enumerates**: quitting with `q`, an
+  error reading a terminal event, and a panic in key handling, in the
+  per-frame update, in drawing, or on the render thread. A `TerminalGuard`
+  declared first in `main` (so it drops last) owns the restore — its `Drop`
+  runs while a panic unwinds — and a panic hook installed before raw mode
+  **records** the first panic instead of printing it, so the **crash report**
+  (one kaazap line, then the panic's own message and location — Q5 a) lands on
+  the terminal the player came from rather than on the alternate screen being
+  torn down. Signals are deliberately outside the spec: `SIGTERM` and
+  `kill -9` still leave the terminal unrestored. **Every file is written whole
+  or not at all**: one `paths::write_whole` (bytes to a fixed temp file beside
+  the target, then `fs::rename` over it) now serves the profile, the settings
+  and the match save, so an interrupted write leaves the previous file
+  byte-for-byte unchanged and leaves at most one `*.tmp` of debris, which is
+  never `*.json` and so is never loaded and never accumulates. **A profile
+  that can't be read is no longer mistaken for a first launch**: missing — or
+  no data directory at all — stays silent with a starter profile, but
+  unreadable, malformed and wrong-version each keep the file aside as
+  `profile-YYYYMMDD-HHMMSS.json` beside where it was (Q1 a) and raise a **data
+  notice** modal over the start menu (Q2 a) saying which failure it was
+  ("couldn't be read", or "saved by a different version of kaazap" — Q3 b) and
+  where the file went. If the move itself fails, the notice says so and a
+  process-wide flag **suspends every profile save for the rest of that
+  launch**, so nothing overwrites the file that couldn't be read. A match save
+  that can't be read gets its own line in the same notice and is **removed**
+  (Q4 a): **Continue** is absent, as before, and the notice does not repeat on
+  the next launch. One notice per launch carries both failures. Enter, Space
+  and Esc dismiss it to the untouched start menu; `q` and `m` still quit and
+  mute as they do under every other modal (Q6, ruled by the person at sign-off
+  and written into `spec.md`); nothing else acts. `KAAZAP_CRASH_AT`
+  (`key`/`tick`/`draw`/`render`/`input`) ships in the binary as the only way
+  to demonstrate a crash, following the `KAAZAP_DATA_DIR` idiom and
+  deliberately **not** documented in `Readme.md`. No engine, AI, economy,
+  wager, balance-data or dependency change, and no new screen or mode:
+  `card.rs`, `game.rs`, `player.rs`, `opponent.rs`, `economy.rs`,
+  `campaign.rs`, `wager.rs`, `tests/balance.rs`, `Cargo.toml` and `Cargo.lock`
+  are untouched, `PROFILE_VERSION` / `SAVE_VERSION` stay 1, and the version
+  gates and every `#[serde(default)]` are unchanged. Driver walkthroughs
+  against a scratch `KAAZAP_DATA_DIR` attested 33 crash-and-quit runs at 89×31
+  after Phase 1 (the first pass found `=tick` and `=draw` garbling the report
+  6/6, which is why the guard now joins the render thread before restoring)
+  and all six data scenarios at 89×31 after Phase 4. `Readme.md`'s **Saved
+  data** paragraph names the set-aside file.
 
 ## Backlog
 
@@ -741,7 +786,20 @@ human's stated priority is the first-run onboarding.
   nothing migrated). **Still open, the follow-up the seam exists for:** seven
   `app.rs` unit tests construct an `App` and so still read the real profile,
   settings and save — pointing them at a scratch root changes those tests'
-  behaviour and was left outside the chore's footprint.
+  behaviour and was left outside the chore's footprint. **Spec 028 raised the
+  stakes on it.** `App::new` no longer merely *reads* the real data folder, it
+  repairs it: `Profile::load` **moves** an unreadable profile aside to a dated
+  name, and `save::check_at_launch` **deletes** an unreadable match save. On
+  healthy files nothing happens; on a machine whose data folder is damaged, a
+  `cargo test` run now *changes* it — doing what the next launch would have
+  done, so nothing recoverable is lost, but doing it from a test run rather
+  than from the game. Some of those tests also call `draw` without
+  overwriting `app.modal`, and since spec 028 `App::new` can set it, so on such
+  a machine the launch notice would draw over the board and fail their row
+  assertions (before spec 028 the modal was unconditionally `None` at
+  construction). Related trap for anyone testing by hand: **never run
+  `cargo test` from a shell with `KAAZAP_DATA_DIR` exported at a fixture
+  directory** — it repairs the scenario you were about to test.
 - **Release readiness** (chores, not a spec): a **CI workflow** running
   `cargo build --all-targets` and `cargo test` on push (none exists);
   **README screenshots** of the menu, a match, the map and the shop;
