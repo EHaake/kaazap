@@ -56,7 +56,7 @@ input arm is as drafted; no task line needs editing.
 <!-- T001 is the pure module; T002 is main.rs wiring it. After T002 every
 ending restores the terminal and a crash says so. -->
 
-- [ ] **T001** — `src/crash.rs` (new) + `src/lib.rs`: the recorded crash report
+- [x] **T001** — `src/crash.rs` (new) + `src/lib.rs`: the recorded crash report
   and the terminal restore. Per plan §Design 1: the module doc; `static REPORT:
   OnceLock<CrashReport>`; `pub struct CrashReport { message: String, location:
   Option<String> }` deriving `Debug, Clone, PartialEq, Eq`; `pub fn
@@ -488,3 +488,4 @@ spec under a policy — this is it for the economy profile. -->
 | Planning: draft (sdd-planner) | opus → opus | 225K | 1 | — | — | drafted; 9 tasks in 5 phases, Phases 2 and 3 foundational, T003 and T005 `review: per-task`; no product question; 6 design choices flagged for sign-off |
 | plan + tasks sign-off (skeptical-reviewer) | opus → opus | 126K (82K in / 9K out over both passes) | 2 (review + re-review) | — | 3 (B1: T004's integration test breaks T005's build and its stated footprint; B2: `write_whole` lands with no caller and is `dead_code` against its own no-warnings bar; B3: `q`/`m` under the notice contradicts an acceptance criterion — **with the person**) + S1–S8 | B1 and B2 applied by the planner (T003 now carries the three call sites, T004 is the test alone, T005 owns the test's one-line update); B3 ruled by the person as Q6 (both keys stay live) and `spec.md` amended; S1–S8 folded in. Re-review: every finding fixed, nothing new blocking, **signed off**. Its one non-blocking sweep item — three passages still describing B3 as open — was applied by the orchestrator in the same commit as this row. |
 | Planning: sign-off notes (sdd-planner, same context) | opus → opus | 39K harness-measured (264K cumulative for the planner across both dispatches, less the 225K first pass; the planner's own estimate for the revision was ~25K) | 1 | yes | — | B1, B2 and S1–S8 applied. Premise confirmed by the reviewer and now recorded in plan tension 1: `Cargo.toml` sets no `panic = "abort"`, so `Drop` runs in release and the Phase 1 design holds. Both files still Draft |
+| T001 (sdd-implementer) | opus → opus | 38K | 1 | yes | — | `src/crash.rs` + `pub mod crash;`; both named tests pass; toolchain is rustc 1.91.1 so `payload_as_str` is in (no `rust-version` added) |
