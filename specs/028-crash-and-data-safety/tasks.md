@@ -233,7 +233,7 @@ target that `cargo build --all-targets` also builds, and every task here has a
   then dispatches a `skeptical-reviewer` on T003's diff alone before T004
   starts.*
 
-- [ ] **T003a** — `src/paths.rs`: pin the cleanup the tests currently miss.
+- [x] **T003a** — `src/paths.rs`: pin the cleanup the tests currently miss.
   Logged 2026-09-19 from T003's per-task review (non-blocking finding 1).
   Both failure tests force the failure by making the **temp path** a
   directory, so `fs::write(&tmp, …)` fails on the first `is_err()` and no temp
@@ -598,3 +598,4 @@ spec under a policy — this is it for the economy profile. -->
 | T002a (sdd-implementer) | opus → opus | 40K | 1 | yes | — | Guard owns `Option<JoinHandle>`, joins before restoring; `main` keeps its own `join().unwrap()` for AC 3's exit 101; plan tension 1's two false sentences and its Rejected entry corrected. **Re-walkthrough: 33 runs (3 quit + 6 each of tick/draw/input/key/render) all CLEAN, cursor visible, exit codes 0/101/101/1/101 as the plan's table** |
 | T003 (sdd-implementer) | opus → opus | 48K | 1 | yes | — | `paths::write_whole` + the three one-line call sites; 3 tests; zero warnings, no `dead_code`; `fs::write` now only in `paths.rs`. Orchestrator re-ran verification (per-task): green |
 | T003 per-task review (skeptical-reviewer) | opus → opus | 44K | 1 | 0 blocking | 0 blocking | Signed off. Walked every failure mode; guarantee holds. Non-blocking: **the accumulation test is vacuous** (the temp-path-as-directory trick fails before `fs::rename`, so the cleanup line is never executed) -> **T003a** logged; plus 5 close-out notes, now in *Notes for the close-out* above |
+| T003a (sdd-implementer) | opus → opus | 32K | 1 | yes | — | Fourth test reaches `fs::rename`'s failure branch (target-as-directory). Demonstrated failing with the cleanup line commented out (`the temp file was left behind: ["data.json", "data.tmp"]`) and passing with it restored. Doc comment now names `fsync` and cites §Design tension 3 |

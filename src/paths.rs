@@ -72,8 +72,10 @@ pub fn config_dir() -> Option<PathBuf> {
 /// fixed, so repeated interrupted writes leave one piece of debris rather than
 /// a pile, and it is never `*.json`, so no loader reads it. Best-effort like
 /// the three callers it serves: any failure removes the temp file and returns
-/// `false`, leaving the previous file alone. Not durable against a power cut —
-/// see plan §3.
+/// `false`, leaving the previous file alone. Not durable against a power cut:
+/// there is no `fsync` of the temp file or of its directory, so a crash of the
+/// machine (rather than of the process) can still lose the write — see plan
+/// §Design tension 3.
 pub(crate) fn write_whole(path: &Path, contents: &str) -> bool {
     let tmp = path.with_extension("tmp");
     if fs::write(&tmp, contents).is_err() || fs::rename(&tmp, path).is_err() {
@@ -165,6 +167,27 @@ mod tests {
         }
 
         assert_eq!(entries(&dir), before);
+
+        fs::remove_dir_all(&dir).expect("scratch removed");
+    }
+
+    #[test]
+    fn a_failed_rename_cleans_up_its_temp_file() {
+        let dir = scratch("rename");
+        let path = dir.join("data.json");
+
+        // A directory where the *target* is, not where the temp file goes: the
+        // write succeeds and leaves a temp file, then the rename over it fails
+        // everywhere (`EISDIR` on POSIX, access-denied on Windows). This is the
+        // only way into the cleanup line — a failing write never creates one.
+        fs::create_dir(&path).expect("blocking directory");
+
+        assert!(!write_whole(&path, "never lands"));
+        assert!(
+            !entries(&dir).iter().any(|name| name.ends_with(".tmp")),
+            "the temp file was left behind: {:?}",
+            entries(&dir)
+        );
 
         fs::remove_dir_all(&dir).expect("scratch removed");
     }
