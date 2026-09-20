@@ -434,8 +434,13 @@ binds both results with a placeholder until T008 raises the notice. -->
   anything else calls `clear()` and returns `true`. No change to `load`,
   `exists`, `from_json`, `SAVE_VERSION` or the `#[serde(default)]` fields. In
   `app.rs`, `App::new` gains `let save_unreadable = crate::save::check_at_launch();`
-  **before** the existing `let has_save = crate::save::exists();` (so
-  `has_save` sees the removal), bound as `let _save_unreadable = …` with a `//
+  **before** the existing `let has_save = crate::save::exists();` (~~so
+  `has_save` sees the removal~~ — **the stated reason is false**, corrected
+  2026-09-19 at the Phase 3 review: `exists()` is `load().is_some()`, i.e.
+  validity rather than file presence, so `has_save` is false for an unreadable
+  save whether or not `clear()` ran, and even if `clear()` itself fails. The
+  ordering is right and harmless; the rationale is not load-bearing and nobody
+  should reorder on the strength of it), bound as `let _save_unreadable = …` with a `//
   T008 raises the data notice from this` comment — no other `app.rs` change.
   New integration test `tests/match_save_recovery.rs`, one `#[test]`, scratch
   root: no file → `false`, nothing created; a malformed `saves/savegame.json`
@@ -450,6 +455,28 @@ binds both results with a placeholder until T008 raises the notice. -->
   unedited; `git diff --stat` shows only `src/save.rs`, `src/app.rs` and the new
   test; `grep -n "SAVE_VERSION" src/save.rs` still reads 1; the implementer's
   report quotes `check_at_launch` verbatim.*
+
+- [ ] **T007a** — `tests/profile_save_suspended.rs`: chmod back before the
+  assertions. Logged 2026-09-19 from the Phase 3 review (non-blocking 4).
+  The root is `chmod 0o555` before `Profile::load()`, and the chmod back to
+  `0o755` happens *after* four assertions. If any of them fires, the read-only
+  directory survives the process — and the next run's opening
+  `let _ = fs::remove_dir_all(&root)` cannot unlink entries inside a read-only
+  directory and swallows the error, `create_dir_all` succeeds because the
+  directory exists, and `fs::write(&profile_path, malformed).expect(...)` then
+  panics pointing at the wrong thing. One failure becomes a permanently red
+  test that needs a human to `chmod` a directory under `/tmp`.
+  Move the chmod back to `0o755` to immediately after `Profile::load()`
+  returns, before any assertion. The test's meaning is unchanged — the
+  suspension flag is already set by then, and the later saves still have to be
+  blocked by the flag rather than by permissions, which is the whole point of
+  the existing chmod-back. Say in a comment why it is there rather than at the
+  end.
+  Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim; `cargo test --test profile_save_suspended`; `git diff --stat` shows
+  only that file; the report confirms the test still fails if the suspension
+  guard in `Profile::save` is commented out (run it, show it).*
 
 ## Phase 4 — The data notice (walkthrough: damage the profile, the match save, and both at once in a scratch data directory, and see one notice at the start menu naming what happened and where the old file went)
 
@@ -669,3 +696,4 @@ spec under a policy — this is it for the economy profile. -->
 | T005a (sdd-implementer) | opus → opus | 52K | 1 | yes | — | `classify_tells_a_bad_document_from_a_bad_version` pins the variant split the `from_json` wrapper hid; pre-epoch stamp vector added; both `whole_file_write.rs` call sites now assert `failure.is_none()`. `src/profile.rs` diff starts at line 1389, `#[cfg(test)]` at 615 — test module only |
 | T006 (sdd-implementer) | opus → opus | 62K | 1 | yes | — | `tests/profile_recovery.rs` + `tests/profile_save_suspended.rs`, one test each, separate binaries (sticky flag). Both traps handled: chmod-back targets the set-aside path; the `0o000` step asserts the failure so it fails loudly under root. Real names produced: `profile-20260920-023255{,-2,-3}.json` — all three collided in one second, so the `-2`/`-3` branch is what ran. Deviation (an improvement): chmods the directory back before the last saves, so a suspended save is distinguishable from a permission-denied one |
 | T007 (sdd-implementer) | opus → opus | 61K | 1 | yes | — | `save::check_at_launch` + the `app.rs` line before `has_save`; `tests/match_save_recovery.rs`. Deviation (an improvement): the wrong-version step edits a *real* save's version rather than using a bare `{"version": 2}` stub, which would fail serde's missing-field check and pass even with the version gate deleted. Note for T008: `app.rs` now has two adjacent identical `// T008 raises the data notice from this` comments — collapse them |
+| Phase 3 review (skeptical-reviewer) | opus → opus | 77K | 1 | — | 0 blocking | Signed off, clean. T005a confirmed to close all three parent notes. Non-blocking: (3) **the plan's notice line "nothing from this session is kept" is literally false** — `save::save` and `Settings::save` still write under suspension; AC 11 only scopes to *profile* saves, so it is a wording problem, not a divergence -> constraint carried into T008's bundle; (4) `profile_save_suspended` poisons its scratch dir on a mid-test failure -> **T007a**; (2) T007's stated placement rationale is false, corrected above; (6) §Design tension 9 is now live and belongs in the person's phase report; (1) the orchestrator's diff base was one commit early (my error, harmless) |
