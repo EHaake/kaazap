@@ -276,6 +276,32 @@ target that `cargo build --all-targets` also builds, and every task here has a
   `tests/whole_file_write.rs`; the implementer's report confirms the scratch
   directory it used and that it removed it.*
 
+- [ ] **T004a** — `tests/whole_file_write.rs`: pin "debris is never loaded as
+  the real file", and show the other five assertions bite. Logged 2026-09-19
+  from the Phase 2 review (non-blocking N1 and N2).
+  **N2** — AC 7's second clause, *nothing left behind is loaded as the real
+  file*, is currently argued rather than tested: no test in the spec ever
+  leaves a genuine `*.tmp` **file** beside a `*.json` and then calls a loader.
+  Every failure fixture plants a `.tmp` *directory*, and T003a's temp file is
+  removed by the cleanup it exists to test. Add a third phase to the existing
+  test: write a real `settings.tmp` holding garbage, then assert
+  `Settings::load()` still returns the previous settings **and** that the
+  `.tmp` file is still there and byte-for-byte unchanged (the loader must
+  neither read it nor consume it).
+  **N1** — the mutation check the T004 report offered stops at the first
+  `assert_eq!`, so it demonstrated one of six failure-phase assertions is live
+  and said nothing about the other five. Re-run it properly: revert **one**
+  writer at a time to a direct `fs::write(path, json)`, confirm that writer's
+  own byte comparison fires, restore it, and repeat for the other two. Report
+  all three failures verbatim. This is evidence, not a code change — the file
+  must be byte-identical to its committed state afterwards apart from the N2
+  addition.
+  Still **one `#[test]`** in the binary. Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim; `cargo test --test whole_file_write` naming the one test;
+  `git diff --stat` shows only `tests/whole_file_write.rs`; the report carries
+  the three one-writer-at-a-time failures.*
+
 ## Phase 3 — A profile that can't be read is kept, not replaced (foundational; walkthrough: none — the file is set aside silently until the notice lands in Phase 4, so there is nothing on screen for the person to judge yet)
 
 <!-- T005 is the profile's load contract and the suspension; T006 pins its
@@ -600,3 +626,4 @@ spec under a policy — this is it for the economy profile. -->
 | T003 per-task review (skeptical-reviewer) | opus → opus | 44K | 1 | 0 blocking | 0 blocking | Signed off. Walked every failure mode; guarantee holds. Non-blocking: **the accumulation test is vacuous** (the temp-path-as-directory trick fails before `fs::rename`, so the cleanup line is never executed) -> **T003a** logged; plus 5 close-out notes, now in *Notes for the close-out* above |
 | T003a (sdd-implementer) | opus → opus | 32K | 1 | yes | — | Fourth test reaches `fs::rename`'s failure branch (target-as-directory). Demonstrated failing with the cleanup line commented out (`the temp file was left behind: ["data.json", "data.tmp"]`) and passing with it restored. Doc comment now names `fsync` and cites §Design tension 3 |
 | T004 (sdd-implementer) | opus → opus | 54K | 1 | yes | — | `tests/whole_file_write.rs`, one test, scratch root under `temp_dir()`, removed after. Mutation-checked: with the blocking directories removed it fails on the settings byte comparison, so the assertions bite. Two `Profile::load()` call sites for T005 to update |
+| Phase 2 review (skeptical-reviewer) | opus → opus | 53K | 1 | — | 0 blocking | Signed off, clean. T003a confirmed to close its finding. Non-blocking N1 (the mutation check stops at the first `assert_eq!`, so it evidenced 1 of 6 assertions) and N2 (AC 7's *debris is never loaded* clause is argued, not pinned) -> **T004a**. N3–N6 (no entry-set check after the failed saves; fixed scratch names; leaked dir on a red run; the `fs::write` grep wouldn't catch `File::create`+`write_all`) recorded, N6 into the close-out notes |
