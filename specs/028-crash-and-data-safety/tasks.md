@@ -390,7 +390,7 @@ binds both results with a placeholder until T008 raises the notice. -->
   `tests/whole_file_write.rs`, with `src/profile.rs` changed **inside its
   `#[cfg(test)]` module only**.*
 
-- [ ] **T006** — `tests/profile_recovery.rs` + `tests/profile_save_suspended.rs`
+- [x] **T006** — `tests/profile_recovery.rs` + `tests/profile_save_suspended.rs`
   (both new): the profile's disk-level criteria. Two binaries because the
   data root resolves once per process **and** the suspension flag is sticky
   once set. Per plan §Tests:
@@ -667,3 +667,4 @@ spec under a policy — this is it for the economy profile. -->
 | T005 (sdd-implementer) | opus → opus | 89K | 1 | yes | — | `ProfileProblem`/`ProfileFailure`, `load -> (Self, Option<ProfileFailure>)`, `SAVES_SUSPENDED`, `set_aside`/`set_aside_names`/`utc_stamp`/`civil_from_days`; `from_json` kept as a `#[cfg(test)]` wrapper so all 36 `profile.rs` tests stand unedited. Orchestrator re-ran verification (per-task): green |
 | T005 per-task review (skeptical-reviewer) | opus → opus | 50K | 1 | 0 blocking | 0 blocking | Signed off. Walked every `load` path: no input or filesystem state loses the file; first launch still exactly silent (incl. Windows `ERROR_PATH_NOT_FOUND`); suspension set on exactly the right condition and the guard genuinely first; `classify` decision-for-decision the old gate; Hinnant's civil-from-days verified longhand on all three vectors. Second-look 1/3/4 -> **T005a**; 2 already handled (T006's suspension test is its own binary); 6 = the task line's call-site count, corrected above |
 | T005a (sdd-implementer) | opus → opus | 52K | 1 | yes | — | `classify_tells_a_bad_document_from_a_bad_version` pins the variant split the `from_json` wrapper hid; pre-epoch stamp vector added; both `whole_file_write.rs` call sites now assert `failure.is_none()`. `src/profile.rs` diff starts at line 1389, `#[cfg(test)]` at 615 — test module only |
+| T006 (sdd-implementer) | opus → opus | 62K | 1 | yes | — | `tests/profile_recovery.rs` + `tests/profile_save_suspended.rs`, one test each, separate binaries (sticky flag). Both traps handled: chmod-back targets the set-aside path; the `0o000` step asserts the failure so it fails loudly under root. Real names produced: `profile-20260920-023255{,-2,-3}.json` — all three collided in one second, so the `-2`/`-3` branch is what ran. Deviation (an improvement): chmods the directory back before the last saves, so a suspended save is distinguishable from a permission-denied one |
