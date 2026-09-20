@@ -153,7 +153,7 @@ pub fn save(game: &GameState) {
         let _ = fs::create_dir_all(dir);
     }
     if let Ok(json) = serde_json::to_string_pretty(&saved) {
-        let _ = fs::write(path, json);
+        crate::paths::write_whole(&path, &json);
     }
 }
 

@@ -193,7 +193,7 @@ pub(crate) fn whose only callers are #[cfg(test)] is dead_code in the plain lib
 target that `cargo build --all-targets` also builds, and every task here has a
 "no new warnings" bar. T004 is the integration test that pins it on disk. -->
 
-- [ ] **T003** — `src/paths.rs` + `src/profile.rs` + `src/settings.rs` +
+- [x] **T003** — `src/paths.rs` + `src/profile.rs` + `src/settings.rs` +
   `src/save.rs`: the whole-file write, and the three writers that use it.
   `review: per-task`. Per plan §Design 3: `pub(crate) fn write_whole(path:
   &Path, contents: &str) -> bool` — write to `path.with_extension("tmp")`, then
@@ -232,6 +232,30 @@ target that `cargo build --all-targets` also builds, and every task here has a
   re-runs the verification command itself before committing (per-task review),
   then dispatches a `skeptical-reviewer` on T003's diff alone before T004
   starts.*
+
+- [ ] **T003a** — `src/paths.rs`: pin the cleanup the tests currently miss.
+  Logged 2026-09-19 from T003's per-task review (non-blocking finding 1).
+  Both failure tests force the failure by making the **temp path** a
+  directory, so `fs::write(&tmp, …)` fails on the first `is_err()` and no temp
+  file is ever created. The `let _ = fs::remove_file(&tmp);` line and the whole
+  `fs::rename` failure branch are therefore never executed: delete the cleanup
+  and all three tests still pass, which makes the doc comment's "any failure
+  removes the temp file" an untested claim.
+  Add one test, `a_failed_rename_cleans_up_its_temp_file`: make the **target**
+  a directory instead, so `fs::write` succeeds, `fs::rename` fails portably
+  (`EISDIR` on POSIX, access-denied on Windows), and assert that `write_whole`
+  returns `false` **and** that no `*.tmp` is left behind — an assertion that
+  fails if the cleanup line is removed. Keep the three existing tests as they
+  are; this is a fourth, not a replacement.
+  While in the file: change the doc comment's closing sentence to name `fsync`
+  explicitly, so a later power-cut question finds it by grep, and disambiguate
+  `plan §3` (the document has both a *Design tension 3* and a *Design 3*).
+  Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim; `cargo test --lib paths` naming all four tests; `git diff --stat`
+  shows only `src/paths.rs`; the implementer's report shows the new test
+  **failing** when the cleanup line is commented out, then passing with it
+  restored — that is the point of the task.*
 
 - [ ] **T004** — `tests/whole_file_write.rs` (new): the three writers pinned on
   disk. **One `#[test]` only** (the data root resolves once per process):
@@ -515,6 +539,44 @@ same model, no override); a product question `spec.md` doesn't settle goes to
 the person. A phase pause ends with what to check and how to say continue — no
 continuation prompt unless the person asks or says they're stopping.
 
+---
+
+## Notes for the close-out (T009), gathered during implementation
+
+These came out of per-task and phase reviews as non-blocking observations. They
+are not code changes; they belong in `closeout-main-docs.md`'s DECISIONS entry
+or in the roadmap follow-up, so the next person to touch this code finds them.
+
+- **`write_whole` is a convention, not an enforced rule.** The three writers go
+  through it; nothing in the test suite would catch a fourth writer calling
+  `fs::write` directly. The `grep -rn "fs::write" src/` check is a one-shot at
+  merge, not a regression guard. Say so, so the next writer knows the rule.
+- **Two kaazap processes writing at once is the one case the fixed temp name
+  doesn't cover.** Both would write the same `<stem>.tmp`, and an interleaving
+  can splice them before either renames. The plan bought this deliberately —
+  unique temp names would trade a rare two-instance corruption for certain
+  debris accumulation across crashes — but it is a known limit, not an
+  oversight, and should be named as one.
+- **Write-then-rename changes two things `fs::write` did not**: the file gets
+  fresh permission bits at the default umask rather than keeping the ones it
+  had, and a symlink at the target is replaced rather than written through.
+  Neither matters for a game's saves; both are inherited by every future
+  writer.
+- **`payload_as_str` pins the crate to Rust >= 1.91** with nothing in the tree
+  saying so (AC 17 forbids adding `rust-version`). Worth a line.
+- **The guard's `Drop` join is only bounded because `render_tx` is declared
+  after `_terminal`.** Hoisting the channel above the guard would deadlock
+  every ending. Both comments in `main.rs` say so; the close-out should too.
+- **`eprintln!` inside `TerminalGuard::drop` can panic on a closed stderr**
+  (`kaazap 2>&1 | head -1`), and a panic inside a `Drop` during unwinding
+  aborts. `restore_terminal` is unwrap-free by design; this is the one
+  unguarded panic site left on that path. Not covered by any acceptance
+  criterion — record it rather than fix it under this spec.
+- **The `.context("kaazap couldn't read the terminal")` on `event::poll`/
+  `event::read` is never executed** by any test or by the walkthrough: the
+  `KAAZAP_CRASH_AT=input` seam bails before `poll`. The close-out must not
+  claim the colon-detail form was observed.
+
 ## Tier log (this spec, under the model policy)
 
 <!-- One row per implementer run and per reviewer invocation; a summary row per
@@ -534,3 +596,5 @@ spec under a policy — this is it for the economy profile. -->
 | Phase 1 review (skeptical-reviewer) | opus → opus | 61K | 1 | — | 0 blocking | Signed off. Non-blocking: the pre-loop forced render is outside the in-loop crash check and is the real window (plan tension 1's model corrected); the drop-order comment over-claims; `eprintln!` in `Drop` can panic on a closed stderr; `payload_as_str` now pins Rust >= 1.91 with nothing saying so. Predicted the `=tick`/`=draw` garbling the walkthrough then confirmed |
 | Phase 1 walkthrough (orchestrator) | — | — | 5 points x 6 runs + quit | — | — | `q` exit 0 silent; `=key`, `=render` exit 101 clean; `=input` exit 1, `Error: kaazap couldn't read the terminal`, no panic text; **`=tick` and `=draw` garbled 6/6 each** -> T002a logged. Cursor visible in every run. Scratch `KAAZAP_DATA_DIR` throughout |
 | T002a (sdd-implementer) | opus → opus | 40K | 1 | yes | — | Guard owns `Option<JoinHandle>`, joins before restoring; `main` keeps its own `join().unwrap()` for AC 3's exit 101; plan tension 1's two false sentences and its Rejected entry corrected. **Re-walkthrough: 33 runs (3 quit + 6 each of tick/draw/input/key/render) all CLEAN, cursor visible, exit codes 0/101/101/1/101 as the plan's table** |
+| T003 (sdd-implementer) | opus → opus | 48K | 1 | yes | — | `paths::write_whole` + the three one-line call sites; 3 tests; zero warnings, no `dead_code`; `fs::write` now only in `paths.rs`. Orchestrator re-ran verification (per-task): green |
+| T003 per-task review (skeptical-reviewer) | opus → opus | 44K | 1 | 0 blocking | 0 blocking | Signed off. Walked every failure mode; guarantee holds. Non-blocking: **the accumulation test is vacuous** (the temp-path-as-directory trick fails before `fs::rename`, so the cleanup line is never executed) -> **T003a** logged; plus 5 close-out notes, now in *Notes for the close-out* above |
