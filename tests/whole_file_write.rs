@@ -113,5 +113,21 @@ fn every_writer_lands_whole_and_a_failed_save_leaves_the_previous_file() {
     let loaded = save::load().expect("the previous match save still loads");
     assert_eq!((loaded.player.rounds_won, loaded.opponent.rounds_won), (2, 1));
 
+    // --- Debris left beside the real file is neither read nor consumed. ---
+    // The blocking directory goes, and a genuine `settings.tmp` takes its
+    // place: half a write's worth of bytes, under the name `write_whole`
+    // would have used.
+    let settings_tmp = settings_path.with_extension("tmp");
+    fs::remove_dir(&settings_tmp).expect("blocking directory removed");
+    let debris = "{\"music_volume\":1.0,\"sfx_volume\":1.0,\"anim";
+    fs::write(&settings_tmp, debris).expect("debris written");
+
+    assert_eq!(Settings::load(), settings, "the loader read the debris");
+    assert_eq!(
+        fs::read(&settings_tmp).expect("the debris is still there"),
+        debris.as_bytes(),
+        "the loader consumed or rewrote the debris"
+    );
+
     fs::remove_dir_all(&root).expect("scratch root removed");
 }
