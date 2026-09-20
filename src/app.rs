@@ -620,7 +620,8 @@ pub struct App {
 impl App {
     pub fn new(config: Config) -> Self {
         let settings = Settings::load();
-        let profile = Profile::load();
+        // T008 raises the data notice from this
+        let (profile, _profile_failure) = Profile::load();
         let has_save = crate::save::exists();
         Self {
             config,

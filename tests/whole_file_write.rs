@@ -76,7 +76,8 @@ fn every_writer_lands_whole_and_a_failed_save_leaves_the_previous_file() {
     assert!(profile_path.is_file(), "profile written");
     assert!(save_path.is_file(), "match save written");
     assert_eq!(Settings::load(), settings);
-    assert_eq!(Profile::load().credits(), credits);
+    let (reloaded, _) = Profile::load();
+    assert_eq!(reloaded.credits(), credits);
     let loaded = save::load().expect("the match save loads");
     assert_eq!((loaded.player.rounds_won, loaded.opponent.rounds_won), (2, 1));
     assert_no_tmp(&root);
@@ -109,7 +110,8 @@ fn every_writer_lands_whole_and_a_failed_save_leaves_the_previous_file() {
     assert_eq!(fs::read(&profile_path).expect("profile still there"), written_profile);
     assert_eq!(fs::read(&save_path).expect("match save still there"), written_save);
     assert_eq!(Settings::load(), settings);
-    assert_eq!(Profile::load().credits(), credits);
+    let (reloaded, _) = Profile::load();
+    assert_eq!(reloaded.credits(), credits);
     let loaded = save::load().expect("the previous match save still loads");
     assert_eq!((loaded.player.rounds_won, loaded.opponent.rounds_won), (2, 1));
 

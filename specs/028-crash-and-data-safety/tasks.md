@@ -308,8 +308,10 @@ target that `cargo build --all-targets` also builds, and every task here has a
 disk-level criteria; T007 does the same, smaller, for the match save. App::new
 binds both results with a placeholder until T008 raises the notice. -->
 
-- [ ] **T005** — `src/profile.rs` + `src/app.rs` (one call site) +
-  `tests/whole_file_write.rs` (one call site): classification, the set-aside,
+- [x] **T005** — `src/profile.rs` + `src/app.rs` (one call site) +
+  `tests/whole_file_write.rs` (**two** call sites — the task line said one;
+  corrected 2026-09-19 at the per-task review, and both had to change for
+  `cargo build --all-targets` to be green): classification, the set-aside,
   and the suspension. `review: per-task`. Per
   plan §Design 4: `pub enum ProfileProblem { Unreadable, WrongVersion }` and
   `pub struct ProfileFailure { pub problem: ProfileProblem, pub set_aside:
@@ -356,6 +358,37 @@ binds both results with a placeholder until T008 raises the notice. -->
   re-runs the verification command itself before committing (per-task review),
   then dispatches a `skeptical-reviewer` on T005's diff alone before T006
   starts.*
+
+- [ ] **T005a** — `src/profile.rs` (tests only) + `tests/whole_file_write.rs`
+  (two lines): the three assertions T005's review found missing. Logged
+  2026-09-19 from T005's per-task review (second-look notes 1, 3, 4). All
+  filesystem-free or one-line; none of them waits on T006.
+  **(1) The `Unreadable`/`WrongVersion` split is the one new decision in T005
+  and nothing pins it.** Every existing test reaches `classify` through the
+  `#[cfg(test)] from_json` wrapper, which collapses `Result` to `Option`, so
+  `a_wrong_version_document_is_discarded` passes byte-for-byte whichever
+  variant the version gate returns — while the spec makes the distinction
+  player-visible ("couldn't be read" vs "saved by a different version of
+  kaazap"). Add `classify_tells_a_bad_document_from_a_bad_version` to
+  `profile.rs`'s tests: malformed JSON → `Err(ProfileProblem::Unreadable)`, a
+  valid document with `"version": 2` → `Err(ProfileProblem::WrongVersion)`, a
+  good document → `Ok`.
+  **(2) `utc_stamp`'s pre-epoch claim has nothing behind it.** Its doc says a
+  time before the epoch reads as the epoch itself; the three vectors test the
+  epoch *value*, not the `Err` branch of `duration_since`. Extend
+  `the_set_aside_stamp_is_the_utc_date_and_time` with
+  `UNIX_EPOCH - Duration::from_secs(1)` → `19700101-000000`.
+  **(3) `tests/whole_file_write.rs` discards the failure at both call sites**,
+  so `assert_eq!(reloaded.credits(), credits)` does not prove `load` took the
+  success path — a starter profile whose credits happened to match would pass
+  while leaving a set-aside file in the scratch root. Bind it and
+  `assert!(failure.is_none())` at both.
+  Change nothing outside those tests. Do not run `cargo fmt`.
+  *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
+  verbatim; `cargo test --lib profile` and `cargo test --test whole_file_write`
+  naming the tests; `git diff --stat` shows only `src/profile.rs` and
+  `tests/whole_file_write.rs`, with `src/profile.rs` changed **inside its
+  `#[cfg(test)]` module only**.*
 
 - [ ] **T006** — `tests/profile_recovery.rs` + `tests/profile_save_suspended.rs`
   (both new): the profile's disk-level criteria. Two binaries because the
@@ -631,3 +664,5 @@ spec under a policy — this is it for the economy profile. -->
 | T004 (sdd-implementer) | opus → opus | 54K | 1 | yes | — | `tests/whole_file_write.rs`, one test, scratch root under `temp_dir()`, removed after. Mutation-checked: with the blocking directories removed it fails on the settings byte comparison, so the assertions bite. Two `Profile::load()` call sites for T005 to update |
 | Phase 2 review (skeptical-reviewer) | opus → opus | 53K | 1 | — | 0 blocking | Signed off, clean. T003a confirmed to close its finding. Non-blocking N1 (the mutation check stops at the first `assert_eq!`, so it evidenced 1 of 6 assertions) and N2 (AC 7's *debris is never loaded* clause is argued, not pinned) -> **T004a**. N3–N6 (no entry-set check after the failed saves; fixed scratch names; leaked dir on a red run; the `fs::write` grep wouldn't catch `File::create`+`write_all`) recorded, N6 into the close-out notes |
 | T004a (sdd-implementer) | opus → opus | 48K | 1 | yes | — | N2 closed for settings: a real `settings.tmp` holding garbage is neither read nor consumed by `Settings::load`. N1 closed properly: reverting each writer in turn fires **that writer's own** comparison, at lines 108/109/110. `src/` byte-identical after (SHA-1s checked). Note: the three loader assertions sit behind the byte comparisons and can only be shown live by mutating a loader, not a writer |
+| T005 (sdd-implementer) | opus → opus | 89K | 1 | yes | — | `ProfileProblem`/`ProfileFailure`, `load -> (Self, Option<ProfileFailure>)`, `SAVES_SUSPENDED`, `set_aside`/`set_aside_names`/`utc_stamp`/`civil_from_days`; `from_json` kept as a `#[cfg(test)]` wrapper so all 36 `profile.rs` tests stand unedited. Orchestrator re-ran verification (per-task): green |
+| T005 per-task review (skeptical-reviewer) | opus → opus | 50K | 1 | 0 blocking | 0 blocking | Signed off. Walked every `load` path: no input or filesystem state loses the file; first launch still exactly silent (incl. Windows `ERROR_PATH_NOT_FOUND`); suspension set on exactly the right condition and the guard genuinely first; `classify` decision-for-decision the old gate; Hinnant's civil-from-days verified longhand on all three vectors. Second-look 1/3/4 -> **T005a**; 2 already handled (T006's suspension test is its own binary); 6 = the task line's call-site count, corrected above |
