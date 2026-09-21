@@ -253,11 +253,14 @@ and no series. The opponent stays beaten either way.
 2. [ ] **Starting a series.** Enter on a playable planet opens the venue at
    0–0 without staking anything; the map's planet detail names the series
    length before the launch.
-3. [ ] **The venue.** It shows the planet, the opponent, and the series
-   score and length; it offers play / Card Shop / collection / quit, with
-   Enter confirming and `b` and `c` working as on the map; the Card Shop
-   and the collection each return to the venue. (Renamed from "Outfitter"
-   by ruling R2 — see *Amendment, 2026-09-21*.)
+3. [ ] **The venue.** It shows the planet, the opponent, the series
+   score and length, and the **credit balance**; it offers play / Card Shop
+   / collection / quit, with Enter confirming and `b` and `c` working as on
+   the map; the Card Shop and the collection each return to the venue.
+   (Renamed from "Outfitter" by ruling R2 — see *Amendment, 2026-09-21*.
+   The credit balance added by ruling **R6** — see *Amendment, 2026-09-21
+   (second)*; caught at that amendment's planning, which found R6 changing
+   behavior with no criterion naming it.)
 4. [ ] **Every match of a series starts at the venue**, through today's
    wager prompt, with today's floor, stake range and escrow; declining
    returns to the venue.

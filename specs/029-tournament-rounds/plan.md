@@ -1,19 +1,27 @@
 # Plan: Tournament rounds — spec 029
 
-> **Status**: Signed off (skeptical-reviewer, 2026-09-21 — amendment revision: one review, one re-review, B1 resolved and five notes applied; three carried to the pre-merge sweep).
+> **Status**: Draft — pending sign-off (**second amendment revision**, 2026-09-21: R4 the art's proportions, R5 the text's alignment, R6 the credit balance, and the per-planet art brief).
 **Implements**: `spec.md` in this directory
 
 The pre-amendment plan was signed off by the `skeptical-reviewer` on 2026-09-20
 (one review, one re-review, B1–B6 resolved; two second-look notes carried to the
 tier log and the pre-merge sweep), and **Phases 1 and 2 were implemented,
-reviewed, committed and attested under it**. This revision covers `spec.md`'s
-*Amendment, 2026-09-21* (R1 the series wording, R2 the Card Shop rename, R3 the
-art as horizontal bands at every width) and touches only what that amendment
-falsifies: §What the code already gives us (one bullet), §Design tension 7,
-§Design 4, §Design 5, §Files, the venue bullets in §Tests, §Verification's Phase
-2 entry and §Open questions 2. Everything Phase 1 and Phases 3–5 rest on is
-unchanged — including §Design tensions 1–6, which the amendment does not reach.
-`tasks.md` gains T004a, T005a and T005b in Phase 2.
+reviewed, committed and attested under it**. The **first** amendment revision
+(R1 the series wording, R2 the Card Shop rename, R3 the art as horizontal bands
+at every width) was signed off on 2026-09-21 — one review, one re-review, B1
+resolved and five notes applied, three carried to the pre-merge sweep — and
+shipped as T004a, T005a and T005b, which are implemented, reviewed, committed
+and attested. Nothing about any of them is reopened here.
+
+This **second** revision covers `spec.md`'s *Amendment, 2026-09-21 (second)* —
+**R4** the art about 15–20 % smaller, **R5** every text row centred on the art
+region rather than the terminal, **R6** the credit balance on the venue, and the
+**per-planet art brief** as a document on this branch — and touches only what
+that amendment falsifies: §Design tension 7 (one sentence), §Design 4, §Design 5,
+§Files, the venue bullets in §Tests, §Verification (a fourth walkthrough entry)
+and §Open questions 2, **which the person has now closed**. Everything Phase 1
+and Phases 3–5 rest on is unchanged, including §Design tensions 1–6.
+`tasks.md` gains **T005c** (R4/R5/R6) and **T005d** (the art brief) in Phase 2.
 
 ## Context
 
@@ -428,6 +436,14 @@ more machinery than the plan builds:
   (the art block is 18×12 by spec 016), and the header and footer rows are
   fixed counts, so "the art takes the rest" is literal arithmetic. No scale
   factor, no minimum-art-size constant, no breakpoint.
+  **Revised 2026-09-21 by amendment R4, and stated as the divergence it is.**
+  The *height* is still a pure subtraction. The *width* is now a fraction —
+  seven eighths of the columns left of the portrait's gap — because R4 asks for
+  a **percentage** reduction and one fixed column inset cannot deliver the same
+  percentage at 58 columns of art and at 108 (the arithmetic is in §Design 4,
+  which shows no single inset lands inside 15–20 % at both fit sizes). So this
+  plan takes exactly one scale factor, in one expression, with its reason; there
+  is still no minimum-art-size constant and still no breakpoint.
 
 ## Design
 
@@ -561,8 +577,12 @@ balance and one floor, evaluated at the same two seams.
 
 ### 4. `src/layout.rs`
 
-**Rewritten 2026-09-21** (amendment R3). `VENUE_ART_W` and `VenueRail` are
-deleted; `VenueLayout` becomes three horizontal bands, at every width.
+**Rewritten 2026-09-21** (amendment R3) and **re-proportioned the same day**
+(amendment R4, R5, R6). `VENUE_ART_W` and `VenueRail` are deleted; `VenueLayout`
+is three horizontal bands, at every width. What R4/R5/R6 change, and nothing
+else: the header band gains a fifth row (the credit balance), the art gets
+smaller in both axes, and `center_x` is replaced by `text_x` — the **art
+region's** centre, which is where every text row now centres.
 
 ```rust
 /// Height of the opponent's presence panel at the venue — border + name row +
@@ -571,25 +591,33 @@ deleted; `VenueLayout` becomes three horizontal bands, at every width.
 /// (spec 029, amendment R3).
 pub const VENUE_PANEL_H: usize = 2 + 1 + PORTRAIT_HEIGHT; // 15
 
-/// The venue's geometry (spec 029, amended 2026-09-21): three horizontal bands
-/// at **every** width, not a text block with a right rail. Four header rows at
-/// the top; then the band holding the per-planet art region and, in its own
-/// column beside it, the opponent's presence panel — every row and column the
-/// text does not need, which is what makes the art the screen's dominant
-/// element (amendment R3, superseding rulings M1's layout and N1 entirely);
-/// then the acted-on action row with an empty row above and below it, and the
-/// controls hint on the last row (the constitution's density rule, satisfied by
-/// the geometry rather than by what `draw` happens to skip).
+/// The venue's geometry (spec 029, amended 2026-09-21, twice): three horizontal
+/// bands at **every** width, not a text block with a right rail. Five header
+/// rows at the top; then the band holding the per-planet art region and, in its
+/// own column beside it, the opponent's presence panel (amendment R3,
+/// superseding rulings M1's layout and N1 entirely); then the acted-on action
+/// row with an empty row above and below it, and the controls hint on the last
+/// row (the constitution's density rule, satisfied by the geometry rather than
+/// by what `draw` happens to skip).
+///
+/// Every text row centres on [`Self::text_x`], the **art's** centre column, not
+/// the terminal's — the portrait's column makes those two different points, and
+/// text centred on the terminal reads as shifted off the thing it labels
+/// (amendment R5).
 ///
 /// Full-screen and computed per-draw from [`Config`], like
 /// [`CampaignMapLayout`] — the venue holds no cached geometry and a resize
 /// needs no venue-specific code.
 #[derive(Debug, Copy, Clone)]
 pub struct VenueLayout {
-    /// The terminal's center column: every text row centers here.
-    pub center_x: usize,
+    /// The column every text row centres on: the **art region's** middle, which
+    /// is well left of the terminal's middle because the portrait's column and
+    /// its gap take 25 columns off the right (amendment R5). Named for what it
+    /// is for rather than for what it is derived from: `center_x` would read as
+    /// the terminal's centre, which is exactly what R5 stopped using.
+    pub text_x: usize,
     /// First of the [`Self::HEADER_H`] header rows (place, planet, opponent,
-    /// series), in draw order from here.
+    /// series, credits), in draw order from here.
     pub header_y: usize,
     /// The per-planet art region — the largest element on the screen. A plain
     /// placeholder in this spec; a later spec replaces its contents without the
@@ -607,72 +635,157 @@ pub struct VenueLayout {
 }
 
 impl VenueLayout {
-    /// Header rows above the art: place, planet, opponent, series — compact,
-    /// no blank between them (only the acted-on row gets air).
-    pub const HEADER_H: usize = 4;
+    /// Header rows above the art: place, planet, opponent, series, credits —
+    /// compact, no blank between them. The credit row is amendment R6 and it
+    /// gets **no** air: only the acted-on row does (the constitution's density
+    /// rule, in its corrected form).
+    pub const HEADER_H: usize = 5;
     /// Rows below the art: blank, the action row, blank, the hint.
     pub const FOOTER_H: usize = 4;
-    /// The art's left margin and the portrait's right margin — equal, so the
-    /// two regions together sit centered under the header rows.
+    /// The portrait's right margin, and the left edge of the columns the art is
+    /// centred within.
     const MARGIN_X: usize = 3;
+    /// The share of the columns left of the portrait's gap that the art takes
+    /// (amendment R4): seven eighths. A **fraction** rather than a fixed column
+    /// inset, because R4 asks for a percentage and the same inset is a
+    /// different percentage at 58 columns of art and at 108 — no single inset
+    /// lands inside "about 15–20 % smaller" at both fit sizes (plan §Design 4).
+    /// The trim is split between the art's two margins, so the art stays
+    /// centred in its span and [`Self::text_x`] does not move with it.
+    const ART_W_NUM: usize = 7;
+    const ART_W_DEN: usize = 8;
 
     pub fn new(config: Config) -> Self { … }
 }
 ```
 
-`new` loses the `block_h` parameter: the row count is now a property of the
-layout (`HEADER_H + FOOTER_H`), not something the screen tells it, so
-`venue::BLOCK_H` goes too.
-
-The arithmetic, in order (each clamped with the `.max()` idiom
-`CampaignMapLayout::new` already uses for `field_bottom`, so a terminal below
-the enforced 89×31 minimum degrades instead of inverting a Rect):
+`new` takes only `Config` (`block_h` went with R3, and `venue::BLOCK_H` with
+it). The arithmetic, in the order the code computes it (each derived edge
+clamped with the `.max()` idiom `CampaignMapLayout::new` already uses for
+`field_bottom`, so a terminal below the enforced 89×31 minimum degrades instead
+of inverting a Rect):
 
 ```
-center_x     = cols / 2
 header_y     = 0
 portrait.x1  = cols - 1 - MARGIN_X
 portrait.x0  = portrait.x1 - (PANEL_W - 1)
-art.x0       = MARGIN_X
-art.x1       = portrait.x0 - PANEL_GAP - 1      (≥ art.x0)
-art.y0       = portrait.y0 = HEADER_H
+span_x0      = MARGIN_X                               // the art's available columns:
+span_x1      = portrait.x0 - PANEL_GAP - 1  (≥ span_x0)  //   everything left of the gap
+span_w       = span_x1 - span_x0 + 1
+art_w        = span_w * ART_W_NUM / ART_W_DEN  (≥ 1)  // R4
+art.x0       = span_x0 + (span_w - art_w) / 2         // centred in the span
+art.x1       = art.x0 + art_w - 1
+art.y0       = portrait.y0 = HEADER_H                 // 5 rows of header (R6)
 art.y1       = rows - 1 - FOOTER_H              (≥ art.y0)
 portrait.y1  = portrait.y0 + VENUE_PANEL_H - 1
+text_x       = (art.x0 + art.x1) / 2                  // R5
 action_y     = rows - 3
 hint_y       = rows - 1
 ```
 
-Pinned concretely by T004a's test at both `Config::fit_sizes()`:
+Pinned concretely by T005c's test at both `Config::fit_sizes()`:
 
 | | 89×31 | 139×31 |
 |---|---|---|
-| header rows | 0..=3 | 0..=3 |
-| `art` | x 3..=60, y 4..=26 — **58×23** | x 3..=110, y 4..=26 — **108×23** |
-| gap columns | 61..=63 (`PANEL_GAP` = 3) | 111..=113 |
-| `portrait` | x 64..=85, y 4..=18 — 22×15 | x 114..=135, y 4..=18 |
+| header rows (place, planet, opponent, series, **credits**) | 0..=4 | 0..=4 |
+| the art's available span | x 3..=60 — 58 wide | x 3..=110 — 108 wide |
+| `art` | x **7..=56**, y **5..=26** — **50×22 = 1100 cells** | x **10..=103**, y **5..=26** — **94×22 = 2068 cells** |
+| clear columns between art and portrait | 57..=63 — **7** (`PANEL_GAP` = 3 plus the trim's right half) | 104..=113 — **10** |
+| `portrait` | x 64..=85, y **5..=19** — 22×15 = 330 | x 114..=135, y **5..=19** |
 | blank / action / blank / hint | 27 / 28 / 29 / 30 | 27 / 28 / 29 / 30 |
-| `center_x` | 44 | 69 |
+| `text_x` — the art's centre | **31** | **56** |
+| *the terminal's centre, no longer used* | *44* | *69* |
 
-Which settles acceptance criterion 16 arithmetically, and the numbers are the
-test's, not the prose's: the art is **1334 cells at 89 columns and 2484 at
-139** — four times the portrait's 330 even at the minimum size, and strictly
-larger when the terminal is wider. The two regions' outer margins are equal
-(3 left of the art, 3 right of the portrait), so the whole band is centered
-under the text.
+**R4, checked rather than asserted.** Against R3's first attempt (58×23 = 1334
+cells at 89 columns, 108×23 = 2484 at 139) the art is now **1100 cells — 17.5 %
+smaller — at 89, and 2068 cells — 16.8 % smaller — at 139**. Both inside R4's
+"about 15–20 % smaller overall", and within 0.7 points of each other, which is
+the point of taking a fraction of the width instead of an inset. The test
+asserts the *band* (`80 × old ≤ 100 × new ≤ 85 × old` at each fit size, with
+1334 and 2484 as literals), not just the two new numbers, so R4 stays honoured
+if the arithmetic is ever touched again. Acceptance criterion 16 still holds
+arithmetically: the art is more than three times the portrait's 330 at the
+minimum size and strictly larger at 139 than at 89.
 
-Nothing collides. The header rows and the footer rows are the only text, and
-both bands are vertically disjoint from the art (`HEADER_H == art.y0`,
-`art.y1 + 2 == action_y`), so the horizontal clearance the old right-rail
-design needed is no longer a constraint at all. The two widest rows — the hint
-at 63 cells and the action row at 53 — centered on `center_x` span 13..=75 and
-18..=70 at 89 columns, 38..=100 and 43..=95 at 139: inside the frame at both,
-with the narrow case the binding one.
+**Why no fixed inset would do.** With the height at 22 rows, hitting 15–20 %
+needs the art 48.5–51.5 columns wide at 89 (an inset of 7 to 9) and 90.3–96.0
+at 139 (an inset of 12 to 17). Those ranges do not overlap, so one constant
+cannot satisfy both — hence the one scale factor this plan takes, flagged as a
+divergence in §Design tension 7 rather than slipped in.
 
-The 31-row minimum leaves the art band 23 rows, 8 more than the portrait panel
+**R5: the hint gets shorter, and that is the decision.** Centring on `text_x`
+moves every row about 13 columns left at 89 columns, and the 63-character hint
+centred on 31 would span columns 0..=62 — flush against the frame edge, which
+`spec.md` forbids in as many words. So the hint drops from the venue's `  ·  `
+separators to the board's own single-space `·`:
+
+```
+before (63): ←/→ choose  ·  Enter confirm  ·  b shop  ·  c deck  ·  Esc menu
+after  (55): ←/→ choose · Enter confirm · b shop · c deck · Esc menu
+```
+
+Centred on 31 that spans **columns 4..=58** — four clear columns from the edge,
+which is the widest-row case and therefore the binding one. At 139 it spans
+29..=83. The reason this is the right lever rather than a cosmetic one:
+`board.rs`'s in-match hint already uses ` · ` at this exact spacing, so the
+venue is adopting the project's existing idiom, not inventing a second style.
+
+Rejected, each for a stated reason:
+
+- **Centring only the header on the art.** `spec.md` forbids it directly —
+  "aligning only the header would trade one visible mismatch for another".
+- **Clamping the hint's `x` to a minimum.** The row would then be centred on
+  nothing, and the off-centre look R5 exists to remove comes back for that one
+  row — while `saturating_sub` already does exactly this silently, which is the
+  bug the fit test now catches (§Tests).
+- **Splitting the hint over two rows.** It costs a row the art needs and puts a
+  second text row inside the footer band, where only the action row may have
+  air.
+- **Widening the art until it contains the 63-character hint.** Impossible at 89
+  columns: the portrait's column and its gap take 25 of the 89, so the widest
+  art that can exist there is 58 — and R4 requires about 50.
+
+The shortened hint still overhangs the art box by **3 columns left and 2 right**
+at 89 columns, and sits wholly inside the art's columns at 139. `spec.md`
+sanctions the overhang explicitly ("either the hint overhangs the art or it gets
+shorter"); this design does both, which is why the overhang is 3 columns rather
+than 5.
+
+**Nothing collides, and the margins are no longer equal — deliberately.** Under
+R3 the art and the portrait had equal outer margins so the *band* sat centred
+under text that centred on the terminal. R5 makes that property pointless: the
+text follows the art, so the band no longer has to be centred under anything.
+The portrait therefore stays exactly where it was (x `cols-25 ..= cols-4` at
+both widths — **its Rect's columns do not move in this revision**) and the art's
+trim is split between its own two margins, which widens the gap between the two
+regions from 3 clear columns to 7 (89) and 10 (139). "Two distinct elements with
+room between them" gets strictly better, and the only assertion that has to give
+is the one pinning the gap at *exactly* `PANEL_GAP` (§Tests).
+
+Rejected: re-centring the whole art+portrait band as a unit, which would restore
+equal margins and the exact `PANEL_GAP` — at the cost of moving the portrait
+inward as the art shrinks, which nothing asked for and which would move four
+more pinned numbers.
+
+The header rows and the footer rows are the only text, and both bands are
+vertically disjoint from the art (`HEADER_H == art.y0`, `art.y1 + 2 ==
+action_y`), so horizontal clearance between text and the regions is not a
+constraint at all. The widest rows — the hint at 55 cells and the action row at
+53 — centred on `text_x` span 4..=58 and 5..=57 at 89 columns, 29..=83 and
+30..=82 at 139: clear of both frame edges at both sizes, with the narrow case
+binding.
+
+The 31-row minimum leaves the art band 22 rows, 7 more than the portrait panel
 needs. That slack is the art's (§Design tension 7), and the portrait is
-**top-aligned** with the art rather than centered in the band, so the two
-regions share a visible top edge — `CampaignMapLayout::portrait_panel`'s idiom,
-anchored at its band's top. Centering it would align it with nothing.
+**top-aligned** with the art rather than centred in the band, so the two regions
+share a visible top edge — `CampaignMapLayout::portrait_panel`'s idiom, anchored
+at its band's top. Centring it would align it with nothing.
+
+The `FOOTER_H`/`action_y` double encoding that the first amendment's sign-off
+carried to the pre-merge sweep (S4) is **left exactly as it is**: the footer is
+bottom-anchored, `FOOTER_H` is what the art's bottom edge is derived from, and
+quietly resolving a sweep item inside an amendment task would hide it from the
+sweep that owns it.
 
 ### 5. `src/venue.rs` (new) + `src/screen.rs`
 
@@ -701,20 +814,23 @@ impl VenueState {
 }
 ```
 
-**Rows revised 2026-09-21** (amendment R1, R2, R3). The eight rows are no
-longer one contiguous block: four are the header band, four the footer band, and
-the art sits between them. `venue::BLOCK_H` and the single `text_rows` array go
-with it; the header band comes from one pure function and the footer is drawn
-from `action_labels` plus the `HINT` const.
+**Rows revised 2026-09-21** (amendment R1, R2, R3) and **again the same day**
+(R5, R6). The rows are not one contiguous block: **five** are the header band,
+four the footer band, and the art sits between them. `venue::BLOCK_H` and the
+single `text_rows` array are gone; the header band comes from one pure function
+and the footer is drawn from `action_labels` plus the `HINT` const.
 
 ```rust
-/// The four header rows, in draw order — the one source of truth for their
-/// wording, so the fit test measures what is actually drawn.
+/// The five header rows, in draw order — the one source of truth for their
+/// wording, so the fit test measures what is actually drawn. `credits` is the
+/// balance row amendment R6 adds: the venue is where the player chooses between
+/// playing and shopping, and that is the choice a balance informs.
 fn header_rows(
     planet_name: &str,
     planet_region: &str,
     opponent: &OpponentProfile,
     series: &Series,
+    credits: u32,
 ) -> [String; VenueLayout::HEADER_H]
 ```
 
@@ -724,11 +840,22 @@ fn header_rows(
 | 1 | `{planet.name}  ·  {planet.region}` | Strong |
 | 2 | `{opponent.name}  —  {opponent.difficulty}` | Normal |
 | 3 | `Series  {p} – {o}   ·   {Best of n}` | Normal |
-| `art.y0`..`art.y1` = 4..=26 | the art region, and the presence panel in its own column beside it | Muted / (the panel's own) |
+| 4 | `Credits: ◈ {credits}` (R6) | Normal |
+| `art.y0`..`art.y1` = 5..=26 | the art region, and the presence panel in its own column beside it | Muted / (the panel's own) |
 | 27 | *(blank — the air above the acted-on row)* | |
 | `action_y` = 28 | the action row | cursored label takes `pulse` |
 | 29 | *(blank)* | |
-| `hint_y` = 30 | `←/→ choose  ·  Enter confirm  ·  b shop  ·  c deck  ·  Esc menu` | Muted |
+| `hint_y` = 30 | `←/→ choose · Enter confirm · b shop · c deck · Esc menu` (55 cells, R5) | Muted |
+
+**The credit row's wording is `shop.rs`'s, not a second phrasing.** The Card
+Shop's own balance line opens `Credits: ◈ {credits}`, and the venue's balance
+row exists precisely to inform the trip to that screen, so the player meets the
+same four words and the same glyph on both. `Emphasis::Normal`, not Muted:
+it is information the player acts on, so it must not be dimmed — and not
+Strong either, which the planet name owns as the screen's subject. It is a
+compact header row like the four above it and gets **no** empty row of its own;
+only the action row does (the constitution's density rule, and the reason the
+row count moved from 4 to 5 rather than 4 to 6).
 
 The action row is unchanged: `draw_choice_panel`'s idiom, each label drawn as
 `"{▸ or space} {label}"` at a fixed stride, so the row's width does not change
@@ -736,6 +863,14 @@ as the cursor moves. What changed is that the empty rows around it are now the
 layout's (`action_y ± 1`), not array slots — the density rule is a geometric
 fact rather than two blank strings in a list, which is also what makes it
 checkable on a drawn frame (§Tests).
+
+**Every row is drawn from `layout.text_x`** (R5), which is the art's centre
+column, so `draw`'s single `let cx = layout.center_x;` becomes `let cx =
+layout.text_x;` and nothing else about the drawing loop moves. One consequence
+worth naming because it is R5's whole visible point: the placeholder's own
+centred label sits at `(art.x0 + art.x1) / 2`, which is now **the same column**
+every text row centres on — the header sits squarely over the art instead of
+13 columns right of it.
 
 The series line reads **`Best of 3`**, not `first to 2` (amendment R1), and it
 reads it from `campaign::series_length_label` — the same function the map's
@@ -782,10 +917,10 @@ The art and the portrait draw **unconditionally** — no `if let Some(rail)`:
 `draw_box` around `layout.art` (Single, Muted) with the planet's name centered
 in it, then `draw_presence_panel(frame, layout.portrait, opponent.name,
 opponent.portrait)`, the same drawer the map's rail and the select screen use.
-The placeholder's *contents* are deliberately unchanged by this revision — it
-still carries the planet's name, which is the person's open question and not
-this plan's to settle (§Open questions 2). The region is now much larger, which
-makes that question more consequential, not less; the re-walkthrough re-puts it.
+The placeholder's *contents* **stay as they are**: the person closed the
+question on 2026-09-21 — the region keeps the planet's name until there is real
+art (§Open questions 2, now closed). So R4 changes the region's size and R5 the
+column its label centres on; the label itself is untouched.
 
 `draw` reads the series from `&Profile` and returns early if there is none —
 `App` only shows this screen while one is in progress, and the early return says
@@ -939,6 +1074,55 @@ naming what it shows — the curve sharpens in both directions, which is what
 ruling G1 and spec 022's gates wanted. No economy constant, roster value or
 starter-deck entry changes.
 
+### 11. `specs/029-tournament-rounds/planet-art-brief.md` (new)
+
+The second amendment's new deliverable: the brief a design agent is handed to
+author the eight planets' venue art, written the way spec 016's
+`portrait-art-brief.md` was and living beside it — same directory-of-the-spec
+convention, same `-art-brief.md` name, same "hand this whole file over as the
+prompt" framing. Documentation, not behaviour: it changes no code and no
+acceptance criterion, and authoring the art stays a non-goal of this spec.
+
+**The canvas, and it is the art region's *interior*.** `draw_box` keeps a
+single-weight border around `layout.art`, and the art draws inside it, so the
+drawable canvas is the Rect minus its border: **48 × 20 at 89 columns** (art
+50×22) and **92 × 20 at 139** (art 94×22), from §Design 4's pinned table. The
+brief states the derivation as well as the numbers, and says they must be
+re-derived from `VenueLayout` — not copied from the brief — if the layout ever
+moves again, naming
+`the_venue_bands_stack_and_the_art_takes_the_rest` as where they are pinned.
+Keeping the border rather than handing the art the whole Rect is deliberate: the
+border is already drawn, it reads as a viewport onto the planet, and it means no
+asset can collide with the box glyphs.
+
+**Two assets per planet, not one — the load-bearing decision, and the reason.**
+The two regions are the same 20 rows but **48 and 92 columns**: the wide one is
+nearly twice the narrow one. A single asset would have to be either the wide
+grid centre-cropped at 89 columns, throwing away 48 % of the composition on the
+one size ruling R3 said the person least wants weak, or the narrow grid centred
+in the wide region, leaving 22 blank columns on each side and undoing exactly
+the dominance R3 and R4 are about. So the brief asks for **16 files** — eight
+planets × `{id}-narrow.txt` (48×20) and `{id}-wide.txt` (92×20) under
+`assets/planets/` — and says in as many words that the narrow grid is its **own
+composition of the same subject**, not a crop of the wide one. This spends the
+cost `spec.md`'s R3 already named and the person accepted ("each planet's art
+must work at two quite different sizes") rather than hiding it behind a crop
+rule. The brief records the rejected single-asset alternative in one line — a
+92-wide grid composed so its central 48 columns stand alone, cropped at the
+minimum size — so the later art spec can revisit it knowingly rather than
+blind.
+
+**How it loads is a later spec's job, and the brief says so.** The portraits'
+mechanism is the model: authored text under `assets/`, `include_str!`-embedded
+into a `&'static str` field on the profile struct (`OpponentProfile.portrait`),
+drawn line-by-line by a clip-safe drawer. Planet art would sit on a field on
+`Planet` in `campaign.rs` and the venue would pick the widest asset that fits
+the region and centre it — one rule, no width threshold, so arbitrary terminal
+widths work and not just the two fit sizes. **None of that is built here**: the
+brief states it as the intended shape and states equally plainly that wiring it
+up is the deferred art spec's work, so nobody reads the brief as a work order
+against this branch.
+
 ## Files
 
 - `src/campaign.rs` — `Series`, `SeriesOutcome`, `FINAL_OPPONENT`,
@@ -1001,13 +1185,28 @@ starter-deck entry changes.
   `VenueLayout::new` losing its `block_h` parameter, and
   `the_venue_rail_is_wide_only_and_clear` replaced. `VENUE_PANEL_H` stays as the
   portrait panel's height. `BriefcaseLayout::BLOCK_H` in the same file is an
-  unrelated private constant and is untouched.
+  unrelated private constant and is untouched. Then **T005c** (amendments R4,
+  R5, R6): `HEADER_H` 4 → 5, `ART_W_NUM`/`ART_W_DEN` added, the art centred in
+  its span, `center_x` renamed to `text_x` and re-derived from the art, and both
+  venue tests re-pinned — the concrete Rects, the gap assertion, the left-margin
+  assertion and the area figures, each enumerated with its old and new value in
+  `tasks.md`. The two other `center_x` fields in this file — `MenuLayout`'s
+  (~152) and `BriefcaseLayout`'s (~269) — belong to other screens, really are
+  the terminal's centre, and are **not** renamed.
 - `src/venue.rs` (new) + `src/lib.rs` (one `pub mod` line) — the screen; tests
   (T005). Then **T004a** (the bands: `BLOCK_H` and `text_rows` replaced by
   `header_rows` plus the footer's own anchors, the art and portrait drawn
   unconditionally, the module doc's N1 sentence corrected), **T005a** (R1, the
   series line) and **T005b** (R2, the action label and three doc comments).
-  `src/lib.rs` is not touched again.
+  Then **T005c**: `header_rows` gains a `credits: u32` parameter and returns
+  five rows, `draw` draws the credit row and reads `layout.text_x`, `HINT`
+  drops to the board's ` · ` separators (63 → 55 cells), and the fit test gains
+  a **left**-edge bar. `src/lib.rs` is not touched again.
+- `specs/029-tournament-rounds/planet-art-brief.md` (new, **T005d**) — the
+  per-planet art brief the second amendment makes a deliverable, in the shape
+  and the location of `specs/016-opponent-portraits/portrait-art-brief.md`.
+  Documentation only: no code, no asset and no test changes with it, and
+  authoring the art stays a non-goal (§Design 11).
 - `src/screen.rs` — the `Venue` variant.
 - `src/app.rs` — `open_campaign_home`,
   `enter_campaign` (renamed), `launch_from_map`, `open_wager` (renamed),
@@ -1125,27 +1324,50 @@ on `CampaignRun`/`Profile`.
   those two tasks shipped, and the list of what changed is part of the task
   lines (`tasks.md`).
 - **The venue's bands stack, and the art takes every row and column the text
-  does not need** (AC 16) — T004a `layout.rs`,
-  `the_venue_bands_stack_and_the_art_takes_the_rest`: at both
+  does not need** (AC 16) — T004a, **re-pinned at T005c** (R4/R5/R6),
+  `layout.rs`, `the_venue_bands_stack_and_the_art_takes_the_rest`: at both
   `Config::fit_sizes()` — `header_y == 0` and `header_y + HEADER_H == art.y0`
-  (the header rows sit directly above the art); `art` and `portrait` both
-  on-frame; `art.x1 + PANEL_GAP < portrait.x0` and `portrait.x0 == art.x1 +
-  PANEL_GAP + 1` (exactly `PANEL_GAP` clear columns, neither overlapping nor
-  gapped by accident); `art.x0 == 3` and `portrait.x1 == cols - 4` (equal outer
-  margins); `portrait.y0 == art.y0` and `portrait.y1 <= art.y1` and
-  `portrait.height() == VENUE_PANEL_H` (shared top, the art taller); `art.y1 + 2
-  == action_y`, `action_y + 2 == hint_y`, `hint_y == rows - 1` (AC 17's air, as
-  geometry). And the concrete Rects of §Design 4's table are pinned at both
-  sizes, in the `assert_eq!(WIDE_LAYOUT_MIN_WIDTH, 139)` spirit — the relational
-  assertions above would let a uniform arithmetic slip through, the pinned
-  numbers would not.
-- **The art region is the largest element, at both widths, and larger when the
-  terminal is wider** (AC 16's amended sentence) — T004a `layout.rs`,
+  (the header rows sit directly above the art; `HEADER_H` is 5 from T005c, and
+  this assertion is symbolic so it moves value without moving text); `art` and
+  `portrait` both on-frame; `art.x1 + PANEL_GAP < portrait.x0` (**at least**
+  `PANEL_GAP` clear columns — the exact-gap `assert_eq!` T004a shipped is
+  **deleted** at T005c, because R4's trim widens the gap to 7 columns at 89 and
+  10 at 139; its surviving half is this line and the exact counts come from the
+  pinned Rects); `art.x0 >= MARGIN_X` (T004a's `art.x0 == 3` is **replaced** —
+  the art is centred in its span now, so its left margin is 7 at 89 and 10 at
+  139); `portrait.x1 == cols - 4` (**unchanged in value** — the portrait's
+  columns do not move in this revision); `portrait.y0 == art.y0` and
+  `portrait.y1 <= art.y1` and `portrait.height() == VENUE_PANEL_H` (shared top,
+  the art taller); `art.y1 + 2 == action_y`, `action_y + 2 == hint_y`,
+  `hint_y == rows - 1` (AC 17's air, as geometry). And the concrete Rects of
+  §Design 4's table are pinned at both sizes, in the
+  `assert_eq!(WIDE_LAYOUT_MIN_WIDTH, 139)` spirit — the relational assertions
+  above would let a uniform arithmetic slip through, the pinned numbers would
+  not. **T005c moves all four**: art `(3,60,4,26)` → `(7,56,5,26)` and portrait
+  `(64,85,4,18)` → `(64,85,5,19)` at 89; art `(3,110,4,26)` → `(10,103,5,26)`
+  and portrait `(114,135,4,18)` → `(114,135,5,19)` at 139.
+- **Every text row centres on the art, not on the terminal** (amendment R5) —
+  T005c `layout.rs`, in the same bands test: `text_x == (art.x0 + art.x1) / 2`
+  at both fit sizes, and pinned concretely — **31 at 89 columns and 56 at 139**,
+  against the terminal centres of 44 and 69 that R5 stopped using, named in the
+  test's comment so a reader sees what the numbers are *not*. This is the claim
+  the whole ruling rests on, so it is asserted rather than left to the Rect pins
+  (which would satisfy it by coincidence if `text_x` were computed some other
+  way).
+- **The art region is the largest element, at both widths, larger when the
+  terminal is wider, and 15–20 % smaller than R3's first attempt** (AC 16's
+  amended sentence, and R4) — T004a, **extended at T005c**, `layout.rs`,
   `the_art_region_dominates_at_both_widths`: at each fit size the art's area
-  exceeds the portrait's, and the art's area at 139 columns strictly exceeds its
-  area at 89 (1334 → 2484). This is the one claim in the amendment that is a
-  *comparison* rather than a placement, so it gets its own test rather than
-  riding on the pinned Rects.
+  exceeds the portrait's (1100 and 2068 against 330), and the art's area at 139
+  strictly exceeds its area at 89 (1100 → 2068) — both assertions keep their
+  text and only their values move. **T005c adds R4's band**, which is the claim
+  the person will eyeball and therefore the one that needs a check: at each fit
+  size, `80 × old <= 100 × new && 100 × new <= 85 × old`, with R3's figures
+  (**1334** at 89, **2484** at 139) as literals in the test. That asserts "about
+  15–20 % smaller" rather than asserting two new numbers that happen to satisfy
+  it today, so a later touch to the fraction or to `HEADER_H` fails here instead
+  of drifting. The test's comment, which currently states the 1334/2484 figures
+  as the *current* areas, becomes false and moves with them.
 - **The venue's rows breathe and fit** (AC 3, 17) — T004a `venue.rs`:
   `the_action_row_keeps_its_width_as_the_cursor_moves` — unchanged from T005,
   and it stays green through T005b too, because `"Card Shop"` is the same nine
@@ -1155,18 +1377,41 @@ on `CampaignRun`/`Profile`.
   `frame::new_frame` over a `Profile::default()` with
   `campaign_mut().begin_series("cinder", "greeb")` (no `App` — plan §Tests'
   standing rule), then assert rows `action_y - 1` and `action_y + 1` are
-  **entirely blank** while the four header rows, `action_y` and `hint_y` carry
+  **entirely blank** while the header rows, `action_y` and `hint_y` carry
   text. The density rule is now a fact about the drawn frame rather than about
   two empty strings in an array, which is the stronger form of the same check;
-  `the_venue_text_fits_the_minimum_terminal` — the four header rows, the action
+  `the_venue_text_fits_the_minimum_terminal` — the header rows, the action
   row (as `action_labels(selected).join(gap)`, the same string the stride loop
   draws — it is no longer one of the returned rows, so the test names it
   explicitly rather than losing it) and the hint, for every planet × opponent ×
-  selection, centered on `center_x`, inside the frame at both fit sizes. Its
+  selection, centered on `center_x` — `text_x` from T005c, a mechanical rename —
+  inside the frame at both fit sizes. Its
   "ends left of `rail.art.x0`" clause **is deleted**
   (the text is above and below the art now, not beside it) and is replaced by
   the vertical-disjointness assertions in the layout test, checked once instead
   of per row.
+- **No drawn row touches either frame edge** (amendment R5, and `spec.md`'s "it
+  must not end up flush against column 0, which reads as a rendering fault") —
+  T005c `venue.rs`, in `the_venue_text_fits_the_minimum_terminal`. The test's
+  bar was `x + w <= cols`, a **right**-edge check only, and `x` comes from
+  `text_x.saturating_sub(w / 2)`, which clamps a left overflow silently to
+  column 0 — so the exact failure R5 forbids would have passed. The bar becomes
+  `x >= 1 && x + w <= cols - 1` for every measured row, **plus the binding case
+  pinned**: at 89 columns the hint's left column is exactly **4**. Pinning 4
+  rather than "greater than 0" is what makes an unsanctioned re-lengthening of
+  the hint fail — 63 characters would put it at 0, and even 57 would put it at 2
+  — instead of quietly closing on the edge. This is the claim §Design 4's R5
+  decision is made of, and it is the one place a confident sentence would
+  otherwise have stood in for a check.
+- **The credit balance is on the screen** (amendment R6) — T005c `venue.rs`,
+  and it needs **no new test**: `the_venue_rows_breathe_only_around_the_action
+  _row` asserts every row in `header_y .. header_y + HEADER_H` carries text on
+  the drawn frame, so raising `HEADER_H` to 5 makes row 4 — the credit row — a
+  row the existing assertion requires to be non-blank. Its *coverage* grows
+  without its text changing, which is worth saying out loud so the phase review
+  does not read the absence of a new test as a gap. The row's width is covered
+  by the fit test, which measures it at `u32::MAX` credits so the widest
+  representable balance can never become the binding row unnoticed.
 - **The venue and the map say the same words for the series length** (amendment
   R1) — T005a `venue.rs`, `the_series_line_names_the_score_and_the_length`, both
   of whose expected strings change value: `Series  1 – 0   ·   Best of 3` and
@@ -1174,6 +1419,20 @@ on `CampaignRun`/`Profile`.
   contains `series_length_label(&series.opponent)` — so R1's actual point (one
   phrase for one idea) survives a later edit to either screen instead of resting
   on two literals that happen to match today.
+- **The art brief's canvas matches the layout it was derived from** (the second
+  amendment's new deliverable) — T005d, and deliberately **a check at authoring
+  time rather than a standing test**: the brief is a document, nothing in the
+  build reads it, and a unit test asserting a Markdown file's numbers would pin
+  prose. So the check is T005d's own Verify — re-derive 48×20 and 92×20 from
+  `the_venue_bands_stack_and_the_art_takes_the_rest`'s pinned Rects (`50 - 2` ×
+  `22 - 2`, `94 - 2` × `22 - 2`) and confirm the brief states the same pair, and
+  confirm the eight planet ids in the brief are exactly `PLANETS`'. The brief
+  itself then carries the standing obligation forward: it tells the later art
+  spec to re-derive the canvas from `VenueLayout` rather than trust the
+  document, and names the test that pins it. Stated as a verification gap on
+  purpose rather than left to be discovered: if the geometry moves again before
+  the art is authored, nothing in CI will notice, and the brief is where that is
+  written down.
 - **The shop is the Card Shop wherever the player reads it** (amendment R2) —
   T005b, and deliberately **a gate rather than a test**: `grep -rniE "outfitter"
   src/ assets/ docs/ README.md` returns only `src/shop.rs`'s
@@ -1302,6 +1561,38 @@ on `CampaignRun`/`Profile`.
     re-put**, unchanged and unanswered: the art region's placeholder is the
     planet's name, in a much larger box now — emptier, or as it is
     (§Open questions 2)?
+  - **After the second amendment's tasks (T005c, T005d) and their phase
+    re-review**, at 89×31 and again at 139×31, on a scratch `KAAZAP_DATA_DIR`:
+    start a series from Cinder to land at the venue. Three things to look at,
+    and nothing else is re-run.
+    (a) **The proportions** (R4). The art region is still clearly the biggest
+    thing on the screen and still visibly bigger at the wider size, but smaller
+    than it was — about a sixth smaller by area at both sizes. This is the
+    person's eyeball call, and it is the one thing in this pause only they can
+    settle; the numbers behind it are in §Design 4's table.
+    (b) **The alignment** (R5). Every row of text — the hall, the planet, the
+    opponent, the series, the credit balance, the action row and the hint — now
+    sits centred over the **art box**, not over the whole screen, so the block
+    of text reads as belonging to the picture under it rather than drifting
+    right of it. The hint is shorter than it was (single spaces around its
+    dots), and at the narrow size it sits four columns clear of the left edge
+    rather than against it.
+    (c) **The balance** (R6). The fifth header row reads `Credits: ◈ …`, the
+    same words the Card Shop's own balance line uses, and it changes after a
+    match settles: play one and come back to the venue to see it move.
+    Also confirm the action row still has an empty row above and below it and
+    the header rows are still tight together (AC 17), and that nothing is
+    clipped at either size (AC 16).
+    **T005d has nothing to look at** — it writes the per-planet art brief, a
+    document on this branch — but the pause report should say in one line that
+    it exists and what it commits to, because it asks a design agent for
+    **two** grids per planet (one for each layout width) and that is the cost
+    ruling R3 named. If the person would rather spend eight drawings than
+    sixteen, the brief records the single-asset alternative and the later art
+    spec can take it.
+    **Nothing else from either earlier Phase 2 script is re-run**: the flow,
+    the lock, the routing, the settlement, the `Best of 3` wording and the Card
+    Shop rename are all attested and none of these two tasks touches them.
   - **After the Phase 3 review**, at both widths: on the map, the planet detail
     of an un-cleared planet says `Best of 3` (and Zenith's, once reachable or by
     inspection, `Best of 5`); during a series match the status band's lower row
@@ -1331,6 +1622,9 @@ balance data.
 
 Settled here as design. **All five were reviewed at sign-off (2026-09-20) and
 stand**; the first two carry a walkthrough obligation recorded with them.
+**Question 2 is closed by the person as of 2026-09-21** (the placeholder keeps
+the planet's name), so only question 1 still owes the person an answer — at the
+Phase 3 pause.
 
 1. **The in-match series line is gone on the deciding match's game-over frame**
    (§Design tension 6). It is derived from the live series, and the deciding
@@ -1346,23 +1640,17 @@ stand**; the first two carry a walkthrough obligation recorded with them.
    acknowledgement: a sub-lettered task, not a redesign. Held back for now
    because one meaning of "a series is in progress" is worth more than one frame
    of a number.
-2. **The art placeholder carries the planet's name** (§Design 5). Ruling M1 says
-   a plain placeholder; an empty bordered box reads as a rendering fault at a
-   walkthrough, and one muted label reads as a reservation. **Sign-off: the
-   person's to rule, and the walkthrough is the moment — stands as drafted
-   provided the Phase 2 pause report names it as an open choice.** Note the
-   venue's second row already names the planet six rows above the region, so the
-   label repeats a fact. One line to empty it.
-   **Still open as of 2026-09-21.** The Phase 2 report asked it and the person's
-   amendment says so explicitly: *"whether that placeholder carries the planet's
-   name is the open choice the Phase 2 report put to the person, unanswered as of
-   this amendment."* So T004a changes the region's **size** and leaves its
-   **contents** exactly as they are — it is not this revision's to decide. One
-   thing has changed about the question and is worth telling them: the box is now
-   58×23 at the minimum size instead of 30×15, so a single muted word sits in far
-   more empty space, which cuts both ways (it reads less like a rendering fault,
-   and it repeats a fact more loudly). The re-walkthrough re-puts it; it is still
-   one line either way.
+2. ~~**The art placeholder carries the planet's name**~~ — **CLOSED by the
+   person, 2026-09-21** (`spec.md`, *Amendment, 2026-09-21 (second)*: "the
+   placeholder keeps the planet's name until there is real art. Plan §Open
+   questions 2 is **closed** — keep the label"). It was asked at the Phase 2
+   pause and re-put at the first amendment's re-walkthrough; the answer is keep
+   it. So **no task changes the placeholder's contents**: T005c changes the
+   region's size (R4) and the column its label centres on (R5), and the label
+   itself is untouched. Recorded rather than deleted because two task lines
+   (T004a, T005b's pause text) point at this entry as an open choice, and a
+   reader arriving from them needs to find the answer here rather than the
+   question.
 3. **Esc and `x` at the venue quit to the menu**, the same as the Quit action.
    `spec.md` lists four actions and does not bind Esc; every other screen in the
    game backs out on Esc/`x`, and there is nothing else for it to mean here (no

@@ -1,14 +1,18 @@
 # Tasks: Tournament rounds — spec 029
 
-> **Status**: Signed off (skeptical-reviewer, 2026-09-21 — amendment revision: one review, one re-review, B1 resolved and five notes applied; three carried to the pre-merge sweep).
+> **Status**: Draft — pending sign-off (**second amendment revision**, 2026-09-21).
 **Implements**: plan.md in this directory
 
 T001–T006 were signed off on 2026-09-20 (one review, one re-review, B1–B6
 resolved), implemented, reviewed, committed, and attested by the person at the
-Phase 1 and Phase 2 pauses; nothing about them is reopened here. What is pending
-sign-off is **T004a, T005a and T005b** in Phase 2, added 2026-09-21 for
-`spec.md`'s *Amendment, 2026-09-21*, and the Phase 2 re-walkthrough in T005b's
-Verify. T007–T011 are unchanged and were never started.
+Phase 1 and Phase 2 pauses. **T004a, T005a and T005b** were signed off on
+2026-09-21 for `spec.md`'s *Amendment, 2026-09-21* and are likewise implemented,
+reviewed, committed and attested. Nothing about any of them is reopened here.
+What is pending sign-off is **T005c and T005d** in Phase 2, added 2026-09-21 for
+`spec.md`'s *Amendment, 2026-09-21 (second)* (R4 the art's proportions, R5 the
+text's alignment to the art, R6 the credit balance, and the per-planet art
+brief), and the second Phase 2 re-walkthrough in T005d's Verify. T007–T011 are
+unchanged and were never started.
 
 Ordered, small, independently verifiable. Each task should be completable (and
 testable) on its own. If a session ends mid-list, resume by finding the first
@@ -330,7 +334,7 @@ something the person can see. Marked honestly, not generously; the reviewer's
   series before switching opponents, so a replaced series is not reported back
   as lost progress.*
 
-## Phase 2 — The venue and the lock (walkthrough: Enter on an un-beaten planet now opens the venue at 0–0 with nothing staked; play matches from it, come back to it between them, open the Card Shop and the collection and return to it, quit to the menu and re-enter the campaign to land back at it — and win the series to be handed back to the map; then, after T004a–T005b, walk the amended venue: horizontal bands with a dominant art region at **both** widths, `Best of 3` in the series row, and a **Card Shop** button that opens a screen headed the same)
+## Phase 2 — The venue and the lock (walkthrough: Enter on an un-beaten planet now opens the venue at 0–0 with nothing staked; play matches from it, come back to it between them, open the Card Shop and the collection and return to it, quit to the menu and re-enter the campaign to land back at it — and win the series to be handed back to the map; then, after T004a–T005b, walk the amended venue: horizontal bands with a dominant art region at **both** widths, `Best of 3` in the series row, and a **Card Shop** button that opens a screen headed the same; then, after T005c, walk the re-proportioned venue: the art about a sixth smaller by area but still the biggest thing on the screen, **every** row of text centred over the art box rather than over the whole screen, a shorter hint sitting clear of the left edge, and a `Credits: ◈ …` row that moves after a match settles — T005d adds the per-planet art brief, a document, with nothing to look at)
 
 <!-- T004 is the geometry, T005 the screen module (pub, so nothing is dead code
 before it is wired), T006 the wiring and the one routing rule. The venue is
@@ -742,6 +746,339 @@ line is done, reviewed, committed and attested. -->
   It was asked at the Phase 2 pause, the person's amendment records it as
   unanswered, and it is one line either way (plan §Open questions 2).*
 
+<!-- The two tasks below are the 2026-09-21 **second** amendment (R4 the art's
+proportions, R5 the text's alignment, R6 the credit balance, plus the per-planet
+art brief). Everything above this line is done, reviewed, committed and
+attested, including the first amendment's T004a/T005a/T005b.
+
+Order is fixed in one direction: **T005c first**, because T005d's canvas numbers
+are derived from the geometry T005c lands. T005c is one task across two files
+for the same reason T004a was — `VenueLayout`'s shape and `venue.rs`, its only
+consumer, cannot land in separate builds — and because R4, R5 and R6 are
+entangled: R6's extra header row is one of R4's two axes, and R5 re-derives the
+column R6's row is drawn from. Split three ways, the pinned Rects would be wrong
+in two intermediate commits.
+
+**Neither carries `review: per-task`**, on the same reasoning T004a's comment
+records: the criterion is a task whose mistake later files would inherit, and
+nothing outside `venue.rs` reads `VenueLayout` while Phases 3–5 touch none of
+it. T005d touches no code at all. The phase **re-review** covers both diffs
+together, and T005c's enumerated list of changed assertions is what that review
+checks against — the same instrument that worked at T004a, where for the first
+time in this spec a deliberate assertion change caused no stop.
+
+The walkthrough list near the foot of this file gets a third Phase 2 row when
+the second re-walkthrough is attested — the orchestrator writes it. -->
+
+- [ ] **T005c** — `src/layout.rs` + `src/venue.rs`: the venue's proportions, its
+  alignment and its balance. Per plan §Design 4 and §Design 5, for `spec.md`'s
+  amendments **R4**, **R5** and **R6**. Two files in one task because
+  `VenueLayout`'s shape changes and `venue.rs` is its only consumer.
+
+  **`src/layout.rs`.** `VenueLayout::HEADER_H` becomes **5** (the credit row,
+  R6) and its doc names the fifth row and says the row gets **no** air — only
+  the acted-on row does. Add `const ART_W_NUM: usize = 7;` and `const
+  ART_W_DEN: usize = 8;` with plan §Design 4's doc, including *why a fraction
+  and not a fixed inset* (no single column inset lands inside R4's 15–20 % at
+  both fit sizes — the ranges are 7–9 columns at 89 and 12–17 at 139, and they
+  do not overlap). Rename the field `center_x` to **`text_x`** and derive it
+  from the art — `(art.x0 + art.x1) / 2` — with plan's doc: it is the art's
+  centre, not the terminal's, and it is named for what it is *for* because
+  `center_x` reads as the terminal's centre, which is exactly what R5 stopped
+  using. **Do not rename `MenuLayout::center_x` or `BriefcaseLayout::center_x`**
+  in the same file: they are other screens' and they really are the terminal's
+  centre. `VenueLayout::new` computes plan §Design 4's arithmetic in that order:
+  the portrait's column unchanged, then the art's available span
+  (`MARGIN_X ..= portrait.x0 - PANEL_GAP - 1`), then `art_w = span_w *
+  ART_W_NUM / ART_W_DEN`, then `art.x0 = span_x0 + (span_w - art_w) / 2` — the
+  trim **split between the art's two margins**, so the art stays centred in its
+  span and `text_x` does not move with the fraction. Keep the `.max()` clamps.
+  Three doc comments in this file become false and change with it: `MARGIN_X`'s
+  ("the art's left margin and the portrait's right margin — **equal**, so the
+  two regions together sit centered under the header rows" — the art's left
+  margin is 7 at 89 columns now, the margins are deliberately unequal, and the
+  band no longer has to be centred under anything because the text follows the
+  art); the `VenueLayout` struct doc's "Four header rows at the top"; and the
+  comment inside `new` that says the art "takes everything left of the gap
+  before it".
+
+  **`src/venue.rs`.** `HINT` becomes `"←/→ choose · Enter confirm · b shop · c
+  deck · Esc menu"` — **55 characters**, the board's own single-space `·`
+  separators rather than the venue's `  ·  ` (plan §Design 4's R5 decision: at
+  89 columns, centred on the art's centre of 31, the old 63-character form spans
+  columns 0..=62, flush against the frame edge, which `spec.md` forbids in as
+  many words; the new form spans 4..=58). `header_rows` gains a fifth parameter
+  `credits: u32` and a fifth row, `format!("Credits: ◈ {credits}")` — the Card
+  Shop's own opening words (`src/shop.rs`'s balance line), not a second
+  phrasing, because the venue's balance row exists to inform the trip to that
+  screen. `draw` reads `profile.credits()`, draws the fifth header row at
+  `top + 4` with **`Emphasis::Normal`** (not Muted — it is information the
+  player acts on, and not Strong, which the planet name owns), and its single
+  `let cx = layout.center_x;` becomes `let cx = layout.text_x;`. Nothing else in
+  `draw` moves. Correct the two docs that become false: `header_rows`' "The
+  **four** header rows above the art" and `draw`'s own "Draw the venue's three
+  bands: the **four** header rows" — both say five, and `header_rows`' doc says
+  what the fifth is. **The placeholder's contents do not change**: the person
+  closed plan §Open questions 2 on 2026-09-21 — the region keeps the planet's
+  name — so this task changes the region's *size* and the column its label
+  centres on, and nothing about the label.
+
+  **The numbers this task must produce**, from plan §Design 4's table, so the
+  report can be checked against them rather than trusted: at **89×31** `art ==
+  Rect::new(7, 56, 5, 26)` (50×22 = **1100** cells) and `portrait ==
+  Rect::new(64, 85, 5, 19)` (330); at **139×31** `art == Rect::new(10, 103, 5,
+  26)` (94×22 = **2068**) and `portrait == Rect::new(114, 135, 5, 19)`.
+  `text_x` is **31** at 89 and **56** at 139 (the terminal's centres, 44 and 69,
+  are no longer used anywhere). Against R3's 1334 and 2484 that is **17.5 %**
+  and **16.8 %** smaller — R4's "about 15–20 % smaller overall", at both sizes
+  and within 0.7 points of each other.
+
+  **This task moves numbers two shipped tests pin, so existing assertions change
+  value — deliberately, and only in the ways enumerated below. Anything else
+  that moves is a stop-and-report, not an expectation to adjust.** The list is
+  exhaustive and this spec has paid four times for lists that were not.
+
+  (1) **`src/layout.rs`, `the_venue_bands_stack_and_the_art_takes_the_rest`:**
+  • `assert_eq!(l.portrait.x0, l.art.x1 + PANEL_GAP + 1, "art and portrait
+  aren't exactly PANEL_GAP apart…")` — **deleted**. Old bar: the gap is
+  *exactly* `PANEL_GAP`. New fact: R4's trim adds its right half to the gap, so
+  the clear columns are **7 at 89 (57..=63) and 10 at 139 (104..=113)**. Its
+  surviving half is the line immediately above it (`art.x1 + PANEL_GAP <
+  portrait.x0`, "at least `PANEL_GAP` clear"), which **keeps its value**, and
+  the exact counts follow from the two pinned Rects. Dropped on purpose, not by
+  accident.
+  • `assert_eq!(l.art.x0, 3, "art's left margin at {cols} columns")` —
+  **replaced**. Old value: 3 at both widths. New: the art is centred in its
+  span, so it is **7 at 89 and 10 at 139**. The new assertion is the rule rather
+  than the number — `assert!(l.art.x0 >= VenueLayout::MARGIN_X, …)` (the const
+  is visible to the test module; second-look note 28's art half, resolved here
+  because this line has to be rewritten anyway) — with the concrete values
+  carried by the Rect pins below.
+  • the four pinned Rects — **all four change value**: at 89×31 `art`
+  `Rect::new(3, 60, 4, 26)` → **`Rect::new(7, 56, 5, 26)`** and `portrait`
+  `Rect::new(64, 85, 4, 18)` → **`Rect::new(64, 85, 5, 19)`**; at 139×31 `art`
+  `Rect::new(3, 110, 4, 26)` → **`Rect::new(10, 103, 5, 26)`** and `portrait`
+  `Rect::new(114, 135, 4, 18)` → **`Rect::new(114, 135, 5, 19)`**. (The
+  portrait's *columns* do not move — only its rows, by the one row R6 adds.)
+  • **one assertion added**: `text_x` is the art's centre —
+  `assert_eq!(l.text_x, (l.art.x0 + l.art.x1) / 2, …)` and pinned
+  `assert_eq!(l.text_x, if cols < WIDE_LAYOUT_MIN_WIDTH { 31 } else { 56 }, …)`,
+  with the terminal's own centres (44, 69) named in the comment as what these
+  are *not*. R5's whole ruling rests on this, so it is asserted rather than left
+  to follow from the Rects.
+  • **kept, values unchanged, and a stop-and-report if any moves**: the
+  `Config::fit_sizes()` loop; both Rects `in_bounds`; `l.header_y == 0`;
+  `l.art.x1 + PANEL_GAP < l.portrait.x0`; `l.portrait.x1 < cols`;
+  `l.portrait.x1 == cols - 4`; `l.portrait.height() == VENUE_PANEL_H`;
+  `l.art.y1 < l.action_y`; `l.art.y1 + 2 == l.action_y`; `l.action_y + 2 ==
+  l.hint_y`; `l.hint_y == rows - 1`.
+  • **symbolic assertions whose value moves without their text changing**, named
+  so the review is not surprised and so nobody "fixes" them:
+  `l.header_y + VenueLayout::HEADER_H == l.art.y0` (4 → 5 on both sides) and
+  `l.art.y0 == l.portrait.y0` (4 → 5). **No edit.**
+  • the test's own comment says "four header rows" — **five**.
+
+  (2) **`src/layout.rs`, `the_art_region_dominates_at_both_widths`:**
+  • `assert!(art_area > portrait_area, …)` and `assert!(wide > narrow, …)` —
+  **kept, text unchanged**; their values move (1100 and 2068 against 330, and
+  1100 → 2068).
+  • **R4's band added**, because "about 15–20 % smaller" is the claim the person
+  will eyeball and a plan sentence must not stand in for it: at each fit size,
+  with R3's figure as a literal (`1334` at 89, `2484` at 139), assert
+  `80 * old <= 100 * art_area && 100 * art_area <= 85 * old`. Integer
+  arithmetic, no floats. This fails if the fraction, `HEADER_H` or `FOOTER_H` is
+  ever touched without re-checking R4, which is exactly what it is for.
+  • the test's comment currently states 1334/2484 as the *current* areas —
+  **false after this task**; it states 1100/2068 and the two percentages.
+
+  (3) **`src/venue.rs`, `the_venue_rows_breathe_only_around_the_action_row`:**
+  • the blank-row assertions at `action_y - 1` and `action_y + 1` (rows 27 and
+  29) — **unchanged in text and in value**.
+  • the filled-rows loop over `layout.header_y .. layout.header_y +
+  VenueLayout::HEADER_H` — **unchanged in text**, and this is how R6 gets
+  checked: with `HEADER_H` at 5 the loop now requires row 4, the credit row, to
+  carry text on the drawn frame. Its coverage grows without an edit; **no new
+  test for R6**, and say so in the report so the absence does not read as a gap.
+  The `Profile::default()` this test builds has the seed purse, so the row is
+  non-blank without any extra setup.
+
+  (4) **`src/venue.rs`, `the_venue_text_fits_the_minimum_terminal`:**
+  • `let x = layout.center_x.saturating_sub(w / 2);` → `layout.text_x…` —
+  mechanical, with the test's comment ("centered on `center_x` as `draw`
+  centers it") moving with it.
+  • `assert!(x + w <= cols, …)` — **strengthened to
+  `assert!(x >= 1 && x + w <= cols - 1, …)`**. Old bar: the **right** edge only,
+  and because `x` comes from a `saturating_sub` a left overflow clamped silently
+  to column 0 — so the precise failure `spec.md` forbids ("it must not end up
+  flush against column 0, which reads as a rendering fault") would have passed
+  this test. This is the single most load-bearing assertion change in the task.
+  • **one assertion added, pinning the binding case**: at 89 columns the hint's
+  left column is exactly **4** (`layout.text_x - HINT.chars().count() / 2 ==
+  4`). Pinning 4 rather than "> 0" is what makes an unsanctioned re-lengthening
+  fail — the old 63-character hint would sit at 0 and even a 57-character one at
+  2 — instead of quietly closing on the edge.
+  • the test helper `rows_for_opponent` (~250) and its `header_rows` call gain
+  the `credits` argument. Pass **`u32::MAX`** here, so the widest representable
+  balance is the one measured and the credit row can never become the binding
+  row unnoticed; the breathing test uses the profile's real balance.
+
+  (5) **Not changing, and a stop-and-report if they do**:
+  `the_action_row_keeps_its_width_as_the_cursor_moves` (53 either way — no label
+  changes here), `the_series_line_names_the_score_and_the_length` (T005a's two
+  strings), `the_venue_keys_move_confirm_and_shortcut`, and **every test in
+  every other file** — `layout.rs`'s board, briefcase, map and overlay tests,
+  `overlay.rs`'s two asset tests, `board.rs`'s, `campaign_map.rs`'s and
+  `profile.rs`'s included. No asset file and no other source file is touched.
+
+  Do not run `cargo fmt`. (Copies: `CampaignMapLayout::new` in the same file for
+  the full-screen banding, its `.max()` clamp and its top-anchored
+  `portrait_panel`; `src/shop.rs`'s balance line (~173) for the credit row's
+  exact wording and glyph; `src/board.rs`'s in-match hint for the ` · `
+  separator idiom.)
+  *Verify: `cargo build --all-targets` no new warnings — in particular no
+  `dead_code` on `ART_W_NUM`/`ART_W_DEN` and no unused `center_x`; `cargo test
+  -q` green verbatim, with the re-pinned and added assertions passing;
+  `git diff --stat` shows only `src/layout.rs` and `src/venue.rs`;
+  `grep -n "center_x" src/venue.rs` is **empty** (the venue reads `text_x`
+  only — this grep is scoped to `venue.rs` because `layout.rs` keeps two other
+  screens' `center_x` fields on purpose, and a file-wide grep there would be
+  unsatisfiable, which is the failure T006's and T005b's gates already taught
+  this spec twice); `grep -n "text_x" src/layout.rs src/venue.rs` shows the
+  field, its derivation and the venue's uses; `grep -c "·" src/venue.rs`
+  confirms the hint was edited rather than re-typed alongside the old one (the
+  report pastes the `HINT` line verbatim with its character count). The report
+  states the concrete `art` and `portrait` Rects and `text_x` at **both** fit
+  sizes, the two art areas **with their percentage reductions from 1334 and
+  2484**, the hint's character count and its left column at 89 columns, and
+  **lists every existing assertion it changed with the old value and the new
+  one**, mapped to the numbered items above — so the phase re-review checks that
+  list rather than re-deriving it.*
+
+- [ ] **T005d** — `specs/029-tournament-rounds/planet-art-brief.md` (new): the
+  per-planet art brief. Per plan §Design 11, for `spec.md`'s *Amendment,
+  2026-09-21 (second)* ("A new deliverable: the per-planet art brief"). **A
+  document only — no code, no asset, no test.** Authoring the art stays a
+  non-goal of this spec; this is the brief a design agent is handed so the work
+  can be done elsewhere and folded back in.
+  **Written the way `specs/016-opponent-portraits/portrait-art-brief.md` was**,
+  which is this task's pattern file in every sense: the same
+  directory-of-the-spec location, the same `-art-brief.md` name, the same
+  opening *Purpose* / *hard format constraint* / *palette* / *canvas* /
+  *aesthetic* / *per-subject direction table* / *validation checklist* spine,
+  and the same framing sentence — hand this whole file over as the prompt, and
+  Claude Code validates and integrates whatever comes back. Read it before
+  writing; do not invent a new shape.
+  It must pin, at minimum:
+  (a) **The hard format constraint first**, as spec 016 does: kaazap is a
+  monochrome character-grid renderer with no image support and no colour, so the
+  deliverable is plain text, one glyph per cell, UTF-8, LF newlines, one
+  trailing newline, drawn at a single uniform emphasis so depth comes only from
+  glyph density.
+  (b) **The canvas, at both fit sizes, and that it is the art region's
+  *interior***: `draw_box` keeps a single-weight border around the art Rect, so
+  the drawable grid is **48 × 20 columns at 89-column terminals** (art Rect
+  50×22) and **92 × 20 at 139** (art Rect 94×22). State the derivation, not just
+  the numbers, and name
+  `the_venue_bands_stack_and_the_art_takes_the_rest` in `src/layout.rs` as where
+  the Rects are pinned — with the instruction that if the venue's geometry ever
+  moves again the canvas must be **re-derived from `VenueLayout`, not copied
+  from this brief** (nothing in the build reads the document, so nothing will
+  catch it drifting).
+  (c) **Two assets per planet — sixteen files — and the reason.** The two
+  regions are the same 20 rows but 48 and 92 columns wide, so one grid cannot
+  serve both: the wide one centre-cropped at 89 throws away 48 % of the
+  composition on the size ruling R3 said the person least wants weak, and the
+  narrow one centred in the wide region leaves 22 blank columns each side and
+  undoes the dominance R3 and R4 are about. So: `assets/planets/<id>-narrow.txt`
+  (48×20) and `assets/planets/<id>-wide.txt` (92×20) for each of the eight
+  planet ids, and **the narrow grid is its own composition of the same subject,
+  not a crop of the wide one**. Say that this spends the cost `spec.md`'s R3
+  already named and the person accepted, and record the rejected single-asset
+  alternative in one line — a 92-wide grid composed so its central 48 columns
+  stand alone — so the later art spec can take it knowingly rather than blind.
+  (d) **The character repertoire**, carried over from spec 016's brief rather
+  than re-invented: the block/shade/half/quadrant set plus space, its
+  East-Asian-ambiguous-width caveat, and that box-drawing glyphs are **reserved
+  for the border the game draws** and must not appear inside the art. Plus one
+  constraint the portraits did not need: **every line exactly the canvas width**,
+  space-padded, because a short line leaves a ragged hole inside a bordered box
+  rather than a left-aligned face.
+  (e) **The eight planets**, by `id`, `name`, `region` and `blurb`, taken from
+  `src/campaign.rs`'s `PLANETS` (ids: `cinder`, `scree`, `ashfall`, `karrus`,
+  `drift`, `the-anvil`, `the-spindle`, `zenith`), in a table with a one-line art
+  direction per planet drafted **from its own blurb and region** — the way spec
+  016's table drafted a vibe per opponent from the roster's blurbs. The
+  Outer Rim → Mid Rim → Core progression is the set's arc, so the direction
+  should harden along it, as spec 016's does down the difficulty ladder. Say
+  plainly that the subject is **the venue on that planet** — the tournament hall
+  and what is out its window — not a map or a planet seen from space, because
+  the person's reason for the large region was "it feels like you are actually
+  in the venue, on the planet".
+  (f) **How it loads, and that it is not this spec's work.** The portraits'
+  mechanism is the model: authored text under `assets/`, `include_str!`-embedded
+  into a `&'static str` field (`OpponentProfile.portrait`), drawn by a clip-safe
+  drawer. Planet art would hang off a field on `Planet` in `src/campaign.rs`,
+  and the venue would pick the widest asset that fits the region and centre it —
+  one rule, no width threshold, so arbitrary terminal widths work and not only
+  the two fit sizes. **State explicitly that none of this is built in spec 029
+  and that wiring it up is the deferred art spec's job**, so nobody reads the
+  brief as a work order against this branch.
+  (g) **The validation checklist**, in spec 016's shape and enforceable without
+  judgement: sixteen files present and correctly named; each exactly 20 lines;
+  each line exactly 48 or 92 displayed columns; palette glyphs and space only,
+  no ANSI or escape codes, no wide/zero-width/combining characters; the eight
+  narrow grids pairwise distinct and the eight wide ones likewise; and last, the
+  person's own go/no-go look at the running venue at 89×31 and 139×31.
+  **Change nothing else.** No `src/`, no `assets/`, no `docs/`, no other file
+  under `specs/`. Do not run `cargo fmt`.
+  (Copies: `specs/016-opponent-portraits/portrait-art-brief.md` — structure,
+  voice, palette block and validation-checklist shape lift almost verbatim;
+  `src/campaign.rs`'s `PLANETS` for the ids, names, regions and blurbs.)
+  *Verify: `git diff --stat` shows exactly one new file,
+  `specs/029-tournament-rounds/planet-art-brief.md`, and nothing else;
+  `cargo build --all-targets` and `cargo test -q` green verbatim and **unchanged
+  from T005c's run** (this task compiles nothing — reporting them is the
+  constitution's bar, not evidence of a change); the report **re-derives the
+  canvas from the layout test rather than from the brief** — quoting
+  `the_venue_bands_stack_and_the_art_takes_the_rest`'s pinned Rects and showing
+  `50 - 2 = 48`, `94 - 2 = 92`, `22 - 2 = 20` — and confirms the brief states
+  that same pair; `for id in cinder scree ashfall karrus drift the-anvil
+  the-spindle zenith; do grep -c "$id" specs/029-tournament-rounds/planet-art-
+  brief.md; done` returns eight non-zero counts, pasted; the report quotes the
+  brief's canvas section and its one-asset-or-two paragraph verbatim, and states
+  the file count it asks for (16) and the directory it asks for them in.
+  **PAUSE for the person** (after the Phase 2 re-review, which covers T005c and
+  T005d together): the orchestrator drives the second amendment re-walkthrough
+  in plan §Verification with the `run-kaazap` skill — `KAAZAP_DATA_DIR` pointed
+  at a scratch directory, confirmed in the report — at 89×31 and again at
+  139×31, and reports in plain language, in three parts.
+  (a) **The proportions**: the art region is smaller than it was — about a sixth
+  smaller by area at both sizes — while still clearly the biggest thing on the
+  screen and still visibly bigger at the wider size. This is theirs to eyeball
+  and it is the one thing in this pause only they can settle; give them the two
+  before-and-after sizes in plain numbers and ask whether it is where they want
+  it.
+  (b) **The alignment**: every row of text now sits centred over the art box
+  rather than over the whole screen, so the text reads as belonging to the
+  picture under it instead of drifting right of it; the hint line is shorter
+  (single spaces around its dots) and at the narrow size sits four columns clear
+  of the left edge rather than against it.
+  (c) **The balance**: the fifth row reads `Credits: ◈ …` in the Card Shop's own
+  words, and it moves after a match settles — play one and come back to the
+  venue to show it.
+  Also confirm the action row still has an empty row above and below it with the
+  header rows tight together, and that nothing is clipped at either size.
+  **One line about T005d**, which has nothing to look at: the per-planet art
+  brief now rides this branch, and it asks a design agent for **two** grids per
+  planet — one for each layout width, sixteen in all — which is the cost their
+  R3 ruling named. If they would rather spend eight drawings than sixteen, the
+  brief records the single-asset alternative and the later art spec can take it;
+  ask, rather than assume.
+  **Say plainly what is not being re-walked**: the whole Phase 2 flow and the
+  first amendment's wording — the lock, the routing, the wager, the settlement,
+  quitting and resuming, `Best of 3`, the Card Shop rename — is untouched by
+  these two tasks and is not re-run.*
+
 ## Phase 3 — The series where the player already looks (walkthrough: the map's planet detail names what a launch commits you to before you take it, the status band carries the running score through every match of a series and nothing during a rematch, and the map banner after the deciding match names the series result beside the credits)
 
 - [ ] **T007** — `src/campaign_map.rs` + `src/app.rs` + `docs/economy.md`: the map's detail line and
@@ -916,8 +1253,11 @@ line is done, reviewed, committed and attested. -->
   "series\|tournament\|venue\|best of" ROADMAP.md`, read and judge), and add the
   follow-ups this spec deliberately deferred and named: **per-planet venue art**
   (the region is reserved and holds a plain placeholder; author it the way spec
-  016's portraits were run — a brief in the repo, the art drawn by a more
-  capable tool, Claude Code validating and integrating), **per-planet music**
+  016's portraits were run — and **the brief is already written**, on this
+  branch at `specs/029-tournament-rounds/planet-art-brief.md`, so the follow-up
+  is "hand that file to a design tool, validate the sixteen grids, wire the two
+  fields and the pick-the-widest-that-fits rule", not "write a brief"),
+  **per-planet music**
   (ruling Q, its own spec), **series-aware banter** (an opponent's match-start
   line now fires two or three times in a row), and **re-tuning the curve if the
   measured series rates play badly** (spec 029 measures, it does not change).
@@ -941,7 +1281,30 @@ line is done, reviewed, committed and attested. -->
   portrait keeping its own column and the cost named (each planet's art must
   work at two quite different sizes, which lands on the deferred art spec). Note
   that R3 cost one struct and one constant (`VenueRail`, `VENUE_ART_W`), deleted
-  rather than kept as unconditional wrappers. And the plan's
+  rather than kept as unconditional wrappers.
+  **And `spec.md`'s *Amendment, 2026-09-21 (second)*, which is three more
+  rulings of the person's own plus a deliverable**: **R4** the art about 15–20 %
+  smaller — landed at 17.5 % (89 columns) and 16.8 % (139) by taking seven
+  eighths of the art's available columns, the **one scale factor** this plan
+  takes, because no fixed column inset lands inside R4's band at both fit sizes
+  (a divergence from §Design tension 7's "a subtraction, not a ratio", recorded
+  there rather than slipped in); **R5** every text row centres on the **art's**
+  centre rather than the terminal's, with the consequence the person was warned
+  of resolved by shortening the controls hint from 63 characters to 55 using the
+  board's own ` · ` separators — the alternatives (clamping the row, aligning
+  only the header, splitting the hint, widening the art) each rejected for a
+  stated reason, and `spec.md`'s "not flush against column 0" rule turned into
+  an assertion the fit test had been silently satisfying through
+  `saturating_sub`; **R6** the venue shows the credit balance, in the Card
+  Shop's own words, checked by the existing drawn-frame breathing test rather
+  than by a new one; and **plan §Open questions 2 closed by the person** — the
+  placeholder keeps the planet's name. Record that the **per-planet art brief**
+  ships on this branch as `specs/029-tournament-rounds/planet-art-brief.md`, in
+  spec 016's shape, and that it asks for **two grids per planet** (48×20 and
+  92×20, sixteen files) because the art region is a different width at the two
+  layout sizes — the cost R3 named — with the single-asset alternative recorded
+  in the brief for the deferred art spec to take if the person prefers it.
+  And the plan's
   design calls: the return target **derived from the lock** rather than
   remembered (and why — spec 015's bug, and that the invariant is held by a
   reviewed grep rather than by the type system), one `reserve_floor` rather than
@@ -1004,7 +1367,13 @@ task starts.
 **Foundational phase: Phase 1.** One `skeptical-reviewer` pass at the end of
 each phase — after T003, T006, T008, T009 and T010 — on a shell-assembled bundle
 (the phase diff, the task lines, plan §Design and §Tests, the acceptance
-criteria), one review plus at most one re-review. The Phase 1 review also checks
+criteria), one review plus at most one re-review. **Phase 2 has three reviews
+rather than one**, because the person amended `spec.md` twice mid-phase: the
+original pass after T006, a re-review after T005b (the first amendment), and a
+second re-review after **T005d** covering T005c and T005d together. Each is one
+review plus at most one re-review of its own, and each checks its tasks'
+enumerated assertion lists rather than re-deriving them. The Phase 1 review also
+checks
 that the only existing tests T003 changed are the two sanctioned kinds. The
 Phase 2 review also checks the venue against the constitution's *acted-on
 element stands apart* rule and the modal's even padding, and runs the
@@ -1012,7 +1381,11 @@ single-assignment grep itself rather than taking T006's report for it.
 
 **Pause cadence — when there's something to try.** Pause for the person after
 **Phase 1**, **Phase 2**, **Phase 3** and **Phase 4**, once each phase's review
-and its walkthrough are done. **Only Phase 5 and the close-out are marked
+and its walkthrough are done — and Phase 2 pauses **three** times, once per
+amendment, because each amendment changed what the venue shows and the person is
+the only one who can attest to that. The third pause is T005d's, after the
+second re-review; T005c and T005d are walked together and the brief itself has
+nothing to look at. **Only Phase 5 and the close-out are marked
 `walkthrough: none`** — the simulator is `#[ignore]`d and `docs/balance.md` is a
 document, and the close-out is documentation, checks and the sweep. They run
 through without a pause and append their one-line reason to the walkthrough list
