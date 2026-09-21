@@ -9,8 +9,10 @@
 //! the Outfitter and the collection are reached *from* it, which is the
 //! constitution's line between the two. Copies `opponent_select.rs`'s shape — a
 //! small state struct, one owned outcome enum, `draw(frame, config, …, pulse)` —
-//! and draws through [`VenueLayout`], whose right rail holds the planet art
-//! region and the opponent's presence panel from 139 columns up (ruling N1).
+//! and draws through [`VenueLayout`], which stacks it as three horizontal bands
+//! at every width: the header rows, then the planet art region with the
+//! opponent's presence panel in its own column beside it, then the action row
+//! and the controls hint (spec 029, amendment R3, superseding ruling N1).
 //! See `specs/029-tournament-rounds`.
 
 use crossterm::event::KeyCode;
@@ -24,11 +26,6 @@ use crate::{
     portrait::draw_presence_panel,
     profile::Profile,
 };
-
-/// Rows of the venue's centered text block: place, planet, opponent, series,
-/// blank, actions, blank, hint. Passed to [`VenueLayout::new`], which centers
-/// the block on it.
-pub const BLOCK_H: usize = 8;
 
 /// The four actions, in the order they are drawn (ruling K1).
 const ACTIONS: [&str; 4] = ["Play", "Outfitter", "Collection", "Quit"];
@@ -93,29 +90,22 @@ fn action_labels(selected: usize) -> [String; ACTIONS.len()] {
     std::array::from_fn(|i| format!("{} {}", if i == selected { "▸" } else { " " }, ACTIONS[i]))
 }
 
-/// The eight rows of the text block, in draw order — the one source of truth
-/// for their wording, so the fit and the breathing-room tests measure what is
-/// actually drawn. Rows 4 and 6 are empty: the acted-on row (5, the actions)
-/// gets air above and below it and the rest stays compact, which is the
-/// constitution's density rule satisfied statically. `draw` draws row 5 label by
-/// label instead of as this string, so only the cursored label takes the pulse;
-/// the offsets are the same either way (each label's width plus `ACTION_GAP`).
-fn text_rows(
+/// The four header rows above the art, in draw order — the one source of truth
+/// for their wording, so the fit test measures what is actually drawn. They are
+/// compact, with no blank between them: only the acted-on row (the action row,
+/// in the footer band) gets air, and that air is now the layout's
+/// (`action_y ± 1`) rather than a slot in this array (spec 029, amendment R3).
+fn header_rows(
     planet_name: &str,
     planet_region: &str,
     opponent: &OpponentProfile,
     series: &Series,
-    selected: usize,
-) -> [String; BLOCK_H] {
+) -> [String; VenueLayout::HEADER_H] {
     [
         PLACE.to_string(),
         format!("{planet_name}  ·  {planet_region}"),
         format!("{}  —  {}", opponent.name, opponent.difficulty),
         series_line(series),
-        String::new(),
-        action_labels(selected).join(&" ".repeat(ACTION_GAP)),
-        String::new(),
-        HINT.to_string(),
     ]
 }
 
@@ -176,9 +166,10 @@ impl VenueState {
         self.selected = (self.selected as isize + delta).rem_euclid(n) as usize;
     }
 
-    /// Draw the eight-row text block and, at 139 columns and wider, the right
-    /// rail: the planet's art region (a bordered placeholder holding its name,
-    /// ruling M1) and the opponent's presence panel beside it.
+    /// Draw the venue's three bands: the four header rows, then the planet's
+    /// art region with the opponent's presence panel in its own column beside
+    /// it, then the action row and the controls hint. Both regions draw at
+    /// every width (spec 029, amendment R3).
     pub fn draw(&self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
         // `App` only shows this screen while a series is in progress, and a
         // series names a planet from the `const` graph — the early return says
@@ -192,43 +183,42 @@ impl VenueState {
         // The map's fallback for an id the roster doesn't know.
         let opponent = opponent_by_id(&series.opponent).unwrap_or(DEFAULT_OPPONENT);
 
-        let layout = VenueLayout::new(*config, BLOCK_H);
+        let layout = VenueLayout::new(*config);
         let cx = layout.center_x;
-        let top = layout.top;
-        let rows = text_rows(planet.name, planet.region, &opponent, series, self.selected);
+        let rows = header_rows(planet.name, planet.region, &opponent, series);
 
+        // The header band, compact: place, planet, opponent, series.
+        let top = layout.header_y;
         draw_text_centered(frame, cx, top, &rows[0], Emphasis::Muted);
         draw_text_centered(frame, cx, top + 1, &rows[1], Emphasis::Strong);
         draw_text_centered(frame, cx, top + 2, &rows[2], Emphasis::Normal);
         draw_text_centered(frame, cx, top + 3, &rows[3], Emphasis::Normal);
-        // Rows 4 and 6 stay blank — the air around the acted-on row.
 
-        // Row 5, the action row: each label at a fixed stride, so the row's
-        // width doesn't change as the cursor moves and only the cursored label
-        // takes the pulse (`app.rs`'s `draw_choice_panel`).
+        // The art region: reserved now, filled with a plain placeholder — a
+        // bordered region carrying the planet's name, so it reads as reserved
+        // rather than as a rendering fault (ruling M1).
+        draw_box(frame, layout.art, BorderWeight::Single, Emphasis::Muted);
+        let art_cx = (layout.art.x0 + layout.art.x1) / 2;
+        let art_cy = (layout.art.y0 + layout.art.y1) / 2;
+        draw_text_centered(frame, art_cx, art_cy, planet.name, Emphasis::Muted);
+
+        // The opponent's portrait in its own column beside it, a separate
+        // element (ruling M1) — the same drawer the map's rail and the select
+        // screen use. Top-aligned with the art, so the rows below it are blank.
+        draw_presence_panel(frame, layout.portrait, opponent.name, opponent.portrait);
+
+        // The action row: each label at a fixed stride, so the row's width
+        // doesn't change as the cursor moves and only the cursored label takes
+        // the pulse (`app.rs`'s `draw_choice_panel`). `action_y ± 1` stay blank
+        // — the air around the acted-on row is the layout's now.
         let mut x = cx.saturating_sub(action_row_width() / 2);
         for (i, label) in action_labels(self.selected).iter().enumerate() {
             let emphasis = if i == self.selected { pulse } else { Emphasis::Normal };
-            draw_text(frame, x, top + 5, label, emphasis);
+            draw_text(frame, x, layout.action_y, label, emphasis);
             x += label.chars().count() + ACTION_GAP;
         }
 
-        draw_text_centered(frame, cx, top + 7, &rows[7], Emphasis::Muted);
-
-        if let Some(rail) = layout.rail {
-            // The art region: reserved now, filled with a plain placeholder —
-            // a bordered region carrying the planet's name, so it reads as
-            // reserved rather than as a rendering fault (ruling M1).
-            draw_box(frame, rail.art, BorderWeight::Single, Emphasis::Muted);
-            let art_cx = (rail.art.x0 + rail.art.x1) / 2;
-            let art_cy = (rail.art.y0 + rail.art.y1) / 2;
-            draw_text_centered(frame, art_cx, art_cy, planet.name, Emphasis::Muted);
-
-            // The opponent's portrait beside it, a separate element (ruling M1
-            // as amended) — the same drawer the map's rail and the select
-            // screen use.
-            draw_presence_panel(frame, rail.portrait, opponent.name, opponent.portrait);
-        }
+        draw_text_centered(frame, cx, layout.hint_y, HINT, Emphasis::Muted);
     }
 }
 
@@ -236,6 +226,12 @@ impl VenueState {
 mod tests {
     use super::*;
     use crate::campaign::{FINAL_OPPONENT, PLANETS};
+    use crate::frame::new_frame;
+
+    /// One drawn row as a string (`board.rs`'s test helper).
+    fn row_text(frame: &Frame, y: usize) -> String {
+        frame.iter().map(|col| col[y].ch).collect()
+    }
 
     fn series(planet: &str, opponent: &str, player_wins: u32, opponent_wins: u32) -> Series {
         Series {
@@ -246,19 +242,13 @@ mod tests {
         }
     }
 
-    /// The rows as `draw` builds them, for a planet / opponent / series triple.
-    fn rows_for(planet_name: &str, region: &str, opponent_id: &str, selected: usize) -> [String; BLOCK_H] {
-        let opponent = opponent_by_id(opponent_id).unwrap_or(DEFAULT_OPPONENT);
-        rows_for_opponent(planet_name, region, &opponent, selected)
-    }
-
+    /// The header rows as `draw` builds them, for a planet / opponent pair.
     fn rows_for_opponent(
         planet_name: &str,
         region: &str,
         opponent: &OpponentProfile,
-        selected: usize,
-    ) -> [String; BLOCK_H] {
-        text_rows(planet_name, region, opponent, &series("cinder", opponent.id, 1, 0), selected)
+    ) -> [String; VenueLayout::HEADER_H] {
+        header_rows(planet_name, region, opponent, &series("cinder", opponent.id, 1, 0))
     }
 
     #[test]
@@ -283,38 +273,60 @@ mod tests {
     }
 
     #[test]
-    fn the_venue_block_breathes_only_around_the_action_row() {
-        // The constitution's density rule: the acted-on row (5, the actions)
-        // has an empty row above and below it, and nothing else in the block is
-        // padded. Measured on the rows `draw` actually builds.
-        assert_eq!(BLOCK_H, 8, "layout.rs's venue-rail test measures an 8-row block");
+    fn the_venue_rows_breathe_only_around_the_action_row() {
+        // The constitution's density rule (AC 17), on the drawn frame rather
+        // than on an array of strings: the acted-on row has an entirely blank
+        // row above and below it, and the header rows, the action row and the
+        // hint all carry text. `Profile::default()` touches no disk and
+        // nothing here calls `save()`, so no `App` is needed.
+        let config = Config { num_cols: 89, num_rows: 31 };
+        let mut profile = Profile::default();
+        profile.campaign_mut().begin_series("cinder", "greeb");
 
-        let rows = rows_for("The Spindle", "Core", "greeb", 0);
-        assert_eq!(rows.len(), BLOCK_H);
-        for blank in [4, 6] {
-            assert!(rows[blank].is_empty(), "row {blank} should be the air around the actions");
+        let mut frame = new_frame(&config);
+        VenueState::new().draw(&mut frame, &config, &profile, Emphasis::Strong);
+
+        let layout = VenueLayout::new(config);
+        for blank in [layout.action_y - 1, layout.action_y + 1] {
+            assert!(
+                row_text(&frame, blank).chars().all(|c| c == ' '),
+                "row {blank} should be the air around the action row, got {:?}",
+                row_text(&frame, blank)
+            );
         }
-        for filled in [0, 1, 2, 3, 5, 7] {
-            assert!(!rows[filled].is_empty(), "row {filled} should carry text");
+        let filled: Vec<usize> = (layout.header_y..layout.header_y + VenueLayout::HEADER_H)
+            .chain([layout.action_y, layout.hint_y])
+            .collect();
+        for y in filled {
+            assert!(
+                row_text(&frame, y).chars().any(|c| c != ' '),
+                "row {y} should carry text"
+            );
         }
     }
 
     #[test]
     fn the_venue_text_fits_the_minimum_terminal() {
-        // Every row of every reachable planet/opponent pairing, centered on
-        // `center_x` as `draw` centers it, lands inside the frame at both
-        // layout widths — and at 139 ends left of the rail's art region, so no
-        // text runs under it.
+        // Every drawn text row of every reachable planet/opponent pairing,
+        // centered on `center_x` as `draw` centers it, lands inside the frame
+        // at both layout widths. The text is above and below the art now, not
+        // beside it, so there is no horizontal clearance to check — the layout
+        // test's vertical disjointness covers that once instead of per row.
         for config in Config::fit_sizes() {
-            let (cols, rows_avail) = (config.num_cols, config.num_rows);
-            let layout = VenueLayout::new(config, BLOCK_H);
-            assert!(layout.top + BLOCK_H <= rows_avail, "the block overflows at {cols} columns");
+            let cols = config.num_cols;
+            let layout = VenueLayout::new(config);
 
             for planet in PLANETS {
                 for id in planet.opponents {
                     let opponent = opponent_by_id(id).unwrap_or(DEFAULT_OPPONENT);
                     for selected in 0..ACTIONS.len() {
-                        let rows = rows_for_opponent(planet.name, planet.region, &opponent, selected);
+                        let header = rows_for_opponent(planet.name, planet.region, &opponent);
+                        // The action row is no longer one of the returned rows,
+                        // so it is measured explicitly — the same string the
+                        // stride loop draws, and the widest cursored row.
+                        let action = action_labels(selected).join(&" ".repeat(ACTION_GAP));
+                        let rows: Vec<&str> =
+                            header.iter().map(|r| r.as_str()).chain([action.as_str(), HINT]).collect();
                         for row in rows.iter().filter(|r| !r.is_empty()) {
                             let w = row.chars().count();
                             // `draw_text_centered`'s placement, and the same
@@ -324,13 +336,6 @@ mod tests {
                                 x + w <= cols,
                                 "{row:?} ({w} chars) clips the right edge at {cols} columns"
                             );
-                            if let Some(rail) = layout.rail {
-                                assert!(
-                                    x + w <= rail.art.x0,
-                                    "{row:?} ({w} chars) runs under the rail (art.x0 {}) at {cols} columns",
-                                    rail.art.x0
-                                );
-                            }
                         }
                     }
                 }

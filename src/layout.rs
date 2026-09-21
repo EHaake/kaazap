@@ -372,82 +372,95 @@ impl BriefcaseLayout {
     }
 }
 
-/// The per-planet art region reserved at the venue (spec 029, ruling M1): a
-/// plain placeholder in this spec, its contents replaced by a later one without
-/// the layout around it moving. Sized to match the presence panel's height so
-/// the two elements beside each other share a top and a bottom edge.
-///
-/// 30 columns is a chosen canvas size, not derived from anything: 30×15
-/// character cells is roughly square on screen and comfortably bigger than a
-/// portrait. Changing it later is this constant and one test.
-pub const VENUE_ART_W: usize = 30;
-/// Height of both rail elements — border + name row + portrait, as
-/// opponent_select's preview panel (15 rows).
+/// Height of the opponent's presence panel at the venue — border + name row +
+/// portrait, the same 15 rows `opponent_select`'s preview and the map's rail
+/// use. The art region beside it is *not* this height: it takes the whole band
+/// (spec 029, amendment R3).
 pub const VENUE_PANEL_H: usize = 2 + 1 + PORTRAIT_HEIGHT;
 
-/// The wide layout's right rail (spec 029): the per-planet art region and, beside
-/// it, the opponent's presence panel. Two Rects because two later specs need them
-/// separate — the art is the planet's and does not change with the opponent, and a
-/// planet may later hold more than one opponent. They are one field on
-/// [`VenueLayout`] rather than two `Option<Rect>` because they are always both
-/// present or both absent, which makes "both or neither" a fact of the type
-/// rather than a comment plus a test.
-#[derive(Debug, Copy, Clone)]
-pub struct VenueRail {
-    pub art: Rect,
-    pub portrait: Rect,
-}
-
-/// The venue's geometry: a centered text block, and — from
-/// WIDE_LAYOUT_MIN_WIDTH columns up — a right rail holding the planet art
-/// region and the opponent's presence panel beside it. Below that width the
-/// rail is `None` and the text block centers on the whole terminal, exactly as
-/// the board drops its presence panel (ruling N1).
+/// The venue's geometry (spec 029, amended 2026-09-21): three horizontal bands
+/// at **every** width, not a text block with a right rail. Four header rows at
+/// the top; then the band holding the per-planet art region and, in its own
+/// column beside it, the opponent's presence panel — every row and column the
+/// text does not need, which is what makes the art the screen's dominant
+/// element (amendment R3, superseding rulings M1's layout and N1 entirely);
+/// then the acted-on action row with an empty row above and below it, and the
+/// controls hint on the last row (the constitution's density rule, satisfied by
+/// the geometry rather than by what `draw` happens to skip).
+///
+/// Full-screen and computed per-draw from [`Config`], like
+/// [`CampaignMapLayout`] — the venue holds no cached geometry and a resize
+/// needs no venue-specific code.
 #[derive(Debug, Copy, Clone)]
 pub struct VenueLayout {
+    /// The terminal's center column: every text row centers here.
     pub center_x: usize,
-    pub top: usize, // first row of the text block
-    pub rail: Option<VenueRail>,
+    /// First of the [`Self::HEADER_H`] header rows (place, planet, opponent,
+    /// series), in draw order from here.
+    pub header_y: usize,
+    /// The per-planet art region — the largest element on the screen. A plain
+    /// placeholder in this spec; a later spec replaces its contents without the
+    /// layout around it moving.
+    pub art: Rect,
+    /// The opponent's presence panel, in its own column to the right of the
+    /// art, sharing the art's top edge. Its own fixed height
+    /// ([`VENUE_PANEL_H`]) — the art is taller.
+    pub portrait: Rect,
+    /// The action row: the one row the player acts on, with `action_y - 1` and
+    /// `action_y + 1` empty.
+    pub action_y: usize,
+    /// The controls hint, on the terminal's last row.
+    pub hint_y: usize,
 }
 
 impl VenueLayout {
-    /// Blank columns kept to the right of the rail, so the presence panel
-    /// doesn't sit flush against the frame edge.
-    const RAIL_MARGIN_X: usize = 3;
-    /// The rail's full width: the art region, a gap, the presence panel.
-    const RAIL_W: usize = VENUE_ART_W + PANEL_GAP + PANEL_W;
+    /// Header rows above the art: place, planet, opponent, series — compact,
+    /// no blank between them (only the acted-on row gets air).
+    pub const HEADER_H: usize = 4;
+    /// Rows below the art: blank, the action row, blank, the hint.
+    pub const FOOTER_H: usize = 4;
+    /// The art's left margin and the portrait's right margin — equal, so the
+    /// two regions together sit centered under the header rows.
+    const MARGIN_X: usize = 3;
 
-    /// Rows of the text block: place, planet, opponent, series, blank, actions,
-    /// blank, hint (`venue::BLOCK_H`).
-    pub fn new(config: Config, block_h: usize) -> Self {
+    /// The three bands, computed from the terminal size. The art and the
+    /// portrait are two plain `Rect`s rather than one wrapper: they are always
+    /// both present now (amendment R3 superseded the wide-only rail), so there
+    /// is no "both or neither" left for a type to enforce.
+    ///
+    /// Every derived edge is clamped with the same `.max()` idiom
+    /// [`CampaignMapLayout::new`] uses for `field_bottom`, so a terminal below
+    /// the enforced 89×31 minimum degrades instead of inverting a `Rect`.
+    pub fn new(config: Config) -> Self {
         let cols = config.num_cols;
         let rows = config.num_rows;
 
-        // The rail is wide-only, the same threshold and `.then()` idiom as the
-        // board's presence panel (ruling N1). It is anchored in the right margin
-        // and centered on its own height, so the art region and the panel share
-        // a top and a bottom edge.
-        let rail = (cols >= WIDE_LAYOUT_MIN_WIDTH).then(|| {
-            let rail_x1 = cols.saturating_sub(1 + Self::RAIL_MARGIN_X);
-            let rail_x0 = (rail_x1 + 1).saturating_sub(Self::RAIL_W);
-            let rail_y0 = rows.saturating_sub(VENUE_PANEL_H) / 2;
-            let rail_y1 = rail_y0 + VENUE_PANEL_H - 1;
-            let portrait_x0 = rail_x0 + VENUE_ART_W + PANEL_GAP;
-            VenueRail {
-                art: Rect::new(rail_x0, rail_x0 + VENUE_ART_W - 1, rail_y0, rail_y1),
-                portrait: Rect::new(portrait_x0, portrait_x0 + PANEL_W - 1, rail_y0, rail_y1),
-            }
-        });
+        let header_y = 0;
 
-        // The text block centers on the area left of the rail when there is one,
-        // and on the whole terminal when there isn't — so no text row runs under
-        // the rail on a wide terminal.
-        let text_area_w = rail.map_or(cols, |r| r.art.x0);
+        // The portrait keeps its own column on the right, inside an equal
+        // margin; the art takes everything left of the gap before it.
+        let portrait_x1 = cols.saturating_sub(1 + Self::MARGIN_X);
+        let portrait_x0 = portrait_x1.saturating_sub(PANEL_W - 1);
+        let art_x0 = Self::MARGIN_X;
+        let art_x1 = portrait_x0.saturating_sub(PANEL_GAP + 1).max(art_x0);
+
+        // The band starts under the header rows and runs to the footer. The
+        // portrait is top-aligned with the art (`CampaignMapLayout`'s
+        // `portrait_panel`) and keeps its own height, so the two share a
+        // visible top edge and the band's slack rows are the art's; the rows
+        // below the portrait stay blank on purpose — centering the panel would
+        // align it with nothing.
+        let band_y0 = Self::HEADER_H;
+        let art_y1 = rows.saturating_sub(1 + Self::FOOTER_H).max(band_y0);
+        let portrait_y1 = (band_y0 + VENUE_PANEL_H - 1).max(band_y0);
 
         Self {
-            center_x: text_area_w / 2,
-            top: rows.saturating_sub(block_h) / 2,
-            rail,
+            center_x: cols / 2,
+            header_y,
+            art: Rect::new(art_x0, art_x1, band_y0, art_y1),
+            portrait: Rect::new(portrait_x0, portrait_x1, band_y0, portrait_y1),
+            action_y: rows.saturating_sub(3),
+            hint_y: rows.saturating_sub(1),
         }
     }
 }
@@ -766,40 +779,91 @@ mod tests {
     }
 
     #[test]
-    fn the_venue_rail_is_wide_only_and_clear() {
-        // The venue's text block fits both layout widths, and the right rail is
-        // wide-only (ruling N1): absent at the 89×31 minimum, present at the
-        // 139×31 threshold with the planet art region and the opponent's
-        // presence panel beside it — gapped by PANEL_GAP, sharing a top and a
-        // bottom, both on-frame, and clear of the centered text block.
-        const BLOCK_H: usize = 8; // venue's text block: place, planet, opponent, series, blank, actions, blank, hint
-
+    fn the_venue_bands_stack_and_the_art_takes_the_rest() {
+        // The venue is three horizontal bands at *every* width (spec 029,
+        // amendment R3): four header rows, then the art with the presence
+        // panel in its own column beside it, then the blank / action / blank /
+        // hint footer. The art takes every row and column the text does not
+        // need, and the two regions' outer margins are equal so the band sits
+        // centered under the header. The concrete Rects of plan §Design 4's
+        // table are pinned as well as the relations — a uniform arithmetic
+        // slip would satisfy the relations alone.
         for config in Config::fit_sizes() {
             let (cols, rows) = (config.num_cols, config.num_rows);
-            let l = VenueLayout::new(config, BLOCK_H);
+            let l = VenueLayout::new(config);
 
-            // The text block fits the frame at both sizes.
-            assert!(l.top + BLOCK_H <= rows, "text block overflows at {cols}×{rows}");
-            assert!(l.center_x < cols, "text block center off-frame at {cols}×{rows}");
-
-            if cols < WIDE_LAYOUT_MIN_WIDTH {
-                assert!(l.rail.is_none(), "rail drawn at {cols} columns");
-                continue;
+            // Both regions on-frame at both sizes.
+            for r in [l.art, l.portrait] {
+                assert!(in_bounds(r, cols, rows), "venue region {r:?} off-frame at {cols}×{rows}");
             }
 
-            let rail = l.rail.expect("rail missing at the wide threshold");
-            for r in [rail.art, rail.portrait] {
-                assert!(in_bounds(r, cols, rows), "rail region {r:?} off-frame at {cols}×{rows}");
-            }
-            // Art then panel, a PANEL_GAP apart, with the panel clear of the edge.
-            assert!(rail.art.x1 + PANEL_GAP < rail.portrait.x0, "art and portrait overlap at {cols} columns");
-            assert!(rail.portrait.x1 < cols, "portrait clips the right edge at {cols} columns");
-            // Both share a top and a bottom edge.
-            assert_eq!(rail.art.y0, rail.portrait.y0, "rail tops differ");
-            assert_eq!(rail.art.y1, rail.portrait.y1, "rail bottoms differ");
-            // The text block centers left of the rail.
-            assert!(l.center_x < rail.art.x0, "text block centers on the rail at {cols} columns");
+            // The header rows sit directly above the art.
+            assert_eq!(l.header_y, 0, "header band starts at the top at {cols}×{rows}");
+            assert_eq!(
+                l.header_y + VenueLayout::HEADER_H,
+                l.art.y0,
+                "header rows don't meet the art at {cols}×{rows}"
+            );
+
+            // Art then panel, exactly PANEL_GAP clear columns apart, with equal
+            // outer margins and the panel clear of the edge.
+            assert!(l.art.x1 + PANEL_GAP < l.portrait.x0, "art and portrait overlap at {cols} columns");
+            assert_eq!(
+                l.portrait.x0,
+                l.art.x1 + PANEL_GAP + 1,
+                "art and portrait aren't exactly PANEL_GAP apart at {cols} columns"
+            );
+            assert!(l.portrait.x1 < cols, "portrait clips the right edge at {cols} columns");
+            assert_eq!(l.art.x0, 3, "art's left margin at {cols} columns");
+            assert_eq!(l.portrait.x1, cols - 4, "portrait's right margin at {cols} columns");
+
+            // Shared top edge; the art is taller, and the panel keeps its own
+            // fixed height (the rows under it stay blank).
+            assert_eq!(l.art.y0, l.portrait.y0, "band tops differ at {cols}×{rows}");
+            assert!(l.portrait.y1 <= l.art.y1, "portrait outruns the art at {cols}×{rows}");
+            assert_eq!(l.portrait.height(), VENUE_PANEL_H, "portrait height at {cols}×{rows}");
+
+            // The footer: AC 17's air around the acted-on row, as geometry.
+            assert!(l.art.y1 < l.action_y, "art runs into the action row at {cols}×{rows}");
+            assert_eq!(l.art.y1 + 2, l.action_y, "no blank row above the action row at {cols}×{rows}");
+            assert_eq!(l.action_y + 2, l.hint_y, "no blank row below the action row at {cols}×{rows}");
+            assert_eq!(l.hint_y, rows - 1, "hint isn't on the last row at {cols}×{rows}");
+
+            // The table's numbers, pinned.
+            let (art, portrait) = if cols < WIDE_LAYOUT_MIN_WIDTH {
+                (Rect::new(3, 60, 4, 26), Rect::new(64, 85, 4, 18))
+            } else {
+                (Rect::new(3, 110, 4, 26), Rect::new(114, 135, 4, 18))
+            };
+            assert_eq!((l.art.x0, l.art.x1, l.art.y0, l.art.y1), (art.x0, art.x1, art.y0, art.y1), "art Rect at {cols}×{rows}");
+            assert_eq!(
+                (l.portrait.x0, l.portrait.x1, l.portrait.y0, l.portrait.y1),
+                (portrait.x0, portrait.x1, portrait.y0, portrait.y1),
+                "portrait Rect at {cols}×{rows}"
+            );
         }
+    }
+
+    #[test]
+    fn the_art_region_dominates_at_both_widths() {
+        // AC 16's amended sentence: the art is the largest element on the
+        // screen at both widths, and strictly larger when the terminal is
+        // wider (1334 cells at 89 columns, 2484 at 139, against the panel's
+        // 330 either way).
+        let mut art_areas = Vec::new();
+        for config in Config::fit_sizes() {
+            let cols = config.num_cols;
+            let l = VenueLayout::new(config);
+            let art_area = l.art.width() * l.art.height();
+            let portrait_area = l.portrait.width() * l.portrait.height();
+            assert!(
+                art_area > portrait_area,
+                "art ({art_area}) isn't the largest element at {cols} columns (portrait {portrait_area})"
+            );
+            art_areas.push(art_area);
+        }
+        let [narrow, wide] = <[usize; 2]>::try_from(art_areas).expect("two fit sizes");
+        assert!(wide > narrow, "the art isn't larger at 139 columns ({wide}) than at 89 ({narrow})");
     }
 
     #[test]
