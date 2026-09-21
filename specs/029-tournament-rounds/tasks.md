@@ -1160,6 +1160,61 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   quitting and resuming, `Best of 3`, the Card Shop rename — is untouched by
   these two tasks and is not re-run.*
 
+- [ ] **T005e** — `specs/029-tournament-rounds/planet-art-brief.md` +
+  `specs/029-tournament-rounds/plan.md` (§Design 11): tighten the brief before it
+  is handed off. From the second Phase 2 amendment review's notes (a), (b) and
+  (c), recorded as close-out note 37. This is documentation only; no code, no
+  asset, no test.
+  **(a) The intermediate-width hole.** §Design 11 and the brief's *How it loads*
+  both say "pick the widest asset that fits the region and centre it". The art
+  interior is `span_w * 7/8 - 2` of a **continuously varying** span, so between
+  the two fit sizes it takes intermediate values — at 120×31 the interior is 75
+  columns, where that rule centres the 48-wide grid and leaves ~13 blank columns
+  each side. That is the precise failure the brief rejects the single-asset
+  option for ("leaves 22 blank columns on each side, which undoes exactly the
+  dominance rulings R3 and R4 are about"), so the brief currently argues against
+  its own loading rule. Say what happens between the fit sizes — and if the
+  honest answer is that the later art spec must decide (stretch, tile, letterbox,
+  or author a third size), **say that**, in the brief and in §Design 11, rather
+  than leaving a rule that reads as settled.
+  **(b) The checklist must be executable without judgement.** Item 4 says "only
+  glyphs from the **allowed palette** (+ space)" while the palette section
+  permits "a few plain ASCII marks … **only** if strictly single-width and used
+  sparingly" — so a mechanical validator implementing item 4 rejects a file the
+  palette allows, and "sparingly" is a judgement call. This tension is inherited
+  faithfully from spec 016's brief, which is why it did not block; fix it here
+  anyway, by giving item 4 an **explicit codepoint whitelist** (the block/shade
+  glyphs plus the exact ASCII marks allowed) so one command can decide. Add the
+  two checks the format section requires but the checklist omits: **LF line
+  endings, not CRLF**, and **valid UTF-8**.
+  **(c) One reconciling clause, moved.** *The aesthetic*'s "No figures at the
+  table" is two sections from Scree's "a loose crowd pressed close around a small
+  table" and The Spindle's "tiered seating looking down on a single table". The
+  next sentence already reconciles them ("distant silhouettes … as texture — a
+  discernible character is not"); put that distinction where the per-planet
+  directions are read too, so a skimming agent cannot take the prohibition
+  literally and drop the crowds those two planets are built around.
+  Change nothing else in the brief — its canvas derivation, its exemplar (verified
+  correct to the character at review), its planet table (verified canon against
+  `PLANETS`) and its two-asset decision all stand. Do not run `cargo fmt`.
+  (Copies: `specs/016-opponent-portraits/portrait-art-brief.md` for voice.)
+  *Verify: **`git status --short` shows exactly one line**, ` M specs/029-tournament-rounds/plan.md`,
+  plus the brief as modified — **not** `git diff --stat` for the brief, which is
+  now tracked, so `git diff --stat` **is** right for both files here; state both.
+  `cargo build --all-targets 2>&1 | tail -n 20 && cargo test -q 2>&1 | tail -n 25`
+  green verbatim and unchanged from T005d (this task compiles nothing — reporting
+  it is the check that it truly touched no code); the report pastes the revised
+  checklist section and the revised *How it loads* section in full, and states
+  the codepoint whitelist explicitly.
+  **PAUSE for the person** (after this phase's review): the orchestrator reports
+  the venue's new proportions and alignment in plain language at both widths,
+  that the credit balance is on it, and hands over the art brief. **Two things to
+  put to them**: the brief asks for **sixteen** drawings (two per planet, because
+  the region is 48 and 92 columns wide at the two terminal sizes) — eight is
+  possible if they accept one of the compromises the brief records; and whether
+  the art region's proportions now look right, since R4's exact numbers were the
+  plan's to pick and theirs to eyeball.*
+
 ## Phase 3 — The series where the player already looks (walkthrough: the map's planet detail names what a launch commits you to before you take it, the status band carries the running score through every match of a series and nothing during a rematch, and the map banner after the deciding match names the series result beside the credits)
 
 - [ ] **T007** — `src/campaign_map.rs` + `src/app.rs` + `docs/economy.md`: the map's detail line and
@@ -1714,6 +1769,53 @@ roadmap follow-up, so the next person to touch this code finds them. -->
     claim holds. Same point as note 25: **echo the gate's command and its
     output, don't retype the label.**
 
+**From the second Phase 2 amendment review (2026-09-21, no blocking findings):**
+
+33. **An orchestrator process miss, three instances now.** The review bundles
+    have shown `cargo test -q --lib` plus `cargo build --all-targets | grep -c
+    "^warning"` instead of the constitution's
+    `cargo build --all-targets 2>&1 | tail -n 20 && cargo test -q 2>&1 | tail -n 25`.
+    The warning-count grep **returns 0 for a failed build as readily as a clean
+    one**, so it cannot distinguish them, and `--lib` compiles no integration
+    target. The reviewer checked all 8 files in `tests/` itself and confirmed
+    none references a symbol this spec renames, so nothing was missed — but that
+    is inspection standing in for a command. **Notes 3, 25 and 32 asked for the
+    verbatim full command; this is the third recurrence. The orchestrator pastes
+    the full command's output from here on.** Belongs in the close-out's
+    DECISIONS entry beside note 26's pattern.
+34. **A fourth under-enumeration, same pattern as note 26.** T005c enumerated
+    "three doc comments become false"; the diff also rewrites `header_y`'s field
+    doc. Authorized — plan §Design 4's code block shows that exact doc — but the
+    task's own stop-and-report bar was short again, and the implementer neither
+    stopped nor listed it. Fourth instance in this spec; one close-out entry
+    should carry all four.
+35. **The credit row's *content* has no test**, which both the task line and plan
+    §Design 5 sanction. The breathing test requires row 4 to be non-blank, so
+    deleting it fails, and `credits_label` makes a wording drift
+    unrepresentable — but replacing the row with any other non-empty string
+    keeps the suite green. AC 3's credit clause rests on the rendered frame and
+    the shared function, not on an assertion. Coverage honesty, same spirit as
+    note 17.
+36. The binding-case fit assertion is pinned to a literal `Config { 89, 31 }`
+    outside the `fit_sizes()` loop. If the enforced minimum ever moves, the loop
+    follows it and this assertion silently stops being about the binding case
+    rather than failing. `Config::fit_sizes()`'s first element would be one
+    fewer place holding one fact. **Sweep.**
+37. **Three soft spots in the art brief, being fixed in T005e rather than
+    recorded**, because the brief's whole purpose is to be handed to a design
+    agent unaided and these would degrade what comes back: (a) plan §Design 11's
+    "widest asset that fits, centred" rule leaves ~13 blank columns each side at
+    an *intermediate* width like 120 — the precise failure the brief rejects the
+    single-asset option for; (b) validation checklist item 4 is not mechanically
+    executable, since the palette section permits "a few plain ASCII marks …
+    sparingly" while item 4 says "only glyphs from the allowed palette" — a
+    tension inherited faithfully from spec 016's brief — and the checklist
+    checks columns and glyphs but not LF-vs-CRLF or UTF-8, both of which the
+    format section requires; (c) *The aesthetic*'s "No figures at the table"
+    sits two sections from Scree's "a loose crowd pressed close around a small
+    table" and The Spindle's "tiered seating looking down on a single table" —
+    reconciled by the next sentence, but a skimming agent may not get there.
+
 ---
 
 ## Tier log (this spec, under the model policy)
@@ -1754,6 +1856,7 @@ redo, and why). -->
 | Second amendment re-review (skeptical-reviewer) | opus → opus | 61K | 1 | yes | **0 blocking** | **Signed off.** Both blockers resolved, all five notes correct, and the S5 clause confirmed moved out of T005d into T005c. Returned **four residual paper-trail items, two of which would have produced a wrong implementation**: `shop.rs`'s width fixture re-types the balance format a **third** time, so the new grep would match two lines while its stated rationale stayed false; and the shop's remainder is **double**-spaced in code while the plan wrote it single-spaced as shorthand, which taken literally would silently narrow a screen R6 does not touch. Both pinned in T005c. Also: the plan's files inventory and its "nothing else about the drawing loop moves" sentence, now corrected |
 | T005c (sdd-implementer) | opus → opus | 92K | 1 | yes | — | R4, R5 and R6. **Its arithmetic agreed with the plan's table at every cell**, derived independently before editing: art `Rect::new(7, 56, 5, 26)` = 50×22 = **1100** at 89 (**17.54%** down from 1334) and `Rect::new(10, 103, 5, 26)` = 94×22 = **2068** at 139 (**16.75%** down from 2484), `text_x` 31 and 56 against the terminal centres of 44 and 69, clear columns 7 and 10. `HINT` at **55** characters with its left column at **4**. All five gates satisfied: `grep -n "center_x" src/venue.rs` empty, `grep -rn "Credits: ◈" src/` **one line** — `credits_label`'s own body, so the shared-wording claim is now a fact. **Every changed assertion mapped to its enumerated item and nothing unlisted moved** — the second time in a row the enumeration did its job, after being extended twice under review. Orchestrator confirmed by rendering both widths and the shop screen: the text sits over the art, and the shop's balance row is byte-identical. **Three findings**: the plan's dictated doc text uses British spellings where the surrounding code uses "center", so `layout.rs` now carries both within a few lines (a chore, not this task); `credits_label` returns `String` so it is not const-usable, which no caller wanted; and the strengthened fit assertion makes **61 characters** the hard ceiling on any future venue row at 89 columns, six over the current hint |
 | T005d (sdd-implementer) | opus → opus | 62K | 1 | yes | — | The art brief, 307 lines, one untracked file — `git status --short` shows exactly the one line the sign-off's B1 fix asked for. Canvas **48×20** and **92×20**, re-derived from the layout test's pinned Rects with the derivation shown as a table and the test named, so a later reader can re-check it when the geometry moves. (h), (i) and (j) all present. **Four gaps it found in the task's own list and closed**: its first exemplar was hand-typed and wrong, so it rebuilt the block with a script that asserts each row's length — a brief whose one worked example teaches the wrong width is worse than none; the self-check command it first offered used `awk`, which counts **bytes**, and every palette glyph is multi-byte, so a correct file would have looked 3× too wide — replaced with a character-counting `python3` one-liner and an explicit warning; trailing spaces are load-bearing under the exact-width rule and do not survive a chat paste, so it added a "deliver files, not pasted grids" paragraph **without** adding a re-pad escape to the checklist, since the checklist must be enforceable without judgement; and it ruled figures out of the art, reading off AC 16's "as a separate element" so the art cannot compete with the portrait panel. **One bundle-quality finding for the orchestrator**: the bundle's excerpt of the layout test stopped before the pinned-Rect block the canvas derives from, and omitted `Rect::new`'s inclusivity — which is what makes the Rect 50×22 rather than 49×21 |
+| **Second Phase 2 amendment review** (skeptical-reviewer) | opus → opus | 114K | 1 | — | **0 blocking** | **Signed off.** Re-derived every number independently and matched all of them; **counted the rendered box borders** to confirm AC 16 (50×22 and 94×22 art against 22×15 portrait) and read AC 3, AC 17 and R5 off the frames rather than the arithmetic — R5 now reads as deliberate, with a 15-character header leaving 16 interior columns left and 17 right instead of the 13-column drift the person saw. Confirmed the strengthened fit assertion closes a real hole and that the Card Shop renders byte-identically. **Verified the brief's illustrated exact-width exemplar by regex rather than by eye — correct to the character** — and its planet table canon against `PLANETS`. 7 second-look notes: three about the brief went into **T005e** rather than the close-out, because the brief's purpose is to be handed off unaided; one is an **orchestrator process miss on its third recurrence** (the review bundles have echoed `--lib` plus a warning-count grep that returns 0 for a failed build as readily as a clean one — the full command from here on); one is the **fourth** under-enumeration in this spec |
 | Phase 2 amendment re-walkthrough (the orchestrator, `run-kaazap`) | opus → opus (session) | — | — | — | — | Driven at **89×31 and 139×31** with `KAAZAP_DATA_DIR` at a scratch directory. **Attested**: the series row reads `Series  0 – 0   ·   Best of 3` (R1); the second action reads **Card Shop** and taking it from the action row — not just `b` — opens a screen headed **Card Shop**, with Esc returning to the venue (R2, AC 3); the art region draws at **both** widths as the dominant element with the portrait in its own column beside it, sharing a top edge, nothing clipped, the header text centred over the band and the footer below it (R3, AC 16); rows 27 and 29 blank around the action row at both widths (AC 17); Play still opens the wager over the venue and Esc still returns to it. **Still not hand-attested**: the deck-guard divert (second-look note 23). The driver cannot switch the briefcase's focus — `key:\t` reaches the pty but the cursor stays in the Collection pane — so the deck could not be made invalid. Verified by inspection **twice** (the Phase 2 review and the amendment review); left for the person, who can do it in two keystrokes |
 | Deck-guard divert — **attested by the person** | — | — | — | — | — | Second-look note 23, the one item two driver attempts could not reach: the person made their deck invalid and pressed Play at the venue, and it took them to the collection as expected. **Closed by attestation**, after being verified by inspection in two reviews. Nothing further is owed on it |
 | **Phase 2 review** (skeptical-reviewer) | opus → opus | 161K | 1 | — | **0 blocking** | **Signed off.** Did all three checks the handoff note requires. (1) Ran the single-assignment grep itself and **widened it three ways** — `self\.screen\s*=` across `src/` (13 hits, only two set a campaign screen), the bare variant names, and `mem::replace`/`&mut self.screen` — confirming the gate is load-bearing rather than narrow, and **upheld T006's deviation** from the plan's listing: in the expression form neither line contains the variant name, so the gate would return zero and pass while checking nothing. (2) Density verified as instrumented rather than asserted, against the constitution's *corrected* form (only the acted-on line gets air), and both modals the venue can raise already pad evenly through `OverlayLayout`. (3) **Closed the Phase 1 caveat** by walking every door, including a quit and re-entry, a Quick Play match started mid-series, and the deck-builder divert — `launch_from_map` is the only production caller of `begin_series` and is unreachable while a series runs. Also **verified plan §Open question 5 independently**: `CantCover` is unreachable from the venue because the venue's floor *is* `reserve_floor` while locked, and the missing banner-clearing line makes nothing worse, because the map's arm clears the banner before `launch_from_map` runs. 7 second-look notes; one gave `docs/economy.md`'s rename fallout to T007 |
