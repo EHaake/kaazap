@@ -16,6 +16,7 @@ pub mod campaign;
 pub mod campaign_map;
 pub mod economy;
 pub mod shop;
+pub mod venue;
 pub mod screen;
 pub mod menu;
 pub mod overlay;
