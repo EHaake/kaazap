@@ -1,6 +1,6 @@
 # Plan: Tournament rounds — spec 029
 
-> **Status**: Draft — pending sign-off (amendment revision, 2026-09-21).
+> **Status**: Signed off (skeptical-reviewer, 2026-09-21 — amendment revision: one review, one re-review, B1 resolved and five notes applied; three carried to the pre-merge sweep).
 **Implements**: `spec.md` in this directory
 
 The pre-amendment plan was signed off by the `skeptical-reviewer` on 2026-09-20

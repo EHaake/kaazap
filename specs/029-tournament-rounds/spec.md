@@ -5,9 +5,10 @@ I1 (the person, 2026-09-20), then J1, K1, L1, M1, N1, O1, P1 and Q
 out-of-scope on the consequences of D2 + E2 the same day. **Amended
 2026-09-21** (rulings R1, R2, R3) after the person walked the venue — see
 *Amendment, 2026-09-21*, which supersedes M1's art sizing and N1 entirely.
-The dated ruling records below, and the **Depends on** line's reference to
-spec 012, keep the word "Outfitter": they record what was decided or
-shipped then. The live contract above does not.
+The dated ruling records under *Resolved decisions*, and the **Depends
+on** line's reference to spec 012, keep the word "Outfitter": they record
+what was decided or shipped then. Everything else — the summary, the
+entities, the behavior and the acceptance criteria — says **Card Shop**.
 **Depends on**: spec 009 (the campaign map and its `b`/`c` doors), spec 012
 (the Outfitter and the depth-gated pool), spec 008 / 015 (the collection and
 the briefcase deck builder), spec 016 (opponent portraits), spec 021 (the
@@ -335,10 +336,11 @@ made this spec rename four symbols rather than comment them.
 Earlier specs' own documents (`specs/012-*`, `DECISIONS.md` entries) keep
 the word: they are the record of what those specs did, and rewriting them
 would falsify history rather than correct it. **This spec's own `spec.md`
-is not in that category** — it is the live contract, so its four
-"Outfitter" mentions (the venue entity, the venue's four actions,
-acceptance criterion 3 and acceptance criterion 10) are corrected above
-rather than preserved. Leaving them would have the person tick a criterion
+is not in that category** — it is the live contract, so every one of its
+live-prose mentions is corrected rather than preserved: the summary, the
+venue entity, the venue's four actions, the return-to-the-venue bullet,
+the Card Shop's reserve under *Going broke while locked*, and acceptance
+criteria 3 and 10. Leaving them would have the person tick a criterion
 naming a button the build does not have, which is the document-level form
 of exactly the defect R2 exists to remove. (Caught at the amendment
 sign-off, 2026-09-21: the plan revision had generalized this carve-out
