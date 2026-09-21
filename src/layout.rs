@@ -372,6 +372,86 @@ impl BriefcaseLayout {
     }
 }
 
+/// The per-planet art region reserved at the venue (spec 029, ruling M1): a
+/// plain placeholder in this spec, its contents replaced by a later one without
+/// the layout around it moving. Sized to match the presence panel's height so
+/// the two elements beside each other share a top and a bottom edge.
+///
+/// 30 columns is a chosen canvas size, not derived from anything: 30×15
+/// character cells is roughly square on screen and comfortably bigger than a
+/// portrait. Changing it later is this constant and one test.
+pub const VENUE_ART_W: usize = 30;
+/// Height of both rail elements — border + name row + portrait, as
+/// opponent_select's preview panel (15 rows).
+pub const VENUE_PANEL_H: usize = 2 + 1 + PORTRAIT_HEIGHT;
+
+/// The wide layout's right rail (spec 029): the per-planet art region and, beside
+/// it, the opponent's presence panel. Two Rects because two later specs need them
+/// separate — the art is the planet's and does not change with the opponent, and a
+/// planet may later hold more than one opponent. They are one field on
+/// [`VenueLayout`] rather than two `Option<Rect>` because they are always both
+/// present or both absent, which makes "both or neither" a fact of the type
+/// rather than a comment plus a test.
+#[derive(Debug, Copy, Clone)]
+pub struct VenueRail {
+    pub art: Rect,
+    pub portrait: Rect,
+}
+
+/// The venue's geometry: a centered text block, and — from
+/// WIDE_LAYOUT_MIN_WIDTH columns up — a right rail holding the planet art
+/// region and the opponent's presence panel beside it. Below that width the
+/// rail is `None` and the text block centers on the whole terminal, exactly as
+/// the board drops its presence panel (ruling N1).
+#[derive(Debug, Copy, Clone)]
+pub struct VenueLayout {
+    pub center_x: usize,
+    pub top: usize, // first row of the text block
+    pub rail: Option<VenueRail>,
+}
+
+impl VenueLayout {
+    /// Blank columns kept to the right of the rail, so the presence panel
+    /// doesn't sit flush against the frame edge.
+    const RAIL_MARGIN_X: usize = 3;
+    /// The rail's full width: the art region, a gap, the presence panel.
+    const RAIL_W: usize = VENUE_ART_W + PANEL_GAP + PANEL_W;
+
+    /// Rows of the text block: place, planet, opponent, series, blank, actions,
+    /// blank, hint (`venue::BLOCK_H`).
+    pub fn new(config: Config, block_h: usize) -> Self {
+        let cols = config.num_cols;
+        let rows = config.num_rows;
+
+        // The rail is wide-only, the same threshold and `.then()` idiom as the
+        // board's presence panel (ruling N1). It is anchored in the right margin
+        // and centered on its own height, so the art region and the panel share
+        // a top and a bottom edge.
+        let rail = (cols >= WIDE_LAYOUT_MIN_WIDTH).then(|| {
+            let rail_x1 = cols.saturating_sub(1 + Self::RAIL_MARGIN_X);
+            let rail_x0 = (rail_x1 + 1).saturating_sub(Self::RAIL_W);
+            let rail_y0 = rows.saturating_sub(VENUE_PANEL_H) / 2;
+            let rail_y1 = rail_y0 + VENUE_PANEL_H - 1;
+            let portrait_x0 = rail_x0 + VENUE_ART_W + PANEL_GAP;
+            VenueRail {
+                art: Rect::new(rail_x0, rail_x0 + VENUE_ART_W - 1, rail_y0, rail_y1),
+                portrait: Rect::new(portrait_x0, portrait_x0 + PANEL_W - 1, rail_y0, rail_y1),
+            }
+        });
+
+        // The text block centers on the area left of the rail when there is one,
+        // and on the whole terminal when there isn't — so no text row runs under
+        // the rail on a wide terminal.
+        let text_area_w = rail.map_or(cols, |r| r.art.x0);
+
+        Self {
+            center_x: text_area_w / 2,
+            top: rows.saturating_sub(block_h) / 2,
+            rail,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -682,6 +762,43 @@ mod tests {
                     assert!(y + CARD_HEIGHT < l.hint_y, "slot {i} overlaps the hint line at {cols}×{rows}");
                 }
             }
+        }
+    }
+
+    #[test]
+    fn the_venue_rail_is_wide_only_and_clear() {
+        // The venue's text block fits both layout widths, and the right rail is
+        // wide-only (ruling N1): absent at the 89×31 minimum, present at the
+        // 139×31 threshold with the planet art region and the opponent's
+        // presence panel beside it — gapped by PANEL_GAP, sharing a top and a
+        // bottom, both on-frame, and clear of the centered text block.
+        const BLOCK_H: usize = 8; // venue's text block: place, planet, opponent, series, blank, actions, blank, hint
+
+        for config in Config::fit_sizes() {
+            let (cols, rows) = (config.num_cols, config.num_rows);
+            let l = VenueLayout::new(config, BLOCK_H);
+
+            // The text block fits the frame at both sizes.
+            assert!(l.top + BLOCK_H <= rows, "text block overflows at {cols}×{rows}");
+            assert!(l.center_x < cols, "text block center off-frame at {cols}×{rows}");
+
+            if cols < WIDE_LAYOUT_MIN_WIDTH {
+                assert!(l.rail.is_none(), "rail drawn at {cols} columns");
+                continue;
+            }
+
+            let rail = l.rail.expect("rail missing at the wide threshold");
+            for r in [rail.art, rail.portrait] {
+                assert!(in_bounds(r, cols, rows), "rail region {r:?} off-frame at {cols}×{rows}");
+            }
+            // Art then panel, a PANEL_GAP apart, with the panel clear of the edge.
+            assert!(rail.art.x1 + PANEL_GAP < rail.portrait.x0, "art and portrait overlap at {cols} columns");
+            assert!(rail.portrait.x1 < cols, "portrait clips the right edge at {cols} columns");
+            // Both share a top and a bottom edge.
+            assert_eq!(rail.art.y0, rail.portrait.y0, "rail tops differ");
+            assert_eq!(rail.art.y1, rail.portrait.y1, "rail bottoms differ");
+            // The text block centers left of the rail.
+            assert!(l.center_x < rail.art.x0, "text block centers on the rail at {cols} columns");
         }
     }
 
