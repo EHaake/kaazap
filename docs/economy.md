@@ -189,7 +189,7 @@ often a player deep in the map sees that row.
 
 ## The shop and its reserve
 
-Reached with **`b`** (the "Outfitter") — from the campaign map, and since spec
+Reached with **`b`** (the "Card Shop") — from the campaign map, and since spec
 029 from the venue too, while a series is in progress. Since spec 025 it
 lists **all 15 cards**, grouped Outer Rim / Mid Rim / Core, each with its price
 and how many you own. A group you haven't reached is dimmed under the heading
@@ -308,7 +308,7 @@ wager prompt's grid/commit/fit tests (`wager.rs`, including
 `every_line_fits_seventy_columns`), `run_over_acknowledged_only_on_enter_or_space`
 (`app.rs`), `a_staked_match_draws_the_stake_under_the_pips` and
 `quick_play_leaves_the_stake_rows_blank` (`portrait.rs`),
-`region_name_is_the_inverse_of_region_tier` (`economy.rs`), and the Outfitter's
+`region_name_is_the_inverse_of_region_tier` (`economy.rs`), and the Card Shop's
 list guards `the_listing_groups_every_card_by_tier`,
 `the_unlocked_prefix_is_the_available_pool_at_every_depth`,
 `headings_name_the_region_and_lock_until_reached`,

@@ -1,7 +1,7 @@
 //! The shop screen: browse the whole card range, grouped by the region that
 //! opens it, and buy from the groups you've reached (spec 025).
 //! A full mode navigated *to* (a [`Screen`](crate::screen)), reached from the
-//! campaign map — the between-worlds outfitter, beside the campaign depth that
+//! campaign map — the between-worlds Card Shop, beside the campaign depth that
 //! gates its stock. Mirrors `opponent_select.rs`/`deck_builder.rs`: a cursor + an
 //! owned outcome enum + `draw(frame, config, profile, pulse)` + one app arm. The
 //! screen owns only the cursor; the tiers and prices come from [`economy`], the
@@ -18,6 +18,12 @@ use crate::{
     frame::{Emphasis, Frame, draw_text, draw_text_centered},
     profile::Profile,
 };
+
+/// The shop screen's title, and the label the venue's action row shows for it
+/// (spec 029, amendment R2). One const, two readers: a button that says one
+/// thing and opens a screen headed another is the defect R2 exists to fix, and
+/// a shared const makes it unrepresentable rather than merely tested.
+pub const TITLE: &str = "Card Shop";
 
 /// The three groups, in list order.
 const TIERS: [RegionTier; 3] = [RegionTier::Outer, RegionTier::Mid, RegionTier::Core];
@@ -152,7 +158,6 @@ impl ShopState {
     /// unlocks it), and one row per card (`label · price · owned`; the cursored
     /// row pulsing, locked and unaffordable rows dimmed) — and the controls hint.
     pub fn draw(&self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
-        const TITLE: &str = "Outfitter";
         const HINT: &str = "↑/↓ choose  ·  Enter buy  ·  Esc back";
 
         let credits = profile.credits();

@@ -317,7 +317,7 @@ enum Modal {
     DataNotice(Vec<String>),
     /// The first-run campaign primer (spec 023): raised over a freshly opened
     /// campaign map the first time the player reaches it from the start menu,
-    /// naming the stake loop and the outfitter. Unit-like — it carries no data;
+    /// naming the stake loop and the Card Shop. Unit-like — it carries no data;
     /// its text is compiled in with `include_str!` and rebuilt into lines on
     /// each draw, not re-read from disk. Enter/Space/Esc dismiss it, marking
     /// the profile so it shows once.
@@ -746,7 +746,7 @@ impl App {
         };
     }
 
-    /// Open the shop (the campaign-map outfitter): a fresh cursor over the
+    /// Open the shop (the campaign-map Card Shop): a fresh cursor over the
     /// current depth-gated pool. Back returns to the map.
     fn open_shop(&mut self) {
         self.screen = Screen::Shop {
@@ -1506,7 +1506,7 @@ impl App {
 
                 // The tournament venue (spec 029): where a series in progress is
                 // played from. Play stakes the locked series' next match through
-                // the wager prompt; the Outfitter and the collection are reached
+                // the wager prompt; the Card Shop and the collection are reached
                 // from here and return here, because their Back asks
                 // `open_campaign_home` and the series is still locked.
                 Screen::Venue { state } => match state.handle_input(key) {
@@ -3175,7 +3175,7 @@ mod tests {
     #[test]
     fn the_primer_swallows_map_keys() {
         // Spec 023: nothing on the campaign map can be acted on while the primer
-        // is up. The map keys that would open the outfitter or the deck builder,
+        // is up. The map keys that would open the Card Shop or the deck builder,
         // move the cursor, or go Back all leave the screen and the modal exactly
         // as they were — which is what is asserted here (the map's cursor field
         // is private to campaign_map.rs, so it is covered by that module's own

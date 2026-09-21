@@ -36,7 +36,7 @@ pub enum RegionTier {
 
 impl RegionTier {
     /// The map's name for this region — the inverse of [`region_tier`]
-    /// (spec 025: the Outfitter's group headings use the map's words).
+    /// (spec 025: the Card Shop's group headings use the map's words).
     pub fn region_name(self) -> &'static str {
         match self {
             RegionTier::Outer => "Outer Rim",
@@ -140,7 +140,7 @@ fn cheapest_floor(run: &CampaignRun) -> u32 {
 }
 
 /// The ante the player must be able to cover for the run to continue — the one
-/// floor `is_broke`, the Outfitter's reserve and the wager prompt's warning all
+/// floor `is_broke`, the Card Shop's reserve and the wager prompt's warning all
 /// read. While a series is in progress it is the **locked opponent's** floor:
 /// that is the only campaign match the player may play, so a cheaper ante on a
 /// planet they are not allowed to visit must not keep a lost run alive

@@ -2,11 +2,11 @@
 //! While a series is running it is the only campaign match the player may play,
 //! so the venue — not the map — is where they sit between its matches: it names
 //! the planet, the opponent and the series score, and offers play, the
-//! Outfitter, the collection and quit (ruling K1; no abandon action, a series is
+//! Card Shop, the collection and quit (ruling K1; no abandon action, a series is
 //! played out or lost).
 //!
 //! A `Screen`, not an overlay: it is a full mode the player navigates *to* and
-//! the Outfitter and the collection are reached *from* it, which is the
+//! the Card Shop and the collection are reached *from* it, which is the
 //! constitution's line between the two. Copies `opponent_select.rs`'s shape — a
 //! small state struct, one owned outcome enum, `draw(frame, config, …, pulse)` —
 //! and draws through [`VenueLayout`], which stacks it as three horizontal bands
@@ -18,7 +18,7 @@
 use crossterm::event::KeyCode;
 
 use crate::{
-    campaign::{Series, planet_by_id, wins_needed},
+    campaign::{Series, planet_by_id, series_length_label},
     config::Config,
     frame::{BorderWeight, Emphasis, Frame, draw_box, draw_text, draw_text_centered},
     layout::VenueLayout,
@@ -27,8 +27,10 @@ use crate::{
     profile::Profile,
 };
 
-/// The four actions, in the order they are drawn (ruling K1).
-const ACTIONS: [&str; 4] = ["Play", "Outfitter", "Collection", "Quit"];
+/// The four actions, in the order they are drawn (ruling K1). The shop's label
+/// is [`shop::TITLE`](crate::shop::TITLE) rather than a second spelling of it
+/// (amendment R2), so the button and the screen it opens cannot disagree.
+const ACTIONS: [&str; 4] = ["Play", crate::shop::TITLE, "Collection", "Quit"];
 
 /// Blank columns between two action labels — `app.rs`'s `CHOICE_GAP`, the same
 /// idiom at the same spacing (that one is private to the choice panel).
@@ -64,14 +66,16 @@ impl Default for VenueState {
     }
 }
 
-/// The series line: the score and the length the score is played to, the count
-/// from [`wins_needed`] rather than a second source of truth.
+/// The series line: the score, and the length it is played to in the map's own
+/// words (amendment R1). `series_length_label` is the single source of that
+/// phrase; `wins_needed` stays the source of the *count*, which this line no
+/// longer shows.
 pub fn series_line(series: &Series) -> String {
     format!(
-        "Series  {} – {}   ·   first to {}",
+        "Series  {} – {}   ·   {}",
         series.player_wins,
         series.opponent_wins,
-        wins_needed(&series.opponent)
+        series_length_label(&series.opponent)
     )
 }
 
@@ -115,7 +119,7 @@ impl VenueState {
     }
 
     /// Handle a key: Left/Right (and `a`/`d`) step the cursor, wrapping;
-    /// Enter/Space take the highlighted action; `b` and `c` open the Outfitter
+    /// Enter/Space take the highlighted action; `b` and `c` open the Card Shop
     /// and the collection wherever the cursor is, as on the map; Esc/`x` quit to
     /// the menu, the same as the Quit action. Returns `None` for keys this
     /// screen ignores.
@@ -345,11 +349,22 @@ mod tests {
 
     #[test]
     fn the_series_line_names_the_score_and_the_length() {
-        assert_eq!(series_line(&series("cinder", "greeb", 1, 0)), "Series  1 – 0   ·   first to 2");
+        assert_eq!(series_line(&series("cinder", "greeb", 1, 0)), "Series  1 – 0   ·   Best of 3");
         assert_eq!(
             series_line(&series("zenith", FINAL_OPPONENT, 2, 1)),
-            "Series  2 – 1   ·   first to 3"
+            "Series  2 – 1   ·   Best of 5"
         );
+
+        // The phrase is the map's own (amendment R1), not two literals that
+        // happen to agree with it today.
+        for s in [series("cinder", "greeb", 1, 0), series("zenith", FINAL_OPPONENT, 2, 1)] {
+            let label = series_length_label(&s.opponent);
+            assert!(
+                series_line(&s).contains(label),
+                "{:?} does not name the length {label:?}",
+                series_line(&s)
+            );
+        }
     }
 
     #[test]

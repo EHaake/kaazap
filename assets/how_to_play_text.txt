@@ -17,7 +17,7 @@ card, or press d/s to bust.
 
 Campaign: every match is staked. Win and it
 comes back doubled; lose and it's gone. Go
-broke and the run resets. The Outfitter sells
+broke and the run resets. The Card Shop sells
 cards; the ante rises as you go deeper.
 
 1-4 or ←/→ pick a card, Enter plays it,

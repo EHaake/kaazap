@@ -26,7 +26,7 @@ run is over.
 > campaign map** — travel a node-based star map, Outer Rim → Core, clearing
 > each world's opponents to unlock the next — and **a campaign economy**
 > (stake credits on every campaign match — a win pays double, a loss costs the
-> stake, and going broke ends the run in a full reset; a shop on the map sells
+> stake, and going broke ends the run in a full reset; a **Card Shop** on the map sells
 > from a pool that unlocks by how far core-ward you've reached), and **opponent portraits** (a
 > low-resolution monochrome face for every opponent, shown beside the board
 > in-match and in the select/map previews), and **a Records overlay** (a

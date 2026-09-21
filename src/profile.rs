@@ -1241,10 +1241,10 @@ mod tests {
         locked.campaign_mut().begin_series("the-spindle", "rix");
         assert_eq!(economy::reserve_floor(locked.campaign()), 50, "sanity: rix's ante");
         assert!(locked.is_broke(), "20 credits can't cover the only match on offer");
-        assert!(!locked.can_afford(20), "the Outfitter reserves the locked floor");
+        assert!(!locked.can_afford(20), "the Card Shop reserves the locked floor");
 
         // The same balance with no series running is spec 021's case unchanged:
-        // not broke, and the Outfitter holds back only Cinder's 10.
+        // not broke, and the Card Shop holds back only Cinder's 10.
         let free = profile_with_credits(20);
         assert_eq!(economy::reserve_floor(free.campaign()), 10, "sanity: Cinder's floor");
         assert!(!free.is_broke(), "20 covers the cheapest ante on the map");
