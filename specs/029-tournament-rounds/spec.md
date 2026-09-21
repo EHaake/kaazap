@@ -99,10 +99,12 @@ construction.
   planet where the series is being played. It is where a series begins,
   where the player returns after every match that does not end the series,
   and the only door to the Outfitter and the collection while locked.
-- **The planet art region** — a region of the venue reserved for art of
-  the venue itself, drawn only at the wide layout's width. In this spec it
-  holds a plain placeholder; a later spec replaces its contents without
-  changing the layout around it.
+- **The planet art region** — the venue's **dominant element**: a region
+  reserved for art of the venue itself, as wide and as tall as the screen
+  allows once the text has its rows, drawn at **every** width. In this
+  spec it holds a plain placeholder; a later spec replaces its contents
+  without changing the layout around it. (Amended by the person
+  2026-09-21, superseding rulings M1 and N1 — see *Amendment, 2026-09-21*.)
 - **The opponent portrait** — the existing portrait art (spec 016), drawn
   at the venue **beside** the planet art region as its own element, not
   inside it. The two are separate because they answer to different things:
@@ -134,11 +136,16 @@ construction.
   map.
 - The constitution's density rule applies: the action the player is about
   to take gets an empty row above and below it; the rest stays compact.
-- At **139 columns or wider** the venue draws the **planet art region**
-  and the **opponent's portrait beside it**, as two distinct elements with
-  room between them. The art region holds a plain placeholder in this
-  spec. Below 139 columns the venue is text only, exactly as the presence
-  panel behaves on the board.
+- The venue draws the **planet art region** with the **opponent's
+  portrait beside it**, as two distinct elements with room between them,
+  at **every** width. The art takes all the width left over once the
+  portrait has its column, and all the height left over once the text has
+  its rows, so it dominates the screen. The art region holds a plain
+  placeholder in this spec. (Amended by the person 2026-09-21 — see
+  *Amendment, 2026-09-21*.)
+- The rows sit **above and below the art**, not beside it: the place, the
+  planet, the opponent and the series score above; the action row and the
+  controls hint below.
 - At 89×31 the venue is fully legible, with no horizontal overflow and
   nothing clipped.
 
@@ -275,9 +282,12 @@ and no series. The opponent stays beaten either way.
     matches, campaign completion still counts once, and no new counter
     appears anywhere.
 16. [ ] **Both layouts.** The venue is legible at 89×31 with no overflow and
-    nothing clipped; at 139 columns and wider it draws the planet art
-    region holding its placeholder, with the opponent's portrait beside it
-    as a separate element, neither overlapping nor clipped.
+    nothing clipped, and at 139×31 likewise. At **both** widths it draws the
+    planet art region holding its placeholder, with the opponent's portrait
+    beside it as a separate element, neither overlapping nor clipped. The
+    art region is the largest element on the screen at both widths, and is
+    strictly larger at 139 than at 89. (Amended by the person 2026-09-21,
+    superseding the original wide-only form.)
 17. [ ] **Density.** The venue's acted-on row has an empty row above and
     below it and the rest of its text stays compact; any modal it shows
     pads evenly.
@@ -292,6 +302,62 @@ and no series. The opponent stays beaten either way.
 20. [ ] **No forbidden change.** No behavior change in `game.rs`, `card.rs`,
     `player.rs` or `save.rs`; `SAVE_VERSION` and `PROFILE_VERSION` both
     stay 1; no new crate; no color path.
+
+## Amendment, 2026-09-21 — the venue's wording and its art
+
+The person walked the venue at the Phase 2 pause, approved the flow, and
+ruled three changes to what it shows. Recorded here before any of it was
+built, because the third supersedes two of this spec's own rulings and
+rewrites an acceptance criterion.
+
+### R1 — the series length reads "Best of 3", not "first to 2"
+
+The venue's series line says `Series  1 – 0   ·   Best of 3`, and `Best of
+5` against The Sovereign — the same words the map's planet detail uses, so
+the player meets one phrase for one idea rather than two. "first to 2" was
+a session choice, never a ruling.
+
+### R2 — the shop is the "Card Shop" everywhere, not the "Outfitter"
+
+The person found "Outfitter" unclear. The rename is **not** cosmetic to one
+button: it covers the venue's action label, the shop screen's own header,
+the map's and the venue's key hints where they name it, How to Play, the
+README and `docs/economy.md`. A button that says one thing and opens a
+screen titled another reads as a defect, which is the same reasoning that
+made this spec rename four symbols rather than comment them.
+
+Earlier specs' own documents (`specs/012-*`, `DECISIONS.md` entries) keep
+the word: they are the record of what those specs did, and rewriting them
+would falsify history rather than correct it.
+
+### R3 — the art dominates the screen, at every width
+
+The reason, in the person's words: a much larger canvas allows more
+detailed, immersive art, and makes it feel like you are actually in the
+venue, on the planet. So the venue becomes **horizontal bands** rather
+than text-with-a-rail:
+
+- the place, the planet, the opponent and the series score, above the art;
+- the **art region** and the **opponent's portrait beside it**, taking
+  every row and column the text does not need;
+- the action row and the controls hint, below the art.
+
+Two consequences the person ruled on directly when asked:
+
+- **The portrait keeps its own column.** It is not inset into the art and
+  it is not dropped. M1's reason survives intact — the art is the
+  planet's, the portrait is the opponent's, a planet may later hold more
+  than one opponent — and the art simply takes everything the portrait
+  does not.
+- **It draws at 89 columns too**, superseding N1. A text-only venue at the
+  minimum size is the version this amendment least wants. The cost, named
+  because it lands on the deferred art spec rather than here: each planet's
+  art must work at two quite different sizes.
+
+**Still not in scope**: authoring the art. The region holds a plain
+placeholder in this spec, and whether that placeholder carries the planet's
+name is the open choice the Phase 2 report put to the person, unanswered
+as of this amendment.
 
 ## Resolved decisions (the person, 2026-09-20)
 
@@ -327,9 +393,15 @@ and no series. The opponent stays beaten either way.
   Their reason: the eventual venue will show planet art *and* an opponent
   portrait side by side, and a planet may later hold more than one
   opponent — so the two elements are laid out separately now, and neither
-  later spec has to rework the layout.
+  later spec has to rework the layout. **Amended again 2026-09-21** after
+  the person saw the venue running: side by side stands, but the art is
+  **much larger** and the text moves above and below it. See *Amendment,
+  2026-09-21*.
 - **N1 — the art region draws at 139 columns and wider only**, matching the
-  presence panel's rule.
+  presence panel's rule. **Superseded 2026-09-21**: it draws at every
+  width, because the art is the point of the screen and a text-only venue
+  at 89 columns is the version the person least wants. See *Amendment,
+  2026-09-21*.
 - **O1 — while locked, broke is judged against the locked opponent's ante
   floor**, and the Outfitter reserves that floor.
 - **P1 — entering the campaign mid-series goes straight to the venue**; the
