@@ -146,9 +146,10 @@ construction.
   to take gets an empty row above and below it; the rest stays compact.
 - The venue draws the **planet art region** with the **opponent's
   portrait beside it**, as two distinct elements with room between them,
-  at **every** width. The art takes all the width left over once the
-  portrait has its column, and all the height left over once the text has
-  its rows, so it dominates the screen. The art region holds a plain
+  at **every** width. The art takes the height left over once the text has its rows, and most
+  of the width left over once the portrait has its column — **most**, not
+  all, since ruling **R4** trimmed it (see *Amendment, 2026-09-21
+  (second)*). It still dominates the screen. The art region holds a plain
   placeholder in this spec. (Amended by the person 2026-09-21 — see
   *Amendment, 2026-09-21*.)
 - The rows sit **above and below the art**, not beside it: the place, the
@@ -363,7 +364,8 @@ than text-with-a-rail:
 
 - the place, the planet, the opponent and the series score, above the art;
 - the **art region** and the **opponent's portrait beside it**, taking
-  every row and column the text does not need;
+  the rows and most of the columns the text does not need (ruling **R4**
+  trimmed the width; see *Amendment, 2026-09-21 (second)*);
 - the action row and the controls hint, below the art.
 
 Two consequences the person ruled on directly when asked:
@@ -371,8 +373,8 @@ Two consequences the person ruled on directly when asked:
 - **The portrait keeps its own column.** It is not inset into the art and
   it is not dropped. M1's reason survives intact — the art is the
   planet's, the portrait is the opponent's, a planet may later hold more
-  than one opponent — and the art simply takes everything the portrait
-  does not.
+  than one opponent — and the art takes most of what the portrait
+  does not — trimmed by ruling **R4**, below.
 - **It draws at 89 columns too**, superseding N1. A text-only venue at the
   minimum size is the version this amendment least wants. The cost, named
   because it lands on the deferred art spec rather than here: each planet's

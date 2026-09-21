@@ -699,7 +699,7 @@ Pinned concretely by T005c's test at both `Config::fit_sizes()`:
 **R4, checked rather than asserted.** Against R3's first attempt (58×23 = 1334
 cells at 89 columns, 108×23 = 2484 at 139) the art is now **1100 cells — 17.5 %
 smaller — at 89, and 2068 cells — 16.8 % smaller — at 139**. Both inside R4's
-"about 15–20 % smaller overall", and within 0.7 points of each other, which is
+"about 15–20 % smaller overall", and within 0.8 points of each other, which is
 the point of taking a fraction of the width instead of an inset. The test
 asserts the *band* (`80 × old ≤ 100 × new ≤ 85 × old` at each fit size, with
 1334 and 2484 as literals), not just the two new numbers, so R4 stays honoured
@@ -847,7 +847,18 @@ fn header_rows(
 | 29 | *(blank)* | |
 | `hint_y` = 30 | `←/→ choose · Enter confirm · b shop · c deck · Esc menu` (55 cells, R5) | Muted |
 
-**The credit row's wording is `shop.rs`'s, not a second phrasing.** The Card
+**The credit row's wording is `shop.rs`'s, not a second phrasing — and after
+the sign-off it is not a second *literal* either.** The first draft of this
+section asserted the shared wording while writing it out twice, which is
+exactly the option R1 and R2 rejected on this very screen (R1 routed the
+series phrase through `campaign::series_length_label` and asserted the venue
+line contains it; R2 made the button read `shop::TITLE`). Nothing could have
+caught a drift here: `shop.rs` builds its balance string inline in `draw`, so
+no test can reach it, and the plan adds no test for R6. So `shop.rs` gains
+`pub fn credits_label(credits: u32) -> String` returning `Credits: ◈ {credits}`;
+its own balance row becomes that plus the ` · spendable ◈ …` clause, and the
+venue's fifth header row **is** the function's output. One source, two readers,
+the same shape `shop::TITLE` already has. The Card
 Shop's own balance line opens `Credits: ◈ {credits}`, and the venue's balance
 row exists precisely to inform the trip to that screen, so the player meets the
 same four words and the same glyph on both. `Emphasis::Normal`, not Muted:
@@ -1399,7 +1410,7 @@ on `CampaignRun`/`Profile`.
   `x >= 1 && x + w <= cols - 1` for every measured row, **plus the binding case
   pinned**: at 89 columns the hint's left column is exactly **4**. Pinning 4
   rather than "greater than 0" is what makes an unsanctioned re-lengthening of
-  the hint fail — 63 characters would put it at 0, and even 57 would put it at 2
+  the hint fail — 63 characters would put it at 0, and even 57 would put it at 3
   — instead of quietly closing on the edge. This is the claim §Design 4's R5
   decision is made of, and it is the one place a confident sentence would
   otherwise have stood in for a check.

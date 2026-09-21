@@ -770,10 +770,12 @@ time in this spec a deliberate assertion change caused no stop.
 The walkthrough list near the foot of this file gets a third Phase 2 row when
 the second re-walkthrough is attested — the orchestrator writes it. -->
 
-- [ ] **T005c** — `src/layout.rs` + `src/venue.rs`: the venue's proportions, its
+- [ ] **T005c** — `src/layout.rs` + `src/venue.rs` + `src/shop.rs`: the venue's proportions, its
   alignment and its balance. Per plan §Design 4 and §Design 5, for `spec.md`'s
   amendments **R4**, **R5** and **R6**. Two files in one task because
-  `VenueLayout`'s shape changes and `venue.rs` is its only consumer.
+  `VenueLayout`'s shape changes and `venue.rs` is its only consumer; a third,
+  `src/shop.rs`, added at the sign-off for the one-line `credits_label` hoist
+  R6's row reads.
 
   **`src/layout.rs`.** `VenueLayout::HEADER_H` becomes **5** (the credit row,
   R6) and its doc names the fifth row and says the row gets **no** air — only
@@ -808,7 +810,16 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   89 columns, centred on the art's centre of 31, the old 63-character form spans
   columns 0..=62, flush against the frame edge, which `spec.md` forbids in as
   many words; the new form spans 4..=58). `header_rows` gains a fifth parameter
-  `credits: u32` and a fifth row, `format!("Credits: ◈ {credits}")` — the Card
+  `credits: u32` and a fifth row that **is `shop::credits_label(credits)`'s
+  output**, not a second literal of it (added at the sign-off, 2026-09-21):
+  hoist `Credits: ◈ {credits}` out of `shop.rs`'s inline balance `format!` into
+  `pub fn credits_label(credits: u32) -> String`, have the shop's own row use it
+  plus its ` · spendable ◈ …` clause, and have the venue read it. **This is the
+  third label this screen borrows and the third time the answer is one source
+  rather than two that agree** — R1 took `series_length_label`, R2 took
+  `shop::TITLE`, and the sign-off found R6 about to take the option both
+  rejected, with nothing able to catch a drift (`shop.rs` builds its string
+  inline in `draw`, so no test reaches it, and there is no test for R6). — the Card
   Shop's own opening words (`src/shop.rs`'s balance line), not a second
   phrasing, because the venue's balance row exists to inform the trip to that
   screen. `draw` reads `profile.credits()`, draws the fifth header row at
@@ -831,7 +842,7 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   `text_x` is **31** at 89 and **56** at 139 (the terminal's centres, 44 and 69,
   are no longer used anywhere). Against R3's 1334 and 2484 that is **17.5 %**
   and **16.8 %** smaller — R4's "about 15–20 % smaller overall", at both sizes
-  and within 0.7 points of each other.
+  and within 0.8 points of each other.
 
   **This task moves numbers two shipped tests pin, so existing assertions change
   value — deliberately, and only in the ways enumerated below. Anything else
@@ -876,12 +887,34 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   so the review is not surprised and so nobody "fixes" them:
   `l.header_y + VenueLayout::HEADER_H == l.art.y0` (4 → 5 on both sides) and
   `l.art.y0 == l.portrait.y0` (4 → 5). **No edit.**
-  • the test's own comment says "four header rows" — **five**.
+  • the test's own comment says "four header rows" — **five**. **And the rest of
+  that same comment block** (added at the sign-off, 2026-09-21): its opening
+  sentence claims "the two regions' outer margins are equal so the band sits
+  centered under the header" — **both clauses are false** after this task (the
+  width is seven eighths, and R5 makes the text follow the art rather than the
+  band sit under centred text). Rewrite the sentence, not just the one word;
+  editing "four" to "five" and leaving the next clause wrong is the defect this
+  spec renamed four symbols to avoid.
+  • **`src/layout.rs` ~808–809, the inline comment above the deleted
+  assertion** (sign-off, 2026-09-21): "Art then panel, exactly `PANEL_GAP` clear
+  columns apart, with equal outer margins and the panel clear of the edge."
+  After this task the clear columns are **7 at 89 and 10 at 139** and the
+  margins are **7 vs 3**. Correct it; it is the statement plan §Design 4
+  explicitly contradicts ("the margins are no longer equal — deliberately").
+  • `assert!(l.portrait.y1 <= l.art.y1, …)` — **kept, text unchanged**; its
+  operands move 18 → 19 while the assertion stays true. Listed (sign-off,
+  2026-09-21) because it belongs in the symbolic category above and its absence
+  would have an implementer working the list literally hit an unlisted assertion
+  whose values moved — and this task's own rule then tells them to stop.
 
   (2) **`src/layout.rs`, `the_art_region_dominates_at_both_widths`:**
   • `assert!(art_area > portrait_area, …)` and `assert!(wide > narrow, …)` —
   **kept, text unchanged**; their values move (1100 and 2068 against 330, and
   1100 → 2068).
+  • **(also `src/venue.rs`, added at the sign-off)** `draw`'s inline comment
+  "The header band, compact: place, planet, opponent, series." must name
+  **credits** — a third row-list beyond `header_rows`' doc and `draw`'s own doc,
+  which the list named as "the two docs that become false".
   • **R4's band added**, because "about 15–20 % smaller" is the claim the person
   will eyeball and a plan sentence must not stand in for it: at each fit size,
   with R3's figure as a literal (`1334` at 89, `2484` at 139), assert
@@ -935,18 +968,33 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   `portrait_panel`; `src/shop.rs`'s balance line (~173) for the credit row's
   exact wording and glyph; `src/board.rs`'s in-match hint for the ` · `
   separator idiom.)
+  **One simplification the sign-off asked for**: `draw`'s
+  `let art_cx = (layout.art.x0 + layout.art.x1) / 2;` is, after this task, the
+  literal definition of `text_x` — the plan names that identity and then
+  recomputes it anyway. Use `cx` for the placeholder label and keep only
+  `art_cy`. They cannot drift (identical expression), so this is one fewer
+  computation of one fact, not a risk fixed.
+
   *Verify: `cargo build --all-targets` no new warnings — in particular no
   `dead_code` on `ART_W_NUM`/`ART_W_DEN` and no unused `center_x`; `cargo test
   -q` green verbatim, with the re-pinned and added assertions passing;
-  `git diff --stat` shows only `src/layout.rs` and `src/venue.rs`;
+  `git diff --stat` shows only `src/layout.rs`, `src/venue.rs` and
+  `src/shop.rs` (the last added at the sign-off for `credits_label`, and its
+  diff is the hoist and nothing else);
+  `grep -rn "Credits: ◈" src/` matches **only** `src/shop.rs` — one literal,
+  two readers, which is what makes the plan's shared-wording claim a fact
+  instead of an assertion;
   `grep -n "center_x" src/venue.rs` is **empty** (the venue reads `text_x`
   only — this grep is scoped to `venue.rs` because `layout.rs` keeps two other
   screens' `center_x` fields on purpose, and a file-wide grep there would be
   unsatisfiable, which is the failure T006's and T005b's gates already taught
   this spec twice); `grep -n "text_x" src/layout.rs src/venue.rs` shows the
-  field, its derivation and the venue's uses; `grep -c "·" src/venue.rs`
-  confirms the hint was edited rather than re-typed alongside the old one (the
-  report pastes the `HINT` line verbatim with its character count). The report
+  field, its derivation and the venue's uses. (**The `grep -c "·"` check was
+  dropped at the sign-off, 2026-09-21**: `-c` counts matching *lines*, not
+  occurrences, and with no expected value a shortened hint and an unchanged one
+  produce the same number — it confirmed nothing. The verbatim `HINT` paste with
+  its character count, below, is the real check, so the report **must** carry
+  it.) The report
   states the concrete `art` and `portrait` Rects and `text_x` at **both** fit
   sizes, the two art areas **with their percentage reductions from 1334 and
   2484**, the hint's character count and its left column at 89 columns, and
@@ -1034,8 +1082,32 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   (Copies: `specs/016-opponent-portraits/portrait-art-brief.md` — structure,
   voice, palette block and validation-checklist shape lift almost verbatim;
   `src/campaign.rs`'s `PLANETS` for the ids, names, regions and blurbs.)
-  *Verify: `git diff --stat` shows exactly one new file,
-  `specs/029-tournament-rounds/planet-art-brief.md`, and nothing else;
+  **Three additions from the sign-off (2026-09-21), each a gap against the
+  pattern file rather than a preference**: (h) **the originality constraint** —
+  spec 016's brief spends a bullet on "Original designs, no trademarked
+  species… no recognizable franchise creatures", and the risk is *higher* for
+  planet halls than for faces, since the subject is a tournament hall in a KOTOR
+  homage the constitution says is meant for itch.io. An implied aesthetic
+  section is not the same as a pinned constraint, which is what this list is
+  for. (i) **a format exemplar** — spec 016 shipped two baseline grids and
+  called them "the two to beat", which is how the tool learned the format. This
+  brief adds a constraint the portraits did not have (every line exactly the
+  canvas width, space-padded); show at least one illustrated row so
+  "space-padded" is not left to interpretation. (j) **one line in the
+  rejected-alternatives note** saying that making the art region the same width
+  at both sizes — the obvious way to need only one asset per planet — is
+  **foreclosed by acceptance criterion 16**, which requires the region to be
+  strictly larger at 139 than at 89. That is what makes the two-asset cost
+  unavoidable rather than chosen, and it is the first thing a reader will ask.
+  *Verify: **`git status --short` shows exactly one line**, `?? specs/029-tournament-rounds/planet-art-brief.md`, and nothing else —
+  **not `git diff --stat`, which cannot list an untracked file and would print
+  nothing at all** for a task whose entire output is one new file. Corrected at
+  the second amendment's sign-off (2026-09-21), which found the original wording
+  unsatisfiable and noted this repo has already written the same lesson down
+  twice: `specs/022-balance-pass/tasks.md` ("`git diff --stat` can't show an
+  untracked file") and `specs/023-first-run-onboarding/tasks.md`. Sixth
+  instance on this spec of a gate that could not produce the output it asked
+  for;
   `cargo build --all-targets` and `cargo test -q` green verbatim and **unchanged
   from T005c's run** (this task compiles nothing — reporting them is the
   constitution's bar, not evidence of a change); the report **re-derives the
