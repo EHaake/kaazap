@@ -65,9 +65,11 @@ space:                  (blank cell / background)
 Nothing outside this set. (Box-drawing glyphs `─│┌┐└┘…` are reserved for the
 **border the game draws around the art** — see *The canvas* — so they must not
 appear inside the picture: a stray `│` inside the grid reads as a seam in the
-game's own frame.) A few plain ASCII marks for tiny features (a light in a
-window, a glint on glass) are acceptable **only** if strictly single-width and
-used sparingly, but the block/shade set above should carry the whole image.
+game's own frame.) Four plain ASCII marks are also permitted, for tiny features
+only (a light in a window, a glint on glass) — `.` `'` `*` `+`, and no others
+— used sparingly; the block/shade set above should carry the whole image.
+Validation checklist item 4 lists all **23** permitted codepoints, and that list
+is the whole of what a delivered file may contain.
 
 > Width caveat: the shade/half/full blocks (`█▀▄▓▒░`) are East-Asian *Ambiguous*
 > width. The game already ships its border, its title art and its eleven
@@ -251,6 +253,15 @@ than hiding it behind a crop rule.
 `blurb` are canon, from `PLANETS` in `src/campaign.rs`; the direction column is
 drafted from each planet's own blurb and region.
 
+**The crowd clause, restated here because these directions get read on their
+own.** Where a direction asks for a crowd — Scree's "loose crowd pressed close
+around a small table", The Spindle's "tiered seating looking down on a single
+table" — draw it. *The aesthetic*'s "No figures at the table" bars a
+**discernible character**, the kind that would compete with the opponent's
+portrait panel beside the art; it does not bar the distant silhouettes those two
+rooms get their pressure from. Bodies as texture and mass, yes; a face, a
+readable figure, or anyone seated at the table, no.
+
 | id | Name | Region | Blurb (canon) | Venue / view to author |
 |---|---|---|---|---|
 | `cinder` | Cinder | Outer Rim | "A slag-heap world where every hand is a warm-up." | The roughest venue of the eight: a lean-to hall welded from smelter plate, low and crooked, one bare lamp over a scarred table. Out the opening, terraced slag heaps still glowing dull at the base. Warm, dirty, improvised — the first room, and it looks like it. |
@@ -271,9 +282,42 @@ mechanism is the model: authored text under `assets/`, `include_str!`-embedded
 into a `&'static str` field on the profile struct
 (`OpponentProfile.portrait`), drawn line-by-line by a clip-safe drawer. Planet
 art would hang off a field on `Planet` in `src/campaign.rs`, and the venue would
-pick the **widest asset that fits the region** and centre it — one rule, no
-width threshold, so arbitrary terminal widths work and not only the two fit
-sizes.
+pick the **widest asset that fits the region** and centre it.
+
+**That rule is exact at the two fit sizes and unsettled at every width in
+between — the later art spec decides it, not this brief.** The art interior is
+`span_w * 7/8 - 2` of a span that varies continuously with the terminal width
+(`VenueLayout::new`), so it equals 48 or 92 only at exactly 89 and 139 columns:
+
+| Terminal | `span_w` | `art_w` | Interior | Widest asset that fits | Blank columns each side |
+|---|---|---|---|---|---|
+| 89 (minimum fit) | 58 | 50 | 48 | narrow, 48 | 0 |
+| 120 | 89 | 77 | 75 | narrow, 48 | 13 and 14 |
+| 138 | 107 | 93 | 91 | narrow, 48 | 21 and 22 |
+| 139 (wide fit) | 108 | 94 | 92 | wide, 92 | 0 |
+| 160 | 129 | 112 | 110 | wide, 92 | 9 and 9 |
+
+At 138 columns "widest that fits, centred" leaves 21 and 22 blank columns — the
+same emptiness this brief rejects the single-asset option for ("leaves 22 blank
+columns on each side, which undoes exactly the dominance rulings R3 and R4 are
+about") — and above 139 the gap opens again and widens with the terminal. So
+centring is not a settled answer away from the two fit sizes. **The later art
+spec chooses** among:
+
+- **letterbox** — centre and leave the blank columns, accepting up to ~22 a side
+  as the price of one rule with no width threshold in it;
+- **stretch** — resample the grid to the interior width, which on a character
+  grid means duplicating whole columns, visibly, in a hand-authored image;
+- **tile or extend** — repeat or continue edge material outward, which the
+  compositions would have to be authored for;
+- **a third size**, or one size per band of widths, which multiplies the drawing
+  work this brief already prices at sixteen files.
+
+Nothing here picks one, and spec 029 builds none of them. **What it means for the
+drawing now: nothing changes.** Author exactly 48 × 20 and 92 × 20 — those two
+grids are what the two fit sizes need under all four options, and two of the four
+would arrive later as an additional ask rather than a change to these sixteen
+files.
 
 **None of that is built in spec 029, and wiring it up is the deferred art spec's
 job.** Spec 029 reserves the region and draws a placeholder in it; this brief
@@ -293,15 +337,45 @@ For every delivery, Claude Code will confirm and, if needed, bounce back:
    21st line.
 3. **Every line exactly the canvas width in displayed columns** — 48 in every
    `-narrow.txt`, 92 in every `-wide.txt` — trailing spaces included.
-4. Only glyphs from the **allowed palette** (+ space); no color or escape codes;
-   no wide, zero-width or combining characters; no tabs; no box-drawing glyphs.
-5. The eight `-narrow` grids are **pairwise distinct** strings, and the eight
+4. **Only whitelisted codepoints — these 23 and nothing else.** No color or
+   escape codes, no wide, zero-width or combining characters, no tabs, no
+   box-drawing glyphs, no letters or digits:
+   - space — `U+0020`;
+   - shade and full blocks — `U+2591` ░, `U+2592` ▒, `U+2593` ▓, `U+2588` █;
+   - half blocks — `U+2580` ▀, `U+2584` ▄, `U+258C` ▌, `U+2590` ▐;
+   - quadrant blocks — `U+2596` ▖, `U+2597` ▗, `U+2598` ▘, `U+259D` ▝,
+     `U+2599` ▙, `U+259F` ▟, `U+259B` ▛, `U+259C` ▜, `U+259A` ▚,
+     `U+259E` ▞;
+   - the four permitted ASCII marks — `U+002E` `.`, `U+0027` `'`, `U+002A` `*`,
+     `U+002B` `+`.
+
+   That closed list is the whole check, so one command decides it. Whether the
+   ASCII marks were used *sparingly* is a judgement, not a mechanical test: it
+   belongs to item 7's look, not to this item.
+5. **Valid UTF-8, and LF line endings — not CRLF.** Every file decodes as UTF-8,
+   and no file contains a carriage return.
+6. The eight `-narrow` grids are **pairwise distinct** strings, and the eight
    `-wide` grids likewise.
-6. Rendered in the actual running venue at **89 × 31 and again at 139 × 31**:
+7. Rendered in the actual running venue at **89 × 31 and again at 139 × 31**:
    the art reads as a place, fills its frame, is not clipped, and does not
    compete with the opponent's portrait panel beside it — the product owner's
    go/no-go look.
 
+Items 4 and 5 are one command — it raises on invalid UTF-8, reports any carriage
+return, and prints every codepoint outside the whitelist:
+
+```
+python3 -c 'import sys
+ok = set(" .\x27*+") | {chr(c) for c in [0x2588, 0x2593, 0x2592, 0x2591,
+    0x2580, 0x2584, 0x258C, 0x2590, 0x2596, 0x2597, 0x2598, 0x259D,
+    0x2599, 0x259F, 0x259B, 0x259C, 0x259A, 0x259E]}
+for p in sys.argv[1:]:
+    b = open(p, "rb").read()
+    t = b.decode("utf-8")
+    bad = sorted({"U+%04X" % ord(c) for c in t.replace("\n", "") if c not in ok})
+    print(p, "CRLF!" if b"\r" in b else "lf-ok", "bad: " + ",".join(bad) if bad else "glyphs-ok")' assets/planets/*.txt
+```
+
 Deliver the sixteen files, and Claude Code drops them into `assets/planets/`,
-runs the dimension, palette and distinctness checks, and renders them at both
-fit sizes for the product owner's sign-off.
+runs the dimension, encoding, palette and distinctness checks, and renders them
+at both fit sizes for the product owner's sign-off.

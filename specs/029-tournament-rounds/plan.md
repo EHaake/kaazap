@@ -1131,11 +1131,22 @@ mechanism is the model: authored text under `assets/`, `include_str!`-embedded
 into a `&'static str` field on the profile struct (`OpponentProfile.portrait`),
 drawn line-by-line by a clip-safe drawer. Planet art would sit on a field on
 `Planet` in `campaign.rs` and the venue would pick the widest asset that fits
-the region and centre it — one rule, no width threshold, so arbitrary terminal
-widths work and not just the two fit sizes. **None of that is built here**: the
-brief states it as the intended shape and states equally plainly that wiring it
-up is the deferred art spec's work, so nobody reads the brief as a work order
-against this branch.
+the region and centre it. **That rule is exact at the two fit sizes and
+unsettled at every width in between, and the brief says so rather than reading
+as settled.** The art interior is `span_w * 7/8 - 2` of a span that varies
+continuously with the terminal width, so it is 48 or 92 only at exactly 89 and
+139 columns: at 120 the interior is 75 and centring the 48-wide grid leaves 13
+and 14 blank columns; at 138 the interior is 91 and it leaves 21 and 22 — the
+same emptiness §Design 11's two-asset decision rejects the single-asset option
+for — and above 139 the gap reopens and widens with the terminal. **The choice
+between letterbox, stretch, tile/extend and authoring a third size is the
+deferred art spec's to make**; this spec designs no mechanism for it, and the
+brief lists the four with what each costs so that spec chooses knowingly.
+Either way the artifact is unchanged: 48×20 and 92×20 are what the two fit
+sizes need under all four. **None of that is built here**: the brief states it
+as the intended shape and states equally plainly that wiring it up is the
+deferred art spec's work, so nobody reads the brief as a work order against this
+branch.
 
 ## Files
 
