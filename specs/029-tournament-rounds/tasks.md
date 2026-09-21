@@ -472,7 +472,7 @@ reachable only after T006. -->
 
 ## Phase 3 — The series where the player already looks (walkthrough: the map's planet detail names what a launch commits you to before you take it, the status band carries the running score through every match of a series and nothing during a rematch, and the map banner after the deciding match names the series result beside the credits)
 
-- [ ] **T007** — `src/campaign_map.rs` + `src/app.rs`: the map's detail line and
+- [ ] **T007** — `src/campaign_map.rs` + `src/app.rs` + `docs/economy.md`: the map's detail line and
   the banner. Per plan §Design 7: `MapBanner::Settled(StakeOutcome)` becomes
   `Settled { outcome: StakeOutcome, series: SeriesOutcome }`; `banner_line`
   prefixes `★  Series won  ·  ` / `Series lost  ·  ` for `Won`/`Lost` and
@@ -491,12 +491,23 @@ reachable only after T006. -->
   (`Best of 3` for an un-cleared planet, `Best of 5` for Zenith, nothing for a
   cleared one). Keep `the_banner_and_the_run_tally_report_the_same_net_gain`
   passing (it constructs a `Settled` — update its literal only).
+  **`docs/economy.md` rides with it, doc only** (added by the orchestrator at the
+  Phase 2 review, 2026-09-21, from a finding the review returned). T006 removed
+  `launch_campaign_node` and landed the renames, which falsified two places that
+  task could not fix without breaking its own diff-stat gate: ~63 still names
+  `App::launch_campaign_node`, which is `open_wager` now, and ~154–157's
+  parenthetical still says "the renames land with the venue screen later in that
+  spec, and until then the code reads `enter_campaign_map` and
+  `open_campaign_map`", which is false as of T006. Correct both; the names
+  themselves already match, so this is the temporal sentence and one dangling
+  identifier, not a rewrite.
   Do not run `cargo fmt`. (Copies: `campaign_map.rs`'s own `banner_line` and
   `axis_line` for the pure-wording-function idiom.)
   *Verify: `cargo build --all-targets` no new warnings; `cargo test -q` green
-  verbatim; `git diff --stat` shows only `src/campaign_map.rs` and
-  `src/app.rs`; the report quotes `banner_line` and the detail-row draw call
-  verbatim.*
+  verbatim; `git diff --stat` shows only `src/campaign_map.rs`,
+  `src/app.rs` and `docs/economy.md` (the last added at the Phase 2 review — see
+  the paragraph above); the report quotes `banner_line` and the detail-row draw
+  call verbatim, and pastes the `docs/economy.md` diff.*
 
 - [ ] **T008** — `src/board.rs` + `src/app.rs`: the series score during a match.
   Per plan §Design tension 6 and §Design 8: in `app.rs`, the pure
@@ -871,6 +882,54 @@ roadmap follow-up, so the next person to touch this code finds them. -->
     deliberately gives that mapping no unit test — it is a grep plus the
     walkthrough. The **Phase 2 review must run the grep itself** and confirm the
     claim, rather than take T006's report for it.
+    **CLOSED at the Phase 2 review (2026-09-21)**: the reviewer ran the grep
+    itself, widened it three ways to check the gate was not merely narrow, and
+    walked every door — the seven `open_campaign_home` call sites, a quit and
+    re-entry, a Quick Play match started mid-series, and the deck-builder divert.
+    `launch_from_map` is the only production caller of `begin_series` and is
+    reachable only from the map arm, so no reachable state feeds the replacement
+    branch. Confirmed, not asserted.
+
+**From the Phase 2 review (2026-09-21, no blocking findings):**
+
+20. **A non-deciding match's `Settled` banner is set and never shown.** `app.rs`
+    sets it on every settlement, but the venue draws no banner and clears none,
+    so a non-deciding match's message is overwritten by the next settlement
+    without ever reaching a screen. Nothing is lost to the player —
+    `stake_to_show` puts the settled amount on the game-over frame itself — and
+    plan §Open question 5 reasons only about `CantCover`, so this case is
+    un-discussed rather than decided. **Recorded for T007's banner work.**
+21. **Test isolation, two parts.** (a) `App::new` reads the real on-disk
+    profile, so suite greenness is machine-dependent and spec 029 *widened* that
+    surface: any future `App` test asserting a campaign screen now needs
+    `app.profile = Profile::default()` or it passes on whoever's save is on
+    disk. The reviewer checked the other `App::new` sites; none is exposed
+    today. (b) `Profile::save()` has **no `cfg(test)` guard**, so "replace the
+    profile with a default, then drive input" is one `save()` away from
+    overwriting the developer's real profile. The one test doing this is safe
+    because its keys are all non-dismiss under `Modal::Primer` — but that safety
+    rests on a comment and a key list, not a mechanism. **Sweep should decide on
+    a scratch data dir for tests.**
+22. `ACTION_GAP = 6` in `venue.rs` is a second copy of `app.rs`'s private
+    `CHOICE_GAP = 6`, and `action_row_width()` copies `choice_row_width`.
+    Plan-sanctioned as "the same idiom", drift purely cosmetic, but nothing
+    tests that the two stay equal.
+23. **The venue's deck guard is reachable in play and uncovered**: venue → `c` →
+    remove a card → Back → venue → Play diverts to the builder. It routes
+    correctly, but there is no test and it was not in the Phase 2 script. Added
+    to the walkthrough.
+24. `open_wager` silently does nothing when `opponent_by_id`/`planet_by_id` miss
+    (an `if let` with no `else`), while the venue's `draw` is deliberately more
+    tolerant and falls back to `DEFAULT_OPPONENT` — so for the same corrupt
+    series the screen renders while Play does nothing. Unreachable via any
+    supported profile; the shape is inherited from `launch_campaign_node`. Noted
+    only because the two sites now disagree about tolerance.
+25. **An evidence-quality note on the orchestrator, not the code.** The Phase 2
+    bundle's echoed *label* for the old-names gate omitted `-E` while the command
+    actually run used `grep -rnE`, so the label read as a pattern that could
+    never match. The evidence was valid and the reviewer re-ran the alternation
+    correctly (clean), but a label that misstates its command is worth not
+    repeating: echo the command, don't retype it.
 
 ---
 
@@ -899,3 +958,4 @@ redo, and why). -->
 | T004 (sdd-implementer) | opus → opus | 55K | 1 | yes | — | `src/layout.rs` only, 117 insertions, no existing line touched. Computed Rects at 139×31: text area 0..=80 with `center_x` 40, `art` 81..=110, `portrait` 114..=135, both rows 8..=22 — matching plan §Design 4's pinned arithmetic exactly. **Two deviations, both sound**: the plan's test claim included "the widest venue text row ends left of `art.x0`", which cannot be asserted before `venue.rs`'s strings exist (T005), so the implementer asserted `center_x < art.x0` and flagged the real version for T005; and `VenueRail`/`VenueLayout` derive no `PartialEq`, since the task's assertion list is field comparisons. **Returned a finding folded into T005**: `block_h` is a parameter, so T004's test hardcodes 8 and would not notice T005 defining a different `venue::BLOCK_H` |
 | T005 (sdd-implementer) | opus → opus | 86K | 1 | yes | — | `src/venue.rs` (new, 358 lines) + the one `pub mod` line. One owned `VenueOutcome`; the eight rows built by a single `text_rows` helper that both `draw` and the tests read, so the breathing test cannot drift from what is drawn. Rows 4 and 6 blank around the action row, which is drawn label-by-label at a fixed stride so its width is 53 for every cursor position. **Widest row is the controls hint at 63 characters** — at 139 columns it ends at 71 against `art.x0` of 81, so T004's un-assertable fit claim is now pinned against the real strings with 9 columns of slack. **T004's finding 1 discharged two ways**: `BLOCK_H = 8` plus an assertion that it is 8, naming why. Three deviations, each resolved to an existing convention rather than a new one: `screen.rs` left to T006 per the task line over the plan's heading; `draw` also returns early on an unknown planet id; `ACTION_GAP` is a local const because `app.rs`'s `CHOICE_GAP` is private and this task may not touch `app.rs` |
 | T006 (sdd-implementer) | opus → opus | 103K | 1 | yes | — | Both gates pass: the single-assignment grep returns exactly two lines (771, 775), both inside `open_campaign_home`, and the old-names grep is empty. **One deviation that matters, and the implementer was right**: plan §Design 6's listing writes `open_campaign_home` as `self.screen = if … {…} else {…};`, which makes the invariant's own grep return **zero** lines — the listing and the gate contradicted each other. It wrote two assignment statements instead (same behavior, same single function, same inline `if`) and documented in the function why, so the gate reads two. Verified empirically, not argued. **Two findings**: (a) tests that call `App::new` read the **real on-disk profile**, so `the_primer_swallows_map_keys` failed against the person's own Phase 1 play state (a series at 1–1) — fixed with the `app.profile = Profile::default()` pattern already used three times in that module, no assertion weakened, but a latent problem is now live; (b) the wager's `CantCover` refusal is **silent at the venue** and the banner survives into the next map visit — plan §Open question 5 says it is unreachable there, so routed to the Phase 2 review rather than changed |
+| **Phase 2 review** (skeptical-reviewer) | opus → opus | 161K | 1 | — | **0 blocking** | **Signed off.** Did all three checks the handoff note requires. (1) Ran the single-assignment grep itself and **widened it three ways** — `self\.screen\s*=` across `src/` (13 hits, only two set a campaign screen), the bare variant names, and `mem::replace`/`&mut self.screen` — confirming the gate is load-bearing rather than narrow, and **upheld T006's deviation** from the plan's listing: in the expression form neither line contains the variant name, so the gate would return zero and pass while checking nothing. (2) Density verified as instrumented rather than asserted, against the constitution's *corrected* form (only the acted-on line gets air), and both modals the venue can raise already pad evenly through `OverlayLayout`. (3) **Closed the Phase 1 caveat** by walking every door, including a quit and re-entry, a Quick Play match started mid-series, and the deck-builder divert — `launch_from_map` is the only production caller of `begin_series` and is unreachable while a series runs. Also **verified plan §Open question 5 independently**: `CantCover` is unreachable from the venue because the venue's floor *is* `reserve_floor` while locked, and the missing banner-clearing line makes nothing worse, because the map's arm clears the banner before `launch_from_map` runs. 7 second-look notes; one gave `docs/economy.md`'s rename fallout to T007 |
