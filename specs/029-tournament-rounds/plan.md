@@ -1,6 +1,6 @@
 # Plan: Tournament rounds — spec 029
 
-> **Status**: Draft — pending sign-off (**second amendment revision**, 2026-09-21: R4 the art's proportions, R5 the text's alignment, R6 the credit balance, and the per-planet art brief).
+> **Status**: Signed off (skeptical-reviewer, 2026-09-21 — second amendment revision: one review, one re-review, B1 and B2 resolved and seven notes applied)
 **Implements**: `spec.md` in this directory
 
 The pre-amendment plan was signed off by the `skeptical-reviewer` on 2026-09-20
@@ -877,7 +877,10 @@ checkable on a drawn frame (§Tests).
 
 **Every row is drawn from `layout.text_x`** (R5), which is the art's centre
 column, so `draw`'s single `let cx = layout.center_x;` becomes `let cx =
-layout.text_x;` and nothing else about the drawing loop moves. One consequence
+layout.text_x;`, and the only other move in the drawing body is that the
+placeholder label drops its own `art_cx` and uses `cx` — after this revision
+those are the same expression, so it is one fewer computation of one fact
+(re-review, 2026-09-21). One consequence
 worth naming because it is R5's whole visible point: the placeholder's own
 centred label sits at `(art.x0 + art.x1) / 2`, which is now **the same column**
 every text row centres on — the header sits squarely over the art instead of
@@ -1150,6 +1153,12 @@ against this branch.
   `specs/025-outfitter-locked-cards` reference in that same module doc is a
   **directory path and stays** — it is the one permitted survivor of T005b's
   grep gate.
+  Then (**T005c**, second amendment, added at its sign-off) `pub fn
+  credits_label(credits: u32) -> String`, hoisted out of the inline balance
+  `format!` so R6's venue row reads the shop's own wording rather than a second
+  literal of it — the shape `TITLE` already has. Its remainder
+  (`"  ·  spendable ◈ …"`, double-spaced) is preserved byte-for-byte; the shop
+  screen renders identically.
 - `tests/balance.rs` — **two** `cheapest_floor` call sites (~455 and ~596) move
   to `reserve_floor` (T002); then `series_rate`, the report column and its guard
   test (T010).
