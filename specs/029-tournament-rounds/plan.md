@@ -1,7 +1,19 @@
 # Plan: Tournament rounds — spec 029
 
-> **Status**: Signed off (skeptical-reviewer, 2026-09-20 — one review, one re-review, B1–B6 all resolved; two second-look notes carried to the tier log and the pre-merge sweep). Ready for implementation.
+> **Status**: Draft — pending sign-off (amendment revision, 2026-09-21).
 **Implements**: `spec.md` in this directory
+
+The pre-amendment plan was signed off by the `skeptical-reviewer` on 2026-09-20
+(one review, one re-review, B1–B6 resolved; two second-look notes carried to the
+tier log and the pre-merge sweep), and **Phases 1 and 2 were implemented,
+reviewed, committed and attested under it**. This revision covers `spec.md`'s
+*Amendment, 2026-09-21* (R1 the series wording, R2 the Card Shop rename, R3 the
+art as horizontal bands at every width) and touches only what that amendment
+falsifies: §What the code already gives us (one bullet), §Design tension 7,
+§Design 4, §Design 5, §Files, the venue bullets in §Tests, §Verification's Phase
+2 entry and §Open questions 2. Everything Phase 1 and Phases 3–5 rest on is
+unchanged — including §Design tensions 1–6, which the amendment does not reach.
+`tasks.md` gains T004a, T005a and T005b in Phase 2.
 
 ## Context
 
@@ -52,8 +64,11 @@ went:
   portrait is a third caller of the same drawer; only the art region beside it
   is new.
 - **The wide/compact split is one comparison.** `cols >= WIDE_LAYOUT_MIN_WIDTH`
-  (139), used by `BoardLayout::opponent_panel`. The venue's rail uses the same
-  test, so N1 is one line, not a mechanism.
+  (139), used by `BoardLayout::opponent_panel`. (**Revised 2026-09-21**: the
+  venue's art and portrait used the same test under ruling N1; the amendment's
+  R3 supersedes N1, so the venue makes that comparison nowhere — it derives both
+  regions from the terminal's own size at every width. The board's use of the
+  threshold is untouched.)
 - **The wager prompt is a modal over whatever screen is current.** It is opened
   from `launch_campaign_node`, and cancelling it just sets `self.modal = None` —
   the screen underneath is untouched. Opening it over the venue therefore makes
@@ -104,7 +119,7 @@ Every door goes through it:
 | Campaign-entry confirm (discard save) | `enter_campaign_map(true)` | `enter_campaign(true)` |
 | New Campaign / Reset Everything | `enter_campaign_map(true)` | `enter_campaign(true)` |
 | Game-over acknowledgement | `enter_campaign_map(false)` | `enter_campaign(false)` |
-| Back from the Outfitter | `open_campaign_map()` | `open_campaign_home()` |
+| Back from the shop (the Card Shop after amendment R2) | `open_campaign_map()` | `open_campaign_home()` |
 | Back from the deck builder (`BackTo::Map`) | `open_campaign_map()` | `open_campaign_home()` |
 | Map → Enter on an un-beaten opponent | opened the wager prompt | writes the series, then `open_campaign_home()` |
 
@@ -139,7 +154,7 @@ keeps its body and becomes **private**, and one new public function fronts it:
 
 ```rust
 /// The ante the player must be able to cover for the run to continue — the one
-/// floor `is_broke`, the Outfitter's reserve and the wager prompt's warning all
+/// floor `is_broke`, the Card Shop's reserve and the wager prompt's warning all
 /// read. While a series is in progress it is the **locked opponent's** floor:
 /// that is the only campaign match the player may play, so a cheaper ante on a
 /// planet they are not allowed to visit must not keep a lost run alive
@@ -368,29 +383,51 @@ person reads AC 11's "during every series match" as including that one frame,
 the fix is a one-shot `App` field in the `victory_due` idiom, holding the final
 score until the acknowledgement — a sub-lettered task, not a redesign.
 
-### 7. The venue's art region and the portrait are separate by requirement
+### 7. The art region and the portrait are separate by requirement, and the art takes everything else
 
-Two later specs are named in `spec.md` — authoring per-planet art, and showing
-more than one opponent on a planet — and each needs the split. That is a
-requirement that exists now (a stated constraint from the person, ruling M1 as
-amended), not speculative generality, so the layout holds two Rects rather than
-one panel that a later spec would have to break apart.
+**Rewritten 2026-09-21** for `spec.md`'s amendment R3. What the amendment
+changed is the *shape* of the venue, not this split: two later specs are named
+in `spec.md` — authoring per-planet art, and showing more than one opponent on a
+planet — and each needs the art and the portrait to be separate regions. That is
+a requirement that exists now (a stated constraint from the person, ruling M1 as
+amended twice), not speculative generality, so the layout holds two Rects rather
+than one panel a later spec would have to break apart.
 
-They are one field, not two, because they are always both present or both
-absent:
+What the amendment *does* remove is the `Option` around them, and with it the
+wrapper struct:
 
 ```rust
-/// The wide layout's right rail (spec 029): the per-planet art region and, beside
-/// it, the opponent's presence panel. Two Rects because two later specs need them
-/// separate — the art is the planet's and does not change with the opponent, and a
-/// planet may later hold more than one opponent. `None` below
-/// WIDE_LAYOUT_MIN_WIDTH, exactly as the board's presence panel (ruling N1).
+// Before (T004, ruling N1): both regions existed only at 139 columns and up.
 pub rail: Option<VenueRail>,
 pub struct VenueRail { pub art: Rect, pub portrait: Rect }
+
+// After (R3): both regions exist at every width, so they are two plain fields.
+pub art: Rect,
+pub portrait: Rect,
 ```
 
-One small struct instead of two `Option<Rect>` fields makes "both or neither" a
-fact of the type rather than a comment plus a test.
+`VenueRail` earned its place for exactly one reason — it made "both or neither"
+a fact of the type instead of a comment plus a test. Under R3 there is no
+"neither": the art is the point of the screen and draws at 89 columns too. A
+one-variant wrapper whose doc comment still describes a condition that no longer
+exists is the false-name defect this spec renamed four symbols to avoid, so
+`VenueRail` and `VENUE_ART_W` are **deleted** rather than kept as an
+unconditional container. Nothing outside `venue.rs` reads either, and backward
+compatibility with our own three-task-old code is not a constraint (CLAUDE.md,
+*Simplicity*).
+
+Two consequences worth stating, because both are places a reader could expect
+more machinery than the plan builds:
+
+- **The art is a rectangle, not an L.** The portrait's column is 22 wide and its
+  panel 15 rows tall; the art band is 23 rows at the 31-row minimum, so 8 rows
+  under the portrait stay blank. Handing those 176 cells to a second art Rect
+  would make the art region non-rectangular, and every later art spec would then
+  author around a notch. Not worth it; the rows stay blank.
+- **The art's size is a subtraction, not a ratio.** The portrait is fixed-size
+  (the art block is 18×12 by spec 016), and the header and footer rows are
+  fixed counts, so "the art takes the rest" is literal arithmetic. No scale
+  factor, no minimum-art-size constant, no breakpoint.
 
 ## Design
 
@@ -524,44 +561,118 @@ balance and one floor, evaluated at the same two seams.
 
 ### 4. `src/layout.rs`
 
+**Rewritten 2026-09-21** (amendment R3). `VENUE_ART_W` and `VenueRail` are
+deleted; `VenueLayout` becomes three horizontal bands, at every width.
+
 ```rust
-/// The per-planet art region reserved at the venue (spec 029, ruling M1): a
-/// plain placeholder in this spec, its contents replaced by a later one without
-/// the layout around it moving. Sized to match the presence panel's height so
-/// the two elements beside each other share a top and a bottom edge.
-pub const VENUE_ART_W: usize = 30;
-pub const VENUE_PANEL_H: usize = 2 + 1 + PORTRAIT_HEIGHT; // 15, as opponent_select's preview
+/// Height of the opponent's presence panel at the venue — border + name row +
+/// portrait, the same 15 rows `opponent_select`'s preview and the map's rail
+/// use. The art region beside it is *not* this height: it takes the whole band
+/// (spec 029, amendment R3).
+pub const VENUE_PANEL_H: usize = 2 + 1 + PORTRAIT_HEIGHT; // 15
 
-pub struct VenueRail { pub art: Rect, pub portrait: Rect }
-
-/// The venue's geometry: a centered text block, and — from
-/// WIDE_LAYOUT_MIN_WIDTH columns up — a right rail holding the planet art
-/// region and the opponent's presence panel beside it. Below that width the
-/// rail is `None` and the text block centers on the whole terminal, exactly as
-/// the board drops its presence panel (ruling N1).
+/// The venue's geometry (spec 029, amended 2026-09-21): three horizontal bands
+/// at **every** width, not a text block with a right rail. Four header rows at
+/// the top; then the band holding the per-planet art region and, in its own
+/// column beside it, the opponent's presence panel — every row and column the
+/// text does not need, which is what makes the art the screen's dominant
+/// element (amendment R3, superseding rulings M1's layout and N1 entirely);
+/// then the acted-on action row with an empty row above and below it, and the
+/// controls hint on the last row (the constitution's density rule, satisfied by
+/// the geometry rather than by what `draw` happens to skip).
+///
+/// Full-screen and computed per-draw from [`Config`], like
+/// [`CampaignMapLayout`] — the venue holds no cached geometry and a resize
+/// needs no venue-specific code.
+#[derive(Debug, Copy, Clone)]
 pub struct VenueLayout {
+    /// The terminal's center column: every text row centers here.
     pub center_x: usize,
-    pub top: usize,          // first row of the text block
-    pub rail: Option<VenueRail>,
+    /// First of the [`Self::HEADER_H`] header rows (place, planet, opponent,
+    /// series), in draw order from here.
+    pub header_y: usize,
+    /// The per-planet art region — the largest element on the screen. A plain
+    /// placeholder in this spec; a later spec replaces its contents without the
+    /// layout around it moving.
+    pub art: Rect,
+    /// The opponent's presence panel, in its own column to the right of the
+    /// art, sharing the art's top edge. Its own fixed height
+    /// ([`VENUE_PANEL_H`]) — the art is taller.
+    pub portrait: Rect,
+    /// The action row: the one row the player acts on, with `action_y - 1` and
+    /// `action_y + 1` empty.
+    pub action_y: usize,
+    /// The controls hint, on the terminal's last row.
+    pub hint_y: usize,
 }
 
 impl VenueLayout {
-    /// Rows of the text block: place, planet, opponent, series, blank, actions,
-    /// blank, hint (`venue::BLOCK_H`).
-    pub fn new(config: Config, block_h: usize) -> Self { … }
+    /// Header rows above the art: place, planet, opponent, series — compact,
+    /// no blank between them (only the acted-on row gets air).
+    pub const HEADER_H: usize = 4;
+    /// Rows below the art: blank, the action row, blank, the hint.
+    pub const FOOTER_H: usize = 4;
+    /// The art's left margin and the portrait's right margin — equal, so the
+    /// two regions together sit centered under the header rows.
+    const MARGIN_X: usize = 3;
+
+    pub fn new(config: Config) -> Self { … }
 }
 ```
 
-Arithmetic, pinned by T004's test: rail width = `VENUE_ART_W + PANEL_GAP +
-PANEL_W` = 30 + 3 + 22 = 55, right margin 3, so at 139 columns the rail spans
-81..=135 and the text area is 0..=80 with `center_x = 40`; the widest text row
-(the hint, ~62 cells) spans 9..=71, clear of the rail. `top = (rows -
-block_h) / 2` = 11 at 31 rows; the rail is vertically centered on its own
-height, rows 8..=22. At 89 columns `rail` is `None` and `center_x = 44`.
+`new` loses the `block_h` parameter: the row count is now a property of the
+layout (`HEADER_H + FOOTER_H`), not something the screen tells it, so
+`venue::BLOCK_H` goes too.
 
-`VENUE_ART_W = 30` is a chosen canvas size, not derived from anything: 30×15
-character cells is roughly square on screen and comfortably bigger than a
-portrait. Changing it later is one constant and one test.
+The arithmetic, in order (each clamped with the `.max()` idiom
+`CampaignMapLayout::new` already uses for `field_bottom`, so a terminal below
+the enforced 89×31 minimum degrades instead of inverting a Rect):
+
+```
+center_x     = cols / 2
+header_y     = 0
+portrait.x1  = cols - 1 - MARGIN_X
+portrait.x0  = portrait.x1 - (PANEL_W - 1)
+art.x0       = MARGIN_X
+art.x1       = portrait.x0 - PANEL_GAP - 1      (≥ art.x0)
+art.y0       = portrait.y0 = HEADER_H
+art.y1       = rows - 1 - FOOTER_H              (≥ art.y0)
+portrait.y1  = portrait.y0 + VENUE_PANEL_H - 1
+action_y     = rows - 3
+hint_y       = rows - 1
+```
+
+Pinned concretely by T004a's test at both `Config::fit_sizes()`:
+
+| | 89×31 | 139×31 |
+|---|---|---|
+| header rows | 0..=3 | 0..=3 |
+| `art` | x 3..=60, y 4..=26 — **58×23** | x 3..=110, y 4..=26 — **108×23** |
+| gap columns | 61..=63 (`PANEL_GAP` = 3) | 111..=113 |
+| `portrait` | x 64..=85, y 4..=18 — 22×15 | x 114..=135, y 4..=18 |
+| blank / action / blank / hint | 27 / 28 / 29 / 30 | 27 / 28 / 29 / 30 |
+| `center_x` | 44 | 69 |
+
+Which settles acceptance criterion 16 arithmetically, and the numbers are the
+test's, not the prose's: the art is **1334 cells at 89 columns and 2484 at
+139** — four times the portrait's 330 even at the minimum size, and strictly
+larger when the terminal is wider. The two regions' outer margins are equal
+(3 left of the art, 3 right of the portrait), so the whole band is centered
+under the text.
+
+Nothing collides. The header rows and the footer rows are the only text, and
+both bands are vertically disjoint from the art (`HEADER_H == art.y0`,
+`art.y1 + 2 == action_y`), so the horizontal clearance the old right-rail
+design needed is no longer a constraint at all. The two widest rows — the hint
+at 63 cells and the action row at 53 — centered on `center_x` span 13..=75 and
+18..=70 at 89 columns, 38..=100 and 43..=95 at 139: inside the frame at both,
+with the narrow case the binding one.
+
+The 31-row minimum leaves the art band 23 rows, 8 more than the portrait panel
+needs. That slack is the art's (§Design tension 7), and the portrait is
+**top-aligned** with the art rather than centered in the band, so the two
+regions share a visible top edge — `CampaignMapLayout::portrait_panel`'s idiom,
+anchored at its band's top. Centering it would align it with nothing.
 
 ### 5. `src/venue.rs` (new) + `src/screen.rs`
 
@@ -575,13 +686,14 @@ pub enum VenueOutcome { Moved, Play, OpenShop, OpenCollection, QuitToMenu }
 pub struct VenueState { selected: usize }  // index into ACTIONS
 
 /// The four actions, in the order they are drawn (ruling K1). No abandon
-/// action: a series is played out or lost.
-const ACTIONS: [&str; 4] = ["Play", "Outfitter", "Collection", "Quit"];
+/// action: a series is played out or lost. The shop's label is `shop::TITLE`
+/// (amendment R2) — see below.
+const ACTIONS: [&str; 4] = ["Play", crate::shop::TITLE, "Collection", "Quit"];
 
 impl VenueState {
     pub fn new() -> Self;
     /// ←/→ (and `a`/`d`) step the cursor, wrapping; Enter/Space take the
-    /// highlighted action; `b` and `c` open the Outfitter and the collection
+    /// highlighted action; `b` and `c` open the Card Shop and the collection
     /// wherever the cursor is, as on the map; Esc/`x` quit to the menu, the
     /// same as the Quit action.
     pub fn handle_input(&mut self, key: KeyCode) -> Option<VenueOutcome>;
@@ -589,33 +701,91 @@ impl VenueState {
 }
 ```
 
-Eight rows, in `VenueLayout`'s block, centered on `center_x`:
+**Rows revised 2026-09-21** (amendment R1, R2, R3). The eight rows are no
+longer one contiguous block: four are the header band, four the footer band, and
+the art sits between them. `venue::BLOCK_H` and the single `text_rows` array go
+with it; the header band comes from one pure function and the footer is drawn
+from `action_labels` plus the `HINT` const.
 
-| Row | Content | Emphasis |
+```rust
+/// The four header rows, in draw order — the one source of truth for their
+/// wording, so the fit test measures what is actually drawn.
+fn header_rows(
+    planet_name: &str,
+    planet_region: &str,
+    opponent: &OpponentProfile,
+    series: &Series,
+) -> [String; VenueLayout::HEADER_H]
+```
+
+| Row (at 31 rows) | Content | Emphasis |
 |---|---|---|
-| 0 | `Tournament Hall` | Muted |
+| `header_y` = 0 | `Tournament Hall` | Muted |
 | 1 | `{planet.name}  ·  {planet.region}` | Strong |
 | 2 | `{opponent.name}  —  {opponent.difficulty}` | Normal |
-| 3 | `Series  {p} – {o}   ·   first to {n}` | Normal |
-| 4 | *(blank)* | |
-| 5 | the action row | cursored label takes `pulse` |
-| 6 | *(blank)* | |
-| 7 | `←/→ choose  ·  Enter confirm  ·  b shop  ·  c deck  ·  Esc menu` | Muted |
+| 3 | `Series  {p} – {o}   ·   {Best of n}` | Normal |
+| `art.y0`..`art.y1` = 4..=26 | the art region, and the presence panel in its own column beside it | Muted / (the panel's own) |
+| 27 | *(blank — the air above the acted-on row)* | |
+| `action_y` = 28 | the action row | cursored label takes `pulse` |
+| 29 | *(blank)* | |
+| `hint_y` = 30 | `←/→ choose  ·  Enter confirm  ·  b shop  ·  c deck  ·  Esc menu` | Muted |
 
-The action row is `draw_choice_panel`'s idiom: each label drawn as `"{▸ or
-space} {label}"` at a fixed stride, so the row's width does not change as the
-cursor moves and the *acted-on row* is one row with an empty row above and below
-it, the rest compact — the constitution's density rule, satisfied statically.
-Both the row and the header rows come from pure functions
-(`action_row_width()`, `series_line(series)`) so the fit is tested without a
-terminal.
+The action row is unchanged: `draw_choice_panel`'s idiom, each label drawn as
+`"{▸ or space} {label}"` at a fixed stride, so the row's width does not change
+as the cursor moves. What changed is that the empty rows around it are now the
+layout's (`action_y ± 1`), not array slots — the density rule is a geometric
+fact rather than two blank strings in a list, which is also what makes it
+checkable on a drawn frame (§Tests).
 
-The rail, when `Some`: `draw_box` around `rail.art` (Single, Muted) with the
-planet's name centered inside it, Muted — the plain placeholder of ruling M1;
-then `draw_presence_panel(frame, rail.portrait, opponent.name,
-opponent.portrait)`, the same drawer the map's rail and the select screen use. A
-bordered region with one muted label rather than an empty box, so it reads as a
-reserved placeholder rather than a rendering fault (§Open questions 2).
+The series line reads **`Best of 3`**, not `first to 2` (amendment R1), and it
+reads it from `campaign::series_length_label` — the same function the map's
+planet detail calls (§Design 7), so the player meets one phrase for one idea and
+the two screens cannot drift:
+
+```rust
+/// The series line: the score, and the length it is played to in the map's own
+/// words (amendment R1). `series_length_label` is the single source of that
+/// phrase; `wins_needed` stays the source of the *count*, which this line no
+/// longer shows.
+pub fn series_line(series: &Series) -> String {
+    format!(
+        "Series  {} – {}   ·   {}",
+        series.player_wins,
+        series.opponent_wins,
+        series_length_label(&series.opponent)
+    )
+}
+```
+
+The middle action label reads **`Card Shop`** (amendment R2), and it reads it
+from `shop.rs` rather than spelling it a second time:
+
+```rust
+// src/shop.rs — hoisted out of `draw` to module scope, unchanged otherwise.
+/// The shop screen's title, and the label the venue's action row shows for it
+/// (spec 029, amendment R2). One const, two readers: a button that says one
+/// thing and opens a screen headed another is the defect R2 exists to fix, and
+/// a shared const makes it unrepresentable rather than merely tested.
+pub const TITLE: &str = "Card Shop";
+
+// src/venue.rs
+const ACTIONS: [&str; 4] = ["Play", crate::shop::TITLE, "Collection", "Quit"];
+```
+
+`"Card Shop"` is the same nine characters as `"Outfitter"`, so
+`action_row_width()` is 53 either way and no fit assertion moves (§Tests). The
+venue's and the map's `HINT` lines say `b shop`, which is already the new name's
+own word — R2's "the key hints where they name it" therefore costs zero lines
+here, stated so the absence does not read as a miss.
+
+The art and the portrait draw **unconditionally** — no `if let Some(rail)`:
+`draw_box` around `layout.art` (Single, Muted) with the planet's name centered
+in it, then `draw_presence_panel(frame, layout.portrait, opponent.name,
+opponent.portrait)`, the same drawer the map's rail and the select screen use.
+The placeholder's *contents* are deliberately unchanged by this revision — it
+still carries the planet's name, which is the person's open question and not
+this plan's to settle (§Open questions 2). The region is now much larger, which
+makes that question more consequential, not less; the re-walkthrough re-puts it.
 
 `draw` reads the series from `&Profile` and returns early if there is none —
 `App` only shows this screen while one is in progress, and the early return says
@@ -733,7 +903,8 @@ file changes.
 
 ### 9. Text (AC 18)
 
-- `assets/primer_text.txt`, after the Outfitter paragraph, a blank row and:
+- `assets/primer_text.txt`, after the Card Shop paragraph (the Outfitter
+  paragraph until T005b renames it), a blank row and:
   > Beat an opponent by winning 2 matches of 3 — the
   > last opponent, 3 of 5. A series, once started, is
   > played out.
@@ -778,7 +949,12 @@ starter-deck entry changes.
   `resolve_match`, `is_broke`, `can_afford`; tests (the `Settlement` literals
   gain a field, the two `economy::cheapest_floor` calls at ~901 and ~1274 move,
   and the settlement helpers learn to play a whole series).
-- `src/shop.rs` — one line (`reserve_floor`).
+- `src/shop.rs` — one line (`reserve_floor`, T002); then (**T005b**, amendment
+  R2) `TITLE` hoisted out of `draw` to a module-level `pub const TITLE: &str =
+  "Card Shop"` and the module doc's "the between-worlds outfitter". The
+  `specs/025-outfitter-locked-cards` reference in that same module doc is a
+  **directory path and stays** — it is the one permitted survivor of T005b's
+  grep gate.
 - `tests/balance.rs` — **two** `cheapest_floor` call sites (~455 and ~596) move
   to `reserve_floor` (T002); then `series_rate`, the report column and its guard
   test (T010).
@@ -796,11 +972,40 @@ starter-deck entry changes.
   the rename in **T002**; the *Series rates* section is added in **T010**. T010's
   "additions only" bar is therefore about T010's own diff and is not weakened by
   this.
-- `README.md` (**T009**) — ~80–81 says "Launching a match opens a **wager
-  prompt**", which is no longer what launching an un-beaten planet does.
+- `README.md` — ~80–81 says "Launching a match opens a **wager prompt**", which
+  is no longer what launching an un-beaten planet does (**T009**); and line ~29
+  calls the shop "a shop on the map", which **T005b** capitalizes to the screen's
+  actual name now that it has one the player reads ("a **Card Shop** on the
+  map"). Two lines, two tasks, no overlap.
+- **The Card Shop rename's remaining sites** (**T005b**, amendment R2) — comment
+  and message text only, no behavior: `src/economy.rs` (two doc comments),
+  `src/app.rs` (four comments/docs at ~320, ~749, ~1509, ~3178),
+  `src/profile.rs` (one assertion *message* at ~1244 and one comment at ~1247 —
+  neither is an asserted value), `assets/primer_text.txt:7`,
+  `assets/how_to_play_text.txt:20` (one line each, identical width — see
+  §Tests), `docs/economy.md` (~192 and ~311). **Deliberately not renamed**:
+  `specs/**` and `DECISIONS.md` (R2 says so — they record what those specs did),
+  `ROADMAP.md` (not among R2's enumerated sites; its Outfitter lines are mostly
+  the shipped-spec record, and roadmap grooming commits to `main` rather than to
+  a spec branch — a one-line chore if the person wants it), `CLAUDE.md`'s spec
+  directory reference, and the `specs/025-outfitter-locked-cards` path in
+  `src/shop.rs`. Symbols keep their names: `ShopState`, `ShopOutcome`,
+  `open_shop`, `shop.rs` all already say "shop", so R2 renames no code — this is
+  the one place in this spec where a rename is *not* warranted, because none of
+  these names is false.
 - `src/layout.rs` — `VENUE_ART_W`, `VENUE_PANEL_H`, `VenueRail`, `VenueLayout`;
-  tests.
-- `src/venue.rs` (new) + `src/lib.rs` (one `pub mod` line) — the screen; tests.
+  tests (T004). Then **T004a** (amendment R3): `VENUE_ART_W` and `VenueRail`
+  **deleted**, `VenueLayout` rebuilt as the three bands of §Design 4,
+  `VenueLayout::new` losing its `block_h` parameter, and
+  `the_venue_rail_is_wide_only_and_clear` replaced. `VENUE_PANEL_H` stays as the
+  portrait panel's height. `BriefcaseLayout::BLOCK_H` in the same file is an
+  unrelated private constant and is untouched.
+- `src/venue.rs` (new) + `src/lib.rs` (one `pub mod` line) — the screen; tests
+  (T005). Then **T004a** (the bands: `BLOCK_H` and `text_rows` replaced by
+  `header_rows` plus the footer's own anchors, the art and portrait drawn
+  unconditionally, the module doc's N1 sentence corrected), **T005a** (R1, the
+  series line) and **T005b** (R2, the action label and three doc comments).
+  `src/lib.rs` is not touched again.
 - `src/screen.rs` — the `Venue` variant.
 - `src/app.rs` — `open_campaign_home`,
   `enter_campaign` (renamed), `launch_from_map`, `open_wager` (renamed),
@@ -812,7 +1017,9 @@ starter-deck entry changes.
   planet detail's series length; tests.
 - `src/board.rs` — the `series` parameter and its one draw call; tests.
 - `assets/primer_text.txt`, `assets/how_to_play_text.txt`, `src/overlay.rs` (one
-  expected line count).
+  expected line count) — **T009**, the added series lines. T005b also touches
+  one existing line in each asset for the rename; `src/overlay.rs` is **not**
+  part of that (the rename changes no line count and no line width).
 - `specs/029-tournament-rounds/closeout-main-docs.md` (T011).
 - `src/wager.rs` — **doc only, no behavior change** (added at the sign-off
   re-review, finding B6). `WagerState::new`'s `reserve` doc names
@@ -891,8 +1098,9 @@ on `CampaignRun`/`Profile`.
   `cheapest_floor_is_the_min_over_launchable_nodes` stands unedited.
 - **Broke is judged against that floor at the two seams** (AC 10) — T002
   `profile.rs`: credits 20, locked against `rix` (floor 50) → `is_broke`, while
-  the same profile with no series is not broke; and the Outfitter reserves the
-  locked floor. **Corrected at T002 (2026-09-20)**: this bullet originally asked
+  the same profile with no series is not broke; and the shop reserves the
+  locked floor (the assertion's message text becomes "the Card Shop reserves…"
+  at T005b — a message, not a value). **Corrected at T002 (2026-09-20)**: this bullet originally asked
   for `can_afford(20)` to be false while locked and **true** while free, which is
   arithmetically impossible — free, the floor is 10, so `can_afford(20)` is
   `20 >= 20 + 10`, false. The claim is real, the illustrative numbers were not;
@@ -908,19 +1116,70 @@ on `CampaignRun`/`Profile`.
   `grep -n "self\.screen = Screen::\(CampaignMap\|Venue\)" src/app.rs` returning
   exactly two lines, both inside `open_campaign_home` — and attested in the
   Phase 2 walkthrough, which presses every door.
-- **The venue fits both layouts, and the rail is wide-only and non-overlapping**
-  (AC 16) — T004 `layout.rs`: at 89×31 `rail` is `None` and the block is
-  on-frame; at 139×31 `rail` is `Some`, `art.x1 + PANEL_GAP < portrait.x0`, both
-  Rects are on-frame, their tops and bottoms match, and the widest venue text
-  row centered on `center_x` ends left of `art.x0`.
-- **The venue's rows read right and breathe** (AC 3, 17) — T005 `venue.rs`:
-  `the_action_row_keeps_its_width_as_the_cursor_moves` (all four selections give
-  the same width, and exactly one carries `▸`); `the_venue_block_breathes_only
-  _around_the_action_row` (row 4 and row 6 blank, rows 0–3 non-blank, no other
-  blank); `the_venue_text_fits_the_minimum_terminal` (every row, at both
-  `Config::fit_sizes()`, centered on `VenueLayout::center_x`, lands inside the
-  frame and — at 139 — left of the rail); `series_line` reads
-  `Series  1 – 0   ·   first to 2` and `first to 3` for the final opponent.
+- ~~**The venue fits both layouts, and the rail is wide-only and
+  non-overlapping**~~ / ~~**The venue's rows read right and breathe**~~ — T004
+  and T005's original claims, **superseded 2026-09-21** by the four bullets
+  below. Recorded rather than deleted because T004a and T005a change assertions
+  those two tasks shipped, and the list of what changed is part of the task
+  lines (`tasks.md`).
+- **The venue's bands stack, and the art takes every row and column the text
+  does not need** (AC 16) — T004a `layout.rs`,
+  `the_venue_bands_stack_and_the_art_takes_the_rest`: at both
+  `Config::fit_sizes()` — `header_y == 0` and `header_y + HEADER_H == art.y0`
+  (the header rows sit directly above the art); `art` and `portrait` both
+  on-frame; `art.x1 + PANEL_GAP < portrait.x0` and `portrait.x0 == art.x1 +
+  PANEL_GAP + 1` (exactly `PANEL_GAP` clear columns, neither overlapping nor
+  gapped by accident); `art.x0 == 3` and `portrait.x1 == cols - 4` (equal outer
+  margins); `portrait.y0 == art.y0` and `portrait.y1 <= art.y1` and
+  `portrait.height() == VENUE_PANEL_H` (shared top, the art taller); `art.y1 + 2
+  == action_y`, `action_y + 2 == hint_y`, `hint_y == rows - 1` (AC 17's air, as
+  geometry). And the concrete Rects of §Design 4's table are pinned at both
+  sizes, in the `assert_eq!(WIDE_LAYOUT_MIN_WIDTH, 139)` spirit — the relational
+  assertions above would let a uniform arithmetic slip through, the pinned
+  numbers would not.
+- **The art region is the largest element, at both widths, and larger when the
+  terminal is wider** (AC 16's amended sentence) — T004a `layout.rs`,
+  `the_art_region_dominates_at_both_widths`: at each fit size the art's area
+  exceeds the portrait's, and the art's area at 139 columns strictly exceeds its
+  area at 89 (1334 → 2484). This is the one claim in the amendment that is a
+  *comparison* rather than a placement, so it gets its own test rather than
+  riding on the pinned Rects.
+- **The venue's rows breathe and fit** (AC 3, 17) — T004a `venue.rs`:
+  `the_action_row_keeps_its_width_as_the_cursor_moves` — unchanged from T005,
+  and it stays green through T005b too, because `"Card Shop"` is the same nine
+  characters as `"Outfitter"` and `action_row_width()` is 53 either way;
+  `the_venue_rows_breathe_only_around_the_action_row` — **now a frame test**,
+  replacing T005's array-index version: draw the venue at 89×31 into
+  `frame::new_frame` over a `Profile::default()` with
+  `campaign_mut().begin_series("cinder", "greeb")` (no `App` — plan §Tests'
+  standing rule), then assert rows `action_y - 1` and `action_y + 1` are
+  **entirely blank** while the four header rows, `action_y` and `hint_y` carry
+  text. The density rule is now a fact about the drawn frame rather than about
+  two empty strings in an array, which is the stronger form of the same check;
+  `the_venue_text_fits_the_minimum_terminal` — the four header rows, the action
+  row (as `action_labels(selected).join(gap)`, the same string the stride loop
+  draws — it is no longer one of the returned rows, so the test names it
+  explicitly rather than losing it) and the hint, for every planet × opponent ×
+  selection, centered on `center_x`, inside the frame at both fit sizes. Its
+  "ends left of `rail.art.x0`" clause **is deleted**
+  (the text is above and below the art now, not beside it) and is replaced by
+  the vertical-disjointness assertions in the layout test, checked once instead
+  of per row.
+- **The venue and the map say the same words for the series length** (amendment
+  R1) — T005a `venue.rs`, `the_series_line_names_the_score_and_the_length`, both
+  of whose expected strings change value: `Series  1 – 0   ·   Best of 3` and
+  `Series  2 – 1   ·   Best of 5`. Plus one added assertion — `series_line`
+  contains `series_length_label(&series.opponent)` — so R1's actual point (one
+  phrase for one idea) survives a later edit to either screen instead of resting
+  on two literals that happen to match today.
+- **The shop is the Card Shop wherever the player reads it** (amendment R2) —
+  T005b, and deliberately **a gate rather than a test**: `grep -rniE "outfitter"
+  src/ assets/ docs/ README.md` returns only `src/shop.rs`'s
+  `specs/025-outfitter-locked-cards` path. A unit test asserting a UI string
+  equals itself would be the tautology sign-off rejected for `CampaignHome`; and
+  the one invariant that *is* worth making impossible — the button and the
+  screen header disagreeing — is a shared `const`, not an assertion
+  (§Design 5).
 - **Declining the wager returns to the venue** (AC 4) and **a match saved
   mid-play resumes and then routes by AC 5 and AC 6** (AC 13) — **walkthrough
   only**, Phase 2. Neither has a unit test and neither can get one without
@@ -987,7 +1246,12 @@ on `CampaignRun`/`Profile`.
     settlement rule that sign-off B1 replaced; the two-wins rule now becomes
     true here, which is something the person can see and therefore something
     they should.)
-  - **After the Phase 2 review**, at 89×31 and again at 139×31: from a fresh
+  - **After the Phase 2 review** — **run and attested by the person 2026-09-21,
+    against the pre-amendment venue**; kept as the record of what was attested,
+    not as a script to re-run. Its layout sentences ("at 139 a bordered art
+    region … at 89 neither") describe the design amendment R3 replaces; the
+    re-walkthrough below covers the new layout and wording only, and must not
+    re-run this script. At 89×31 and again at 139×31: from a fresh
     scratch profile, Start Campaign → Enter on Cinder — **the venue opens, at
     0–0, with nothing staked** (the credit balance is unchanged). Read the
     venue: the planet, the opponent, `Series 0 – 0 · first to 2`, four actions
@@ -1013,6 +1277,27 @@ on `CampaignRun`/`Profile`.
     shows **no credit balance**, and it is the screen where the player chooses
     between playing and shopping, which is the choice a balance informs. It is
     deliberately not in this design; ask before it becomes one.
+  - **After the amendment tasks (T004a, T005a, T005b) and their phase
+    re-review**, at 89×31 and again at 139×31, on a scratch `KAAZAP_DATA_DIR`:
+    start a series from Cinder to land at the venue. The venue now reads as
+    **bands** — four rows at the top (the hall, the planet, the opponent, the
+    series), then a large bordered art region with the opponent's portrait in
+    its own column beside it, then the action row and the hint at the foot. The
+    art region is the biggest thing on the screen at **both** sizes and visibly
+    bigger at the wider one; nothing is clipped, the portrait does not touch the
+    art, and the action row still has an empty row above and below it (AC 16,
+    17). The series row reads `Series 0 – 0 · Best of 3` — the map's words (R1).
+    The middle action says **Card Shop**, and taking it (or `b`) opens a screen
+    headed **Card Shop**; Esc returns to the venue (R2). Then the **one item
+    Phase 2 never attested** (Phase 2 review note 23, uncovered because the
+    driver could not deliver Tab): at the venue press `c`, remove a card so the
+    deck is invalid, Back, then Play — the deck builder opens, and Back from it
+    returns to the venue. **Nothing else from the Phase 2 script is re-run**;
+    the flow, the lock, the routing and the settlement are already attested and
+    none of these three tasks touches them. **The still-open question is
+    re-put**, unchanged and unanswered: the art region's placeholder is the
+    planet's name, in a much larger box now — emptier, or as it is
+    (§Open questions 2)?
   - **After the Phase 3 review**, at both widths: on the map, the planet detail
     of an un-cleared planet says `Best of 3` (and Zenith's, once reachable or by
     inspection, `Best of 5`); during a series match the status band's lower row
@@ -1064,6 +1349,16 @@ stand**; the first two carry a walkthrough obligation recorded with them.
    provided the Phase 2 pause report names it as an open choice.** Note the
    venue's second row already names the planet six rows above the region, so the
    label repeats a fact. One line to empty it.
+   **Still open as of 2026-09-21.** The Phase 2 report asked it and the person's
+   amendment says so explicitly: *"whether that placeholder carries the planet's
+   name is the open choice the Phase 2 report put to the person, unanswered as of
+   this amendment."* So T004a changes the region's **size** and leaves its
+   **contents** exactly as they are — it is not this revision's to decide. One
+   thing has changed about the question and is worth telling them: the box is now
+   58×23 at the minimum size instead of 30×15, so a single muted word sits in far
+   more empty space, which cuts both ways (it reads less like a rendering fault,
+   and it repeats a fact more loudly). The re-walkthrough re-puts it; it is still
+   one line either way.
 3. **Esc and `x` at the venue quit to the menu**, the same as the Quit action.
    `spec.md` lists four actions and does not bind Esc; every other screen in the
    game backs out on Esc/`x`, and there is nothing else for it to mean here (no
