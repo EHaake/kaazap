@@ -39,9 +39,12 @@ const ACTION_GAP: usize = 6;
 /// The place line, above the planet.
 const PLACE: &str = "Tournament Hall";
 
-/// The controls hint at the foot of the block. A module `const`, like the map's,
-/// so the fit test can measure it without a terminal.
-const HINT: &str = "←/→ choose  ·  Enter confirm  ·  b shop  ·  c deck  ·  Esc menu";
+/// The controls hint on the last row. A module `const`, like the map's, so the
+/// fit test can measure it without a terminal. `board.rs`'s in-match hint's
+/// single-space `·` separators rather than the venue's own `  ·  `: 55 cells
+/// instead of 63, which is what lets the row centre on the art's centre at 89
+/// columns without ending up flush against the frame (amendment R5).
+const HINT: &str = "←/→ choose · Enter confirm · b shop · c deck · Esc menu";
 
 /// The result of a key at the venue: the cursor moved, or one of the four
 /// actions was taken. One owned outcome enum, as the constitution requires; the
@@ -94,22 +97,29 @@ fn action_labels(selected: usize) -> [String; ACTIONS.len()] {
     std::array::from_fn(|i| format!("{} {}", if i == selected { "▸" } else { " " }, ACTIONS[i]))
 }
 
-/// The four header rows above the art, in draw order — the one source of truth
+/// The five header rows above the art, in draw order — the one source of truth
 /// for their wording, so the fit test measures what is actually drawn. They are
 /// compact, with no blank between them: only the acted-on row (the action row,
 /// in the footer band) gets air, and that air is now the layout's
 /// (`action_y ± 1`) rather than a slot in this array (spec 029, amendment R3).
+/// The fifth row is the credit balance (amendment R6) — the venue is where the
+/// player chooses between playing and shopping, and that is the choice a
+/// balance informs. It **is** [`shop::credits_label`](crate::shop::credits_label)'s
+/// output rather than a second literal of it, so the row and the Card Shop's
+/// own balance line cannot drift.
 fn header_rows(
     planet_name: &str,
     planet_region: &str,
     opponent: &OpponentProfile,
     series: &Series,
+    credits: u32,
 ) -> [String; VenueLayout::HEADER_H] {
     [
         PLACE.to_string(),
         format!("{planet_name}  ·  {planet_region}"),
         format!("{}  —  {}", opponent.name, opponent.difficulty),
         series_line(series),
+        crate::shop::credits_label(credits),
     ]
 }
 
@@ -170,7 +180,7 @@ impl VenueState {
         self.selected = (self.selected as isize + delta).rem_euclid(n) as usize;
     }
 
-    /// Draw the venue's three bands: the four header rows, then the planet's
+    /// Draw the venue's three bands: the five header rows, then the planet's
     /// art region with the opponent's presence panel in its own column beside
     /// it, then the action row and the controls hint. Both regions draw at
     /// every width (spec 029, amendment R3).
@@ -188,23 +198,30 @@ impl VenueState {
         let opponent = opponent_by_id(&series.opponent).unwrap_or(DEFAULT_OPPONENT);
 
         let layout = VenueLayout::new(*config);
-        let cx = layout.center_x;
-        let rows = header_rows(planet.name, planet.region, &opponent, series);
+        // The art's centre column, which every row centres on — not the
+        // terminal's (amendment R5).
+        let cx = layout.text_x;
+        let rows = header_rows(planet.name, planet.region, &opponent, series, profile.credits());
 
-        // The header band, compact: place, planet, opponent, series.
+        // The header band, compact: place, planet, opponent, series, credits.
+        // The credit row is Normal, not Muted — it is information the player
+        // acts on — and not Strong, which the planet name owns (amendment R6).
         let top = layout.header_y;
         draw_text_centered(frame, cx, top, &rows[0], Emphasis::Muted);
         draw_text_centered(frame, cx, top + 1, &rows[1], Emphasis::Strong);
         draw_text_centered(frame, cx, top + 2, &rows[2], Emphasis::Normal);
         draw_text_centered(frame, cx, top + 3, &rows[3], Emphasis::Normal);
+        draw_text_centered(frame, cx, top + 4, &rows[4], Emphasis::Normal);
 
         // The art region: reserved now, filled with a plain placeholder — a
         // bordered region carrying the planet's name, so it reads as reserved
         // rather than as a rendering fault (ruling M1).
+        // Its label centres on `cx`, which *is* the art's centre column after
+        // amendment R5 — the header now sits squarely over the art rather than
+        // 13 columns right of it.
         draw_box(frame, layout.art, BorderWeight::Single, Emphasis::Muted);
-        let art_cx = (layout.art.x0 + layout.art.x1) / 2;
         let art_cy = (layout.art.y0 + layout.art.y1) / 2;
-        draw_text_centered(frame, art_cx, art_cy, planet.name, Emphasis::Muted);
+        draw_text_centered(frame, cx, art_cy, planet.name, Emphasis::Muted);
 
         // The opponent's portrait in its own column beside it, a separate
         // element (ruling M1) — the same drawer the map's rail and the select
@@ -251,8 +268,9 @@ mod tests {
         planet_name: &str,
         region: &str,
         opponent: &OpponentProfile,
+        credits: u32,
     ) -> [String; VenueLayout::HEADER_H] {
-        header_rows(planet_name, region, opponent, &series("cinder", opponent.id, 1, 0))
+        header_rows(planet_name, region, opponent, &series("cinder", opponent.id, 1, 0), credits)
     }
 
     #[test]
@@ -312,10 +330,27 @@ mod tests {
     #[test]
     fn the_venue_text_fits_the_minimum_terminal() {
         // Every drawn text row of every reachable planet/opponent pairing,
-        // centered on `center_x` as `draw` centers it, lands inside the frame
-        // at both layout widths. The text is above and below the art now, not
-        // beside it, so there is no horizontal clearance to check — the layout
-        // test's vertical disjointness covers that once instead of per row.
+        // centered on `text_x` as `draw` centers it, lands inside the frame
+        // at both layout widths — clear of *both* edges: `draw_text_centered`
+        // clamps a left overflow to column 0 with `saturating_sub`, which is
+        // exactly the "reads as a rendering fault" `spec.md` forbids, so the
+        // left edge is checked too (amendment R5). The text is above and below
+        // the art now, not beside it, so there is no horizontal clearance to
+        // check — the layout test's vertical disjointness covers that once
+        // instead of per row.
+        //
+        // The binding case, pinned: at 89 columns the 55-cell hint is the
+        // widest row and starts at column 4. Pinning the column rather than
+        // "> 0" is what makes an unsanctioned re-lengthening fail — the old
+        // 63-character hint would sit at 0, and even a 57-character one at 2 —
+        // instead of quietly closing on the edge.
+        let narrow = VenueLayout::new(Config { num_cols: 89, num_rows: 31 });
+        assert_eq!(
+            narrow.text_x - HINT.chars().count() / 2,
+            4,
+            "the hint's left column at 89 columns"
+        );
+
         for config in Config::fit_sizes() {
             let cols = config.num_cols;
             let layout = VenueLayout::new(config);
@@ -324,7 +359,11 @@ mod tests {
                 for id in planet.opponents {
                     let opponent = opponent_by_id(id).unwrap_or(DEFAULT_OPPONENT);
                     for selected in 0..ACTIONS.len() {
-                        let header = rows_for_opponent(planet.name, planet.region, &opponent);
+                        // `u32::MAX`: the widest representable balance, so the
+                        // credit row can never become the binding row
+                        // unnoticed (the breathing test draws the real one).
+                        let header =
+                            rows_for_opponent(planet.name, planet.region, &opponent, u32::MAX);
                         // The action row is no longer one of the returned rows,
                         // so it is measured explicitly — the same string the
                         // stride loop draws, and the widest cursored row.
@@ -335,10 +374,10 @@ mod tests {
                             let w = row.chars().count();
                             // `draw_text_centered`'s placement, and the same
                             // expression the action row's own `x` uses.
-                            let x = layout.center_x.saturating_sub(w / 2);
+                            let x = layout.text_x.saturating_sub(w / 2);
                             assert!(
-                                x + w <= cols,
-                                "{row:?} ({w} chars) clips the right edge at {cols} columns"
+                                x >= 1 && x + w <= cols - 1,
+                                "{row:?} ({w} chars) touches a frame edge at {cols} columns (x {x})"
                             );
                         }
                     }

@@ -25,6 +25,16 @@ use crate::{
 /// a shared const makes it unrepresentable rather than merely tested.
 pub const TITLE: &str = "Card Shop";
 
+/// The opening words of this screen's balance row, and the whole of the
+/// venue's credit row (spec 029, amendment R6). One function, two readers, for
+/// the same reason [`TITLE`] is one const: the venue's balance row exists to
+/// inform the trip to this screen, so the player meets the same four words and
+/// the same glyph on both, and nothing could have caught a drift between two
+/// literals — `draw` builds its row inline, so no test reaches it.
+pub fn credits_label(credits: u32) -> String {
+    format!("Credits: ◈ {credits}")
+}
+
 /// The three groups, in list order.
 const TIERS: [RegionTier; 3] = [RegionTier::Outer, RegionTier::Mid, RegionTier::Core];
 
@@ -170,7 +180,7 @@ impl ShopState {
         // ante reserve `Profile::can_afford` holds back — so a card dimmed while
         // `credits ≥ price` is explicable rather than mysterious (spec 021).
         let spendable = credits.saturating_sub(economy::reserve_floor(profile.campaign()));
-        let balance = format!("Credits: ◈ {credits}  ·  spendable ◈ {spendable}");
+        let balance = format!("{}  ·  spendable ◈ {spendable}", credits_label(credits));
         draw_text_centered(frame, center_x, title_y + 1, &balance, Emphasis::Strong);
 
         // Headings and rows share one left column so the list reads as a block
@@ -404,7 +414,8 @@ mod tests {
             assert!(list_top + LIST_ROWS < hint_y, "the list runs into the hint");
 
             // The balance row at an implausibly large balance fits centered.
-            let balance = format!("Credits: ◈ {}  ·  spendable ◈ {}", 99_999u32, 99_989u32);
+            let balance =
+                format!("{}  ·  spendable ◈ {}", credits_label(99_999), 99_989u32);
             let len = balance.chars().count();
             assert!(
                 (cols / 2).saturating_sub(len / 2) + len <= cols,
