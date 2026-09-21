@@ -4,7 +4,9 @@
 I1 (the person, 2026-09-20), then J1, K1, L1, M1, N1, O1, P1 and Q
 out-of-scope on the consequences of D2 + E2 the same day. **Amended
 2026-09-21** (rulings R1, R2, R3) after the person walked the venue — see
-*Amendment, 2026-09-21*, which supersedes M1's art sizing and N1 entirely.
+*Amendment, 2026-09-21*, which supersedes M1's art sizing and N1 entirely —
+and **again the same day** (R4, R5, R6) after they walked the rebuilt
+venue: see *Amendment, 2026-09-21 (second)*.
 The dated ruling records under *Resolved decisions*, and the **Depends
 on** line's reference to spec 012, keep the word "Outfitter": they record
 what was decided or shipped then. Everything else — the summary, the
@@ -150,8 +152,11 @@ construction.
   placeholder in this spec. (Amended by the person 2026-09-21 — see
   *Amendment, 2026-09-21*.)
 - The rows sit **above and below the art**, not beside it: the place, the
-  planet, the opponent and the series score above; the action row and the
-  controls hint below.
+  planet, the opponent, the series score and the **credit balance** above;
+  the action row and the controls hint below. Every one of them centres on
+  the **art region's** horizontal centre rather than the terminal's
+  (ruling R5), because the portrait's column makes those two different
+  points and text centred on the terminal reads as shifted off the art.
 - At 89×31 the venue is fully legible, with no horizontal overflow and
   nothing clipped.
 
@@ -371,9 +376,64 @@ Two consequences the person ruled on directly when asked:
   art must work at two quite different sizes.
 
 **Still not in scope**: authoring the art. The region holds a plain
-placeholder in this spec, and whether that placeholder carries the planet's
-name is the open choice the Phase 2 report put to the person, unanswered
-as of this amendment.
+placeholder in this spec. Whether it carries the planet's name was the open
+choice this amendment left standing; the person **closed it the same day** —
+keep the label until there is real art. The *brief* for that art is a
+deliverable of this spec; see *Amendment, 2026-09-21 (second)*.
+
+## Amendment, 2026-09-21 (second) — the venue's proportions, its alignment, and its balance
+
+The person walked the rebuilt venue and ruled three refinements plus one new
+deliverable. R3 stands; these tune it.
+
+### R4 — the art is about 15–20% smaller
+
+Dominant, but not quite this dominant. The exact numbers are the plan's to
+work out and the person's to eyeball at the next pause; the brief is
+"about 15–20% smaller overall" than R3's first attempt (58×23 at 89
+columns, 108×23 at 139).
+
+### R5 — the venue's text aligns to the art, not to the terminal
+
+The person's words: *the text should be centered above the art, not
+centered generally. The way it is now looks off-centered.* And they are
+right about the cause — the portrait's column sits to the right of the
+art, so the band's centre is well right of the art box's centre, and text
+centred on the terminal reads as shifted off the thing it labels.
+
+So **every** row of the venue's text — the header rows above the art and
+the action row and hint below it — centres on the **art region's**
+horizontal centre. Above and below alike: aligning only the header would
+trade one visible mismatch for another.
+
+One consequence the plan must handle rather than discover: at 89 columns
+the art can never be as wide as the controls hint, because the portrait's
+column and its gap take 25 of the 89. So either the hint overhangs the art
+or it gets shorter. It must not end up flush against column 0, which reads
+as a rendering fault.
+
+### R6 — the venue shows the credit balance
+
+It is the screen where the player chooses between playing and shopping,
+which is the choice a balance informs. (Asked at the Phase 2 pause,
+answered here.)
+
+### The art placeholder stays as it is
+
+Also answered: the placeholder keeps the planet's name until there is real
+art. Plan §Open questions 2 is **closed** — keep the label.
+
+### A new deliverable: the per-planet art brief
+
+Authoring the art remains a **non-goal** of this spec — but the **brief**
+for it rides this branch, so the work can be handed to a design agent and
+folded back in. It specifies what each planet's art must be, the exact
+dimensions and character constraints it must satisfy, how the files are
+named, where they live in the project, and how Claude Code validates and
+integrates them. Written the way spec 016's portrait brief was.
+
+This is documentation, not behavior: no acceptance criterion changes for
+it, and the spec's *Non-goals* entry for per-planet art stands.
 
 ## Resolved decisions (the person, 2026-09-20)
 
