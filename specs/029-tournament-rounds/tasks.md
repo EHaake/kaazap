@@ -530,7 +530,23 @@ line is done, reviewed, committed and attested. -->
   by today's label-stride loop, then the hint at `layout.hint_y`. Correct the
   module doc's sentence about the right rail "from 139 columns up (ruling N1)":
   it is false after this task, and a false doc comment is the defect this spec
-  renamed four symbols to avoid.
+  renamed four symbols to avoid. **Two more items the amendment sign-off added
+  (2026-09-21), because each would otherwise make this task stop or fail its own
+  gate**: (a) `draw`'s **own method doc** (`src/venue.rs` ~179–181) says "Draw
+  the **eight-row text block** and, **at 139 columns and wider**, the **right
+  rail**…" — false in three ways after this task, by the same standard as the
+  module doc, so correct it too; (b) the test helper `fn rows_for` (~250) has
+  **exactly one caller**, the breathing test this task converts to a frame test,
+  so it becomes `dead_code` and fails this task's own "no new warnings" bar —
+  **delete it in this task** (its sibling `rows_for_opponent` keeps its caller
+  in the fit test and stays). Neither is a stop-and-report; both are inside this
+  task's footprint.
+  One more assertion, named so it is dropped on purpose rather than by
+  accident (amendment sign-off, 2026-09-21): the replaced layout test's
+  `assert!(l.center_x < cols, …)` is in neither list below. Its truth value does
+  not move (44 < 89, 69 < 139), so it is **not** a stop-and-report — it simply
+  goes with the test being replaced, and `in_bounds` on both Rects covers what
+  it was guarding.
   **This task changes the layout two shipped tests pin, so existing assertions
   change value — deliberately, and in exactly two kinds. Anything else that
   moves is a stop-and-report, not an expectation to adjust.**
@@ -607,8 +623,13 @@ line is done, reviewed, committed and attested. -->
   {}"` with `campaign::series_length_label(&series.opponent)` in place of
   `wins_needed(&series.opponent)` — the same function the map's planet detail
   uses, so the player meets one phrase for one idea. Drop the now-unused
-  `wins_needed` import (keep `Series`); `wins_needed` itself stays where it is
-  and keeps its other callers.
+  `wins_needed` import and **add `series_length_label` to the
+  `crate::campaign::{…}` list** (keep `Series`); `wins_needed` itself stays
+  where it is and keeps its other callers. `series_line`'s doc comment contains
+  an intra-doc link ``[`wins_needed`]`` which becomes broken — `cargo build`
+  will **not** catch that, only `cargo doc` would, so replace the doc with plan
+  §Design 5's text rather than leaving the link dangling. (Both added at the
+  amendment sign-off, 2026-09-21.)
   **Exactly two existing assertion values change, both in
   `the_series_line_names_the_score_and_the_length`, and they are these**:
   `"Series  1 – 0   ·   first to 2"` → `"Series  1 – 0   ·   Best of 3"`, and
@@ -652,7 +673,15 @@ line is done, reviewed, committed and attested. -->
   the map sells" → "a **Card Shop** on the map sells" (the README's only mention;
   T009 owns its other line and the two do not overlap).
   **Deliberately not renamed** — say so in the report so the absences do not
-  read as misses: `specs/**` and `DECISIONS.md` (R2 says they keep the word),
+  read as misses: **earlier** specs' directories and `DECISIONS.md` (R2 says
+  they keep the word — they record what those specs did). **Corrected at the
+  amendment sign-off, 2026-09-21**: the first draft carved out all of `specs/**`,
+  which swept in **spec 029's own `spec.md`** and would have left acceptance
+  criteria 3 and 10 naming a button this task deletes — the document-level form
+  of the defect R2 exists to remove. The orchestrator has since corrected that
+  file's live prose (the person had already ruled R2), leaving its dated ruling
+  records and its spec-012 reference with the old word on purpose. This task
+  still renames nothing under `specs/`;
   `ROADMAP.md` (not among R2's enumerated sites, mostly the shipped-spec record,
   and roadmap grooming commits to `main` rather than a spec branch — a one-line
   chore if the person wants it), `CLAUDE.md`'s spec-directory reference, and the
@@ -896,8 +925,10 @@ line is done, reviewed, committed and attested. -->
   superseded** — the art draws at every width, not from 139 columns up; O1 the
   locked floor; P1 campaign entry goes to the venue; Q music deferred), **and
   `spec.md`'s *Amendment, 2026-09-21*, which is three rulings of the person's
-  own**: R1 the series length reads the map's words (`Best of 3`) rather than a
-  second phrase, R2 the shop is the **Card Shop** everywhere the player reads
+  own**: R1 the series length reads `Best of 3` rather than a second phrase —
+  the same words the map's planet detail will use once **T007** lands them, which
+  it has not yet, so a pause report must not tell the person the map already says
+  it (amendment sign-off, 2026-09-21), R2 the shop is the **Card Shop** everywhere the player reads
   it — with the note that earlier specs' documents, `DECISIONS.md` and
   `ROADMAP.md` keep the old word on purpose, since rewriting them would falsify
   history — and R3 the art dominates the screen at every width, with the

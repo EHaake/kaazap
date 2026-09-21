@@ -984,7 +984,9 @@ starter-deck entry changes.
   neither is an asserted value), `assets/primer_text.txt:7`,
   `assets/how_to_play_text.txt:20` (one line each, identical width — see
   §Tests), `docs/economy.md` (~192 and ~311). **Deliberately not renamed**:
-  `specs/**` and `DECISIONS.md` (R2 says so — they record what those specs did),
+  **earlier** specs' directories and `DECISIONS.md` (R2 says so — they record
+  what those specs did; **spec 029's own `spec.md` is not in that category and
+  was corrected instead**, at the amendment sign-off — see its R2 section),
   `ROADMAP.md` (not among R2's enumerated sites; its Outfitter lines are mostly
   the shipped-spec record, and roadmap grooming commits to `main` rather than to
   a spec branch — a one-line chore if the person wants it), `CLAUDE.md`'s spec
@@ -1286,7 +1288,9 @@ on `CampaignRun`/`Profile`.
     art region is the biggest thing on the screen at **both** sizes and visibly
     bigger at the wider one; nothing is clipped, the portrait does not touch the
     art, and the action row still has an empty row above and below it (AC 16,
-    17). The series row reads `Series 0 – 0 · Best of 3` — the map's words (R1).
+    17). The series row reads `Series 0 – 0 · Best of 3` — the words the map's
+    planet detail gains at **T007**, which has not landed yet, so the pause
+    report must not claim the map already says them (sign-off, 2026-09-21) (R1).
     The middle action says **Card Shop**, and taking it (or `b`) opens a screen
     headed **Card Shop**; Esc returns to the venue (R2). Then the **one item
     Phase 2 never attested** (Phase 2 review note 23, uncovered because the

@@ -2,7 +2,12 @@
 
 **Status**: Approved (2026-09-20). Rulings A1, B1, C1, D2, E2, F1, G1, H1,
 I1 (the person, 2026-09-20), then J1, K1, L1, M1, N1, O1, P1 and Q
-out-of-scope on the consequences of D2 + E2 the same day.
+out-of-scope on the consequences of D2 + E2 the same day. **Amended
+2026-09-21** (rulings R1, R2, R3) after the person walked the venue — see
+*Amendment, 2026-09-21*, which supersedes M1's art sizing and N1 entirely.
+The dated ruling records below, and the **Depends on** line's reference to
+spec 012, keep the word "Outfitter": they record what was decided or
+shipped then. The live contract above does not.
 **Depends on**: spec 009 (the campaign map and its `b`/`c` doors), spec 012
 (the Outfitter and the depth-gated pool), spec 008 / 015 (the collection and
 the briefcase deck builder), spec 016 (opponent portraits), spec 021 (the
@@ -24,7 +29,7 @@ prompted and settled exactly as it is today.
 
 Between the matches of a series the player is at the **venue**: a new
 screen standing for the tournament hall on that planet, where they start
-the next match, visit the Outfitter, open their collection, or quit to the
+the next match, visit the Card Shop, open their collection, or quit to the
 menu. The venue is where every match of a series begins. It reserves a region
 for per-planet art **beside** the opponent's portrait — two separate
 elements, so that one later spec can author the art and another can show
@@ -98,7 +103,7 @@ construction.
 - **The venue** — a new top-level screen: the tournament hall on the
   planet where the series is being played. It is where a series begins,
   where the player returns after every match that does not end the series,
-  and the only door to the Outfitter and the collection while locked.
+  and the only door to the Card Shop and the collection while locked.
 - **The planet art region** — the venue's **dominant element**: a region
   reserved for art of the venue itself, as wide and as tall as the screen
   allows once the text has its rows, drawn at **every** width. In this
@@ -129,10 +134,10 @@ construction.
   its length** — the player's match wins, the opponent's, and how many are
   needed.
 - It offers four actions, cursor-selected with Enter to confirm: **play
-  the next match**, **the Outfitter**, **the collection**, and **quit to
-  the main menu**. `b` and `c` also open the Outfitter and the collection,
+  the next match**, **the Card Shop**, **the collection**, and **quit to
+  the main menu**. `b` and `c` also open the Card Shop and the collection,
   as they do on the map.
-- The Outfitter and the collection **return to the venue**, not to the
+- The Card Shop and the collection **return to the venue**, not to the
   map.
 - The constitution's density rule applies: the action the player is about
   to take gets an empty row above and below it; the rest stays compact.
@@ -204,7 +209,7 @@ ante may be on a planet the player is not allowed to play. So:
   the ante floor of the opponent they are locked against**, checked at the
   same two seams as today: after a campaign match settles, and on entering
   the campaign.
-- **The Outfitter reserves that same floor** while locked, so shopping can
+- **The Card Shop reserves that same floor** while locked, so shopping can
   never strand the player, exactly as it can never strand them today.
 - Everything else about the run-over flow is unchanged: the modal, the
   reset, the preserved lifetime records.
@@ -243,9 +248,10 @@ and no series. The opponent stays beaten either way.
    0–0 without staking anything; the map's planet detail names the series
    length before the launch.
 3. [ ] **The venue.** It shows the planet, the opponent, and the series
-   score and length; it offers play / Outfitter / collection / quit, with
-   Enter confirming and `b` and `c` working as on the map; the Outfitter
-   and the collection each return to the venue.
+   score and length; it offers play / Card Shop / collection / quit, with
+   Enter confirming and `b` and `c` working as on the map; the Card Shop
+   and the collection each return to the venue. (Renamed from "Outfitter"
+   by ruling R2 — see *Amendment, 2026-09-21*.)
 4. [ ] **Every match of a series starts at the venue**, through today's
    wager prompt, with today's floor, stake range and escrow; declining
    returns to the venue.
@@ -265,7 +271,7 @@ and no series. The opponent stays beaten either way.
    to the venue, the map cannot be reached, and no other planet — cleared
    or not — can be launched.
 10. [ ] **Broke while locked** is judged against the locked opponent's ante
-    floor, at the same two seams as today, and the Outfitter reserves that
+    floor, at the same two seams as today, and the Card Shop reserves that
     floor; the run-over modal and reset are unchanged.
 11. [ ] **In-match score.** The series score is visible during every series
     match at 89×31 and at 139×31, and is absent during a rematch.
@@ -328,7 +334,15 @@ made this spec rename four symbols rather than comment them.
 
 Earlier specs' own documents (`specs/012-*`, `DECISIONS.md` entries) keep
 the word: they are the record of what those specs did, and rewriting them
-would falsify history rather than correct it.
+would falsify history rather than correct it. **This spec's own `spec.md`
+is not in that category** — it is the live contract, so its four
+"Outfitter" mentions (the venue entity, the venue's four actions,
+acceptance criterion 3 and acceptance criterion 10) are corrected above
+rather than preserved. Leaving them would have the person tick a criterion
+naming a button the build does not have, which is the document-level form
+of exactly the defect R2 exists to remove. (Caught at the amendment
+sign-off, 2026-09-21: the plan revision had generalized this carve-out
+from *earlier* specs to all of `specs/**`.)
 
 ### R3 — the art dominates the screen, at every width
 
