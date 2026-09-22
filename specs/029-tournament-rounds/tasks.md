@@ -1922,6 +1922,26 @@ roadmap follow-up, so the next person to touch this code finds them. -->
 48. `help_texts_name_the_new_keys_and_nothing_old` now also carries the series
     assertions, so its name undersells it. Cosmetic; **sweep.**
 
+**From the Phase 5 review (2026-09-22, no blocking findings):**
+
+49. Six series cells differ by 0.1 when recomputed from the one-decimal win%
+    beside them (e.g. starter vs sovereign: 23.2 → 8.5 by hand, 8.6 in the
+    table), because the report converts the unrounded rate. And the new run's
+    per-match rates are not written into the doc, so applying the formula to the
+    older measured-curve table gives different figures (starter vs Greeb 77.2,
+    not 78.8). The section's note says the runs differ; one clause ("computed
+    from the unrounded rates of the 2026-09-22 run") would pre-empt a false
+    discrepancy report. **Sweep.**
+50. The bundle omitted half of T010's balance-value gate. **Closed by the
+    orchestrator** the same day: across the whole spec
+    (`git diff main...HEAD`), `src/opponent.rs` is untouched and `src/economy.rs`
+    removes only two doc lines and the `pub` on `cheapest_floor` — no constant
+    changed. AC 20's balance-data half holds.
+51. The largest per-match drift between runs, starter vs Rix 29.9 → 28.1, is
+    ~2.8 standard errors — plausible as the largest of 50 cells with no fixed
+    seed. If a later run drifts the same way again, look at the engine before
+    blaming chance.
+
 ---
 
 ## Tier log (this spec, under the model policy)
@@ -1976,6 +1996,7 @@ redo, and why). -->
 | **Phase 4 review** (skeptical-reviewer) | opus → opus | 41K | 1 | — | **0 blocking** | **Signed off.** Ruled that How to Play's "Best of 3" satisfies AC 18 — R1 made it the single phrase for the idea — and that restoring "2 match wins of 3" would reintroduce the second phrasing R1 removed; the real weakness is the missing unit ("matches"), routed to the person. Compared the reflowed Readme blockquote word by word: identical. 5 second-look notes; plan §Design 9's pre-R1 strings updated by the orchestrator |
 | T009a (sdd-implementer) | opus → opus | 23K | 1 | yes | — | Ruling R8: How to Play's two campaign lines now say "Best of 3 matches". 26 lines, 44/42 columns, no assertion moved. Covered by the Phase 4 review's own suggested text; no separate review |
 | T010 (sdd-implementer) | opus → opus | 49K | 1 | yes | — | `series_rate` and its guard test with the spec's flagged vectors; a `series%` column in the report; simulator re-run at **N = 10,000**, release profile, **no lever moved**, still `targets 8/8, coupling 1/1, bounds 5/5`, per-match rates within 1.8 points of the recorded table. `docs/balance.md` gains *Series rates*, additions only. Headline: starter vs Greeb 70.3 → **78.8 %** as a series, starter vs Rix 28.1 → **19.3 %**, and the Sovereign's best of five turns the starter's 23.2 % into **8.6 %** while the full deck's 51.3 % becomes 52.4 %. **Findings**: the run takes ~9 s in release, not minutes; the per-match table above it is still the 2026-09-13 run, and the new section says so |
+| **Phase 5 review** (skeptical-reviewer) | opus → opus | 43K | 1 | — | **0 blocking** | **Signed off.** Recomputed the closed forms and eight table cells by hand; checked all 50 doc cells against the run; confirmed every region against `PLANETS`; confirmed best of five is chosen from the game's own `wins_needed`, so the report cannot drift from the game. 3 second-look notes; the one gap in the bundle (the `economy.rs` half of the balance gate) closed by the orchestrator |
 | Phase 2 amendment re-walkthrough (the orchestrator, `run-kaazap`) | opus → opus (session) | — | — | — | — | Driven at **89×31 and 139×31** with `KAAZAP_DATA_DIR` at a scratch directory. **Attested**: the series row reads `Series  0 – 0   ·   Best of 3` (R1); the second action reads **Card Shop** and taking it from the action row — not just `b` — opens a screen headed **Card Shop**, with Esc returning to the venue (R2, AC 3); the art region draws at **both** widths as the dominant element with the portrait in its own column beside it, sharing a top edge, nothing clipped, the header text centred over the band and the footer below it (R3, AC 16); rows 27 and 29 blank around the action row at both widths (AC 17); Play still opens the wager over the venue and Esc still returns to it. **Still not hand-attested**: the deck-guard divert (second-look note 23). The driver cannot switch the briefcase's focus — `key:\t` reaches the pty but the cursor stays in the Collection pane — so the deck could not be made invalid. Verified by inspection **twice** (the Phase 2 review and the amendment review); left for the person, who can do it in two keystrokes |
 | Deck-guard divert — **attested by the person** | — | — | — | — | — | Second-look note 23, the one item two driver attempts could not reach: the person made their deck invalid and pressed Play at the venue, and it took them to the collection as expected. **Closed by attestation**, after being verified by inspection in two reviews. Nothing further is owed on it |
 | **Phase 2 review** (skeptical-reviewer) | opus → opus | 161K | 1 | — | **0 blocking** | **Signed off.** Did all three checks the handoff note requires. (1) Ran the single-assignment grep itself and **widened it three ways** — `self\.screen\s*=` across `src/` (13 hits, only two set a campaign screen), the bare variant names, and `mem::replace`/`&mut self.screen` — confirming the gate is load-bearing rather than narrow, and **upheld T006's deviation** from the plan's listing: in the expression form neither line contains the variant name, so the gate would return zero and pass while checking nothing. (2) Density verified as instrumented rather than asserted, against the constitution's *corrected* form (only the acted-on line gets air), and both modals the venue can raise already pad evenly through `OverlayLayout`. (3) **Closed the Phase 1 caveat** by walking every door, including a quit and re-entry, a Quick Play match started mid-series, and the deck-builder divert — `launch_from_map` is the only production caller of `begin_series` and is unreachable while a series runs. Also **verified plan §Open question 5 independently**: `CantCover` is unreachable from the venue because the venue's floor *is* `reserve_floor` while locked, and the missing banner-clearing line makes nothing worse, because the map's arm clears the banner before `launch_from_map` runs. 7 second-look notes; one gave `docs/economy.md`'s rename fallout to T007 |
