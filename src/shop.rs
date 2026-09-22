@@ -1,8 +1,8 @@
 //! The shop screen: browse the whole card range, grouped by the region that
 //! opens it, and buy from the groups you've reached (spec 025).
 //! A full mode navigated *to* (a [`Screen`](crate::screen)), reached from the
-//! campaign map — the between-worlds Card Shop, beside the campaign depth that
-//! gates its stock. Mirrors `opponent_select.rs`/`deck_builder.rs`: a cursor + an
+//! campaign map or, while a series is in progress, the venue — the
+//! between-worlds Card Shop, beside the campaign depth that gates its stock. Mirrors `opponent_select.rs`/`deck_builder.rs`: a cursor + an
 //! owned outcome enum + `draw(frame, config, profile, pulse)` + one app arm. The
 //! screen owns only the cursor; the tiers and prices come from [`economy`], the
 //! balance and collection from the [`Profile`], and a purchase is applied through

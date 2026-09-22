@@ -33,9 +33,10 @@ pub struct WagerState {
     opponent: OpponentProfile,
     floor: u32,
     max: u32,
-    /// The run's cheapest ante — the reserve a loss has to leave behind for the
-    /// run to continue. Not this prompt's `floor`, which is *this* opponent's
-    /// ante and can sit above the cheapest node on the map.
+    /// The floor the broke check reads *after* this match is lost — the reserve
+    /// a loss has to leave behind for the run to continue
+    /// (`economy::reserve_after_a_loss`). Not this prompt's `floor`, which is
+    /// *this* opponent's ante and need not equal it.
     reserve: u32,
     k: usize,
 }
@@ -48,7 +49,7 @@ enum Role {
     Plain,
     Stake,
     /// The run-over warning: shown only when losing the chosen stake would
-    /// drop the balance under the run's cheapest ante.
+    /// drop the balance under the floor the broke check reads after that loss.
     Warning,
     Hint,
     Spacer,
@@ -60,11 +61,13 @@ impl WagerState {
     /// Precondition: `balance >= ante_floor(opponent.stand_threshold)` — the
     /// launch gate checks it, and `max` is the full balance (not a post-reserve
     /// amount), so an all-in stake is always reachable. `reserve` is the ante
-    /// the run must keep covered (`economy::reserve_floor`): stakes are still
-    /// uncapped, it only decides whether the run-over warning row shows. While
-    /// a series is locked that is the locked opponent's *own* ante rather than
-    /// the map's cheapest (spec 029, ruling O1), so deep in the map the warning
-    /// fires at far lower stakes than it did before.
+    /// the run must still cover *after a loss* (`economy::reserve_after_a_loss`):
+    /// stakes are still uncapped, it only decides whether the run-over warning
+    /// row shows. While a loss leaves a series locked that is the locked
+    /// opponent's *own* ante rather than the map's cheapest (spec 029, ruling
+    /// O1), so deep in the map the warning fires at far lower stakes than it did
+    /// before; a loss that decides the series releases the lock, and the reserve
+    /// falls back to the map's cheapest.
     pub fn new(planet: Planet, opponent: OpponentProfile, balance: u32, reserve: u32) -> Self {
         Self {
             planet,
@@ -126,7 +129,8 @@ impl WagerState {
     }
 
     /// Whether losing the current stake would leave the player unable to cover
-    /// the run's cheapest ante — i.e. the loss ends the run (spec 021's reset).
+    /// the floor the broke check reads after that loss — i.e. the loss ends the
+    /// run (spec 021's reset).
     fn loss_ends_the_run(&self) -> bool {
         self.max.saturating_sub(self.stake()) < self.reserve
     }
@@ -211,9 +215,9 @@ mod tests {
         state_with_reserve(balance, 10)
     }
 
-    /// Greeb on Cinder with an explicit run reserve (`economy::reserve_floor`
-    /// at the call site), for the cases where it differs from this prompt's
-    /// floor.
+    /// Greeb on Cinder with an explicit run reserve
+    /// (`economy::reserve_after_a_loss` at the call site), for the cases where
+    /// it differs from this prompt's floor.
     fn state_with_reserve(balance: u32, reserve: u32) -> WagerState {
         let planet = planet_by_id("cinder").expect("cinder is a real planet");
         let opponent = opponent_by_id("greeb").expect("greeb is in the roster");
@@ -222,7 +226,7 @@ mod tests {
     }
 
     /// Rix: stand threshold 19 → ante floor 50, a prompt floor well above the
-    /// cheapest ante of a run that still has Cinder's rematch at 10.
+    /// 10 a run reserves once Cinder's rematch is the map's cheapest node.
     fn deep_state(balance: u32, reserve: u32) -> WagerState {
         let planet = planet_by_id("cinder").expect("cinder is a real planet");
         let opponent = opponent_by_id("rix").expect("rix is in the roster");
@@ -474,13 +478,13 @@ mod tests {
 
     #[test]
     fn the_predicate_uses_the_runs_cheapest_ante_not_the_prompt_floor() {
-        // Rix's ante is 50, but Cinder's rematch keeps the run's cheapest ante
-        // at 10 — the boundary lands on 10, not on 50.
+        // Rix's ante is 50, but the reserve after a loss is Cinder's rematch at
+        // 10 — the boundary lands on 10, not on 50.
         let mut s = deep_state(80, 10);
         assert_eq!(s.stake(), 50);
         assert!(
             !warns(&s),
-            "30 left covers the cheapest ante, even though it's under Rix's own"
+            "30 left covers the reserve, even though it's under Rix's own"
         );
         s.handle_input(KeyCode::Right);
         assert_eq!(s.stake(), 55);

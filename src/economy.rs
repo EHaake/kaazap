@@ -140,8 +140,7 @@ fn cheapest_floor(run: &CampaignRun) -> u32 {
 }
 
 /// The ante the player must be able to cover for the run to continue — the one
-/// floor `is_broke`, the Card Shop's reserve and the wager prompt's warning all
-/// read. While a series is in progress it is the **locked opponent's** floor:
+/// floor `is_broke` and the Card Shop's reserve both read. While a series is in progress it is the **locked opponent's** floor:
 /// that is the only campaign match the player may play, so a cheaper ante on a
 /// planet they are not allowed to visit must not keep a lost run alive
 /// (spec 029, ruling O1). Otherwise it is the cheapest ante over every
@@ -151,6 +150,17 @@ pub fn reserve_floor(run: &CampaignRun) -> u32 {
         Some(series) => ante_floor_for(&series.opponent),
         None => cheapest_floor(run),
     }
+}
+
+/// The floor the broke check will read once a match against `opponent` on
+/// `planet` is lost — what the wager prompt's run-over warning predicts. It is
+/// [`reserve_floor`] of the run after that loss, found by recording the loss on
+/// a copy so the series' own rule decides it: a loss that decides the series
+/// releases the lock, and the floor falls back to the map's cheapest ante.
+pub fn reserve_after_a_loss(run: &CampaignRun, planet: &str, opponent: &str) -> u32 {
+    let mut after = run.clone();
+    after.record_series_match(planet, opponent, false);
+    reserve_floor(&after)
 }
 
 /// How a staked campaign match settled (for the map banner) — the stake that
@@ -372,5 +382,60 @@ mod tests {
                 opponent.id
             );
         }
+    }
+
+    #[test]
+    fn reserve_after_a_loss_is_the_floor_the_broke_check_reads_next() {
+        use crate::campaign::FINAL_OPPONENT;
+
+        // A run locked against `opponent` on `planet`, having lost `losses`
+        // matches of the series and won none.
+        let locked = |run: &CampaignRun, planet: &str, opponent: &str, losses: u32| {
+            let mut run = run.clone();
+            run.begin_series(planet, opponent);
+            for _ in 0..losses {
+                run.record_series_match(planet, opponent, false);
+            }
+            assert_eq!(
+                run.series().map(|s| s.opponent_wins),
+                Some(losses),
+                "sanity: {opponent} still locked at 0–{losses}"
+            );
+            run
+        };
+        let last_planet = PLANETS.last().expect("the map has planets").id;
+
+        // A fresh run: losing the first match of Greeb's series leaves the run
+        // locked on Greeb, whose ante is the map's cheapest anyway.
+        let fresh = CampaignRun::default();
+        assert_eq!(reserve_after_a_loss(&fresh, "cinder", "greeb"), 10, "fresh");
+
+        // The half-cleared run of `reserve_floor_follows_the_lock`, locked on Rix.
+        let half = cleared(&[("cinder", "greeb"), ("scree", "dax"), ("ashfall", "vessa")]);
+        let rix_0_0 = locked(&half, "the-spindle", "rix", 0);
+        let rix_0_1 = locked(&half, "the-spindle", "rix", 1);
+        // 0–0: a loss leaves the series running, so Rix's ante is still the floor.
+        assert_eq!(reserve_after_a_loss(&rix_0_0, "the-spindle", "rix"), 50, "rix at 0–0");
+        // 0–1: a loss decides the series and releases the lock — the broke check
+        // then reads the map's cheapest ante, so the warning must too.
+        assert_eq!(reserve_after_a_loss(&rix_0_1, "the-spindle", "rix"), 10, "rix at 0–1");
+
+        // The final opponent's series is best of 5, so the lock outlasts one more loss.
+        let final_0_1 = locked(&half, last_planet, FINAL_OPPONENT, 1);
+        let final_0_2 = locked(&half, last_planet, FINAL_OPPONENT, 2);
+        assert_eq!(
+            reserve_after_a_loss(&final_0_1, last_planet, FINAL_OPPONENT),
+            50,
+            "final opponent at 0–1"
+        );
+        assert_eq!(
+            reserve_after_a_loss(&final_0_2, last_planet, FINAL_OPPONENT),
+            10,
+            "final opponent at 0–2"
+        );
+
+        // A rematch of an already-beaten opponent belongs to no series: nothing
+        // is locked before or after, so the floor is the map's cheapest.
+        assert_eq!(reserve_after_a_loss(&half, "cinder", "greeb"), 10, "greeb rematch");
     }
 }

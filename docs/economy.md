@@ -60,7 +60,11 @@ nothing changed.
 
 If the balance can't cover the node's floor, the launch is refused before any
 prompt opens — a soft no-op with a map banner, like an unaffordable shop buy
-(`App::open_wager`, `MapBanner::CantCover`).
+(`App::refuse_uncovered`, `MapBanner::CantCover`). It has two callers:
+`App::open_wager`, for a rematch and for every match of a series, and — since
+spec 029 — `App::launch_from_map`'s series branch, which checks the un-beaten
+opponent's ante **before** `begin_series`, so a series the balance can't cover
+is never started: nothing is staked and nothing is locked.
 
 On commit the stake is **escrowed**: `Profile::stake_match` deducts it from the
 balance immediately and stores the in-flight `NodeRef { planet, opponent, stake }`.
@@ -184,7 +188,12 @@ prompt's "lose this and the run is over" warning row is driven by this same
 floor. While locked against a deep opponent the reserve rises from the map's
 cheapest 10 to that opponent's own ante, so the warning fires at far lower
 stakes than it did before — correct under ruling O1, and a real change in how
-often a player deep in the map sees that row.
+often a player deep in the map sees that row. The exception is a **deciding
+match**: a loss that decides the series releases the lock, and the broke check
+then reads the map's cheapest ante again, so the prompt passes the floor *after
+a loss* (`economy::reserve_after_a_loss`, which records the loss on a copy of
+the run) rather than today's — the warning predicts exactly the check that ends
+the run.
 
 ## The shop and its reserve
 

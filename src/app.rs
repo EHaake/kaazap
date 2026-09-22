@@ -756,8 +756,9 @@ impl App {
         };
     }
 
-    /// Open the shop (the campaign-map Card Shop): a fresh cursor over the
-    /// current depth-gated pool. Back returns to the map.
+    /// Open the shop (the Card Shop, from the campaign map or the venue): a
+    /// fresh cursor over the current depth-gated pool. Back returns to whichever
+    /// of the two the campaign is on.
     fn open_shop(&mut self) {
         self.screen = Screen::Shop {
             state: ShopState::new(),
@@ -935,7 +936,9 @@ impl App {
             self.open_deck_builder(BuilderOrigin::Campaign);
         } else if self.profile.campaign().is_opponent_beaten(planet, opponent) {
             self.open_wager(planet, opponent);
-        } else {
+        } else if !self.refuse_uncovered(economy::ante_floor_for(opponent)) {
+            // Checked before the lock is written: a series the balance can't
+            // cover would strand the player at a venue whose Play refuses.
             self.profile.campaign_mut().begin_series(planet, opponent);
             self.profile.save();
             // Derived, not chosen: the lock is written, so the same function
@@ -976,26 +979,33 @@ impl App {
             && let Some(planet) = planet_by_id(planet)
         {
             let floor = economy::ante_floor(opp.stand_threshold);
-            if self.profile.credits() < floor {
-                // Unaffordable: no prompt opens and nothing is staked — the map
-                // says why (spec 021, AC2).
-                self.banner = Some(MapBanner::CantCover { floor });
-                self.audio.play(Sfx::MenuBack);
-            } else {
+            if !self.refuse_uncovered(floor) {
                 // The prompt gates on the full balance, so an all-in stake is
                 // always reachable and `stake_match` can never refuse.
                 self.modal = Some(Modal::Wager(WagerState::new(
                     planet,
                     opp,
                     self.profile.credits(),
-                    economy::reserve_floor(self.profile.campaign()),
+                    economy::reserve_after_a_loss(self.profile.campaign(), planet.id, opp.id),
                 )));
             }
         }
     }
 
+    /// Refuse a launch the balance can't cover (spec 021): the map's banner and
+    /// the back cue — nothing staked, nothing locked. True when it refused.
+    fn refuse_uncovered(&mut self, floor: u32) -> bool {
+        if self.profile.credits() < floor {
+            self.banner = Some(MapBanner::CantCover { floor });
+            self.audio.play(Sfx::MenuBack);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Route a key to the open wager prompt: ←/→ walk the stake, Esc backs out
-    /// to the map with nothing staked, Enter commits — closing the prompt and
+    /// to the map or the venue (whichever opened it) with nothing staked, Enter commits — closing the prompt and
     /// starting the match against the chosen node with the stake escrowed
     /// (spec 021).
     fn handle_wager_input(&mut self, key: KeyCode) {

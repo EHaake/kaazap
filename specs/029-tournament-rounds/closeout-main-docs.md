@@ -518,13 +518,18 @@ the same day, R7 and R8 on 2026-09-22).
   floor *is* while locked, not how many there are. `cheapest_floor` kept its
   body and became private; `reserve_floor` returns the locked opponent's ante
   while a series runs and the cheapest launchable ante otherwise, and all of
-  `Profile::is_broke`, `Profile::can_afford` (and through it the shop's
-  purchases, dimming and *spendable* readout) and the wager prompt's reserve
-  read it. A consequence that removed a screen's worth of work: while locked,
-  the reserve **is** the venue opponent's own ante, so a player at the venue
-  who is not broke can always cover the match it offers, the wager prompt's
-  `CantCover` refusal is unreachable from the venue, and the venue draws no
-  banner.
+  `Profile::is_broke` and `Profile::can_afford` (and through it the shop's
+  purchases, dimming and *spendable* readout) read it. While locked, the
+  reserve **is** the venue opponent's own ante, so a player at the venue who is
+  not broke can always cover the match it offers and the venue draws no banner
+  — **but only because the map's launch refuses a series the balance cannot
+  cover**, which the pre-merge sweep found missing (its blocking B1): the floor
+  rises at the moment a series starts, and without that check a player with 15
+  credits could launch a 20-ante series, be locked into it with no playable
+  match, and lose the run at the next campaign entry. One helper,
+  `App::refuse_uncovered`, now guards both the map's series launch and every
+  wager. The wager prompt's warning reads `economy::reserve_after_a_loss`
+  instead — see *O1's side effect* below.
 - **Settling exactly once stays a data property, and now covers the series.**
   Spec 021 made the payout idempotent by zeroing the escrow; a series tally
   increment has no such property, and `mark_beaten` on the wrong match would
@@ -590,13 +595,15 @@ attested. It also **supersedes, while a series is locked, the chore's bullet
 locked the two are the same number. The chore's own section above is left as
 written.
 
-<!-- APPLY-TIME NOTE (delete this comment when applying): the pre-merge sweep
-was asked to rule on a gap in the paragraph above (closeout-main-docs.md §4,
-sweep item N1 — the warning over-fires on a match that could *lose* the series,
-because a deciding loss releases the lock and the post-settlement broke check
-then reads the map's cheapest floor). Before pasting, replace this comment with
-one sentence recording what the sweep decided: fixed on the branch (and how),
-or left and why. -->
+**Fixed on the branch by the pre-merge sweep (its N1).** A loss that decides a
+series releases the lock, so the broke check after it reads the map's cheapest
+ante again; the warning had been reading the locked opponent's ante and could
+say "Lose this and the run is over" when the run would continue. The prompt now
+takes `economy::reserve_after_a_loss` — the floor the broke check reads after
+this match is lost, found by recording the loss on a copy of the run so the
+series' own rule decides it — and so again predicts exactly the check that ends
+the run, as the 2026-09-17 chore ruled. It only ever over-warned; it never
+under-warned.
 
 ### Coverage, stated honestly
 
@@ -769,6 +776,13 @@ Resolved: 1, 7, 9, 15, 19, 23, 31, 37, 46, 50. DECISIONS: 3, 4, 5, 6, 14, 17,
 Everything here is non-blocking as recorded; the sweep decides whether each is
 fixed on the branch, recorded, or left. None is a spec-conformance failure
 except possibly **N1**, which is new and the one to look at first.
+
+> **The sweep's rulings (2026-09-22).** It found one **blocking** defect not on
+> this list — **B1**, a series could start against an opponent the balance could
+> not cover — and ruled **fix-now** on B1, **N1**, **N2** and **N8**; all four
+> were fixed on the branch as T011a, re-reviewed clean, and driven in the game.
+> **Every other item is leave-and-record**, with the reasons in the sweep's
+> report as summarised in `tasks.md`'s tier log; **nothing needs the person.**
 
 **New, found while drafting this close-out:**
 
@@ -1283,14 +1297,18 @@ shows only the main checkout).
   (§5) returns exactly the two lines in `open_campaign_home`; the Phase 2 review
   widened it three ways and walked every door, confirming `launch_from_map` is
   unreachable while a series runs.
-- [x] **10. Broke while locked.** `reserve_floor_follows_the_lock`,
-  `broke_and_affordable_follow_the_locked_floor` and the locked half of
-  `is_broke_reads_…` (20 credits against Rix's 50 is broke; against Cinder's 10
-  it is not); both seams are the one `enter_campaign` check. Phase 2
+- [x] **10. Broke while locked.** `reserve_floor_follows_the_lock` and
+  `broke_and_affordable_follow_the_locked_floor` (20 credits against Rix's 50
+  is broke; against Cinder's 10 it is not — corrected at the sweep, which found
+  this line crediting a "locked half" of `is_broke_reads_…` that does not
+  exist); both seams are the one `enter_campaign` check. Phase 2
   walkthrough: the Card Shop read `spendable ◈ 40` (50 minus Greeb's ante of
-  10). The run-over modal and reset are untouched code. (See sweep item N1: the
-  *wager warning*, not the broke check, can over-warn on a potentially
-  deciding match — AC 10 itself holds.)
+  10). The run-over modal and reset are untouched code. The sweep's B1 closed a
+  third door the floor rises at — the map's series launch now refuses an
+  uncovered opponent (driven: 15 credits, Enter on Ashfall → "Can't cover the
+  20-credit ante", no series written) — and its N1 made the wager warning
+  predict the post-loss floor (driven: locked on Rix at 0–1 with 80 credits,
+  no warning at a 50 stake; at 0–0, "Lose this and the run is over.").
 - [x] **11. In-match score.** Phase 3 walkthrough: `Series 0 – 0` and
   `Series 0 – 1` on the status band beside the turn prompt at **89** and
   **139**; a rematch shows no line. `the_board_shows_a_score_only_for_a_series_match`,
