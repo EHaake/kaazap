@@ -1851,7 +1851,10 @@ impl App {
             if let Some(settlement) =
                 self.profile.resolve_match(opponent_id, player_won, player_rounds, opp_rounds)
             {
-                self.banner = Some(MapBanner::Settled(settlement.outcome));
+                self.banner = Some(MapBanner::Settled {
+                    outcome: settlement.outcome,
+                    series: settlement.series,
+                });
                 // The completion edge is a one-shot signal, not a saved flag
                 // (spec 024): it waits here until the acknowledgement opens the
                 // map, which is what raises the victory notice.
@@ -1892,7 +1895,7 @@ impl App {
                 return None;
             }
             match &self.banner {
-                Some(MapBanner::Settled(StakeOutcome::Won(n) | StakeOutcome::Lost(n))) => Some(*n),
+                Some(MapBanner::Settled { outcome: StakeOutcome::Won(n) | StakeOutcome::Lost(n), .. }) => Some(*n),
                 _ => None,
             }
         })
@@ -2968,7 +2971,10 @@ mod tests {
                 stake: 0, // unstaked: this test never settles
                 settled: false,
             }));
-            app.banner = Some(MapBanner::Settled(StakeOutcome::Won(30)));
+            app.banner = Some(MapBanner::Settled {
+                outcome: StakeOutcome::Won(30),
+                series: crate::campaign::SeriesOutcome::NotInSeries,
+            });
             let mut game_state = GameState::new();
             game_state.game_phase = GamePhase::GameOver { winner: Player::Player };
             app.screen = Screen::InGame {

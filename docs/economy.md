@@ -60,7 +60,7 @@ nothing changed.
 
 If the balance can't cover the node's floor, the launch is refused before any
 prompt opens — a soft no-op with a map banner, like an unaffordable shop buy
-(`App::launch_campaign_node`, `MapBanner::CantCover`).
+(`App::open_wager`, `MapBanner::CantCover`).
 
 On commit the stake is **escrowed**: `Profile::stake_match` deducts it from the
 balance immediately and stores the in-flight `NodeRef { planet, opponent, stake }`.
@@ -152,9 +152,8 @@ map otherwise — then raise `Modal::RunOver` if broke):
   discard-and-enter.
 
 (`enter_campaign` and `open_campaign_home` are spec 029's names for these two
-doors; the renames land with the venue screen later in that spec, and until then
-the code reads `enter_campaign_map` and `open_campaign_map`. The seams
-themselves do not move — only what the door opens onto does.)
+doors, which were `enter_campaign_map` and `open_campaign_map` before it. The
+seams themselves did not move — only what the door opens onto did.)
 
 Back from the shop or the deck-builder keeps the plain `open_campaign_home`: the
 shop reserve makes those paths unable to create a broke state, and keeping the

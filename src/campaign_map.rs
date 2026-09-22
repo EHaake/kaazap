@@ -13,7 +13,7 @@ use crossterm::event::KeyCode;
 
 use crate::{
     STARFIELD_TWINKLE_MS,
-    campaign::{PLANETS, Planet, planet_by_id},
+    campaign::{PLANETS, Planet, SeriesOutcome, planet_by_id, series_length_label},
     config::Config,
     economy::{StakeOutcome, win_payout},
     frame::{Emphasis, Frame, draw_char, draw_text, draw_text_centered},
@@ -49,7 +49,7 @@ pub enum MapOutcome {
 /// (spec 021). Replaces spec 012's reward banner.
 #[derive(Debug, Clone, Copy)]
 pub enum MapBanner {
-    Settled(StakeOutcome),
+    Settled { outcome: StakeOutcome, series: SeriesOutcome },
     CantCover { floor: u32 },
 }
 
@@ -283,6 +283,10 @@ impl CampaignMapState {
 
         let x = panel.x0 + 2;
         draw_text(frame, x, panel.y0 + 1, &format!("{}  ·  {}", planet.name, planet.region), Emphasis::Strong);
+        if let Some(length) = series_length_detail(&planet, run) {
+            let lx = panel.x1.saturating_sub(length.chars().count() + 1);
+            draw_text(frame, lx, panel.y0 + 1, length, Emphasis::Muted);
+        }
         draw_text(frame, x, panel.y0 + 2, &opponents_line(&planet, run), Emphasis::Normal);
 
         let cleared_line = run
@@ -306,14 +310,28 @@ impl CampaignMapState {
 /// (`win_payout(stake) − stake`), not the raw payload, so the line stays right
 /// if the payout ratio moves; a loss reports the forfeited stake. Pure, so the
 /// wording is testable without a terminal.
+///
+/// A match that decided a series (spec 029) names the result first; a rematch
+/// or a match that left the series undecided prints exactly the settlement.
+/// No mixed case exists: the deciding match is won by whoever the series
+/// result names, so `Won` rides with a won stake and `Lost` with a lost one.
 fn banner_line(banner: &MapBanner) -> (String, Emphasis) {
     match banner {
-        MapBanner::Settled(StakeOutcome::Won(stake)) => (
-            format!("★  Won {} credits", win_payout(*stake).saturating_sub(*stake)),
-            Emphasis::Strong,
-        ),
-        MapBanner::Settled(StakeOutcome::Lost(stake)) => {
-            (format!("Lost {stake} credits"), Emphasis::Normal)
+        MapBanner::Settled { outcome, series } => {
+            let (settlement, emphasis) = match outcome {
+                StakeOutcome::Won(stake) => (
+                    format!("Won {} credits", win_payout(*stake).saturating_sub(*stake)),
+                    Emphasis::Strong,
+                ),
+                StakeOutcome::Lost(stake) => (format!("Lost {stake} credits"), Emphasis::Normal),
+            };
+            let line = match (series, outcome) {
+                (SeriesOutcome::Won, _) => format!("★  Series won  ·  {settlement}"),
+                (SeriesOutcome::Lost, _) => format!("Series lost  ·  {settlement}"),
+                (_, StakeOutcome::Won(_)) => format!("★  {settlement}"),
+                (_, StakeOutcome::Lost(_)) => settlement,
+            };
+            (line, emphasis)
         }
         MapBanner::CantCover { floor } => {
             (format!("Can't cover the {floor}-credit ante"), Emphasis::Normal)
@@ -330,6 +348,17 @@ fn axis_line(run_complete: bool) -> (&'static str, Emphasis) {
     } else {
         ("Outer Rim  →  The Core", Emphasis::Muted)
     }
+}
+
+/// The series length the detail row names beside the planet — `Best of 3` /
+/// `Best of 5` for the opponent a launch would face — or nothing once the
+/// planet is cleared, since a rematch commits the player to no series (spec
+/// 029). Pure, so the rule is testable without a terminal.
+fn series_length_detail(planet: &Planet, run: &crate::campaign::CampaignRun) -> Option<&'static str> {
+    if run.planet_cleared(planet) {
+        return None;
+    }
+    run.launchable_opponent(planet).map(series_length_label)
 }
 
 /// The cursored planet's label — caps with flanking markers, so the next world
@@ -504,7 +533,52 @@ mod tests {
         let gained = p.campaign().run_stats().credits_won - before;
         assert!(gained > 0, "a won stake pays a net gain");
 
-        let (text, _) = banner_line(&MapBanner::Settled(settled.outcome));
+        let (text, _) = banner_line(&MapBanner::Settled {
+            outcome: settled.outcome,
+            series: SeriesOutcome::NotInSeries,
+        });
         assert_eq!(text, format!("★  Won {gained} credits"));
+    }
+
+    #[test]
+    fn the_banner_names_the_series_beside_the_settlement() {
+        let banner = |outcome, series| banner_line(&MapBanner::Settled { outcome, series });
+        let won = StakeOutcome::Won(20);
+        let lost = StakeOutcome::Lost(20);
+        let gain = win_payout(20) - 20;
+
+        // No series decided (a rematch, or a match that left it open): exactly
+        // the pre-spec-029 strings, byte for byte.
+        for series in [SeriesOutcome::NotInSeries, SeriesOutcome::Continues] {
+            assert_eq!(banner(won, series), (format!("★  Won {gain} credits"), Emphasis::Strong));
+            assert_eq!(banner(lost, series), ("Lost 20 credits".to_string(), Emphasis::Normal));
+        }
+
+        // A decided series names its result first; the emphasis follows the stake.
+        assert_eq!(
+            banner(won, SeriesOutcome::Won),
+            (format!("★  Series won  ·  Won {gain} credits"), Emphasis::Strong)
+        );
+        assert_eq!(
+            banner(lost, SeriesOutcome::Lost),
+            ("Series lost  ·  Lost 20 credits".to_string(), Emphasis::Normal)
+        );
+    }
+
+    #[test]
+    fn the_detail_row_names_the_series_length_only_before_a_clear() {
+        let cinder = planet_by_id("cinder").unwrap();
+        let zenith = planet_by_id("zenith").unwrap();
+        let mut run = crate::campaign::CampaignRun::default();
+
+        assert_eq!(series_length_detail(&cinder, &run), Some("Best of 3"));
+        assert_eq!(series_length_detail(&zenith, &run), Some("Best of 5"));
+
+        // Cleared: Enter is a rematch, which commits to no series.
+        for o in cinder.opponents {
+            run.mark_beaten(cinder.id, o);
+        }
+        assert!(run.planet_cleared(&cinder));
+        assert_eq!(series_length_detail(&cinder, &run), None);
     }
 }
