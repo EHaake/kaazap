@@ -127,9 +127,9 @@ The rectangle is pinned, at both of the game's two fit sizes, by the test
 
 ```rust
 let (art, portrait) = if cols < WIDE_LAYOUT_MIN_WIDTH {
-    (Rect::new(7, 56, 5, 26), Rect::new(64, 85, 5, 19))
+    (Rect::new(7, 56, 5, 26), Rect::new(60, 81, 5, 19))
 } else {
-    (Rect::new(10, 103, 5, 26), Rect::new(114, 135, 5, 19))
+    (Rect::new(10, 103, 5, 26), Rect::new(107, 128, 5, 19))
 };
 ```
 

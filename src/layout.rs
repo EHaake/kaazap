@@ -399,7 +399,7 @@ pub const VENUE_PANEL_H: usize = 2 + 1 + PORTRAIT_HEIGHT;
 pub struct VenueLayout {
     /// The column every text row centres on: the **art region's** middle, which
     /// is well left of the terminal's middle because the portrait's column and
-    /// its gap take 25 columns off the right (amendment R5). Named for what it
+    /// its gap sit to its right, 25 columns of the centred group (amendment R5). Named for what it
     /// is for rather than for what it is derived from: `center_x` would read as
     /// the terminal's centre, which is exactly what R5 stopped using.
     pub text_x: usize,
@@ -429,18 +429,19 @@ impl VenueLayout {
     pub const HEADER_H: usize = 5;
     /// Rows below the art: blank, the action row, blank, the hint.
     pub const FOOTER_H: usize = 4;
-    /// The portrait's right margin, and the left edge of the columns the art is
-    /// centred within — not the art's own left margin, which is wider because
-    /// the art is centred in that span (7 at 89 columns).
+    /// The side margin of the span the art's width is taken from — the columns
+    /// a portrait anchored this far in from the right edge, and its gap, would
+    /// leave (amendment R4's sizing, kept unchanged by ruling R7). Not an
+    /// on-screen margin: the art-gap-portrait group is centred, so its two
+    /// outer margins are equal (7 at 89 columns, 10 at 139).
     const MARGIN_X: usize = 3;
-    /// The share of the columns left of the portrait's gap that the art takes
-    /// (amendment R4): seven eighths. A **fraction** rather than a fixed column
+    /// The share of that span the art takes (amendment R4): seven eighths. A **fraction** rather than a fixed column
     /// inset, because R4 asks for a percentage and the same inset is a
     /// different percentage at 58 columns of art and at 108: landing inside
     /// "about 15–20 % smaller" needs an inset of 7 to 9 columns at 89 and of 12
     /// to 17 at 139, and those ranges do not overlap, so no single inset
-    /// satisfies R4 at both fit sizes (plan §Design 4). The trim is split
-    /// between the art's two margins, so the art stays centred in its span and
+    /// satisfies R4 at both fit sizes (plan §Design 4). The group is centred,
+    /// so the trim is split between its two outer margins and
     /// [`Self::text_x`] does not move with the fraction.
     const ART_W_NUM: usize = 7;
     const ART_W_DEN: usize = 8;
@@ -459,20 +460,22 @@ impl VenueLayout {
 
         let header_y = 0;
 
-        // The portrait keeps its own column on the right, inside its margin;
-        // the art takes seven eighths of the columns left of the gap before it
-        // (amendment R4) and sits centred in them, so the trim is split between
-        // its two margins and the two regions' outer margins are no longer
-        // equal — deliberately: R5 makes the text follow the art, so the band
-        // no longer has to sit centred under anything.
-        let portrait_x1 = cols.saturating_sub(1 + Self::MARGIN_X);
-        let portrait_x0 = portrait_x1.saturating_sub(PANEL_W - 1);
-        let span_x0 = Self::MARGIN_X;
-        let span_x1 = portrait_x0.saturating_sub(PANEL_GAP + 1).max(span_x0);
-        let span_w = span_x1 - span_x0 + 1;
+        // The art takes seven eighths of the columns left between the two
+        // margins once the portrait's column and its gap are set aside
+        // (amendment R4). The portrait sits exactly PANEL_GAP columns right of
+        // it at every width, and the group — art, gap, portrait — is centred,
+        // so its two outer margins are equal (ruling R7: the portrait no longer
+        // anchors to the right margin, which left a gap that grew with the
+        // trim and read as the portrait drifting right).
+        let span_w = cols
+            .saturating_sub(2 * Self::MARGIN_X + PANEL_GAP + PANEL_W)
+            .max(1);
         let art_w = (span_w * Self::ART_W_NUM / Self::ART_W_DEN).max(1);
-        let art_x0 = span_x0 + (span_w - art_w) / 2;
+        let group_w = art_w + PANEL_GAP + PANEL_W;
+        let art_x0 = cols.saturating_sub(group_w) / 2;
         let art_x1 = art_x0 + art_w - 1;
+        let portrait_x0 = art_x1 + PANEL_GAP + 1;
+        let portrait_x1 = portrait_x0 + PANEL_W - 1;
 
         // The band starts under the header rows and runs to the footer. The
         // portrait is top-aligned with the art (`CampaignMapLayout`'s
@@ -815,10 +818,10 @@ mod tests {
         // amendment R3): five header rows, then the art with the presence
         // panel in its own column beside it, then the blank / action / blank /
         // hint footer. The art takes every row the text does not need and seven
-        // eighths of the columns left of the portrait's gap (amendment R4),
-        // centred in them — so the two regions' outer margins are deliberately
-        // unequal, and the band no longer has to sit centred under anything
-        // because the text follows the art (amendment R5). The concrete Rects
+        // eighths of the columns the margins, the portrait and its gap leave
+        // (amendment R4); the portrait sits exactly PANEL_GAP columns right of
+        // it, and the group is centred with equal outer margins (ruling R7).
+        // The text follows the art (amendment R5). The concrete Rects
         // of plan §Design 4's table are pinned as well as the relations — a
         // uniform arithmetic slip would satisfy the relations alone.
         for config in Config::fit_sizes() {
@@ -838,19 +841,16 @@ mod tests {
                 "header rows don't meet the art at {cols}×{rows}"
             );
 
-            // Art then panel, at least PANEL_GAP clear columns apart — 7 at 89
-            // and 10 at 139, since R4's trim adds its right half to the gap —
-            // with unequal outer margins (7 against 3 at 89) and the panel
-            // clear of the edge. The exact counts follow from the pinned Rects
-            // below; the assertion that pinned the gap at *exactly* PANEL_GAP
-            // was dropped at T005c on purpose.
-            assert!(l.art.x1 + PANEL_GAP < l.portrait.x0, "art and portrait overlap at {cols} columns");
+            // Art then panel, exactly PANEL_GAP clear columns apart at every
+            // width, with equal outer margins (7 and 7 at 89, 10 and 10 at
+            // 139) and the panel clear of the edge (ruling R7).
+            assert_eq!(l.art.x1 + PANEL_GAP + 1, l.portrait.x0, "art–portrait gap at {cols} columns");
             assert!(l.portrait.x1 < cols, "portrait clips the right edge at {cols} columns");
             assert!(
                 l.art.x0 >= VenueLayout::MARGIN_X,
                 "the art starts inside the left margin at {cols} columns"
             );
-            assert_eq!(l.portrait.x1, cols - 4, "portrait's right margin at {cols} columns");
+            assert_eq!(l.art.x0, cols - 1 - l.portrait.x1, "unequal outer margins at {cols} columns");
 
             // Shared top edge; the art is taller, and the panel keeps its own
             // fixed height (the rows under it stay blank).
@@ -882,9 +882,9 @@ mod tests {
 
             // The table's numbers, pinned.
             let (art, portrait) = if cols < WIDE_LAYOUT_MIN_WIDTH {
-                (Rect::new(7, 56, 5, 26), Rect::new(64, 85, 5, 19))
+                (Rect::new(7, 56, 5, 26), Rect::new(60, 81, 5, 19))
             } else {
-                (Rect::new(10, 103, 5, 26), Rect::new(114, 135, 5, 19))
+                (Rect::new(10, 103, 5, 26), Rect::new(107, 128, 5, 19))
             };
             assert_eq!((l.art.x0, l.art.x1, l.art.y0, l.art.y1), (art.x0, art.x1, art.y0, art.y1), "art Rect at {cols}×{rows}");
             assert_eq!(
