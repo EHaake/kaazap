@@ -7,4 +7,8 @@ Go broke and the run ends: starter deck, seed purse.
 The Card Shop (b) sells the cards that get you
 past the Mid Rim. The ante rises as you go deeper.
 
+Each opponent is Best of 3: win 2 matches of 3.
+The last is Best of 5: win 3 of 5. A series,
+once started, is played out.
+
                  Enter to continue

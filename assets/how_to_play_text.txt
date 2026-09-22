@@ -19,6 +19,8 @@ Campaign: every match is staked. Win and it
 comes back doubled; lose and it's gone. Go
 broke and the run resets. The Card Shop sells
 cards; the ante rises as you go deeper.
+Opponents are Best of 3, the last Best of 5,
+and a series, once started, is played out.
 
 1-4 or ←/→ pick a card, Enter plays it,
 Space draws, S stands. ? closes.

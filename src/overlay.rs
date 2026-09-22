@@ -297,6 +297,22 @@ mod tests {
             !how.iter().any(|l| l.contains("Enter/Space")),
             "How to Play still pairs Enter with Space: {how:?}"
         );
+
+        // The series rule, in the map's and the venue's own words (R1).
+        let primer = overlay_text(OverlayKind::Primer);
+        for (kind, rows) in [(OverlayKind::Primer, &primer), (OverlayKind::HowToPlay, &how)] {
+            for phrase in ["Best of 3", "Best of 5", "played out"] {
+                assert!(
+                    rows.iter().any(|l| l.contains(phrase)),
+                    "{kind:?} does not say {phrase:?}: {rows:?}"
+                );
+            }
+        }
+        assert!(
+            primer.iter().any(|l| l.contains("2 matches of 3"))
+                && primer.iter().any(|l| l.contains("3 of 5")),
+            "the Primer does not give the series counts: {primer:?}"
+        );
     }
 
     #[test]
@@ -341,7 +357,7 @@ mod tests {
         for (kind, line_count, title, dismiss) in [
             (
                 OverlayKind::Primer,
-                10,
+                14,
                 "=====  Your first campaign  =====",
                 "Enter to continue",
             ),
