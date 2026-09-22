@@ -787,6 +787,20 @@ bottom-anchored, `FOOTER_H` is what the art's bottom edge is derived from, and
 quietly resolving a sweep item inside an amendment task would hide it from the
 sweep that owns it.
 
+**Revised for ruling R7 (2026-09-22, T005f).** The art keeps its width
+(`(cols − 31) × 7/8`, so R4's 1100 / 2068 cells and the brief's 48×20 / 92×20
+canvases are unchanged), but the portrait no longer anchors to the right
+margin. The gap between art and portrait is exactly `PANEL_GAP` (3) at every
+width, and the group — art, gap, portrait — is centred:
+`group_w = art_w + PANEL_GAP + PANEL_W`, `art.x0 = (cols − group_w) / 2`,
+`portrait.x0 = art.x1 + PANEL_GAP + 1`. At 89×31: art `(7, 56, 5, 26)`
+(unchanged), portrait `(60, 81, 5, 19)`, outer margins 7 and 7. At 139×31: art
+`(10, 103, 5, 26)` (unchanged), portrait `(107, 128, 5, 19)`, margins 10 and
+10. `text_x` is unchanged (31 / 56), so every text row and the hint stay
+where T005c put them. This supersedes §Design 4's "the margins are no longer
+equal — deliberately": the person found the resulting 7- and 10-column gaps
+read as the portrait drifting right.
+
 ### 5. `src/venue.rs` (new) + `src/screen.rs`
 
 Copies `opponent_select.rs`'s shape exactly.

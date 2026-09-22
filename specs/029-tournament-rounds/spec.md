@@ -428,6 +428,16 @@ answered here.)
 Also answered: the placeholder keeps the planet's name until there is real
 art. Plan §Open questions 2 is **closed** — keep the label.
 
+### R7 — a consistent, slight gap between the art and the portrait (2026-09-22)
+
+After walking the result: *the portrait is just a little bit too far to the
+right of the venue art … it would be better to have a consistent margin
+between the two so that it always sits the same way away (and not too far).*
+So the gap between the art region and the portrait is **the same small
+number of columns at every width**, and the art-plus-portrait group sits
+centred on the screen with equal outer margins. R4's art size and R5's
+text alignment are unchanged — only the portrait moves.
+
 ### A new deliverable: the per-planet art brief
 
 Authoring the art remains a **non-goal** of this spec — but the **brief**
