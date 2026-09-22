@@ -1080,6 +1080,17 @@ file changes.
   > An opponent is beaten by 2 match wins of 3 (the last,
   > 3 of 5), and a series once started is played out.
 
+**Shipped wording (T009, 2026-09-22), superseding the strings above.** Ruling
+R1 postdates this section and made "Best of 3" / "Best of 5" the one phrase for
+the series length, so the texts use it. The primer: "Each opponent is Best of
+3: win 2 matches of 3. / The last is Best of 5: win 3 of 5. A series, / once
+started, is played out." How to Play: "Opponents are Best of 3, the last Best of
+5, / and a series, once started, is played out." — the phrase without the
+counts, because the How to Play line drafted above is 53 columns against the
+panel's widest 44 and would have widened the box. The overlay assertions check
+"Best of 3", "Best of 5" and "played out" in both, and the counts in the
+primer.
+
 ### 10. `tests/balance.rs` + `docs/balance.md` (AC 19)
 
 A pure function in the simulator, and a column in its report:
