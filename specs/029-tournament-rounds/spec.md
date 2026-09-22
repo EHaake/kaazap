@@ -248,13 +248,17 @@ and no series. The opponent stays beaten either way.
 
 ## Acceptance criteria
 
-1. [ ] **Series length.** Every campaign opponent except The Sovereign is
+> All twenty checked at the close-out (2026-09-22). The evidence for each —
+> the walkthrough rows, the tests, T010's simulator run, and four recorded
+> caveats (AC 3, 6, 11 and 16) — is in `closeout-main-docs.md` §6.
+
+1. [x] **Series length.** Every campaign opponent except The Sovereign is
    defeated by 2 match wins and no fewer; The Sovereign by 3. Winning
    fewer leaves the opponent un-beaten and the planet uncleared.
-2. [ ] **Starting a series.** Enter on a playable planet opens the venue at
+2. [x] **Starting a series.** Enter on a playable planet opens the venue at
    0–0 without staking anything; the map's planet detail names the series
    length before the launch.
-3. [ ] **The venue.** It shows the planet, the opponent, the series
+3. [x] **The venue.** It shows the planet, the opponent, the series
    score and length, and the **credit balance**; it offers play / Card Shop
    / collection / quit, with Enter confirming and `b` and `c` working as on
    the map; the Card Shop and the collection each return to the venue.
@@ -262,60 +266,60 @@ and no series. The opponent stays beaten either way.
    The credit balance added by ruling **R6** — see *Amendment, 2026-09-21
    (second)*; caught at that amendment's planning, which found R6 changing
    behavior with no criterion naming it.)
-4. [ ] **Every match of a series starts at the venue**, through today's
+4. [x] **Every match of a series starts at the venue**, through today's
    wager prompt, with today's floor, stake range and escrow; declining
    returns to the venue.
-5. [ ] **Between matches.** After a match that does not decide the series,
+5. [x] **Between matches.** After a match that does not decide the series,
    acknowledging the game-over popup lands on the venue with the score
    updated by one for the winner.
-6. [ ] **Deciding match.** After a match that decides the series,
+6. [x] **Deciding match.** After a match that decides the series,
    acknowledging the popup lands on the map, whose banner names the series
    result as well as the stake settlement.
-7. [ ] **Winning a series** marks the opponent beaten exactly then; the
+7. [x] **Winning a series** marks the opponent beaten exactly then; the
    planet clears, the next planets unlock and a campaign completion counts
    once, unchanged from today.
-8. [ ] **Losing a series** resets the score to 0–0, leaves the opponent
+8. [x] **Losing a series** resets the score to 0–0, leaves the opponent
    un-beaten and the planet uncleared, takes nothing beyond the stakes
    already lost, and returns the player to the map.
-9. [ ] **The lock.** With a series in progress, entering the campaign goes
+9. [x] **The lock.** With a series in progress, entering the campaign goes
    to the venue, the map cannot be reached, and no other planet — cleared
    or not — can be launched.
-10. [ ] **Broke while locked** is judged against the locked opponent's ante
+10. [x] **Broke while locked** is judged against the locked opponent's ante
     floor, at the same two seams as today, and the Card Shop reserves that
     floor; the run-over modal and reset are unchanged.
-11. [ ] **In-match score.** The series score is visible during every series
+11. [x] **In-match score.** The series score is visible during every series
     match at 89×31 and at 139×31, and is absent during a rematch.
-12. [ ] **Rematches** on a cleared planet launch from the map as a single
+12. [x] **Rematches** on a cleared planet launch from the map as a single
     staked match, with no venue, and settle as they do today.
-13. [ ] **Save and resume.** Quitting at the venue and returning lands at
+13. [x] **Save and resume.** Quitting at the venue and returning lands at
     the venue with the same score; a match saved mid-play resumes and then
     routes by criteria 5 and 6; a pre-029 profile loads with all series at
     0–0 and every beaten opponent still beaten.
-14. [ ] **Reset paths.** New Campaign, Reset Everything and the run-over
+14. [x] **Reset paths.** New Campaign, Reset Everything and the run-over
     reset each clear the series score and the lock along with the rest of
     the run.
-15. [ ] **Records and statistics are unchanged.** Match counters still count
+15. [x] **Records and statistics are unchanged.** Match counters still count
     matches, campaign completion still counts once, and no new counter
     appears anywhere.
-16. [ ] **Both layouts.** The venue is legible at 89×31 with no overflow and
+16. [x] **Both layouts.** The venue is legible at 89×31 with no overflow and
     nothing clipped, and at 139×31 likewise. At **both** widths it draws the
     planet art region holding its placeholder, with the opponent's portrait
     beside it as a separate element, neither overlapping nor clipped. The
     art region is the largest element on the screen at both widths, and is
     strictly larger at 139 than at 89. (Amended by the person 2026-09-21,
     superseding the original wide-only form.)
-17. [ ] **Density.** The venue's acted-on row has an empty row above and
+17. [x] **Density.** The venue's acted-on row has an empty row above and
     below it and the rest of its text stays compact; any modal it shows
     pads evenly.
-18. [ ] **What the player is told.** The first-campaign primer and How to
+18. [x] **What the player is told.** The first-campaign primer and How to
     Play's campaign section both state the two-of-three rule, the
     three-of-five final, and the commitment.
-19. [ ] **Balance measured, not changed.** The simulator is re-run and
+19. [x] **Balance measured, not changed.** The simulator is re-run and
     `docs/balance.md` records the series-level win rates implied by the
     measured per-match rates, for best-of-three and for the best-of-five
     final. No economy constant, roster value or starter-deck entry changes
     in this spec.
-20. [ ] **No forbidden change.** No behavior change in `game.rs`, `card.rs`,
+20. [x] **No forbidden change.** No behavior change in `game.rs`, `card.rs`,
     `player.rs` or `save.rs`; `SAVE_VERSION` and `PROFILE_VERSION` both
     stay 1; no new crate; no color path.
 
