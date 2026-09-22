@@ -214,6 +214,18 @@ two chances to pass the wrong one); leaving `is_broke` alone and special-casing
 the lock at its two call sites (two copies of the rule, which is what the
 bundle's point 3 forbids).
 
+**Pre-merge sweep correction (2026-09-22).** The claim above held only for a
+player *already at* the venue. The floor also rises at a third door — the map's
+launch of an un-beaten opponent — and nothing checked the balance there, so a
+player not broke on the map (Cinder's rematch at 10) could launch a 20-ante
+series, be locked into it with no playable match, and lose the run at the next
+campaign entry. T011a makes the map's launch refuse an uncovered series exactly
+as `open_wager` refuses an uncovered match, through one shared check; with that,
+"a player at the venue and not broke can always cover the venue's match" is true.
+And the warning's input is no longer `reserve_floor` itself but
+`reserve_after_a_loss` — the floor the broke check reads after this match is
+lost — because a loss that decides the series releases the lock (sweep N1).
+
 ### 3. Settling exactly once stays a **data** property, and now covers everything
 
 Today the guarantee is two separate facts: `take_stake` zeroes the escrow so a

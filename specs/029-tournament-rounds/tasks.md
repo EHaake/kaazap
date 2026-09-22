@@ -1426,6 +1426,63 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
 
 ## Final phase — Spec close-out (walkthrough: none — documentation, mechanical checks and the pre-merge sweep; the person's walkthrough list above is what they walk at this phase)
 
+- [ ] **T011a** — `src/app.rs` + `src/economy.rs` + `src/wager.rs` + `src/shop.rs` +
+  `docs/economy.md`: two defects the **pre-merge sweep** found (2026-09-22), both
+  ruled fix-now and neither a question for the person.
+  **(B1, blocking) A series can start against an opponent the player cannot
+  cover.** `launch_from_map`'s un-beaten branch runs `begin_series` → `save` →
+  `open_campaign_home` with no affordability check; only `open_wager` checks
+  `credits < floor`. With Cinder cleared and 15 credits, Enter on Ashfall (ante
+  20) locks the player into a series whose Play silently refuses, the map is
+  unreachable, and the next campaign entry ends the run — without a credit
+  staked. It contradicts plan §Design 2 and §Open questions 5 ("CantCover is
+  unreachable from the venue"), ruling C1, AC 4, and `docs/economy.md`'s "the
+  launch is refused before any prompt opens". **Fix**: one private helper,
+  `fn refuse_uncovered(&mut self, floor: u32) -> bool` — "Refuse a launch the
+  balance can't cover (spec 021): the map's banner and the back cue — nothing
+  staked, nothing locked. True when it refused." — which `open_wager` uses in
+  place of its inline check, and which `launch_from_map`'s series branch calls
+  with `economy::ante_floor_for(opponent)` **before** `begin_series`. One copy of
+  the check, two callers. **No `App` unit test**: a regression in that branch
+  calls `save()`, which would write the developer's real profile (close-out note
+  21). Verified by driver walkthrough instead (below).
+  **(N1) The wager prompt's run-over warning can over-warn on a deciding match.**
+  While locked, the warning reads `reserve_floor` = the locked opponent's ante,
+  but a loss that decides the series releases the lock and the broke check then
+  reads the map's cheapest ante. It only over-warns, never under-warns, but it
+  breaks the 2026-09-17 chore's rule that the warning predicts exactly the check
+  that ends the run. **Fix**: in `src/economy.rs`, beside `reserve_floor`,
+  `pub fn reserve_after_a_loss(run: &CampaignRun, planet: &str, opponent: &str)
+  -> u32` — clone the run, `record_series_match(planet, opponent, false)` on the
+  clone, return `reserve_floor(&after)` — reusing the series' own decision rule
+  rather than re-deriving it; `open_wager` passes it as `WagerState::new`'s
+  reserve. Test in `economy.rs`: a fresh run → 10; the half-cleared run of
+  `reserve_floor_follows_the_lock` locked on Rix at 0–0 → 50, at 0–1 → 10; the
+  final opponent at 0–1 → 50, at 0–2 → 10; a rematch of already-beaten Greeb →
+  10. This changes only *when* the warning row shows — no string, no floor, no
+  stake range, no escrow — so it is inside the spec's "no change to the wager
+  arithmetic" non-goal.
+  **Docs, same change** (the sweep's N2 and N8 ride along): `src/wager.rs`'s
+  `reserve` field doc, `Role::Warning` doc, `new`'s doc and `loss_ends_the_run`'s
+  doc — none should say "the run's cheapest ante", and they should say the
+  reserve is what the broke check reads *after a loss*; `economy::reserve_floor`'s
+  doc drops "the wager prompt's warning" from its readers; `src/app.rs` ~759–760
+  ("the campaign-map Card Shop… Back returns to the map") and ~997 ("Esc backs
+  out to the map") and `src/shop.rs` ~3–5 ("reached from the campaign map") —
+  each now also the venue; `docs/economy.md`'s refusal paragraph names both
+  callers, and its *One visible consequence* paragraph gains the deciding-match
+  exception.
+  **Existing assertions**: none should change value. Anything that does is a
+  stop-and-report. Do not run `cargo fmt`.
+  *Verify: the full command verbatim; `git diff --stat` shows only the five
+  files; `grep -n "cheapest ante" src/wager.rs` empty; the report quotes
+  `refuse_uncovered`, `reserve_after_a_loss`, `launch_from_map` and `open_wager`
+  verbatim. Then the orchestrator: the sweep's **one permitted re-review** on this
+  diff, and two driver checks on scratch profiles — (a) Cinder cleared, 15
+  credits, Enter on Ashfall → "Can't cover the 20-credit ante" on the map, no
+  venue, and no `series` key in the profile JSON; (b) a hand-edited profile locked
+  on Rix with 80 credits — at 0–1 a 40 stake shows no warning, at 0–0 it does.*
+
 - [ ] **T011** — Close-out. Draft
   `specs/029-tournament-rounds/closeout-main-docs.md` in spec 028's shape:
   **ROADMAP** — mark tournament rounds shipped as spec 029 (`grep -n -i
