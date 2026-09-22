@@ -9,7 +9,7 @@ use crate::{
         BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
     },
     board::BoardView,
-    campaign::{NodeRef, PLANETS, planet_by_id},
+    campaign::{NodeRef, PLANETS, Series, planet_by_id},
     campaign_map::{CampaignMapState, MapBanner, MapOutcome},
     card::Card,
     config::Config,
@@ -438,6 +438,16 @@ fn campaign_entry_modal(broke: bool, victory_due: bool, primer_due: bool) -> Opt
     } else {
         None
     }
+}
+
+/// The series score the board shows (spec 029) — `None` unless this match is a
+/// match of the series in progress. A rematch has no series; a Quick Play match
+/// started mid-series has no campaign pointer; and a campaign pointer left over
+/// from another node is not this series. All three fall out of the same check.
+fn board_series_line(node: Option<&NodeRef>, series: Option<&Series>) -> Option<String> {
+    let (node, series) = (node?, series?);
+    (node.planet == series.planet && node.opponent == series.opponent)
+        .then(|| format!("Series {} – {}", series.player_wins, series.opponent_wins))
 }
 
 /// The victory notice's content (spec 024), title first and dismiss line last,
@@ -1911,11 +1921,14 @@ impl App {
         match &self.screen {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
+                let campaign = self.profile.campaign();
+                let series = board_series_line(campaign.in_progress(), campaign.series());
                 self.board_view.draw(
                     game_state,
                     cursor,
                     self.banter,
                     self.stake_to_show(),
+                    series.as_deref(),
                     pulse,
                     self.settings.animations.then_some(&self.motion),
                     frame,
@@ -2695,6 +2708,34 @@ mod tests {
         ] {
             assert!(!notice_dismissed(k), "{k:?} must not dismiss");
         }
+    }
+
+    #[test]
+    fn the_board_shows_a_score_only_for_a_series_match() {
+        let node = |planet: &str, opponent: &str| NodeRef {
+            planet: planet.to_string(),
+            opponent: opponent.to_string(),
+            stake: 20,
+            settled: false,
+        };
+        let series = Series {
+            planet: "cinder".to_string(),
+            opponent: "greeb".to_string(),
+            player_wins: 1,
+            opponent_wins: 0,
+        };
+        // A match of the series in progress: the running score.
+        assert_eq!(
+            board_series_line(Some(&node("cinder", "greeb")), Some(&series)),
+            Some("Series 1 – 0".to_string())
+        );
+        // Quick Play started mid-series: no campaign pointer, series still live.
+        assert_eq!(board_series_line(None, Some(&series)), None);
+        // A rematch: a campaign pointer, no series.
+        assert_eq!(board_series_line(Some(&node("cinder", "greeb")), None), None);
+        // A stale pointer from another node is not this series.
+        assert_eq!(board_series_line(Some(&node("cinder", "other")), Some(&series)), None);
+        assert_eq!(board_series_line(Some(&node("elsewhere", "greeb")), Some(&series)), None);
     }
 
     #[test]
