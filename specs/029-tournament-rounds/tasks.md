@@ -1379,6 +1379,16 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   terminal with nothing clipped and an empty row above the primer's dismiss
   line.*
 
+- [ ] **T009a** — `assets/how_to_play_text.txt`: ruling **R8** (the person, at
+  the Phase 4 pause, 2026-09-22). Replace the two campaign lines "Opponents are
+  Best of 3, the last Best of 5, / and a series, once started, is played out."
+  with "Each opponent is Best of 3 matches, the last / Best of 5. A started series
+  is played out." (44 and 42 columns — no wider than the panel's widest, line
+  count unchanged at 26). Change nothing else. **No assertion changes value**:
+  the overlay tests check "Best of 3", "Best of 5" and "played out", all still
+  present. *Verify: the full command verbatim; `wc -l` still 26;
+  `git diff --stat` shows only the asset.*
+
 ## Phase 5 — Balance measured, not changed (walkthrough: none — the simulator is an `#[ignore]`d report and `docs/balance.md` is a document; no code the game runs changes, no constant moves, and nothing on screen differs)
 
 - [ ] **T010** — `tests/balance.rs` + `docs/balance.md`: the series rates,

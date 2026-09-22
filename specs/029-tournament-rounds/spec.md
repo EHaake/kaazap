@@ -438,6 +438,12 @@ number of columns at every width**, and the art-plus-portrait group sits
 centred on the screen with equal outer margins. R4's art size and R5's
 text alignment are unchanged — only the portrait moves.
 
+### R8 — How to Play says "matches" (2026-09-22)
+
+At the Phase 4 pause the person chose to spell out the unit, since How to
+Play opens with a rule about *rounds*: the campaign lines read "Each opponent
+is Best of 3 matches, the last / Best of 5. A started series is played out."
+
 ### A new deliverable: the per-planet art brief
 
 Authoring the art remains a **non-goal** of this spec — but the **brief**
