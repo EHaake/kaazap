@@ -3,7 +3,7 @@
 //! Everything else in this file is an ordinary test (scripted-player rules,
 //! termination, the balance guards). See docs/balance.md.
 
-use kaazap::campaign::{CampaignRun, PLANETS};
+use kaazap::campaign::{CampaignRun, PLANETS, wins_needed};
 use kaazap::card::{ALL_SIDE_CARDS, Card, DEFAULT_SIDE_DECK, FlipKind, PlayedCard};
 use kaazap::economy::{
     RegionTier, SEED_PURSE, ante_floor, card_price, card_tier, region_tier, reserve_floor,
@@ -255,6 +255,17 @@ fn floor_of(o: &OpponentProfile) -> u32 {
 /// Expected credits per match at a given stake, even money.
 fn ev_per_match(floor: u32, w: f64) -> f64 {
     floor as f64 * (2.0 * w - 1.0)
+}
+
+/// The chance of taking a first-to-`needed` series at a per-match rate `w`
+/// (matches are independent and a match always produces a winner). Best of
+/// three: w²(3 − 2w). Best of five: w³(6w² − 15w + 10).
+fn series_rate(w: f64, needed: u32) -> f64 {
+    match needed {
+        2 => w * w * (3.0 - 2.0 * w),
+        3 => w * w * w * (6.0 * w * w - 15.0 * w + 10.0),
+        _ => panic!("no closed form for a first-to-{needed} series"),
+    }
 }
 
 struct Row {
@@ -570,16 +581,20 @@ fn balance_table() {
     let rows = measure(n);
 
     println!();
-    println!("{:<16}{:<12}{:>7}{:>8}{:>17}", "deck", "opponent", "n", "win%", "ev/match@floor");
+    println!(
+        "{:<16}{:<12}{:>7}{:>8}{:>17}{:>9}",
+        "deck", "opponent", "n", "win%", "ev/match@floor", "series%"
+    );
     for r in &rows {
         let floor = floor_of(&opponent_by_id(r.opponent).expect("row opponents are on the roster"));
         println!(
-            "{:<16}{:<12}{:>7}{:>8}{:>17}",
+            "{:<16}{:<12}{:>7}{:>8}{:>17}{:>9}",
             r.deck,
             r.opponent,
             r.n,
             pct(r.win),
-            format!("{:+.1}", ev_per_match(floor, r.win))
+            format!("{:+.1}", ev_per_match(floor, r.win)),
+            pct(series_rate(r.win, wins_needed(r.opponent)))
         );
     }
 
@@ -786,6 +801,24 @@ fn the_full_pool_deck_outperforms_the_starter_against_every_opponent() {
             o.id,
             pct(full),
             pct(starter)
+        );
+    }
+}
+
+#[test]
+fn series_rate_matches_the_closed_form() {
+    // The figures spec 029 flagged to the person: best of three, then best of five.
+    for (w, needed, expected) in [
+        (0.45, 2, 0.425),
+        (0.60, 2, 0.648),
+        (0.50, 2, 0.50),
+        (0.33, 3, 0.205),
+        (0.50, 3, 0.50),
+    ] {
+        let got = series_rate(w, needed);
+        assert!(
+            (got - expected).abs() < 1e-3,
+            "series_rate({w}, {needed}) is {got}, expected {expected}"
         );
     }
 }

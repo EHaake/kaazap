@@ -223,6 +223,49 @@ That is opt-in and deliberate, not a miss. Nothing here was retuned for it and
 **no constant moved**; **Reset Everything** is what returns a profile to the run
 these numbers describe.
 
+### Series rates
+
+Since spec 029 a campaign opponent is played as a **series**: first to two match
+wins (best of three), and first to three (best of five) against `sovereign`, the
+final opponent (ruling G1). Matches are independent and a match always produces
+a winner, so a per-match win rate `w` becomes a series rate by closed form —
+`series_rate` in [`tests/balance.rs`](../tests/balance.rs), whose guard test
+`series_rate_matches_the_closed_form` pins the figures spec 029 flagged:
+
+- **Best of three:** `w²(3 − 2w)` — 45 % → 42.5 %, 60 % → 64.8 %, 50 % → 50 %.
+- **Best of five:** `w³(6w² − 15w + 10)` — 33 % → 20.5 %, 50 % → 50 %.
+
+> **N = 10 000, 2026-09-22** (macOS, release profile), spec 029 T010. The
+> simulator was re-run with **no lever moved**; its per-match rates differ from
+> the table above by sampling noise only (at most 1.8 points; still
+> `targets 8/8, coupling 1/1, bounds 5/5`). The series rates below are that
+> run's `series%` column, converted from its own per-match rates.
+
+Series win rate (%) for the scripted player — best of five for `sovereign`,
+best of three for everyone else:
+
+| Opponent | Region | Series | `starter` | `standard` | `best_outer` | `best_outer_mid` | `best_full` |
+|---|---|---|---|---|---|---|---|
+| greeb | Outer Rim | Bo3 | 78.8 | 89.5 | 92.4 | 96.3 | 96.8 |
+| dax | Outer Rim | Bo3 | 65.2 | 81.3 | 84.2 | 91.7 | 93.1 |
+| vessa | Outer Rim | Bo3 | 58.3 | 76.2 | 79.0 | 89.1 | 90.7 |
+| nima | Mid Rim | Bo3 | 32.3 | 51.1 | 54.0 | 70.9 | 74.2 |
+| toran | Mid Rim | Bo3 | 34.1 | 55.2 | 60.3 | 74.5 | 76.2 |
+| brakka | Mid Rim | Bo3 | 31.0 | 50.7 | 54.3 | 72.0 | 75.4 |
+| rix | Core | Bo3 | 19.3 | 36.3 | 39.9 | 60.5 | 62.0 |
+| kesh | Mid Rim | Bo3 | 29.5 | 50.1 | 54.2 | 73.7 | 75.3 |
+| magistrate | Core | Bo3 | 19.9 | 36.7 | 39.1 | 55.4 | 60.6 |
+| sovereign | Core | **Bo5** | 8.6 | 23.1 | 24.7 | 48.4 | 52.4 |
+
+The curve sharpens in both directions — every rate above 50 % per match rises as
+a series (starter vs Greeb 70.3 → 78.8) and every rate below it falls (starter
+vs Rix 28.1 → 19.3) — which is what ruling G1 and spec 022's gates wanted: a
+deck the curve says is ready wins the region more reliably, and one it says is
+not ready loses it more reliably. The Sovereign's best of five is the sharpest
+case: the starter's 23.2 % per match becomes an **8.6 %** series and the
+full-pool deck's 51.3 % becomes 52.4 %, so the final is close to unwinnable
+without a bought deck and close to a coin flip with the best one.
+
 ## The guards
 
 The ignored table run is a report, so a subset of the curve is also pinned by
