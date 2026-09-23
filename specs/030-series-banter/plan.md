@@ -435,9 +435,9 @@ the existing `write_wav`.
   pub fn burble_cue(word: usize) -> Cue
 
   /// The least time between two burbles (spec 030): longer than one burble at
-  /// its slowest pitch, so they never overlap and stack louder, and shorter
-  /// than a word step less one loop tick, so no word of an ordinary line is
-  /// ever dropped (plan §Design tension 3).
+  /// its slowest pitch, so they never overlap and stack louder, and no more
+  /// than three loop ticks, so no word of an ordinary line is ever dropped
+  /// (plan §Design tension 3).
   pub const BURBLE_GAP_MS: u64 = 150;
   /// Whether a burble may play `since_last` after the previous one. Pure.
   pub fn burble_clear(since_last: Duration) -> bool

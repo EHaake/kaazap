@@ -484,6 +484,11 @@ remove it. The orchestrator writes these rows; nobody else. -->
 in `closeout-main-docs.md`'s DECISIONS entry or in a roadmap follow-up, so the
 next person to touch this code finds them. -->
 
+- **Phase 1 review, second look 1 (for the Phase 3 review):** `line_visible` returns true on `Screen::Venue`, but the venue draws no line until T007, so a match-end line still revealing when the player reaches the venue murmurs unseen (under a second; closes in Phase 3). And `speech` still holds the board's last line on arrival at the venue: check which function the game-over → venue path calls, since if it is not `arrive_at_campaign` the venue shows the previous match's closing line (AC 5). Phase 3 walkthrough item 4 checks it by eye.
+- **Phase 1 review, second look 3:** an overlay over the board (`?` help) keeps the screen `InGame`, so remaining words murmur under it even if it covers the portrait panel. Under a second.
+- **Phase 1 review, second look 4:** the silent cases (Animations Off one murmur, 89 columns silent, resumed match, replaced/cleared line) rest on construction and the counted-call greps; the driver cannot hear. The person's by-ear pass should cover Animations Off and 89 columns too.
+- **Phase 1 review, second look 2:** plan §Design 4's `BURBLE_GAP_MS` doc still gave the pre-sign-off reasoning; corrected by the orchestrator to match §Design tension 3 (numbers unchanged).
+
 ---
 
 ## Tier log (this spec, under the model policy)
@@ -503,3 +508,5 @@ redo, and why). -->
 | T001 (sdd-implementer) | opus → claude-opus-5-5 | ~66K | 1 | yes | — | done; 7 banter + 1 portrait tests green, 496 lib tests, 0 warnings. Note: the verify tail cuts off the lib summary (many test binaries); implementer added the `grep "test result"` line |
 | T002 (sdd-implementer) | opus → claude-opus-5-5 | ~63K | 1 | yes | — | done; 4 audio tests green, 500 lib tests, 0 warnings. `peak` 0.08 (music RMS 0.1641 over 60 s, ceiling 0.1025). Ceiling test ~4 s in debug; 60 s window kept. Deviations: `BURBLE_GAP_MS` doc follows the corrected §Design tension 3 wording; script errors on an unknown sound name |
 | T003 (sdd-implementer) | opus → claude-opus-5-5 | ~56K | 1 | yes | — | done; 500 lib tests, 0 warnings; greps as specified. Note: the Verify grep `^\s*banter:` false-matches the `banter::{` import (line 8), which matched before the task too; `^\s*banter: ` is empty. `banter_last` field comment updated to name `speech` |
+| Phase 1 driven walkthrough (orchestrator) | claude-opus-5-5 (session) | — | — | — | — | items 1–4 pass on a scratch data dir at 139×31 and 89×31: greeting and round-end lines grow a word per ~0.2 s in place; Animations Off whole; resumed match blank; no line at 89. **Miss:** one Animations-Off run hit a zsh `nomatch` error that skipped the chained `export`, so it ran against the real data dir (re-saved the profile, wrote a Quick Play `savegame.json`, set Animations Off in `settings.json`); reported to the person, not touched further |
+| Phase 1 review (skeptical-reviewer) | opus → claude-opus-5-5 | ~72K | 1 | — | 0 | **pass**; four second-look notes carried to the close-out notes. T002's verbatim output and ceiling-test runtime (~4 s debug, 60 s window kept) are in its row above |
