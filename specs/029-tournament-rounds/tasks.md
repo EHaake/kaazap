@@ -1633,6 +1633,17 @@ the person an empty box they are about to see filled. -->
   row), and the text of the new `design/brief.md` amendment recording the art as
   the design record's second bounded exception.*
 
+- [x] **T014a** — `src/venue.rs` + `src/layout.rs`: two fixes from the **second
+  pre-merge sweep** (2026-09-22). (a) AC 21's checklist test skips hidden files
+  when listing `assets/planets/` — Finder's `.DS_Store` is hidden by `.gitignore`
+  and would otherwise fail `cargo test` while `git status` shows nothing; only
+  dotfiles are skipped, so a misnamed art file still fails. (b) The dominates
+  test's comment says "strictly larger at 139 columns than at 89", not "when the
+  terminal is wider", which the box-fits-art rule made false. *Verified: 488 lib
+  tests green; a `.DS_Store` present → the test passes; a `cinder-narrow.text`
+  present → it fails naming the extra file; both removed and
+  `git status --short assets/planets` empty. Re-reviewed clean.*
+
 ## Final phase — Spec close-out (walkthrough: none — documentation, mechanical checks and the pre-merge sweep; the person's walkthrough list above is what they walk at this phase)
 
 - [x] **T011a** — `src/app.rs` + `src/economy.rs` + `src/wager.rs` + `src/shop.rs` +
@@ -1704,7 +1715,7 @@ the person an empty box they are about to see filled. -->
 > records stays. The first sweep's findings are closed (T011a and its
 > re-review); only the second sweep is owed.
 
-- [ ] **T011** — Close-out. Draft
+- [x] **T011** — Close-out. Draft
   `specs/029-tournament-rounds/closeout-main-docs.md` in spec 028's shape:
   **ROADMAP** — mark tournament rounds shipped as spec 029 (`grep -n -i
   "series\|tournament\|venue\|best of" ROADMAP.md`, read and judge), and add the
@@ -2288,6 +2299,8 @@ roadmap follow-up, so the next person to touch this code finds them. -->
     so if Finder ever opens that folder, `cargo test` fails on this machine
     while `git status` shows nothing. Skipping dotfiles would remove the trap.
     **Second sweep to rule.**
+    **Fixed 2026-09-22 (T014a)**: hidden files are skipped; a misnamed file
+    still fails.
 54. `spec.md`'s brief-as-deliverable paragraph still said the art non-goal
     "stands"; R9 superseded it. **Corrected by the orchestrator** with a pointer.
 55. **The `.gitattributes` rationale was half wrong in the record.** A CRLF
