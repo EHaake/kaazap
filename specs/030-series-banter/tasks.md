@@ -341,7 +341,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
 - [x] **T002c** — `src/settings.rs` (+ `specs/030-series-banter/plan.md` §Design 11/§Design tension 14 value, by the orchestrator): the Voices default is 50%. The person, at the Phase 1 re-listen (2026-09-23): "I have the volume set to 50% where it sounds well mixed with the rest of the sounds, so maybe we should make that the default." `default_voices_volume()` returns `0.5`; the field doc's "equal to Sound FX's" and any other doc naming the default say 50% instead. **Superseded assertion, and only this one:** `the_voices_volume_defaults_loads_and_persists`'s `assert_eq!(default_voices_volume(), default_sfx_volume())` becomes `assert_eq!(default_voices_volume(), 0.5)`. `the_burble_is_as_loud_as_the_other_sounds` must still pass unchanged at the new default (at 0.5 the burble reads ≈0.0834 against the band floor 0.0794 and the music floor 0.0820); if it fails, stop and report. Do not run `cargo fmt`.
   *Verify: the full command, verbatim, green, no new warnings; in addition `cargo test -q --lib the_burble_is_as_loud_as_the_other_sounds -- --nocapture 2>&1 | grep -iE 'peak|rms|band|floor|test result'` with its figures quoted. `git diff --stat` shows exactly `src/settings.rs`.*
 
-- [ ] **T004** — `src/banter.rs`: the series pools and their lines. Per plan
+- [x] **T004** — `src/banter.rs`: the series pools and their lines. Per plan
   §Design 2 and §Design tension 7. `pub enum SeriesState` and `pub fn
   series_state(&Series) -> SeriesState` (importing `campaign::{Series,
   wins_needed}`); the six `BanterSet` fields with the plan's docs; `pub fn
@@ -731,3 +731,4 @@ redo, and why). -->
 | Amendment tasks review (skeptical-reviewer) | opus → claude-opus-5-5 | ~92K | 1 | — | 0 | **pass**; seven second-look notes, carried to the close-out notes |
 | T002c (sdd-implementer) | opus → claude-opus-5-5 | ~30K | 1 | yes | — | done; Voices default 0.8 → 0.5; loudness test unchanged and green at 0.0834 (band floor 0.0794, music floor 0.0820 — thin margin); 511 lib tests, 0 warnings. Numbers-only tweak, no review (tweak loop) |
 | **Phase 1 summary** | — | — | — | — | — | T001–T003 + amendment T002a/T002b/T003a/T002c; one judgment-call stop (T002a), one decision review; phase review pass; amendment sign-off 1 blocker fixed; amendment review pass. AC 9 approved by the person |
+| T004 (sdd-implementer) | opus → claude-opus-5-5 | ~70K | 2 (one resume) | yes | — | done; 146 lines (13 per voice, 16 for The Sovereign), 6 new tests, 517 lib tests, 0 warnings, no existing line changed. Resume: widened `a_line_is_revealed_in_place_word_by_word` to `all_pools` too (T001 line says every line of every pool; inside the sanctioned class) — five widened tests, not four |

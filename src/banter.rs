@@ -8,10 +8,16 @@
 //! repeats the currently-shown line back-to-back. Spec 017.
 //!
 //! A chosen line is spoken word by word, in place, through a [`Speech`] (spec 030).
+//!
+//! Inside a campaign series (spec 030), a match start or a venue arrival draws
+//! from the pool for where the series stands ([`SeriesState`], via
+//! [`start_lines`]), and the match that decides the series draws series won /
+//! series lost ([`lines_in_series`]).
 
 use std::time::Duration;
 
 use crate::WORD_STEP_MS;
+use crate::campaign::{Series, wins_needed};
 use crate::game::{GamePhase, GameState, RoundOutcome};
 use crate::player::Player;
 
@@ -128,6 +134,17 @@ pub struct BanterSet {
     pub player_bust: &'static [&'static str],
     pub match_win: &'static [&'static str],
     pub match_loss: &'static [&'static str],
+    /// Spec 030: a match (or the venue) mid-series. ≥3 each, so the venue line
+    /// and the match start after it always have an alternative.
+    pub leading: &'static [&'static str],
+    pub trailing: &'static [&'static str],
+    pub decider: &'static [&'static str],
+    /// Level at 1–1 in a best of 5 — only the final opponent reaches it, so
+    /// only its voice carries lines (≥3); every other voice's is empty.
+    pub all_square: &'static [&'static str],
+    /// The match that ends a series: the opponent took it / lost it. ≥2 each.
+    pub series_won: &'static [&'static str],
+    pub series_lost: &'static [&'static str],
 }
 
 /// The line pool for `ev` within `set`.
@@ -141,6 +158,58 @@ pub fn lines_for(set: &'static BanterSet, ev: BanterEvent) -> &'static [&'static
         BanterEvent::PlayerBust => set.player_bust,
         BanterEvent::MatchWin => set.match_win,
         BanterEvent::MatchLoss => set.match_loss,
+    }
+}
+
+/// Where a series stands, from the opponent's side (spec 030).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SeriesState {
+    Opening,
+    Leading,
+    Trailing,
+    AllSquare,
+    Decider,
+}
+
+/// Opening at 0–0; Leading / Trailing when the opponent has more / fewer wins;
+/// Decider when both are one win from `wins_needed`; AllSquare when level
+/// otherwise (only a best of 5 at 1–1).
+pub fn series_state(series: &Series) -> SeriesState {
+    let (player, opponent) = (series.player_wins, series.opponent_wins);
+    if player == 0 && opponent == 0 {
+        SeriesState::Opening
+    } else if opponent > player {
+        SeriesState::Leading
+    } else if opponent < player {
+        SeriesState::Trailing
+    } else if opponent + 1 == wins_needed(&series.opponent) {
+        SeriesState::Decider
+    } else {
+        SeriesState::AllSquare
+    }
+}
+
+/// The pool a match start or a venue arrival draws from (spec 030): the
+/// greetings with no series or at Opening — exactly today's — else the
+/// state's own lines.
+pub fn start_lines(set: &'static BanterSet, state: Option<SeriesState>) -> &'static [&'static str] {
+    match state {
+        None | Some(SeriesState::Opening) => set.match_start,
+        Some(SeriesState::Leading) => set.leading,
+        Some(SeriesState::Trailing) => set.trailing,
+        Some(SeriesState::AllSquare) => set.all_square,
+        Some(SeriesState::Decider) => set.decider,
+    }
+}
+
+/// The pool for `ev` (spec 030): a match end that decided a series draws
+/// series won (the opponent's `MatchWin`) or series lost (`MatchLoss`);
+/// every other case is `lines_for`, unchanged.
+pub fn lines_in_series(set: &'static BanterSet, ev: BanterEvent, decided: bool) -> &'static [&'static str] {
+    match (ev, decided) {
+        (BanterEvent::MatchWin, true) => set.series_won,
+        (BanterEvent::MatchLoss, true) => set.series_lost,
+        _ => lines_for(set, ev),
     }
 }
 
@@ -274,6 +343,12 @@ const GENERIC: BanterSet = BanterSet {
     player_bust: &["You went over.", "Busted.", "You busted.", "Past the line."],
     match_win: &["I win.", "The game's mine."],
     match_loss: &["Well played.", "You take it."],
+    leading: &["I'm ahead.", "One up on you.", "I lead the series."],
+    trailing: &["You're ahead.", "I'm behind.", "You lead the series."],
+    decider: &["One match left.", "This one decides it.", "Winner takes all."],
+    all_square: &[],
+    series_won: &["The series is mine.", "I take the series."],
+    series_lost: &["The series is yours.", "You take the series."],
 };
 
 /// Greeb (Rookie) — green and eager: jittery, over-excited, rattled and
@@ -287,6 +362,12 @@ const GREEB: BanterSet = BanterSet {
     player_bust: &["Oh! You popped!", "Phew, not me!", "Eep, you went over!", "Y-you busted! Wow."],
     match_win: &["I actually won?!", "Me? I won! Wow!"],
     match_loss: &["Aw, well played.", "Gosh, good game."],
+    leading: &["I'm ahead?! Really?", "Wait, I'm winning?", "Ahead?! No jinxing!"],
+    trailing: &["Uh-oh, uh-oh.", "I-I can catch up!", "Still time! Right?"],
+    decider: &["Last one?! Gulp.", "All or nothing, eek!", "Hands... shaking!"],
+    all_square: &[],
+    series_won: &["I won it all?! Me?!", "The whole series?!"],
+    series_lost: &["Aw, that's the set.", "You won it all, wow."],
 };
 
 /// Dax Runo (Greenhorn) — a cocky kid: brash trash-talk, struts on a win, makes
@@ -300,6 +381,12 @@ const DAX: BanterSet = BanterSet {
     player_bust: &["Ha! Nice one, kid.", "Told you. Splat.", "Amateur hour.", "Whoops. Busted."],
     match_win: &["Not even close.", "Told ya so, kid."],
     match_loss: &["Rematch. Right now.", "Best of nine?!"],
+    leading: &["Scoreboard, kid.", "Already up. Yawn.", "Just getting warm."],
+    trailing: &["Warming up, is all.", "Just a slow start.", "Charity, that's all."],
+    decider: &["Winner takes it. Me.", "Last one. Easy.", "Now I get serious."],
+    all_square: &[],
+    series_won: &["Series? Mine. Duh.", "Called the series."],
+    series_lost: &["Stacked deck, man!", "Off day. Whatever."],
 };
 
 /// Vessa Korr (Scrapper) — street-hard and defiant: takes the hit and swings
@@ -313,6 +400,12 @@ const VESSA: BanterSet = BanterSet {
     player_bust: &["Ha, you cracked.", "Down you go.", "Glass jaw.", "That's a knockout."],
     match_win: &["Still standing.", "You're done, kid."],
     match_loss: &["Next time's mine.", "This ain't over."],
+    leading: &["Up and swinging.", "Stay down this time.", "On the ropes, kid."],
+    trailing: &["Down ain't out.", "Knocked, not out.", "Try that again."],
+    decider: &["One more scrap.", "Winner walks away.", "All in, right now."],
+    all_square: &[],
+    series_won: &["Last one standing.", "Whole fight's mine."],
+    series_lost: &["Beat me fair. Once.", "I'll be back for it."],
 };
 
 /// Nima Sarn (Broker) — cool and mercantile: everything is a transaction, wins
@@ -326,6 +419,12 @@ const NIMA: BanterSet = BanterSet {
     player_bust: &["That'll cost you.", "Poor accounting.", "I own you now.", "Debt collected."],
     match_win: &["I always collect.", "A tidy return."],
     match_loss: &["I've paid worse.", "A rare deficit."],
+    leading: &["Ahead on the books.", "Interest accrues.", "Up on the ledger."],
+    trailing: &["A temporary debt.", "Short-term loss.", "Borrowed luck."],
+    decider: &["Final settlement.", "All accounts due.", "Time to settle up."],
+    all_square: &[],
+    series_won: &["Account closed.", "Contract fulfilled."],
+    series_lost: &["Cost of business.", "I'll bill you later."],
 };
 
 /// Old Toran (Veteran) — dry, calm, wry: he's seen it all, understated, with a
@@ -339,6 +438,12 @@ const TORAN: BanterSet = BanterSet {
     player_bust: &["Over you go.", "Reached too far.", "One too many, hm?", "Patience, lad."],
     match_win: &["Age and cunning.", "Years still tell."],
     match_loss: &["Well earned, that.", "You've learned well."],
+    leading: &["Ahead, for now.", "Steady does it, lad.", "Mind the score, boy."],
+    trailing: &["Learning fast, eh?", "Hm. You're ahead.", "Long game, lad."],
+    decider: &["Last hand. Breathe.", "Now we find out.", "One more. Steady."],
+    all_square: &[],
+    series_won: &["The old way wins.", "Still got it, then."],
+    series_lost: &["Taught you too well.", "Your series. Fairly."],
 };
 
 /// Brakka (Bruiser) — big, booming brute: blunt bravado, dares and taunts, and
@@ -352,6 +457,12 @@ const BRAKKA: BanterSet = BanterSet {
     player_bust: &["HA! Splat!", "Too big for ya!", "Smashed to bits!", "Flattened ya!"],
     match_win: &["Smashed ya to bits!", "Ha! Timber!"],
     match_loss: &["Bah! You got lucky!", "Grr! Again! Again!"],
+    leading: &["Ha! Out front!", "Stay down, runt!", "Ya feelin' small?!"],
+    trailing: &["Just a warmup!", "Now I'm angry!", "Bah! Lucky punches!"],
+    decider: &["Last smash! Ready?!", "Winner smashes all!", "One more brawl!"],
+    all_square: &[],
+    series_won: &["Smashed the lot!", "BRAKKA WINS ALL!"],
+    series_lost: &["Bah! Ya beat Brakka!", "Grr... fair fight."],
 };
 
 /// Rix Vandal (Ace) — precise and clinical: talks in odds and math, arrogant,
@@ -365,6 +476,12 @@ const RIX: BanterSet = BanterSet {
     player_bust: &["Predictable.", "Sloppy. Pitiful.", "Amateur variance.", "You were the error."],
     match_win: &["The math held.", "Odds confirmed."],
     match_loss: &["A variance. Once.", "Improbable. Yet."],
+    leading: &["Trend confirmed.", "The curve favors me.", "Ahead, as modeled."],
+    trailing: &["Sample too small.", "Regression looms.", "Temporary deviation."],
+    decider: &["Final data point.", "Fifty-fifty. Fine.", "The last variable."],
+    all_square: &[],
+    series_won: &["Series: as computed.", "Proof complete."],
+    series_lost: &["Model... revised.", "An anomaly. Noted."],
 };
 
 /// Kesh Varn (Duelist) — sharp and dangerous: a duelist's menace and honor,
@@ -378,6 +495,12 @@ const KESH: BanterSet = BanterSet {
     player_bust: &["You overreached.", "Your guard broke.", "One breath left.", "Disarmed."],
     match_win: &["The edge was mine.", "First to the kill."],
     match_loss: &["A worthy blade.", "Sharper than most."],
+    leading: &["You bleed already.", "Your guard weakens.", "One more cut."],
+    trailing: &["A scratch. Nothing.", "Now I draw steel.", "You've marked me."],
+    decider: &["The final bout.", "Sudden death.", "To the last blade."],
+    all_square: &[],
+    series_won: &["The duel is mine.", "Sheathe your blade."],
+    series_lost: &["You won the duel.", "I yield. Honorably."],
 };
 
 /// The Magistrate (Master) — imperious cold authority: pronounces rather than
@@ -391,6 +514,12 @@ const MAGISTRATE: BanterSet = BanterSet {
     player_bust: &["Condemned.", "Sentence: bust.", "Contempt of court.", "The line was law."],
     match_win: &["The law prevails.", "Justice is served."],
     match_loss: &["An odd verdict.", "Appeal granted."],
+    leading: &["The evidence mounts.", "Precedent is mine.", "Your case weakens."],
+    trailing: &["Objection noted.", "The trial continues.", "Pending review."],
+    decider: &["Final arguments.", "The jury decides.", "Closing statements."],
+    all_square: &[],
+    series_won: &["Guilty as charged.", "Sentence is passed."],
+    series_lost: &["Case dismissed.", "Acquitted. Go."],
 };
 
 /// The Sovereign (Kingpin) — regal and glacial: minimal words, utterly
@@ -404,6 +533,12 @@ const SOVEREIGN: BanterSet = BanterSet {
     player_bust: &["You were warned.", "Beneath me.", "A mercy, granted.", "The house owns you."],
     match_win: &["The house wins.", "It was never yours."],
     match_loss: &["Enjoy it. Briefly.", "A rounding, no more."],
+    leading: &["As expected.", "The end nears.", "Already decided."],
+    trailing: &["Tolerable.", "A loan, merely.", "I permit this."],
+    decider: &["The final hand.", "Let us conclude.", "At last."],
+    all_square: &["Level. For now.", "Balance. Brief.", "Even. Irrelevant."],
+    series_won: &["The house takes all.", "Kneel."],
+    series_lost: &["You may leave.", "Take it. Go."],
 };
 
 /// The voice for opponent `id`: the roster set, or [`GENERIC`] for `"default"`
@@ -655,6 +790,25 @@ mod tests {
         ]
     }
 
+    /// Spec 030's six series pools, in a fixed order.
+    fn series_classes(set: &'static BanterSet) -> [&'static [&'static str]; 6] {
+        [
+            set.leading,
+            set.trailing,
+            set.decider,
+            set.all_square,
+            set.series_won,
+            set.series_lost,
+        ]
+    }
+
+    /// Every pool of a set: the eight classes followed by the six series pools.
+    fn all_pools(set: &'static BanterSet) -> [&'static [&'static str]; 14] {
+        let [a, b, c, d, e, f, g, h] = classes(set);
+        let [i, j, k, l, m, n] = series_classes(set);
+        [a, b, c, d, e, f, g, h, i, j, k, l, m, n]
+    }
+
     /// The five *repeatable* classes (must carry >= 2 distinct lines).
     fn repeatable(set: &'static BanterSet) -> [&'static [&'static str]; 5] {
         [set.round_win, set.round_loss, set.round_tie, set.opponent_bust, set.player_bust]
@@ -678,7 +832,7 @@ mod tests {
     fn every_line_of_every_set_fits_the_panel() {
         use crate::portrait::BANTER_MAX_WIDTH;
         for (id, set) in all_sets() {
-            for class in classes(set) {
+            for class in all_pools(set) {
                 for line in class {
                     assert!(
                         line.chars().count() <= BANTER_MAX_WIDTH,
@@ -706,7 +860,7 @@ mod tests {
         // Carried from the T001 review: `pick` loops forever on an all-equal
         // pool, so no class may hold a duplicate variant.
         for (id, set) in all_sets() {
-            for class in classes(set) {
+            for class in all_pools(set) {
                 for i in 0..class.len() {
                     for j in (i + 1)..class.len() {
                         assert_ne!(
@@ -748,9 +902,9 @@ mod tests {
             for b in (a + 1)..sets.len() {
                 let (id_a, set_a) = sets[a];
                 let (id_b, set_b) = sets[b];
-                for class_a in classes(set_a) {
+                for class_a in all_pools(set_a) {
                     for line in class_a {
-                        for class_b in classes(set_b) {
+                        for class_b in all_pools(set_b) {
                             assert!(
                                 !class_b.contains(line),
                                 "{id_a} and {id_b} share the line {line:?}"
@@ -791,7 +945,7 @@ mod tests {
     #[test]
     fn every_line_finishes_inside_a_second() {
         for (id, set) in all_sets() {
-            for class in classes(set) {
+            for class in all_pools(set) {
                 for line in class {
                     let words = word_count(line) as u64;
                     assert!(
@@ -806,7 +960,7 @@ mod tests {
     #[test]
     fn a_line_is_revealed_in_place_word_by_word() {
         for (id, set) in all_sets() {
-            for class in classes(set) {
+            for class in all_pools(set) {
                 for &line in class {
                     let total = word_count(line);
                     let chars: Vec<char> = line.chars().collect();
@@ -989,5 +1143,124 @@ mod tests {
         assert_eq!(s.text(), "Court is in         ");
         assert!(!s.advance(Duration::ZERO));
         assert_eq!(s.words_shown(), 3);
+    }
+
+    // ---- Spec 030 T004: the series pools ----------------------------------
+
+    fn series(opponent: &str, player_wins: u32, opponent_wins: u32) -> Series {
+        Series {
+            planet: "tatooine".to_string(),
+            opponent: opponent.to_string(),
+            player_wins,
+            opponent_wins,
+        }
+    }
+
+    const EVENTS: [BanterEvent; 8] = [
+        BanterEvent::MatchStart,
+        BanterEvent::RoundWin,
+        BanterEvent::RoundLoss,
+        BanterEvent::RoundTie,
+        BanterEvent::OpponentBust,
+        BanterEvent::PlayerBust,
+        BanterEvent::MatchWin,
+        BanterEvent::MatchLoss,
+    ];
+
+    #[test]
+    fn the_series_state_for_every_score() {
+        use SeriesState::*;
+        // (player wins, opponent wins) -> state, from the opponent's side.
+        let best_of_3 = [
+            ((0, 0), Opening),
+            ((1, 0), Trailing),
+            ((0, 1), Leading),
+            ((1, 1), Decider),
+        ];
+        for ((p, o), want) in best_of_3 {
+            assert_eq!(series_state(&series("greeb", p, o)), want, "best of 3 at {p}-{o}");
+        }
+        let best_of_5 = [
+            ((0, 0), Opening),
+            ((1, 0), Trailing),
+            ((2, 0), Trailing),
+            ((0, 1), Leading),
+            ((1, 1), AllSquare),
+            ((2, 1), Trailing),
+            ((0, 2), Leading),
+            ((1, 2), Leading),
+            ((2, 2), Decider),
+        ];
+        for ((p, o), want) in best_of_5 {
+            assert_eq!(series_state(&series("sovereign", p, o)), want, "best of 5 at {p}-{o}");
+        }
+    }
+
+    #[test]
+    fn every_reachable_state_has_lines_in_every_voice() {
+        for (id, set) in all_sets() {
+            let need = wins_needed(id);
+            for p in 0..need {
+                for o in 0..need {
+                    let state = series_state(&series(id, p, o));
+                    assert!(
+                        !start_lines(set, Some(state)).is_empty(),
+                        "{id}: no lines at {p}-{o} ({state:?})"
+                    );
+                }
+            }
+            assert!(!start_lines(set, None).is_empty(), "{id}: no lines with no series");
+        }
+    }
+
+    #[test]
+    fn every_voice_is_complete_for_series_play() {
+        for (id, set) in all_sets() {
+            for pool in [set.leading, set.trailing, set.decider] {
+                assert!(pool.len() >= 3, "{id}: a mid-series pool must carry >= 3 lines");
+            }
+            for pool in [set.series_won, set.series_lost] {
+                assert!(pool.len() >= 2, "{id}: a series result pool must carry >= 2 lines");
+            }
+            if wins_needed(id) == 3 {
+                assert!(set.all_square.len() >= 3, "{id}: all square must carry >= 3 lines");
+            }
+        }
+    }
+
+    #[test]
+    fn the_start_pool_follows_the_series_state() {
+        for (id, set) in all_sets() {
+            assert_eq!(start_lines(set, None), set.match_start, "{id}: no series");
+            assert_eq!(start_lines(set, Some(SeriesState::Opening)), set.match_start, "{id}: Opening");
+            assert_eq!(start_lines(set, Some(SeriesState::Leading)), set.leading, "{id}: Leading");
+            assert_eq!(start_lines(set, Some(SeriesState::Trailing)), set.trailing, "{id}: Trailing");
+            assert_eq!(start_lines(set, Some(SeriesState::AllSquare)), set.all_square, "{id}: AllSquare");
+            assert_eq!(start_lines(set, Some(SeriesState::Decider)), set.decider, "{id}: Decider");
+        }
+    }
+
+    #[test]
+    fn a_deciding_match_end_draws_the_series_result() {
+        for (id, set) in all_sets() {
+            assert_eq!(lines_in_series(set, BanterEvent::MatchWin, true), set.series_won, "{id}");
+            assert_eq!(lines_in_series(set, BanterEvent::MatchLoss, true), set.series_lost, "{id}");
+        }
+    }
+
+    #[test]
+    fn outside_a_decided_series_every_event_draws_todays_pool() {
+        for (id, set) in all_sets() {
+            for ev in EVENTS {
+                assert_eq!(lines_in_series(set, ev, false), lines_for(set, ev), "{id}: {ev:?}");
+                if !matches!(ev, BanterEvent::MatchWin | BanterEvent::MatchLoss) {
+                    assert_eq!(
+                        lines_in_series(set, ev, true),
+                        lines_for(set, ev),
+                        "{id}: {ev:?} in a decided series"
+                    );
+                }
+            }
+        }
     }
 }
