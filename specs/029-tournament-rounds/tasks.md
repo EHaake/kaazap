@@ -1506,9 +1506,22 @@ the person an empty box they are about to see filled. -->
   outside the three items, is a **stop-and-report**: it means the fit-size
   layout moved, and R9 says it must not.
   Do not run `cargo fmt`.
+  **Sign-off additions (2026-09-22)**: (a) `Config` does not derive
+  `PartialEq`, so where a test checks that `sizes_from_minimum()` contains both
+  `fit_sizes()`, compare the fields rather than using `.contains` (or add the
+  derive and say so). (b) Two more docs become false and are yours: the
+  dominates test's comment (`layout.rs` ~918) "fails if the fraction, HEADER_H
+  or FOOTER_H is ever touched" — after R9 neither constant affects the art's
+  area — and `venue.rs`'s `HINT` doc "on the last row", false above 31 rows.
+  (c) The brief edits in (e) include at least these three, named so none is
+  missed: the heading "…and that it is **not** spec 029's work" (~278); "pick
+  the widest asset… and centre it" (~285), false under box-fits-art; and "None
+  of that is built in spec 029… deferred art spec's job" (~322–325).
   *Verify: the constitution's full command, verbatim; `git diff --stat` lists
-  exactly the four files; `grep -nE "MARGIN_X|ART_W_NUM|ART_W_DEN|span_w"
-  src/layout.rs` empty; `grep -rn "the_venue_bands_stack_and_the_art_takes_the_rest"
+  exactly the four files; `grep -nwE "MARGIN_X|ART_W_NUM|ART_W_DEN|span_w"
+  src/layout.rs` empty — **word-match (`-w`)**, because the substring form also
+  matches `CampaignMapLayout`'s `FIELD_MARGIN_X`, which this task rightly leaves
+  alone, and so could never come back empty (sign-off B1, 2026-09-22); `grep -rn "the_venue_bands_stack_and_the_art_takes_the_rest"
   src/ specs/029-tournament-rounds/planet-art-brief.md` empty; the report gives
   the computed `art`, `portrait`, `header_y`, `action_y`, `hint_y` and `text_x`
   at all six sizes of §Design 4's R9 table, and maps every changed assertion to
@@ -1574,19 +1587,35 @@ the person an empty box they are about to see filled. -->
   shape; the orchestrator's bundle names the tool the art was authored with.
   **Existing assertions: none changes** — T014 only adds. An existing test that
   fails is a stop-and-report. Do not run `cargo fmt`.
+  **Sign-off additions (2026-09-22)**: (a) the `\r` assertion must run
+  **before** the item-4 palette check, or item 4 must iterate over `lines()` —
+  otherwise a CRLF file fails item 4 first and mutation check (ii) fails on the
+  wrong assertion, making the "real hole" claim untested. (b) Add a
+  **`.gitattributes`** line `assets/planets/*.txt -text`: Windows is a target
+  platform, Git for Windows defaults to `core.autocrlf=true`, and a CRLF checkout
+  would put `\r` in every embedded line — failing the new assertion and
+  mis-sizing the art. `.gitattributes` joins this task's file list.
   *Verify: the full command, verbatim; `cargo test --lib venue -- --list`
   shows the four new names; `git diff --stat` lists exactly the three files;
   `grep -c 'include_str!("../assets/planets/' src/campaign.rs` → 16;
-  `grep -nwE '48|92|20' src/venue.rs` → nothing (it returns nothing today) (AC 21: the canvas is derived,
+  `grep -nwE '48|92|20|50|94|22' src/venue.rs` → nothing (it returns nothing
+  today; widened at sign-off so the box sizes can't be restated either) (AC 21: the canvas is derived,
   not restated; `-w` rather than `\b`, for darwin's BSD grep). **Two mutation checks, each reported with the failing test's
   output**: (i) append one space to one line of one `-narrow` file → the
   checklist test fails, naming that file and the width; (ii) convert one file to
   CRLF (`perl -pi -e 's/\n/\r\n/'`) → the checklist test fails on the `\r`
   assertion, which is the hole `str::lines` would otherwise leave. Restore each
-  with `git checkout -- <file>` and show `git status --short` clean before
-  returning. Then the orchestrator: the Phase 6 review, then the walkthrough in
+  with `git checkout -- <file>` and show **`git status --short assets/planets`
+  empty** and `git diff --stat` still listing exactly this task's files before
+  returning. (Not the whole tree clean: the implementer never commits, so its
+  own edits always show — sign-off B2, 2026-09-22.) Then the orchestrator: the Phase 6 review, then the walkthrough in
   plan §Verification ("After the Phase 6 review"), then the pause for the
-  person's go/no-go.*
+  person's go/no-go. **Three things to put to them at that pause** (sign-off,
+  2026-09-22): plan §Open questions 7 (the art is drawn at the portraits' full
+  plain weight — dim it?), §Open questions 8 (on terminals taller than 31 rows
+  the whole venue is centred vertically, so the hint is no longer on the bottom
+  row), and the text of the new `design/brief.md` amendment recording the art as
+  the design record's second bounded exception.*
 
 ## Final phase — Spec close-out (walkthrough: none — documentation, mechanical checks and the pre-merge sweep; the person's walkthrough list above is what they walk at this phase)
 
@@ -1666,7 +1695,15 @@ the person an empty box they are about to see filled. -->
   follow-ups this spec deliberately deferred and named. *(R9)* **Per-planet venue
   art is no longer one of them** — it ships in this spec: remove it from the
   draft's follow-ups and record it with the shipped spec instead (each planet's
-  venue shows its own art, sixteen drawings, the box sized to the drawing).
+  venue shows its own art, sixteen drawings, the box sized to the drawing). **The refresh
+  must also correct**, since "everything it already records stays" would
+  otherwise carry R9-false text to `main` (sign-off, 2026-09-22): §1a's "holds a
+  plain placeholder" and "brief for the deferred art spec"; §1b's "per-planet
+  venue art… first concrete pieces"; §1c becomes **mark the existing `main`
+  bullet shipped** rather than removing or rewriting it (removal would leave
+  `main`'s stale deferred bullet standing); and §3's open question about a
+  bounded-exception amendment is **closed** — the orchestrator made it in
+  `design/brief.md` under R9.
   The follow-ups that remain: **per-planet music**
   (ruling Q, its own spec), **series-aware banter** (an opponent's match-start
   line now fires two or three times in a row), and **re-tuning the curve if the
@@ -1777,9 +1814,10 @@ the person an empty box they are about to see filled. -->
   note, §Design 12, the R9 bullets of §Tests, and `closeout-main-docs.md`'s diff
   since the first sweep. Beyond the diff it checks the one seam Phase 6 opens
   across phases: nothing from Phases 1–5 still assumes the art box grows with
-  the terminal — the brief, the tests' comments, `spec.md`'s own venue
-  paragraph and AC 16's "holding its placeholder" (the last two are the spec
-  session's to reconcile, not this task's; the sweep reports them).
+  the terminal — the brief and the tests' comments. (`spec.md`'s venue
+  paragraph and AC 16 were reconciled by the orchestrator before sign-off.)
+  The sweep bundle **also carries `design/brief.md`**, whose *Skeuomorphism
+  boundary* gained a second bounded exception for this art (sign-off B3).
   Apply `closeout-main-docs.md` on `main` after the merge. Never chain a
   file edit, a branch switch and a commit in one shell command (spec 025's miss).
   *Verify: three green tails, zero failures; every mechanical check listed with
