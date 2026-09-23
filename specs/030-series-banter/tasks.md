@@ -459,7 +459,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   `src/portrait.rs`, `src/layout.rs`, `src/venue.rs`, `src/app.rs`, with
   `app.rs` changed on the one draw-arm line.*
 
-- [ ] **T008** — `src/app.rs`: the venue line on arrival. Per plan §Design 5
+- [x] **T008** — `src/app.rs`: the venue line on arrival. Per plan §Design 5
   (*Phase 3*) and §Design tension 6. `fn arrive_at_campaign` with the plan's
   doc; it says its line with `self.say(line, Duration::ZERO)`, since a venue
   line has no event beat (amended, ruling 11A). `enter_campaign`'s and `launch_from_map`'s `self.open_campaign_home()`
@@ -739,3 +739,4 @@ redo, and why). -->
 | Phase 2 driven walkthrough (orchestrator) | claude-opus-5-5 (session) | — | — | — | — | pass on a scratch data dir at 139×31: Opening greeting; Leading, Trailing, Decider openers vs Greeb; series won (opponent) and series lost (player) end lines, final score held on the game-over frame (0–2, 1–2, 2–0), map banner unchanged with no score; cleared-planet rematch and Quick Play (re-driven after T006) show today's lines; The Sovereign All square at 1–1 and Decider at 2–2 |
 | Phase 2 review (skeptical-reviewer) | opus → claude-opus-5-5 | ~86K | 1 | — | 0 | **pass**; notes carried to the close-out notes |
 | T007 (sdd-implementer) | opus → claude-opus-5-5 | ~54K | 1 | yes | — | done; 519 lib tests, 0 warnings; VENUE_PANEL_H 17; six pinned venue portrait Rects +2 on y1, area comment 330→374, two venue draw calls gain `None` — all inside the sanctioned class |
+| T008 (sdd-implementer) | opus → claude-opus-5-5 | ~51K | 1 | yes | — | done; 519 lib tests, 0 warnings; greps as specified. Confirmed the game-over acknowledgement reaches `arrive_at_campaign` via `enter_campaign(false)` (Phase 1 review second look 1 closed). Note: the acknowledgement MenuSelect and the venue line first burble sound in the same tick |

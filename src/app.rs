@@ -824,6 +824,27 @@ impl App {
         }
     }
 
+    /// Open the campaign as an **arrival** (spec 030, ruling 3B): the screen
+    /// `open_campaign_home` derives, and — when that is the venue — the
+    /// opponent's line for where the series stands. Starting a series, every
+    /// menu entry and the game-over acknowledgement arrive; the Card Shop's and
+    /// the collection's Back call `open_campaign_home` directly, because
+    /// returning is not arriving.
+    fn arrive_at_campaign(&mut self) {
+        self.open_campaign_home();
+        if !matches!(self.screen, Screen::Venue { .. }) {
+            return;
+        }
+        let Some(series) = self.profile.campaign().series() else {
+            return;
+        };
+        // A venue line has no event to wait out, so it starts at once (ruling
+        // 11A); it avoids the last line said, as every pick does.
+        let pool = start_lines(banter_for(&series.opponent), Some(series_state(series)));
+        let line = pick(pool, self.banter_last, &mut rand::rng());
+        self.say(line, Duration::ZERO);
+    }
+
     /// Enter (resume) the campaign: discard a stray in-progress match save first
     /// (with a confirm) if one exists, else open the map. The pre-spec-014
     /// Start Campaign behavior, now shared by the no-progress path and
@@ -854,16 +875,17 @@ impl App {
     /// ante, else the victory notice if a run was just completed, else the
     /// first-run primer when the campaign was reached from the start menu
     /// (`from_menu`) and the primer is still unseen. The one seam all three
-    /// checks run at, and it runs whichever screen `open_campaign_home` opens
-    /// (spec 029): the three menu-entry paths pass `from_menu: true`, the
+    /// checks run at, and it arrives through `arrive_at_campaign` (specs 029 +
+    /// 030): the three menu-entry paths pass `from_menu: true`, the
     /// game-over acknowledgement passes `false` (a match's game-over is not a
     /// menu entry, spec 023), while Back from the shop or deck builder — which
-    /// returns to a screen already seen and cannot create a broke state — keeps
-    /// using `open_campaign_home`. The victory flag is **taken** here: the notice
+    /// returns to a screen already seen and cannot create a broke state — calls
+    /// `open_campaign_home` instead of `arrive_at_campaign`: returning is not
+    /// arriving, so it says no new line. The victory flag is **taken** here: the notice
     /// is owed exactly once per completion, and the acknowledgement is the only
     /// entry that can happen in the window between settling and showing it.
     fn enter_campaign(&mut self, from_menu: bool) {
-        self.open_campaign_home();
+        self.arrive_at_campaign();
         let victory_due = std::mem::take(&mut self.victory_due);
         let primer_due = from_menu && !self.profile.primer_seen();
         self.modal = campaign_entry_modal(self.profile.is_broke(), victory_due, primer_due);
@@ -977,8 +999,9 @@ impl App {
             self.profile.campaign_mut().begin_series(planet, opponent);
             self.profile.save();
             // Derived, not chosen: the lock is written, so the same function
-            // every other door asks now answers "the venue".
-            self.open_campaign_home();
+            // every other door asks now answers "the venue" — and starting a
+            // series is an arrival, so the opponent says a line there.
+            self.arrive_at_campaign();
         }
     }
 
@@ -2079,7 +2102,9 @@ impl App {
                 state.draw(frame, &self.config, &self.profile, self.banner.as_ref(), pulse)
             }
             Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
-            Screen::Venue { state } => state.draw(frame, &self.config, &self.profile, None, pulse),
+            Screen::Venue { state } => {
+                state.draw(frame, &self.config, &self.profile, line.as_deref(), pulse)
+            }
         }
 
         // The one open modal draws over the screen.
