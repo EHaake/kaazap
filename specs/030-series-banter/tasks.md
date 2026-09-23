@@ -681,6 +681,7 @@ remove it. The orchestrator writes these rows; nobody else. -->
 | Phase | Paused? | What the person walks — or why there is nothing |
 |---|---|---|
 | Phase 1 (with the 9A/10A/11A amendment) | yes, twice | Attested by the person, 2026-09-23. First listen: the murmur was "really, really quiet" (rulings 9A, 10A, 11A followed). Re-listen: "Murmur is good now and is correctly reflecting the settings" — **AC 9 approved**; Voices default set to 50% by ear (T002c). |
+| Phase 2 | yes | Attested by the person, 2026-09-23: "Banter lines are fine. Continue" — every new line read and kept as written. |
 
 ---
 
