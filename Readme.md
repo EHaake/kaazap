@@ -26,15 +26,15 @@ run is over.
 > campaign map** — travel a node-based star map, Outer Rim → Core, clearing
 > each world's opponents to unlock the next — and **a campaign economy**
 > (stake credits on every campaign match — a win pays double, a loss costs the
-> stake, and going broke ends the run in a full reset; a shop on the map sells
-> from a pool that unlocks by how far core-ward you've reached), and **opponent portraits** (a
-> low-resolution monochrome face for every opponent, shown beside the board
-> in-match and in the select/map previews), and **a Records overlay** (a
-> read-only "mastery" popup off the start menu — like How to Play / Settings —
-> showing per-opponent match/round win-loss, win streak, campaign completions,
-> and collection progress, split Quick Play / Campaign / overall / this-run) are
-> in place; the balance pass
-> and stretch features are what's ahead — see `ROADMAP.md` for the full picture.
+> stake, and going broke ends the run in a full reset; a **Card Shop** on the
+> map sells from a pool that unlocks by how far core-ward you've reached), and
+> **opponent portraits** (a low-resolution monochrome face for every opponent,
+> shown beside the board in-match and in the select/map previews), and **a
+> Records overlay** (a read-only "mastery" popup off the start menu — like How
+> to Play / Settings — showing per-opponent match/round win-loss, win streak,
+> campaign completions, and collection progress, split Quick Play / Campaign /
+> overall / this-run) are in place; the balance pass and stretch features are
+> what's ahead — see `ROADMAP.md` for the full picture.
 
 ## Building & running
 
@@ -76,14 +76,20 @@ from the Deck. Your side deck (the 10 cards your hand is dealt from in every mat
 must be a full 10 to start a match.
 
 From the start menu, **Start Campaign** opens a full-screen star map: travel
-between planets (arrows / `w`·`a`·`s`·`d`), and at each you play its opponents
-to clear it and unlock the way core-ward. Launching a match opens a **wager
-prompt** — pick your stake (arrows) above the opponent's minimum ante and
-**Enter** to commit; win and it comes back doubled, lose and it's gone. A world
-you've already cleared stays open for **rematches** against its final opponent,
-so you can grind small, safe bets to fund a card. If your credits ever drop
-below the cheapest ante on the map, the **run is over**: a full reset to the
-starter deck and a fresh purse. Once there is anything to affect — a world
+between planets (arrows / `w`·`a`·`s`·`d`), and at each you beat its opponents
+to clear it and unlock the way core-ward. Each opponent is a **series** — Best
+of 3, won by taking 2 matches, and the final opponent Best of 5, won by taking
+3 — played at the planet's **venue**, where you start each match, visit the
+Card Shop, open your collection, or quit to the menu. A series, once started,
+is played out: the map stays closed until you win it or lose it, and losing
+costs only the stakes already lost. Each match opens a **wager prompt** — pick
+your stake (arrows) above the opponent's minimum ante and **Enter** to commit;
+win and it comes back doubled, lose and it's gone. A world you've already
+cleared stays open for **rematches** against its final opponent, so you can
+grind small, safe bets to fund a card. If your credits ever drop below the
+cheapest ante on the map — or, mid-series, below the ante of the opponent
+you're locked against — the **run is over**: a full reset to the starter deck
+and a fresh purse. Once there is anything to affect — a world
 cleared, or a pool that has drifted from the starter's cards and purse — Start
 Campaign first offers three choices: **Continue** your run, begin a **New
 Campaign** — which resets the map while your cards and credits stay yours — or

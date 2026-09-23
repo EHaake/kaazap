@@ -9,7 +9,7 @@ use crate::{
         BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
     },
     board::BoardView,
-    campaign::{NodeRef, PLANETS, planet_by_id},
+    campaign::{NodeRef, PLANETS, Series, planet_by_id},
     campaign_map::{CampaignMapState, MapBanner, MapOutcome},
     card::Card,
     config::Config,
@@ -35,6 +35,7 @@ use crate::{
     settings::{Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
     stats::{RunStats, run_summary_lines},
+    venue::{VenueOutcome, VenueState},
     wager::{WagerOutcome, WagerState},
 };
 
@@ -316,7 +317,7 @@ enum Modal {
     DataNotice(Vec<String>),
     /// The first-run campaign primer (spec 023): raised over a freshly opened
     /// campaign map the first time the player reaches it from the start menu,
-    /// naming the stake loop and the outfitter. Unit-like — it carries no data;
+    /// naming the stake loop and the Card Shop. Unit-like — it carries no data;
     /// its text is compiled in with `include_str!` and rebuilt into lines on
     /// each draw, not re-read from disk. Enter/Space/Esc dismiss it, marking
     /// the profile so it shows once.
@@ -427,7 +428,7 @@ fn notice_dismissed(key: KeyCode) -> bool {
 /// win can never leave the player broke and the primer is menu-entry only, so
 /// the precedence never actually arbitrates — it is written down so it can't
 /// drift.
-fn map_entry_modal(broke: bool, victory_due: bool, primer_due: bool) -> Option<Modal> {
+fn campaign_entry_modal(broke: bool, victory_due: bool, primer_due: bool) -> Option<Modal> {
     if broke {
         Some(Modal::RunOver)
     } else if victory_due {
@@ -437,6 +438,16 @@ fn map_entry_modal(broke: bool, victory_due: bool, primer_due: bool) -> Option<M
     } else {
         None
     }
+}
+
+/// The series score the board shows (spec 029) — `None` unless this match is a
+/// match of the series in progress. A rematch has no series; a Quick Play match
+/// started mid-series has no campaign pointer; and a campaign pointer left over
+/// from another node is not this series. All three fall out of the same check.
+fn board_series_line(node: Option<&NodeRef>, series: Option<&Series>) -> Option<String> {
+    let (node, series) = (node?, series?);
+    (node.planet == series.planet && node.opponent == series.opponent)
+        .then(|| format!("Series {} – {}", series.player_wins, series.opponent_wins))
 }
 
 /// The victory notice's content (spec 024), title first and dismiss line last,
@@ -577,21 +588,24 @@ fn turn_key(key: KeyCode, player_turn: bool) -> TurnKey {
     }
 }
 
-/// Where the deck-builder's `Back` returns to — the menu or the campaign map.
+/// Where the deck-builder's `Back` returns to — the menu or the campaign.
 /// A pure mapping from the [`BuilderOrigin`] it was opened with (the
 /// `confirm_choice` pattern: a routing decision pulled out of the handler so it
 /// is unit-testable without an `App`, whose `screen` is private). The
-/// `BuildOutcome::Back` arm matches this to `start_menu()` vs. `open_campaign_map()`.
+/// `BuildOutcome::Back` arm matches this to `start_menu()` vs.
+/// `open_campaign_home()`, which is what decides *which* campaign screen
+/// `Campaign` lands on (spec 029) — this mapping names the campaign, not a
+/// screen.
 #[derive(Debug, PartialEq, Eq)]
 enum BackTo {
     Menu,
-    Map,
+    Campaign,
 }
 
 fn back_destination(origin: BuilderOrigin) -> BackTo {
     match origin {
         BuilderOrigin::Menu => BackTo::Menu,
-        BuilderOrigin::Map => BackTo::Map,
+        BuilderOrigin::Campaign => BackTo::Campaign,
     }
 }
 
@@ -742,21 +756,37 @@ impl App {
         };
     }
 
-    /// Open the shop (the campaign-map outfitter): a fresh cursor over the
-    /// current depth-gated pool. Back returns to the map.
+    /// Open the shop (the Card Shop, from the campaign map or the venue): a
+    /// fresh cursor over the current depth-gated pool. Back returns to whichever
+    /// of the two the campaign is on.
     fn open_shop(&mut self) {
         self.screen = Screen::Shop {
             state: ShopState::new(),
         };
     }
 
-    /// Open the campaign map at the run's current position. The Start Campaign
-    /// entry handles discarding a saved match first (with a confirm); this just
-    /// switches to the map screen.
-    fn open_campaign_map(&mut self) {
-        self.screen = Screen::CampaignMap {
-            state: CampaignMapState::new(&self.profile),
-        };
+    /// Open whichever screen the campaign's doors lead to right now (spec 029):
+    /// the venue while a series is in progress, else the map at the run's
+    /// current position. **The only place either screen is set** — the answer is
+    /// derived from the series lock rather than remembered by whoever is
+    /// returning, so there is no origin for a path to forget to set (spec 015's
+    /// return-path bug). The Start Campaign entry handles discarding a saved
+    /// match first (with a confirm); this just switches screens.
+    ///
+    /// Written as two assignment statements rather than one `if` expression so
+    /// that the invariant's check — `grep -nE "self\.screen =
+    /// Screen::(CampaignMap|Venue)" src/app.rs` — sees them: exactly two lines,
+    /// both here, is what says no other door keeps its own copy of the answer.
+    fn open_campaign_home(&mut self) {
+        if self.profile.campaign().series().is_some() {
+            self.screen = Screen::Venue {
+                state: VenueState::new(),
+            };
+        } else {
+            self.screen = Screen::CampaignMap {
+                state: CampaignMapState::new(&self.profile),
+            };
+        }
     }
 
     /// Enter (resume) the campaign: discard a stray in-progress match save first
@@ -780,27 +810,28 @@ impl App {
                 self.profile.campaign_mut().set_in_progress(None);
                 self.profile.save();
             }
-            self.enter_campaign_map(true);
+            self.enter_campaign(true);
         }
     }
 
-    /// Open the campaign map, then raise whatever the entry calls for (specs 021
+    /// Enter the campaign, then raise whatever the entry calls for (specs 021
     /// + 023 + 024): the run-over notice if the balance can no longer cover any
     /// ante, else the victory notice if a run was just completed, else the
-    /// first-run primer when the map was reached from the start menu
+    /// first-run primer when the campaign was reached from the start menu
     /// (`from_menu`) and the primer is still unseen. The one seam all three
-    /// checks run at: the three menu-entry paths pass `from_menu: true`, the
+    /// checks run at, and it runs whichever screen `open_campaign_home` opens
+    /// (spec 029): the three menu-entry paths pass `from_menu: true`, the
     /// game-over acknowledgement passes `false` (a match's game-over is not a
     /// menu entry, spec 023), while Back from the shop or deck builder — which
-    /// returns to a map already seen and cannot create a broke state — keeps
-    /// using `open_campaign_map`. The victory flag is **taken** here: the notice
+    /// returns to a screen already seen and cannot create a broke state — keeps
+    /// using `open_campaign_home`. The victory flag is **taken** here: the notice
     /// is owed exactly once per completion, and the acknowledgement is the only
     /// entry that can happen in the window between settling and showing it.
-    fn enter_campaign_map(&mut self, from_menu: bool) {
-        self.open_campaign_map();
+    fn enter_campaign(&mut self, from_menu: bool) {
+        self.open_campaign_home();
         let victory_due = std::mem::take(&mut self.victory_due);
         let primer_due = from_menu && !self.profile.primer_seen();
-        self.modal = map_entry_modal(self.profile.is_broke(), victory_due, primer_due);
+        self.modal = campaign_entry_modal(self.profile.is_broke(), victory_due, primer_due);
     }
 
     /// Route a key to the run-over notice: Enter/Space acknowledge, wiping to a
@@ -879,7 +910,7 @@ impl App {
     /// Reset per `scope` and open a fresh campaign map — the New Campaign and
     /// Reset Everything actions (spec 024), reachable only from the start menu's
     /// `ConfirmReset`. A menu entry, so it goes through
-    /// `enter_campaign_map(true)`: the broke check runs there (a map-only reset
+    /// `enter_campaign(true)`: the broke check runs there (a map-only reset
     /// keeps the purse, which may no longer cover the fresh map's cheapest ante),
     /// and the primer shows here if it has not been seen yet.
     fn start_fresh_campaign(&mut self, scope: ResetScope) {
@@ -888,43 +919,93 @@ impl App {
             ResetScope::Everything => self.reset_run(),
         }
         self.audio.play(Sfx::MenuSelect);
-        self.enter_campaign_map(true);
+        self.enter_campaign(true);
     }
 
-    /// The pre-match gate for a campaign node (both ids): uphold `start_match`'s
-    /// deck-valid precondition (diverting to the deck-builder if the deck is
-    /// incomplete), refuse the launch outright when the balance can't cover the
-    /// node's ante floor (spec 021), and otherwise open the wager prompt — the
-    /// match itself starts when the player commits a stake there.
-    fn launch_campaign_node(&mut self, planet: &str, opponent: &str) {
+    /// A launch from the map (spec 029): a planet whose next opponent is not yet
+    /// beaten **starts a series** and opens the venue, staking nothing (ruling
+    /// J1); a cleared planet launches its final opponent as a single staked
+    /// rematch, straight to the wager prompt exactly as before (rulings F1/L1).
+    /// `is_opponent_beaten` is the discriminator, so The Anvil's second opponent
+    /// still starts a series while a cleared Anvil rematches. The deck guard is
+    /// first either way — `start_match`'s deck-valid precondition holds for both
+    /// paths, and fixing an incomplete deck mid-campaign returns to the campaign
+    /// rather than the menu (spec 015 return-path fix).
+    fn launch_from_map(&mut self, planet: &str, opponent: &str) {
         if !self.profile.deck_is_valid() {
-            // Origin is the map: fixing an incomplete deck mid-campaign returns
-            // to the campaign map, not the menu (spec 015 return-path fix).
-            self.open_deck_builder(BuilderOrigin::Map);
-        } else if let Some(opp) = opponent_by_id(opponent)
+            self.open_deck_builder(BuilderOrigin::Campaign);
+        } else if self.profile.campaign().is_opponent_beaten(planet, opponent) {
+            self.open_wager(planet, opponent);
+        } else if !self.refuse_uncovered(economy::ante_floor_for(opponent)) {
+            // Checked before the lock is written: a series the balance can't
+            // cover would strand the player at a venue whose Play refuses.
+            self.profile.campaign_mut().begin_series(planet, opponent);
+            self.profile.save();
+            // Derived, not chosen: the lock is written, so the same function
+            // every other door asks now answers "the venue".
+            self.open_campaign_home();
+        }
+    }
+
+    /// Play the current series' next match (spec 029): the venue's `Play`. The
+    /// deck guard, then the same wager prompt the map's rematch path opens, for
+    /// the locked series' node — so every match of a series is staked from the
+    /// venue (ruling J1) and declining lands back on it (AC 4). A no-op with no
+    /// series running, which the venue's existence already rules out.
+    fn play_series_match(&mut self) {
+        if !self.profile.deck_is_valid() {
+            self.open_deck_builder(BuilderOrigin::Campaign);
+            return;
+        }
+        let Some((planet, opponent)) = self
+            .profile
+            .campaign()
+            .series()
+            .map(|s| (s.planet.clone(), s.opponent.clone()))
+        else {
+            return;
+        };
+        self.open_wager(&planet, &opponent);
+    }
+
+    /// The pre-match gate for a campaign node (both ids), minus the deck guard
+    /// its two callers do: refuse the launch outright when the balance can't
+    /// cover the node's ante floor (spec 021), and otherwise open the wager
+    /// prompt — the match itself starts when the player commits a stake there.
+    /// The prompt is a modal over whichever screen asked, so backing out lands
+    /// back there with nothing staked.
+    fn open_wager(&mut self, planet: &str, opponent: &str) {
+        if let Some(opp) = opponent_by_id(opponent)
             && let Some(planet) = planet_by_id(planet)
         {
             let floor = economy::ante_floor(opp.stand_threshold);
-            if self.profile.credits() < floor {
-                // Unaffordable: no prompt opens and nothing is staked — the map
-                // says why (spec 021, AC2).
-                self.banner = Some(MapBanner::CantCover { floor });
-                self.audio.play(Sfx::MenuBack);
-            } else {
+            if !self.refuse_uncovered(floor) {
                 // The prompt gates on the full balance, so an all-in stake is
                 // always reachable and `stake_match` can never refuse.
                 self.modal = Some(Modal::Wager(WagerState::new(
                     planet,
                     opp,
                     self.profile.credits(),
-                    economy::cheapest_floor(self.profile.campaign()),
+                    economy::reserve_after_a_loss(self.profile.campaign(), planet.id, opp.id),
                 )));
             }
         }
     }
 
+    /// Refuse a launch the balance can't cover (spec 021): the map's banner and
+    /// the back cue — nothing staked, nothing locked. True when it refused.
+    fn refuse_uncovered(&mut self, floor: u32) -> bool {
+        if self.profile.credits() < floor {
+            self.banner = Some(MapBanner::CantCover { floor });
+            self.audio.play(Sfx::MenuBack);
+            true
+        } else {
+            false
+        }
+    }
+
     /// Route a key to the open wager prompt: ←/→ walk the stake, Esc backs out
-    /// to the map with nothing staked, Enter commits — closing the prompt and
+    /// to the map or the venue (whichever opened it) with nothing staked, Enter commits — closing the prompt and
     /// starting the match against the chosen node with the stake escrowed
     /// (spec 021).
     fn handle_wager_input(&mut self, key: KeyCode) {
@@ -942,6 +1023,7 @@ impl App {
                     planet: state.planet_id().to_string(),
                     opponent: state.opponent().id.to_string(),
                     stake: state.stake(),
+                    settled: false,
                 };
                 let opponent = state.opponent();
                 self.modal = None;
@@ -1234,12 +1316,13 @@ impl App {
                     Screen::InGame { .. } => {
                         Some(Modal::Help(Overlay::new(OverlayKind::GameHelp, self.config)))
                     }
-                    // The select, deck-builder, map, and shop screens carry
+                    // The select, deck-builder, map, shop and venue screens carry
                     // their own on-screen hint lines, so ? opens no overlay there.
                     Screen::OpponentSelect { .. }
                     | Screen::DeckBuilder { .. }
                     | Screen::CampaignMap { .. }
-                    | Screen::Shop { .. } => None,
+                    | Screen::Shop { .. }
+                    | Screen::Venue { .. } => None,
                 };
             }
 
@@ -1272,7 +1355,7 @@ impl App {
                 self.profile.campaign_mut().set_in_progress(None);
                 self.profile.save();
                 self.audio.play(Sfx::MenuSelect);
-                self.enter_campaign_map(false);
+                self.enter_campaign(false);
                 return;
             }
 
@@ -1373,12 +1456,13 @@ impl App {
                         }
                         // Return to wherever the builder was opened from: the
                         // menu, or — correcting a pre-existing bug — the campaign
-                        // map when a mid-campaign divert sent us here.
+                        // when a mid-campaign divert sent us here (which campaign
+                        // screen is derived, spec 029).
                         Some(BuildOutcome::Back) => {
                             self.audio.play(Sfx::MenuBack);
                             match back_destination(origin) {
                                 BackTo::Menu => self.screen = self.start_menu(),
-                                BackTo::Map => self.open_campaign_map(),
+                                BackTo::Campaign => self.open_campaign_home(),
                             }
                         }
                         None => {}
@@ -1403,7 +1487,7 @@ impl App {
                             // discarded any saved match (the prompt lives at
                             // entry), so a launch from the map never overwrites one.
                             self.audio.play(Sfx::MenuSelect);
-                            self.launch_campaign_node(planet, opponent);
+                            self.launch_from_map(planet, opponent);
                         }
                         Some(MapOutcome::OpenShop) => {
                             self.audio.play(Sfx::MenuSelect);
@@ -1411,7 +1495,7 @@ impl App {
                         }
                         Some(MapOutcome::OpenDeckBuilder) => {
                             self.audio.play(Sfx::MenuSelect);
-                            self.open_deck_builder(BuilderOrigin::Map);
+                            self.open_deck_builder(BuilderOrigin::Campaign);
                         }
                         Some(MapOutcome::Back) => {
                             self.audio.play(Sfx::MenuBack);
@@ -1435,7 +1519,33 @@ impl App {
                     }
                     Some(ShopOutcome::Back) => {
                         self.audio.play(Sfx::MenuBack);
-                        self.open_campaign_map();
+                        self.open_campaign_home();
+                    }
+                    None => {}
+                },
+
+                // The tournament venue (spec 029): where a series in progress is
+                // played from. Play stakes the locked series' next match through
+                // the wager prompt; the Card Shop and the collection are reached
+                // from here and return here, because their Back asks
+                // `open_campaign_home` and the series is still locked.
+                Screen::Venue { state } => match state.handle_input(key) {
+                    Some(VenueOutcome::Moved) => self.audio.play(Sfx::MenuMove),
+                    Some(VenueOutcome::Play) => {
+                        self.audio.play(Sfx::MenuSelect);
+                        self.play_series_match();
+                    }
+                    Some(VenueOutcome::OpenShop) => {
+                        self.audio.play(Sfx::MenuSelect);
+                        self.open_shop();
+                    }
+                    Some(VenueOutcome::OpenCollection) => {
+                        self.audio.play(Sfx::MenuSelect);
+                        self.open_deck_builder(BuilderOrigin::Campaign);
+                    }
+                    Some(VenueOutcome::QuitToMenu) => {
+                        self.audio.play(Sfx::MenuBack);
+                        self.screen = self.start_menu();
                     }
                     None => {}
                 },
@@ -1528,7 +1638,7 @@ impl App {
                         self.profile.campaign_mut().set_in_progress(None);
                         self.profile.save();
                         self.has_save = false;
-                        self.enter_campaign_map(true);
+                        self.enter_campaign(true);
                     }
                     None => self.audio.play(Sfx::MenuBack),
                 }
@@ -1761,7 +1871,10 @@ impl App {
             if let Some(settlement) =
                 self.profile.resolve_match(opponent_id, player_won, player_rounds, opp_rounds)
             {
-                self.banner = Some(MapBanner::Settled(settlement.outcome));
+                self.banner = Some(MapBanner::Settled {
+                    outcome: settlement.outcome,
+                    series: settlement.series,
+                });
                 // The completion edge is a one-shot signal, not a saved flag
                 // (spec 024): it waits here until the acknowledgement opens the
                 // map, which is what raises the victory notice.
@@ -1802,7 +1915,7 @@ impl App {
                 return None;
             }
             match &self.banner {
-                Some(MapBanner::Settled(StakeOutcome::Won(n) | StakeOutcome::Lost(n))) => Some(*n),
+                Some(MapBanner::Settled { outcome: StakeOutcome::Won(n) | StakeOutcome::Lost(n), .. }) => Some(*n),
                 _ => None,
             }
         })
@@ -1818,11 +1931,14 @@ impl App {
         match &self.screen {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
+                let campaign = self.profile.campaign();
+                let series = board_series_line(campaign.in_progress(), campaign.series());
                 self.board_view.draw(
                     game_state,
                     cursor,
                     self.banter,
                     self.stake_to_show(),
+                    series.as_deref(),
                     pulse,
                     self.settings.animations.then_some(&self.motion),
                     frame,
@@ -1834,6 +1950,7 @@ impl App {
                 state.draw(frame, &self.config, &self.profile, self.banner.as_ref(), pulse)
             }
             Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
+            Screen::Venue { state } => state.draw(frame, &self.config, &self.profile, pulse),
         }
 
         // The one open modal draws over the screen.
@@ -2203,10 +2320,11 @@ mod tests {
     fn back_destination_routes_each_origin_to_its_screen() {
         // The deck-builder's `Back` returns to where it was opened from (spec
         // 015). This pure seam is the whole routing decision — the arm's match
-        // on it is a fixed dispatch — so flipping either arm here (Menu → Map or
-        // Map → Menu) is caught, including the campaign-divert-returns-to-map fix.
+        // on it is a fixed dispatch — so flipping either arm here (Menu →
+        // Campaign or Campaign → Menu) is caught, including the
+        // campaign-divert-returns-to-the-campaign fix.
         assert_eq!(back_destination(BuilderOrigin::Menu), BackTo::Menu);
-        assert_eq!(back_destination(BuilderOrigin::Map), BackTo::Map);
+        assert_eq!(back_destination(BuilderOrigin::Campaign), BackTo::Campaign);
     }
 
     #[test]
@@ -2603,18 +2721,46 @@ mod tests {
     }
 
     #[test]
-    fn map_entry_modal_prefers_run_over_then_victory_then_primer() {
+    fn the_board_shows_a_score_only_for_a_series_match() {
+        let node = |planet: &str, opponent: &str| NodeRef {
+            planet: planet.to_string(),
+            opponent: opponent.to_string(),
+            stake: 20,
+            settled: false,
+        };
+        let series = Series {
+            planet: "cinder".to_string(),
+            opponent: "greeb".to_string(),
+            player_wins: 1,
+            opponent_wins: 0,
+        };
+        // A match of the series in progress: the running score.
+        assert_eq!(
+            board_series_line(Some(&node("cinder", "greeb")), Some(&series)),
+            Some("Series 1 – 0".to_string())
+        );
+        // Quick Play started mid-series: no campaign pointer, series still live.
+        assert_eq!(board_series_line(None, Some(&series)), None);
+        // A rematch: a campaign pointer, no series.
+        assert_eq!(board_series_line(Some(&node("cinder", "greeb")), None), None);
+        // A stale pointer from another node is not this series.
+        assert_eq!(board_series_line(Some(&node("cinder", "other")), Some(&series)), None);
+        assert_eq!(board_series_line(Some(&node("elsewhere", "greeb")), Some(&series)), None);
+    }
+
+    #[test]
+    fn campaign_entry_modal_prefers_run_over_then_victory_then_primer() {
         // One modal at a time (specs 023 + 024): broke wins over everything, a
         // completed run wins over the primer, and the primer shows only while it
         // is due. The first two cases never actually arise together in play — a
         // completing win can't leave the player broke, and the primer is
         // menu-entry only — so the order is pinned here rather than left to
         // drift.
-        assert!(matches!(map_entry_modal(true, true, true), Some(Modal::RunOver)));
-        assert!(matches!(map_entry_modal(true, false, false), Some(Modal::RunOver)));
-        assert!(matches!(map_entry_modal(false, true, true), Some(Modal::Victory)));
-        assert!(matches!(map_entry_modal(false, false, true), Some(Modal::Primer)));
-        assert!(map_entry_modal(false, false, false).is_none());
+        assert!(matches!(campaign_entry_modal(true, true, true), Some(Modal::RunOver)));
+        assert!(matches!(campaign_entry_modal(true, false, false), Some(Modal::RunOver)));
+        assert!(matches!(campaign_entry_modal(false, true, true), Some(Modal::Victory)));
+        assert!(matches!(campaign_entry_modal(false, false, true), Some(Modal::Primer)));
+        assert!(campaign_entry_modal(false, false, false).is_none());
     }
 
     #[test]
@@ -2873,9 +3019,13 @@ mod tests {
             app.profile.campaign_mut().set_in_progress(Some(NodeRef {
                 planet: "cinder".to_string(),
                 opponent: "greeb".to_string(),
-                stake: 0, // settled: the escrow is already taken
+                stake: 0, // unstaked: this test never settles
+                settled: false,
             }));
-            app.banner = Some(MapBanner::Settled(StakeOutcome::Won(30)));
+            app.banner = Some(MapBanner::Settled {
+                outcome: StakeOutcome::Won(30),
+                series: crate::campaign::SeriesOutcome::NotInSeries,
+            });
             let mut game_state = GameState::new();
             game_state.game_phase = GamePhase::GameOver { winner: Player::Player };
             app.screen = Screen::InGame {
@@ -3082,14 +3232,18 @@ mod tests {
     #[test]
     fn the_primer_swallows_map_keys() {
         // Spec 023: nothing on the campaign map can be acted on while the primer
-        // is up. The map keys that would open the outfitter or the deck builder,
+        // is up. The map keys that would open the Card Shop or the deck builder,
         // move the cursor, or go Back all leave the screen and the modal exactly
         // as they were — which is what is asserted here (the map's cursor field
         // is private to campaign_map.rs, so it is covered by that module's own
         // tests rather than here). Only non-dismiss keys are pressed, so nothing
-        // writes to disk.
+        // writes to disk. The profile is reset to the default first (the pattern
+        // the board tests here use), because `open_campaign_home` derives the
+        // screen from the run's series (spec 029) and an ambient profile with one
+        // in progress would open the venue instead of the map.
         let mut app = App::new(Config { num_cols: 120, num_rows: 40 });
-        app.open_campaign_map();
+        app.profile = Profile::default();
+        app.open_campaign_home();
         app.modal = Some(Modal::Primer);
 
         for k in [KeyCode::Char('b'), KeyCode::Char('c'), KeyCode::Up, KeyCode::Char('x')] {

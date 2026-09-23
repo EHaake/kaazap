@@ -105,14 +105,16 @@ fn other(panel: Panel) -> Panel {
 
 /// Where the deck-builder was opened from, so `Back` returns there. The three
 /// entry points funnel through the app's `open_deck_builder(origin)`, and the
-/// `BuildOutcome::Back` arm routes on this — the menu vs. the campaign map. It
+/// `BuildOutcome::Back` arm routes on this — the menu vs. the campaign. It
 /// also fixes a pre-existing bug where the campaign-launch "incomplete deck"
-/// divert dropped the player on the *menu* instead of the map (`spec.md`,
-/// "Return-path correction").
+/// divert dropped the player on the *menu* instead of the campaign (`spec.md`,
+/// "Return-path correction"). `Campaign` names the campaign, not the map:
+/// which campaign screen `Back` lands on is derived from the series lock by
+/// the app's `open_campaign_home` (spec 029), so this carries no screen.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum BuilderOrigin {
     Menu,
-    Map,
+    Campaign,
 }
 
 #[derive(Debug)]
@@ -120,7 +122,7 @@ pub struct DeckBuilderState {
     active: Panel,
     collection_cursor: usize, // slot index into ALL_SIDE_CARDS (0..15)
     deck_cursor: usize,       // slot index into ALL_SIDE_CARDS (0..15)
-    origin: BuilderOrigin,    // where Back returns to (menu vs. campaign map)
+    origin: BuilderOrigin,    // where Back returns to (menu vs. the campaign)
 }
 
 impl Default for DeckBuilderState {
@@ -130,7 +132,7 @@ impl Default for DeckBuilderState {
 }
 
 impl DeckBuilderState {
-    /// A fresh builder opened from `origin` (the menu or the campaign map),
+    /// A fresh builder opened from `origin` (the menu or the campaign),
     /// which `Back` returns to. Focus defaults to the Collection with the cursor
     /// at slot 0; since `new` has no profile, the actual *present* slot is
     /// resolved lazily — the draw display-cursor and the `handle_input`
@@ -146,7 +148,7 @@ impl DeckBuilderState {
     }
 
     /// Where this builder was opened from — the app's `Back` arm routes on it
-    /// (the menu vs. the campaign map).
+    /// (the menu vs. the campaign).
     pub fn origin(&self) -> BuilderOrigin {
         self.origin
     }
@@ -713,10 +715,13 @@ mod tests {
     #[test]
     fn new_records_the_origin_for_back_routing() {
         // The origin is what the app's `Back` arm routes on: a builder opened
-        // from the campaign map must return there, not to the menu (the
+        // from the campaign must return there, not to the menu (the
         // pre-existing divert bug spec 015 fixes). Both variants, so flipping
         // the field's initialization is caught.
-        assert_eq!(DeckBuilderState::new(BuilderOrigin::Map).origin(), BuilderOrigin::Map);
+        assert_eq!(
+            DeckBuilderState::new(BuilderOrigin::Campaign).origin(),
+            BuilderOrigin::Campaign
+        );
         assert_eq!(DeckBuilderState::new(BuilderOrigin::Menu).origin(), BuilderOrigin::Menu);
     }
 }

@@ -174,6 +174,22 @@ spirit of the game's original planet names. (Human-ruled; recorded here per
 the "amend before contradicting" rule rather than letting a spec quietly
 break the principle.)
 
+**Amendment (spec 029 — per-planet venue art).** A second bounded exception,
+ruled by the person as spec 029's R9 (2026-09-22): each planet's tournament
+venue shows one picture of the place, so the venue reads as somewhere the
+player is standing. Bounded the way the portraits are — **static** (no
+animation); **venue-only** (nowhere else in the game); drawn **inside its one
+single-weight box** beside the opponent's portrait frame, the box sized exactly
+to the drawing; **no color** (depth from glyph density only); the portraits'
+glyph vocabulary plus four ASCII marks (`. ' * +`) for tiny features, no
+lettering and no discernible figures; and original places, no franchise
+imagery. Drawn at the portraits' plain weight unless the person rules
+otherwise at the spec's Phase 6 walkthrough. The art is authored outside the
+codebase from `specs/029-tournament-rounds/planet-art-brief.md` and validated
+by a test before it ships. (Human-ruled; recorded here per the "amend before
+contradicting" rule. The text is shown to the person at spec 029's Phase 6
+pause.)
+
 ## Screens to design
 
 Mapping to spec flows (details live in the spec, not here):

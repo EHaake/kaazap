@@ -1,8 +1,8 @@
 //! The shop screen: browse the whole card range, grouped by the region that
 //! opens it, and buy from the groups you've reached (spec 025).
 //! A full mode navigated *to* (a [`Screen`](crate::screen)), reached from the
-//! campaign map — the between-worlds outfitter, beside the campaign depth that
-//! gates its stock. Mirrors `opponent_select.rs`/`deck_builder.rs`: a cursor + an
+//! campaign map or, while a series is in progress, the venue — the
+//! between-worlds Card Shop, beside the campaign depth that gates its stock. Mirrors `opponent_select.rs`/`deck_builder.rs`: a cursor + an
 //! owned outcome enum + `draw(frame, config, profile, pulse)` + one app arm. The
 //! screen owns only the cursor; the tiers and prices come from [`economy`], the
 //! balance and collection from the [`Profile`], and a purchase is applied through
@@ -18,6 +18,22 @@ use crate::{
     frame::{Emphasis, Frame, draw_text, draw_text_centered},
     profile::Profile,
 };
+
+/// The shop screen's title, and the label the venue's action row shows for it
+/// (spec 029, amendment R2). One const, two readers: a button that says one
+/// thing and opens a screen headed another is the defect R2 exists to fix, and
+/// a shared const makes it unrepresentable rather than merely tested.
+pub const TITLE: &str = "Card Shop";
+
+/// The opening words of this screen's balance row, and the whole of the
+/// venue's credit row (spec 029, amendment R6). One function, two readers, for
+/// the same reason [`TITLE`] is one const: the venue's balance row exists to
+/// inform the trip to this screen, so the player meets the same four words and
+/// the same glyph on both, and nothing could have caught a drift between two
+/// literals — `draw` builds its row inline, so no test reaches it.
+pub fn credits_label(credits: u32) -> String {
+    format!("Credits: ◈ {credits}")
+}
 
 /// The three groups, in list order.
 const TIERS: [RegionTier; 3] = [RegionTier::Outer, RegionTier::Mid, RegionTier::Core];
@@ -152,7 +168,6 @@ impl ShopState {
     /// unlocks it), and one row per card (`label · price · owned`; the cursored
     /// row pulsing, locked and unaffordable rows dimmed) — and the controls hint.
     pub fn draw(&self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
-        const TITLE: &str = "Outfitter";
         const HINT: &str = "↑/↓ choose  ·  Enter buy  ·  Esc back";
 
         let credits = profile.credits();
@@ -164,8 +179,8 @@ impl ShopState {
         // The balance row also shows the *spendable* amount — credits minus the
         // ante reserve `Profile::can_afford` holds back — so a card dimmed while
         // `credits ≥ price` is explicable rather than mysterious (spec 021).
-        let spendable = credits.saturating_sub(economy::cheapest_floor(profile.campaign()));
-        let balance = format!("Credits: ◈ {credits}  ·  spendable ◈ {spendable}");
+        let spendable = credits.saturating_sub(economy::reserve_floor(profile.campaign()));
+        let balance = format!("{}  ·  spendable ◈ {spendable}", credits_label(credits));
         draw_text_centered(frame, center_x, title_y + 1, &balance, Emphasis::Strong);
 
         // Headings and rows share one left column so the list reads as a block
@@ -399,7 +414,8 @@ mod tests {
             assert!(list_top + LIST_ROWS < hint_y, "the list runs into the hint");
 
             // The balance row at an implausibly large balance fits centered.
-            let balance = format!("Credits: ◈ {}  ·  spendable ◈ {}", 99_999u32, 99_989u32);
+            let balance =
+                format!("{}  ·  spendable ◈ {}", credits_label(99_999), 99_989u32);
             let len = balance.chars().count();
             assert!(
                 (cols / 2).saturating_sub(len / 2) + len <= cols,

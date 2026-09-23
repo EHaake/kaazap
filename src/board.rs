@@ -281,7 +281,9 @@ impl BoardView {
     /// layout (spec 026) there is no panel, `banter` is not shown, and the
     /// stake moves to the status band's upper row. `motion` is the in-flight
     /// transitions (spec 027); `None` draws every element settled — the
-    /// Animations-off board.
+    /// Animations-off board. `series` is the running series score (spec 029)
+    /// — `None` outside a series match — drawn right-aligned on the status
+    /// band's lower row at both widths.
     ///
     pub fn draw(
         &self,
@@ -289,6 +291,7 @@ impl BoardView {
         cursor: &HandCursor,
         banter: Option<&str>,
         stake: Option<u32>,
+        series: Option<&str>,
         pulse: Emphasis,
         motion: Option<&BoardMotion>,
         frame: &mut Frame,
@@ -317,6 +320,11 @@ impl BoardView {
 
         // Status: the two-row band below the hand, left-aligned.
         self.draw_status(&alert, &base, self.layout.status, Align::Left, frame);
+        // The series score (spec 029): right-aligned on the band's lower row,
+        // clear of the left-aligned turn prompt, on both layouts.
+        if let Some(series) = series {
+            draw_text_in(frame, self.layout.status, 1, Align::Right, series, Emphasis::Strong);
+        }
 
         // Draw Round/Game Outcome if it exists — held back for the popup
         // beat after the round resolves (spec 027) so the deciding card is
@@ -626,7 +634,7 @@ mod tests {
         let config = Config { num_cols: cols, num_rows: 31 };
         let bv = BoardView::new(config);
         let mut frame = crate::frame::new_frame(&config);
-        bv.draw(gs, &HandCursor::default(), None, stake, Emphasis::Normal, motion, &mut frame);
+        bv.draw(gs, &HandCursor::default(), None, stake, None, Emphasis::Normal, motion, &mut frame);
         (bv, frame)
     }
 
@@ -664,6 +672,73 @@ mod tests {
         let chars: Vec<char> = row.chars().collect();
         let right: String = chars[stake_x0..=status.x1].iter().collect();
         assert_eq!(right, stake, "stake still ends the row at game over");
+    }
+
+    /// The widest series line the board can carry (spec 029): the score only,
+    /// one digit a side — the length lives at the venue and on the map.
+    const WIDEST_SERIES_LINE: &str = "Series 9 – 9";
+
+    /// The ± / tiebreaker prompt, the longest turn prompt there is.
+    fn longest_prompt_game() -> GameState {
+        let mut gs = GameState::new(); // PlayerTurn
+        gs.player.hand[0] = Some(Card::PlusMinus(6));
+        gs
+    }
+
+    #[test]
+    fn the_series_score_fits_beside_the_longest_turn_prompt() {
+        for config in Config::fit_sizes() {
+            let band = BoardLayout::new(config).status.width();
+            let gs = GameState::new();
+            let shapes = [
+                None,
+                Some(Card::Plus(6)),
+                Some(Card::Flip(crate::card::FlipKind::ThreeSix)),
+                Some(Card::PlusMinus(6)),
+                Some(Card::Tiebreaker),
+            ];
+            let longest = shapes
+                .into_iter()
+                .flat_map(|s| [true, false].map(|p| status_message(&gs, s, p).unwrap().0.chars().count()))
+                .max()
+                .unwrap();
+            let series = WIDEST_SERIES_LINE.chars().count();
+            assert!(
+                longest + 1 + series <= band,
+                "{}: prompt {longest} + blank + series {series} must fit the {band}-cell band",
+                config.num_cols
+            );
+        }
+    }
+
+    #[test]
+    fn the_compact_board_carries_the_series_score_clear_of_the_prompt() {
+        let gs = longest_prompt_game();
+        let config = Config { num_cols: 89, num_rows: 31 };
+        let bv = BoardView::new(config);
+        let mut frame = crate::frame::new_frame(&config);
+        let cursor = HandCursor::default();
+        bv.draw(&gs, &cursor, None, Some(40), Some(WIDEST_SERIES_LINE), Emphasis::Normal, None, &mut frame);
+        assert!(!bv.is_wide());
+        let status = bv.layout.status;
+
+        let (prompt, _) = status_message(&gs, Some(Card::PlusMinus(6)), cursor.pending_positive()).unwrap();
+        let series = WIDEST_SERIES_LINE;
+        let row = row_text(&frame, status.y0 + 1);
+        let chars: Vec<char> = row.chars().collect();
+        let left: String = chars[status.x0..status.x0 + prompt.chars().count()].iter().collect();
+        assert_eq!(left, prompt, "prompt starts at status.x0");
+        let series_x0 = status.x1 + 1 - series.chars().count();
+        let right: String = chars[series_x0..=status.x1].iter().collect();
+        assert_eq!(right, series, "series ends at status.x1");
+        let prompt_x1 = status.x0 + prompt.chars().count() - 1;
+        assert!(prompt_x1 < series_x0, "prompt ends left of the series");
+        for x in (prompt_x1 + 1)..series_x0 {
+            assert_eq!(chars[x], ' ', "cell {x} between prompt and series is blank");
+        }
+        for x in series_x0..=status.x1 {
+            assert_eq!(frame[x][status.y0 + 1].emphasis, Emphasis::Strong, "series cell {x} is Strong");
+        }
     }
 
     #[test]

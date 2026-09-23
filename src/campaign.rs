@@ -33,6 +33,13 @@ pub struct Planet {
     /// Planet ids that must all be cleared for this planet to unlock (empty =
     /// a start node, unlocked from the beginning).
     pub requires: &'static [&'static str],
+    /// The venue's art for this planet (spec 029, ruling R9), authored to
+    /// `specs/029-tournament-rounds/planet-art-brief.md`: the narrow drawing,
+    /// shown below `WIDE_LAYOUT_MIN_WIDTH` columns, and the wide one, from it
+    /// up. Each is exactly the venue's art box interior — AC 21's test checks
+    /// that against `VenueLayout`, not against the brief.
+    pub art_narrow: &'static str,
+    pub art_wide: &'static str,
 }
 
 /// The planet a fresh run begins on (the only one unlocked at the start).
@@ -58,6 +65,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.50,
         opponents: &["greeb"],
         requires: &[],
+        art_narrow: include_str!("../assets/planets/cinder-narrow.txt"),
+        art_wide: include_str!("../assets/planets/cinder-wide.txt"),
     },
     // Lane A: Scree → Karrus (the upper fork off Cinder).
     Planet {
@@ -69,6 +78,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.28,
         opponents: &["dax"],
         requires: &["cinder"],
+        art_narrow: include_str!("../assets/planets/scree-narrow.txt"),
+        art_wide: include_str!("../assets/planets/scree-wide.txt"),
     },
     // Lane B: Ashfall → Drift (the lower fork off Cinder).
     Planet {
@@ -80,6 +91,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.72,
         opponents: &["vessa"],
         requires: &["cinder"],
+        art_narrow: include_str!("../assets/planets/ashfall-narrow.txt"),
+        art_wide: include_str!("../assets/planets/ashfall-wide.txt"),
     },
     Planet {
         id: "karrus",
@@ -90,6 +103,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.36,
         opponents: &["nima"],
         requires: &["scree"],
+        art_narrow: include_str!("../assets/planets/karrus-narrow.txt"),
+        art_wide: include_str!("../assets/planets/karrus-wide.txt"),
     },
     Planet {
         id: "drift",
@@ -100,6 +115,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.64,
         opponents: &["toran"],
         requires: &["ashfall"],
+        art_narrow: include_str!("../assets/planets/drift-narrow.txt"),
+        art_wide: include_str!("../assets/planets/drift-wide.txt"),
     },
     // The rejoin: both lanes must be cleared to reach The Anvil.
     Planet {
@@ -111,6 +128,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.50,
         opponents: &["brakka", "kesh"],
         requires: &["karrus", "drift"],
+        art_narrow: include_str!("../assets/planets/the-anvil-narrow.txt"),
+        art_wide: include_str!("../assets/planets/the-anvil-wide.txt"),
     },
     Planet {
         id: "the-spindle",
@@ -121,6 +140,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.32,
         opponents: &["rix", "magistrate"],
         requires: &["the-anvil"],
+        art_narrow: include_str!("../assets/planets/the-spindle-narrow.txt"),
+        art_wide: include_str!("../assets/planets/the-spindle-wide.txt"),
     },
     Planet {
         id: "zenith",
@@ -131,6 +152,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.66,
         opponents: &["sovereign"],
         requires: &["the-spindle"],
+        art_narrow: include_str!("../assets/planets/zenith-narrow.txt"),
+        art_wide: include_str!("../assets/planets/zenith-wide.txt"),
     },
 ];
 
@@ -151,6 +174,60 @@ pub struct NodeRef {
     /// settles. Serde-defaulted, so a pre-021 profile loads with no stake.
     #[serde(default)]
     pub stake: u32,
+    /// Whether this match has already been settled (spec 029). Serde-defaults
+    /// to `false`, so a node written before this spec settles normally.
+    #[serde(default)]
+    pub settled: bool,
+}
+
+/// The series in progress (spec 029): the run of matches against one opponent
+/// on one planet that beats them. At most one exists at a time, and while one
+/// does it is the only campaign match the player may play — the **lock**.
+/// Cleared by the same reset paths that clear the rest of the run, because it
+/// is a plain field on [`CampaignRun`].
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Series {
+    pub planet: String,
+    pub opponent: String,
+    pub player_wins: u32,
+    pub opponent_wins: u32,
+}
+
+/// What a settled campaign match did to the series (spec 029).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SeriesOutcome {
+    /// A **rematch against an already-beaten opponent** — the only match that
+    /// belongs to no series, and the one case that settles exactly as it did
+    /// before this spec. A match against an un-beaten opponent never lands
+    /// here: if it arrives with no series running (a match left in flight
+    /// across the upgrade to this spec), one is started for it.
+    NotInSeries,
+    /// The tally moved; the series is still undecided.
+    Continues,
+    /// The player took the series: the opponent is beaten, now.
+    Won,
+    /// The opponent took it: the score is discarded, the opponent stays
+    /// un-beaten, nothing further is taken (ruling C1).
+    Lost,
+}
+
+/// The final opponent — the only best-of-five (ruling G1). One constant rather
+/// than a roster field: `opponent.rs` is balance data this spec must not touch,
+/// and a second `sovereign` would be a map bug, not a series rule.
+pub const FINAL_OPPONENT: &str = "sovereign";
+
+/// Match wins that take a series against `opponent`: 3 for the final opponent,
+/// 2 for everyone else (spec 029, ruling G1). Derived, never stored — a stored
+/// length would be a second source of truth an older or hand-edited save could
+/// contradict.
+pub fn wins_needed(opponent: &str) -> u32 {
+    if opponent == FINAL_OPPONENT { 3 } else { 2 }
+}
+
+/// What a launch from the map commits the player to, for the planet detail
+/// (spec 029): "Best of 3", or "Best of 5" for the final opponent.
+pub fn series_length_label(opponent: &str) -> &'static str {
+    if opponent == FINAL_OPPONENT { "Best of 5" } else { "Best of 3" }
 }
 
 /// The player's campaign progress: which opponents are beaten on each planet,
@@ -163,6 +240,13 @@ pub struct CampaignRun {
     beaten: BTreeMap<String, Vec<String>>,
     #[serde(default)]
     in_progress: Option<NodeRef>,
+    /// The series in progress (spec 029), if any. Its own field beside
+    /// `in_progress` rather than part of it: the pointer is cleared by a Quick
+    /// Play match and by the kill-with-no-save forfeit, and neither of those
+    /// ends a series. Serde-defaulted, so a pre-029 profile loads with none
+    /// running.
+    #[serde(default)]
+    series: Option<Series>,
     /// Flat per-run statistics (spec 020). Additive and serde-defaulted, so an
     /// older run loads with an empty tally; cleared for free on reset since it's
     /// a plain field on the run.
@@ -230,12 +314,105 @@ impl CampaignRun {
             .filter(|&stake| stake > 0)
     }
 
-    /// Take the in-flight stake out of escrow: return it and zero it, so it
-    /// can't be settled twice. 0 when no match is in flight.
-    pub fn take_stake(&mut self) -> u32 {
-        match self.in_progress.as_mut() {
-            Some(node) => std::mem::take(&mut node.stake),
-            None => 0,
+    /// Take this match's settlement — the node and its escrowed stake — **once**.
+    /// The first call marks the node settled and empties the escrow; every later
+    /// call returns `None`, so a second settlement pays nothing, moves no series
+    /// tally and beats nobody. Settling exactly once is therefore a property of
+    /// the data, not an ordering rule about who calls what: spec 021 bought that
+    /// for the payout by zeroing the escrow, and spec 029 extends it to
+    /// cover the series tally and [`Self::mark_beaten`], neither of which is
+    /// idempotent on its own. It does **not** cover `Profile::record_match`,
+    /// which runs before settlement — a second `resolve_match` would still
+    /// double-count statistics, as it would before this spec; that one is still
+    /// guarded only by the `GameOver` edge.
+    pub fn take_settlement(&mut self) -> Option<(NodeRef, u32)> {
+        let node = self.in_progress.as_mut()?;
+        if std::mem::replace(&mut node.settled, true) {
+            return None;
+        }
+        let stake = std::mem::take(&mut node.stake);
+        Some((node.clone(), stake))
+    }
+
+    /// The series in progress, if any.
+    pub fn series(&self) -> Option<&Series> {
+        self.series.as_ref()
+    }
+
+    /// Start a series against `opponent` on `planet`, at 0–0. Overwrites any
+    /// existing one; the lock means a second can't be reached (the map is the
+    /// only caller and is unreachable while locked).
+    pub fn begin_series(&mut self, planet: &str, opponent: &str) {
+        self.series = Some(Series {
+            planet: planet.to_string(),
+            opponent: opponent.to_string(),
+            player_wins: 0,
+            opponent_wins: 0,
+        });
+    }
+
+    /// Credit a settled match to the series in progress, in three cases and no
+    /// others:
+    ///
+    /// - **The series being played** — this node is the locked one. The
+    ///   winner's tally goes up by one, and if it reaches [`wins_needed`] the
+    ///   series ends and the lock is released; the score is discarded either
+    ///   way it ends.
+    /// - **A rematch** — the opponent is *already beaten*, so this match
+    ///   belongs to no series: [`SeriesOutcome::NotInSeries`], and nothing
+    ///   moves. This is the **only** case that returns it.
+    /// - **Anything else is a match against an un-beaten opponent with no
+    ///   series of its own**, which means a match left in flight across the
+    ///   upgrade to this spec. `spec.md` §Saving and resuming: it "resolves as
+    ///   the first match of a fresh series against that opponent" — so one is
+    ///   started here and credited (1–0, `Continues`). Without this the match
+    ///   would beat its opponent outright and clear a world in one.
+    ///
+    /// The test is therefore [`Self::is_opponent_beaten`], not whether a series
+    /// happens to exist: a beaten opponent is a rematch and an un-beaten one is
+    /// always in a series, so no settled match can beat an opponent who has not
+    /// lost one. (A *different* series running when that third case fires is
+    /// unreachable — the lock means only the locked node can be played — and it
+    /// is replaced rather than special-cased, because the alternative is a
+    /// variant that exists only for a state the design forbids.)
+    ///
+    /// Called once per match: [`Self::take_settlement`] is the guard.
+    pub fn record_series_match(
+        &mut self,
+        planet: &str,
+        opponent: &str,
+        player_won: bool,
+    ) -> SeriesOutcome {
+        if self.is_opponent_beaten(planet, opponent) {
+            return SeriesOutcome::NotInSeries;
+        }
+        let running = self
+            .series
+            .as_ref()
+            .is_some_and(|s| s.planet == planet && s.opponent == opponent);
+        if !running {
+            self.begin_series(planet, opponent);
+        }
+        let needed = wins_needed(opponent);
+        let series = self.series.as_mut().expect("a series was just begun");
+        if player_won {
+            series.player_wins += 1;
+        } else {
+            series.opponent_wins += 1;
+        }
+        let decided = if series.player_wins >= needed {
+            Some(SeriesOutcome::Won)
+        } else if series.opponent_wins >= needed {
+            Some(SeriesOutcome::Lost)
+        } else {
+            None
+        };
+        match decided {
+            Some(outcome) => {
+                self.series = None;
+                outcome
+            }
+            None => SeriesOutcome::Continues,
         }
     }
 
@@ -398,23 +575,25 @@ mod tests {
             planet: "scree".to_string(),
             opponent: "dax".to_string(),
             stake: 20,
+            settled: false,
         };
         let json = serde_json::to_string(&staked).unwrap();
         assert_eq!(serde_json::from_str::<NodeRef>(&json).unwrap(), staked);
     }
 
     #[test]
-    fn take_stake_empties_the_escrow_exactly_once() {
+    fn take_settlement_hands_over_the_match_exactly_once() {
         let mut run = CampaignRun::default();
-        // Nothing in flight: nothing at risk, nothing to take.
+        // Nothing in flight: nothing at risk, nothing to hand over.
         assert_eq!(run.stake_at_risk(), None);
-        assert_eq!(run.take_stake(), 0);
+        assert_eq!(run.take_settlement(), None);
 
         // An unstaked match in flight is still nothing at risk.
         run.set_in_progress(Some(NodeRef {
             planet: "cinder".to_string(),
             opponent: "greeb".to_string(),
             stake: 0,
+            settled: false,
         }));
         assert_eq!(run.stake_at_risk(), None);
 
@@ -422,11 +601,169 @@ mod tests {
             planet: "scree".to_string(),
             opponent: "dax".to_string(),
             stake: 20,
+            settled: false,
         }));
         assert_eq!(run.stake_at_risk(), Some(20));
-        assert_eq!(run.take_stake(), 20);
-        assert_eq!(run.take_stake(), 0, "the escrow settles only once");
+        let (node, stake) = run.take_settlement().expect("a match in flight hands itself over");
+        assert_eq!((node.planet.as_str(), node.opponent.as_str()), ("scree", "dax"));
+        assert_eq!(stake, 20);
+        assert_eq!(run.take_settlement(), None, "the match settles only once");
         assert_eq!(run.stake_at_risk(), None);
+    }
+
+    #[test]
+    fn a_pre_029_node_is_unsettled_and_unstaked() {
+        // A node written before this spec carries neither key...
+        let node: NodeRef =
+            serde_json::from_str(r#"{"planet":"cinder","opponent":"greeb"}"#).unwrap();
+        assert_eq!(node.stake, 0);
+        assert!(!node.settled, "a pre-029 node has not been settled");
+
+        // ...and still settles, exactly once.
+        let mut run = CampaignRun::default();
+        run.set_in_progress(Some(node));
+        let (handed, stake) = run.take_settlement().expect("a pre-029 node settles");
+        assert_eq!(handed.opponent, "greeb");
+        assert_eq!(stake, 0);
+        assert_eq!(run.take_settlement(), None, "the match settles only once");
+    }
+
+    #[test]
+    fn wins_needed_is_two_except_for_the_final_opponent() {
+        use crate::opponent::OPPONENTS;
+        for o in OPPONENTS {
+            let needed = if o.id == FINAL_OPPONENT { 3 } else { 2 };
+            assert_eq!(wins_needed(o.id), needed, "{} should need {needed} wins", o.id);
+        }
+        assert_eq!(series_length_label(FINAL_OPPONENT), "Best of 5");
+        assert_eq!(series_length_label("greeb"), "Best of 3");
+
+        // The final opponent is the last opponent of the last planet, so a map
+        // edit that retires the boss fails here rather than silently shortening
+        // the final series.
+        let last = PLANETS.last().expect("the map has planets");
+        assert_eq!(last.opponents.last().copied(), Some(FINAL_OPPONENT));
+    }
+
+    #[test]
+    fn a_series_resolves_only_at_the_required_wins() {
+        // Best of three, the player's way: 1–0, 1–1, and the second win takes it.
+        let mut run = CampaignRun::default();
+        run.begin_series("cinder", "greeb");
+        assert_eq!(run.record_series_match("cinder", "greeb", true), SeriesOutcome::Continues);
+        assert_eq!(run.record_series_match("cinder", "greeb", false), SeriesOutcome::Continues);
+        assert_eq!(
+            run.series(),
+            Some(&Series {
+                planet: "cinder".to_string(),
+                opponent: "greeb".to_string(),
+                player_wins: 1,
+                opponent_wins: 1,
+            }),
+        );
+        assert_eq!(run.record_series_match("cinder", "greeb", true), SeriesOutcome::Won);
+        assert_eq!(run.series(), None, "a decided series is cleared");
+
+        // Best of three, the opponent's way: 0–1, then 0–2 takes it.
+        let mut run = CampaignRun::default();
+        run.begin_series("scree", "dax");
+        assert_eq!(run.record_series_match("scree", "dax", false), SeriesOutcome::Continues);
+        assert_eq!(run.record_series_match("scree", "dax", false), SeriesOutcome::Lost);
+        assert_eq!(run.series(), None, "a lost series is discarded too");
+
+        // Best of five: two wins are not enough for the final opponent.
+        let mut run = CampaignRun::default();
+        run.begin_series("zenith", FINAL_OPPONENT);
+        assert_eq!(
+            run.record_series_match("zenith", FINAL_OPPONENT, true),
+            SeriesOutcome::Continues,
+        );
+        assert_eq!(
+            run.record_series_match("zenith", FINAL_OPPONENT, true),
+            SeriesOutcome::Continues,
+            "two wins take nobody on the final table",
+        );
+        assert_eq!(run.record_series_match("zenith", FINAL_OPPONENT, false), SeriesOutcome::Continues);
+        assert_eq!(run.record_series_match("zenith", FINAL_OPPONENT, true), SeriesOutcome::Won);
+        assert_eq!(run.series(), None);
+
+        // ...and the same length the other way.
+        let mut run = CampaignRun::default();
+        run.begin_series("zenith", FINAL_OPPONENT);
+        for _ in 0..2 {
+            assert_eq!(
+                run.record_series_match("zenith", FINAL_OPPONENT, false),
+                SeriesOutcome::Continues,
+            );
+        }
+        assert_eq!(run.record_series_match("zenith", FINAL_OPPONENT, false), SeriesOutcome::Lost);
+        assert_eq!(run.series(), None);
+    }
+
+    #[test]
+    fn a_match_in_flight_with_no_series_starts_one() {
+        // A match left in flight across the upgrade to this spec: no series, an
+        // un-beaten opponent, so it is the first match of a fresh series.
+        let mut run = CampaignRun::default();
+        assert_eq!(run.series(), None, "sanity: nothing running");
+        assert_eq!(run.record_series_match("cinder", "greeb", true), SeriesOutcome::Continues);
+        assert_eq!(
+            run.series(),
+            Some(&Series {
+                planet: "cinder".to_string(),
+                opponent: "greeb".to_string(),
+                player_wins: 1,
+                opponent_wins: 0,
+            }),
+        );
+
+        // The same call against an already-beaten opponent is a rematch.
+        let mut rematch = CampaignRun::default();
+        rematch.mark_beaten("cinder", "greeb");
+        assert_eq!(rematch.record_series_match("cinder", "greeb", true), SeriesOutcome::NotInSeries);
+        assert_eq!(rematch.series(), None, "a rematch starts no series");
+    }
+
+    #[test]
+    fn no_settled_match_beats_an_unbeaten_opponent_outright() {
+        // `NotInSeries` is the one outcome that settles as it did before this
+        // spec — the arm that could beat an opponent on a single win. Over the
+        // series being played, a settled match against a different un-beaten
+        // node, a match with no series at all, and a rematch, it is returned
+        // only when the opponent is already beaten.
+        let mut run = CampaignRun::default();
+        run.mark_beaten("cinder", "greeb");
+        run.begin_series("scree", "dax");
+        for (planet, opponent, player_won) in [
+            ("scree", "dax", true),      // the series being played
+            ("ashfall", "vessa", true),  // a different un-beaten node
+            ("karrus", "nima", false),   // no series of its own
+            ("cinder", "greeb", true),   // the rematch
+        ] {
+            let outcome = run.record_series_match(planet, opponent, player_won);
+            assert_eq!(
+                outcome == SeriesOutcome::NotInSeries,
+                run.is_opponent_beaten(planet, opponent),
+                "{opponent} on {planet}: NotInSeries means an already-beaten opponent, nothing else",
+            );
+        }
+    }
+
+    #[test]
+    fn a_campaign_run_round_trips_its_series() {
+        let mut run = CampaignRun::default();
+        run.mark_beaten("cinder", "greeb");
+        run.begin_series("scree", "dax");
+        assert_eq!(run.record_series_match("scree", "dax", false), SeriesOutcome::Continues);
+
+        let json = serde_json::to_string(&run).unwrap();
+        let loaded: CampaignRun = serde_json::from_str(&json).unwrap();
+        assert_eq!(loaded.series(), run.series(), "the series survives a save/load");
+        assert!(loaded.is_opponent_beaten("cinder", "greeb"));
+
+        // A pre-029 run has no `series` key and loads with none running.
+        let older: CampaignRun = serde_json::from_str(r#"{"beaten":{"cinder":["greeb"]}}"#).unwrap();
+        assert_eq!(older.series(), None);
     }
 
     #[test]
