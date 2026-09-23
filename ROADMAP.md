@@ -756,6 +756,14 @@ touches the stakes work below, so they can interleave freely.
   series the board already shows (`board_series_line`'s inputs). As with spec
   017, the real cost is the writing — ten voices and the fallback.
 
+- **The opponent's line on the compact board** (raised by the person
+  2026-09-23, during spec 030's planning). Below 139 columns the compact
+  board (spec 026) draws no presence panel, so the opponent's lines — and,
+  since spec 030, their spoken burble — are absent there. The direction: show
+  the line on the compact board without the portrait, and let it be spoken
+  there like everywhere else. A layout question first (where a 20-character
+  line fits on the 89-column board).
+
 ### Stakes, loss condition & difficulty balance (now being sequenced)
 
 Give failure teeth and make a better deck actually matter. Reworks spec 012's
