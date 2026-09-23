@@ -1469,7 +1469,8 @@ checklist, with the canvas **derived from the layout**, never restated:
   The file names in `assets/planets/` (read with `std::fs::read_dir` from
   `env!("CARGO_MANIFEST_DIR")` — read-only, the repo, never the data
   directory) equal exactly `{id}-narrow.txt` and `{id}-wide.txt` over `PLANETS`'
-  ids: no missing, extra or misnamed file. And each file's contents equal the
+  ids: no missing, extra or misnamed file, hidden files aside (the second
+  sweep's P1: a Finder `.DS_Store` is not a delivery). And each file's contents equal the
   embedded field for that planet, which pins the `include_str!` pairing (a
   swapped path would otherwise pass every other item).
 - **Item 2** — `drawing.ends_with('\n')` and `drawing.lines().count() == h`.

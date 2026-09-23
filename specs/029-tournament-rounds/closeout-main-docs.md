@@ -481,7 +481,8 @@ brought the art itself into the spec.
   they answered with R7 and continued, so the brief stood at sixteen with the
   alternative recorded. There is no deferred art spec now: **R9** took both
   questions into this spec — sixteen drawings were delivered, and the person
-  chose the loading rule from the four the brief priced.
+  chose a rule the brief had not priced — **the box fits the art** — over all
+  four it had.
 
 ### Two more rulings (the person, 2026-09-22)
 
@@ -533,7 +534,7 @@ brought the art itself into the spec.
 - **AC 21's checklist test derives its canvas from the venue's layout**
   (`VenueLayout::new(c).art` at each fit size) rather than restating 48, 92 and
   20 — which closes close-out note 37's concern that nothing tied the brief to
-  the code. The test runs the brief's items 1–6 (exact file set, 20 lines, one
+  the code. The test runs the brief's items 1–6 (exact set of visible files, 20 lines, one
   trailing newline, exact width in characters, the closed 23-character
   palette with its count asserted, distinct drawings) and checks for `\r`
   *before* the palette, so a CRLF file fails on the right assertion. Two
@@ -893,7 +894,7 @@ alongside them.
 | 50 | Balance-value gate half missing from the bundle | resolved | Closed by the orchestrator; re-checked in §5 |
 | 51 | Starter vs Rix drift ~2.8 SE | ROADMAP | §1e, the re-tuning follow-up |
 | 52 | `assets/CREDITS.md` named no art tool (a visible marker) | resolved | The person named **Opus 5.5** at the Phase 6 pause and it replaced the marker (`7e5fe11`); `grep -n "ART TOOL" assets/CREDITS.md` is empty (§5). Was a merge gate for the second sweep; no longer |
-| 53 | `.DS_Store` trap in AC 21's `read_dir` exact-match check | sweep | P1 (§4c) — the second sweep to rule |
+| 53 | `.DS_Store` trap in AC 21's `read_dir` exact-match check | resolved | P1 (§4c) — the second sweep ruled fix-now; **fixed on the branch** (T014a): hidden files are skipped, a misnamed file still fails |
 | 54 | `spec.md`'s brief paragraph still said the art non-goal "stands" | resolved | Corrected by the orchestrator with a pointer to R9 (`spec.md`, *A new deliverable*, "Superseded the next day by R9") |
 | 55 | The `.gitattributes` rationale half wrong in the record | DECISIONS | §2a, *R9* — the corrected reason (a CRLF checkout fails the `\r` assertion; it does not mis-size the art) |
 | 56 | `CREDITS.md`'s originality claims are untestable | DECISIONS | *Coverage, stated honestly* |
@@ -1054,7 +1055,8 @@ The first sweep's findings are closed (T011a, re-reviewed). The second sweep is
 the orchestrator's to dispatch, on the Phase 6 diff; this is what the close-out
 hands it from the notes:
 
-- **P1** [53] **A `.DS_Store` trap.** `every_planets_art_passes_the_briefs_checklist`
+- **P1** [53] **A `.DS_Store` trap.** *(Ruled fix-now by the second sweep and
+  fixed on the branch as T014a.)* `every_planets_art_passes_the_briefs_checklist`
   lists `assets/planets/` with `read_dir` and demands an exact match with the
   sixteen expected names, and `.gitignore` hides `.DS_Store` — so if Finder
   ever opens that folder, `cargo test` fails on this machine while

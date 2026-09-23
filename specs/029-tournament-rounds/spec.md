@@ -404,7 +404,8 @@ Two consequences the person ruled on directly when asked:
   art must work at two quite different sizes.
 
 **Still not in scope**: authoring the art. The region holds a plain
-placeholder in this spec. Whether it carries the planet's name was the open
+placeholder in this spec. (**Superseded by R9, 2026-09-22**: the region now
+holds each planet's own art, and the name is only a fallback.) Whether it carries the planet's name was the open
 choice this amendment left standing; the person **closed it the same day** —
 keep the label until there is real art. The *brief* for that art is a
 deliverable of this spec; see *Amendment, 2026-09-21 (second)*.

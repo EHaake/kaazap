@@ -5,9 +5,9 @@ planets' venue art** — the large picture the tournament venue screen is built
 around — so a more capable art tool (**Claude Design** or **Fable 5.1**) can
 produce it. Hand this whole file over as the prompt/spec. Claude Code (this
 project) keeps the layout, the geometry and the render path; it will **validate
-and integrate** whatever comes back. There is no baseline art to beat: the venue
-ships today with an empty bordered box carrying the planet's name as a
-placeholder, and this art replaces it.
+and integrate** whatever comes back. There was no baseline art to beat: when this
+brief was handed off, the venue showed an empty bordered box carrying the
+planet's name as a placeholder, and this art replaced it (spec 029, R9).
 
 Written the way spec 016's `specs/016-opponent-portraits/portrait-art-brief.md`
 was, and it is worth reading that file alongside this one — the format,

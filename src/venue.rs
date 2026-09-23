@@ -445,6 +445,8 @@ mod tests {
         let found: std::collections::BTreeSet<String> = std::fs::read_dir(&dir)
             .expect("assets/planets is readable")
             .map(|entry| entry.expect("a directory entry").file_name().into_string().expect("a UTF-8 name"))
+            // Hidden files (Finder's .DS_Store, say) are not deliveries.
+            .filter(|name| !name.starts_with('.'))
             .collect();
         let expected: std::collections::BTreeSet<String> = PLANETS
             .iter()

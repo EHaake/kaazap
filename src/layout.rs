@@ -903,8 +903,8 @@ mod tests {
     #[test]
     fn the_art_region_dominates_at_both_widths() {
         // AC 16's amended sentence: the art is the largest element on the
-        // screen at both widths, and strictly larger when the terminal is
-        // wider (1100 cells at 89 columns, 2068 at 139, against the panel's
+        // screen at both widths, and strictly larger at 139 columns than at
+        // 89 (1100 cells at 89 columns, 2068 at 139, against the panel's
         // 330 either way). And amendment R4's brief, as a band rather than as
         // two numbers that happen to satisfy it today: both are 15–20 % smaller
         // than R3's first attempt (1334 and 2484) — 17.5 % and 16.8 %.
