@@ -1,6 +1,9 @@
 # Tasks: Series-aware banter, spoken word by word — spec 030
 
-**Status**: Final — signed off 2026-09-23 (one review, one re-review)
+**Status**: Draft — pending sign-off (the Phase 1 amendment: T002a, T002b,
+T003a and the edits marked *amended*, from rulings 9A, 10A, 11A of
+2026-09-23). The list before it was final — signed off 2026-09-23 (one review,
+one re-review) — and T001–T003 are done against it.
 **Implements**: plan.md in this directory
 
 Ordered, small, independently verifiable. Each task should be completable (and
@@ -39,6 +42,8 @@ T004's pools, not on T005/T006.
 would inherit is T003 (the `App` speech seam). It is Phase 1's last task, so
 the phase review is the next thing that runs anyway, and a per-task review
 before it would buy nothing. Every task is covered by its phase review.
+(Amended: nor do T002a, T002b or T003a. They get one review of their own, as a
+set, after T003a, per plan §Verification *Review of the amendment*.)
 
 **Every phase header carries a `walkthrough:` marking** (the constitution's
 *Pause cadence*). Phases 1–3 each change what the player sees or hears; the
@@ -56,7 +61,7 @@ file (`assets/sfx/burble.wav`) that must be added by name.
 
 ---
 
-## Phase 1 — The line, spoken (foundational; walkthrough: at 139 columns or wider, start a Quick Play match — the opponent's greeting appears beside the portrait one word at a time, each word where it will sit in the finished line, each with a soft murmur; round, bust and match-end lines do the same. With Sound Effects at 0, or after `m`, the words still appear but make no sound. With Animations Off each line appears whole, with one murmur. Continue on a saved match shows no line until something happens. At 89 columns the board shows no line and makes no murmur, as before. **The murmur itself is the person's to approve by ear** (AC 9) — they may ask for it higher or lower, shorter, softer, rounder or buzzier, and each ask is a quick regenerate, not a redesign)
+## Phase 1 — The line, spoken (foundational; walkthrough: [amended at the Phase 1 pause] at 139 columns or wider, start a Quick Play match — the opponent's greeting appears beside the portrait one word at a time, each word where it will sit in the finished line, each with a murmur about as loud as a card being played and clearly heard over the music. Round, bust and match-end lines do the same, but their first word comes a short beat after the round's own sound, not on top of it; the popups come when they always did. Settings now has a **Voices** slider between Sound FX and Animations: moving it plays a murmur at the new level, Voices at 0 or `m` silences the murmur, Sound FX at 0 silences everything else but not the murmur, and the setting is still there after a restart. With Animations Off each line appears whole, with one murmur, after the same beat. Continue on a saved match shows no line until something happens. At 89 columns the board shows no line and makes no murmur, as before. **The murmur is the person's to approve by ear** (AC 9). The first listen found it too quiet and too early (rulings 9A, 10A, 11A), so this is a re-listen after the amendment; each further ask is a quick regenerate, not a redesign)
 
 - [x] **T001** — `src/lib.rs` + `src/banter.rs` + `src/portrait.rs` (tests
   only): the reveal, as pure logic. Per plan §Design 1–2 and §Design tensions
@@ -176,6 +181,146 @@ file (`assets/sfx/burble.wav`) that must be added by name.
   changed lines of `tick` verbatim. Then the
   orchestrator drives the Phase 1 walkthrough's items 1–4 (plan §Verification)
   on a scratch `KAAZAP_DATA_DIR` before the phase review.*
+
+### Phase 1 amendment (rulings 9A, 10A, 11A — the person, at the Phase 1 pause, 2026-09-23)
+
+Run in this order. T002b's test reads the Voices default that T002a adds.
+T003a stands alone. One review covers all three, after T003a (plan
+§Verification *Review of the amendment*). Then the orchestrator drives the
+amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
+
+- [ ] **T002a** — `src/settings.rs` + `src/audio.rs` + `src/app.rs` +
+  `tests/whole_file_write.rs` + `Readme.md`: the Voices volume (ruling 10A).
+  Per plan §Amendment, §Design tension 14, §Design 4 (the amended bullet),
+  §Design 5 (*Phase 1 amendment — the Voices preview*), §Design 10 (the amended
+  bullet) and §Design 11.
+  - `settings.rs`: field `voices_volume: f32` after `sfx_volume`, with
+    `#[serde(default = "default_voices_volume")]`, the plan's doc and `fn
+    default_voices_volume() -> f32 { 0.8 }`, set in `Default`.
+    `SettingRow::Voices` between `Sfx` and `Animations`, with `ROWS` in that
+    order. `adjust` steps and clamps it. `row_text` draws it with
+    `volume_row(marker, "Voices", …)`. `draw_overlay` has 8 content rows, the
+    hint on row 7, and its row-counting comments and docs updated.
+  - `audio.rs`: `fn sfx_level(muted, sfx, settings) -> Option<f32>` with the
+    plan's doc. `AudioState::play` gates and amplifies through it.
+    `should_play_sfx` and `should_music_sound` are untouched.
+    `Audio::set_settings`'s doc names Voices.
+  - `app.rs`: `handle_settings_input`'s `Left | Right` arm plays
+    `self.burble(0)` for `SettingRow::Voices` and `Sfx::MenuMove` otherwise,
+    with its comment updated.
+  - `Readme.md` line 19: "music/SFX volume" → "music/SFX/voice volume", keeping
+    the `> ` prefix, with no re-wrap.
+
+  New tests, per plan §Tests *Amendment tests*: in `settings.rs`,
+  `the_voices_volume_defaults_loads_and_persists`,
+  `adjust_steps_and_clamps_the_voices_volume` and
+  `the_voices_row_sits_between_sound_fx_and_animations`; in `audio.rs`,
+  `the_burble_follows_voices_and_nothing_else_does`.
+
+  **Superseded existing tests, and only these** (plan §Amendment):
+  - `settings_rows_move_over_three_rows_and_clamp` → renamed
+    `settings_rows_move_over_four_rows_and_clamp`, walking four rows;
+  - `the_animations_row_reads_on_or_off_and_fits`: its layout's `7` → `8`;
+  - the six full `Settings { … }` literals (`grep -rn 'Settings {' src
+    tests`) gain `voices_volume`. The three round-trip ones use 0.0/0.5/1.0.
+    The one in `settings_missing_or_legacy_fields_use_defaults` uses
+    `default_voices_volume()`. `tests/whole_file_write.rs` uses `0.5`.
+
+  Any other existing assertion that would move is stop-and-report. Do not run
+  `cargo fmt`. (Copies: the `sfx_volume` field, its default fn and its
+  `SettingRow::Sfx` arms; `should_play_sfx`;
+  `the_animations_row_reads_on_or_off_and_fits` for the drawn-overlay test;
+  `audio_gating_respects_mute_and_volume` for the gating test.)
+  *Verify: the full command, verbatim, green, no new warnings, the four new
+  tests passing by name, and the renamed one passing. `grep -n 'amplify('
+  src/audio.rs` returns exactly one line, in `AudioState::play`, amplifying by
+  the `sfx_level` volume. `grep -n 'self\.burble(' src/app.rs` returns
+  **exactly three**: `say`, `advance_speech`, the settings arm. `grep -n
+  'burble_cue(' src/app.rs` still returns exactly one. `git diff --stat` shows
+  exactly `src/settings.rs`, `src/audio.rs`, `src/app.rs`,
+  `tests/whole_file_write.rs`, `Readme.md`. `Readme.md`'s diff is one line
+  with its `> ` prefix. The report lists every changed existing test line with
+  old and new, each inside the superseded list above, and quotes `sfx_level`,
+  `AudioState::play`, the settings arm and the new field with its serde
+  attribute verbatim.*
+
+- [ ] **T002b** — `scripts/gen_sfx.py` + `assets/sfx/burble.wav` +
+  `src/audio.rs`: the burble as loud as the other sound effects (ruling 9A).
+  Per plan §Design tension 9 (rewritten), §Design 3 (the amended paragraph)
+  and §Tests *Amendment tests*. **Replace** `the_burble_is_softer_than_the_music`
+  with `the_burble_is_as_loud_as_the_other_sounds`, in the same place in the
+  tests module. It asserts the band against `CardDraw`, `CardPlay`, `Flip` and
+  `Stand` (whole-clip RMS, each scaled by its default volume), the floor over
+  the music's first-60-s RMS at default volumes, and the burble's peak `< 1.0`,
+  and it `println!`s every figure on lines that contain `rms` or `peak`. Update
+  the `BURBLE` block's leading comment (the new test's name) and `peak`'s
+  trailing comment, per plan §Design 3. **Set `peak`** so that the burble's RMS
+  lands at the mean RMS of the four move sounds. Say what you chose, and give
+  the arithmetic from the printed figures. No other `BURBLE` number and no
+  `BURBLE_PITCHES` entry changes. Regenerate with `python3 scripts/gen_sfx.py
+  burble` and **never the no-argument form**. **If the band and the floor
+  cannot both hold** with the measured figures, stop and report them. Do not
+  loosen either one. Do not run `cargo fmt`. (Copies: the replaced test's
+  decoding and 60 s window; `a_burble_ends_before_the_next_can_start`.)
+  *Verify: the full command, verbatim, green, no new warnings, the new test
+  passing by name, and `a_burble_ends_before_the_next_can_start` still passing.
+  **In addition to** (never instead of) the full command, run `cargo test -q
+  --lib the_burble_is_as_loud_as_the_other_sounds -- --nocapture 2>&1 | grep
+  -iE 'peak|rms|test result'` and quote every figure (the four move sounds'
+  RMS, the burble's RMS and peak, the music's RMS, the band and the floor),
+  plus the test's runtime. Quote the script's `wrote burble.wav (…s)` line.
+  `grep -rn 'the_burble_is_softer_than_the_music' src scripts` returns
+  nothing. `git status --porcelain assets/sfx` prints **exactly** ` M
+  assets/sfx/burble.wav`. `git diff --stat` shows exactly `scripts/gen_sfx.py`,
+  `src/audio.rs`, `assets/sfx/burble.wav`. No other existing assertion changes.
+  The report quotes the `BURBLE` block and the new test verbatim. The
+  orchestrator stages `assets/sfx/burble.wav` by path.*
+
+- [ ] **T003a** — `src/lib.rs` + `src/banter.rs` + `src/audio.rs` +
+  `src/app.rs`: the event beat (ruling 11A). Per plan §Design tension 13,
+  §Design 1 (the amended block), §Design 2 (the amended paragraph) and §Design
+  5 (*Phase 1 amendment — the event beat*).
+  - `lib.rs`: `pub const EVENT_BEAT_MS: u64 = 400;` directly below
+    `WORD_STEP_MS`, with the plan's comment.
+  - `banter.rs`: `Speech` gains the private field `wait: Duration` (`ZERO` from
+    `new`) and `pub fn after(self, wait: Duration) -> Self` with the plan's
+    doc. `advance`, `settle`, `words_shown` and `text` change as the plan's
+    four bullets say, with `advance`'s doc gaining its sentence. `new`'s
+    signature and behaviour do not change.
+  - `app.rs`: `say(&mut self, line, wait: Duration)`, building
+    `Speech::new(…).after(wait)` and burbling at once only when `words_shown()
+    > 0` and the line is visible, with the plan's doc clause. `start_match`
+    and `update_banter`'s rematch branch pass `Duration::ZERO`, and its event
+    branch passes `Duration::from_millis(EVENT_BEAT_MS)`. `advance_speech`,
+    `burble`, `line_visible` and `draw` do not change.
+
+  Tests, per plan §Tests *Amendment tests*: in `banter.rs`,
+  `the_event_beat_is_about_a_third_of_a_second`,
+  `a_line_after_a_beat_shows_nothing_until_the_beat_ends`,
+  `after_zero_is_the_line_at_once`,
+  `animations_off_after_a_beat_is_whole_with_one_burble`,
+  `a_line_settled_in_its_beat_is_whole_and_silent` and
+  `a_stalled_step_across_the_beat_shows_every_due_word_once`; in `audio.rs`,
+  `the_event_beat_outlasts_the_round_sounds`, which prints the `GameWin` and
+  `GameLoss` lengths without asserting them. Do not run `cargo fmt`. (Copies:
+  `WORD_STEP_MS` and its bounds test; T001's `Speech` tests;
+  `a_burble_ends_before_the_next_can_start` for decoding a clip's length.)
+  *Verify: the full command, verbatim, green, no new warnings, the seven new
+  tests passing by name, and T001's seven `banter.rs` tests unchanged and
+  passing. **No line inside any `#[cfg(test)]` module is removed or
+  changed**; this task only adds tests, so stop and report if one would move.
+  `grep -n 'EVENT_BEAT_MS' src/app.rs` returns the import and exactly one use,
+  in `update_banter`'s event branch. `grep -n 'self\.say(' src/app.rs`
+  returns exactly three lines, two of them with `Duration::ZERO`. `grep -n
+  'self\.burble(' src/app.rs` still returns exactly three, and `burble_cue(`
+  one. `git diff --stat` shows exactly `src/lib.rs`, `src/banter.rs`,
+  `src/audio.rs`, `src/app.rs`. The report quotes `Speech::after`, `advance`,
+  `settle`, `words_shown`, `text`, `say` and the three `say` call lines
+  verbatim, and the `the_event_beat_outlasts_the_round_sounds` output (run
+  with `-- --nocapture` in addition to the full command). Then the
+  orchestrator runs the amendment review, and drives plan §Verification's
+  *Phase 1 walkthrough, amended* (items 1–4 again, then 6–9) on a scratch
+  `KAAZAP_DATA_DIR` before the person's re-listen (item 10).*
 
 ---
 
@@ -301,7 +446,8 @@ file (`assets/sfx/burble.wav`) that must be added by name.
 
 - [ ] **T008** — `src/app.rs`: the venue line on arrival. Per plan §Design 5
   (*Phase 3*) and §Design tension 6. `fn arrive_at_campaign` with the plan's
-  doc. `enter_campaign`'s and `launch_from_map`'s `self.open_campaign_home()`
+  doc; it says its line with `self.say(line, Duration::ZERO)`, since a venue
+  line has no event beat (amended, ruling 11A). `enter_campaign`'s and `launch_from_map`'s `self.open_campaign_home()`
   become `self.arrive_at_campaign()`. The two Back arms (Card Shop,
   deck builder `BackTo::Campaign`) keep `self.open_campaign_home()`. Update
   `enter_campaign`'s doc sentence about Back paths so it names
@@ -335,9 +481,13 @@ file (`assets/sfx/burble.wav`) that must be added by name.
   left silent, as a possible later change.
   **DECISIONS**: the rulings 1B, 2A, 3B, 4A, 5B, 6A, **7A** (no line on the
   compact board, so no burble) and **8A** (a resumed match stays blank), and
-  the spec's unruled defaults; the person's by-ear approval of the burble
-  (AC 9) and any tweaks (the sub-lettered T002 tasks, with the final `BURBLE`
-  numbers). Then the plan's design calls with their reasons: one
+  (amended) **9A** (as loud as the other sound effects; "never louder than
+  the music" dropped after the first listen found it nearly inaudible),
+  **10A** (a Voices volume the burble follows instead of Sound FX) and **11A**
+  (a line answering an event waits `EVENT_BEAT_MS`, 400 ms, before its first
+  word), and the spec's unruled defaults; the person's by-ear approval of the
+  burble (AC 9) and any tweaks (the sub-lettered T002 tasks from `T002c` on,
+  with the final `BURBLE` numbers). Then the plan's design calls with their reasons: one
   `Speech` replacing `banter`; reveal by blanking rather than slicing; burbles
   only from advancing the one `Speech`, at most one per step, and never two
   within `BURBLE_GAP_MS` (the two cases the gap drops a burble); the Animations
@@ -345,13 +495,19 @@ file (`assets/sfx/burble.wav`) that must be added by name.
   settling in `tick`; the series state in `banter.rs`, read through
   `match_series`; `final_series` in the motion idiom rather than
   `victory_due`'s take-on-entry, and `decided_series` repeating the tally rule
-  under a test rather than changing `SeriesOutcome`; the loudness ceiling as a
-  number and why it covers the defaults; the venue panel's two extra rows and
+  under a test rather than changing `SeriesOutcome`; the loudness as a number —
+  the signed-off ceiling, why 9A replaced it, and the band-and-floor on
+  whole-clip RMS that replaced it (plan §Design tension 9); the event beat
+  inside `Speech` rather than a pending line at the `App`, its value, and the
+  match-end jingles it does not fully outlast (§Design tension 13); Voices as
+  one field and one routing function, its default equal to Sound FX's, and
+  the burble preview on its row (§Design tension 14); the venue panel's two extra rows and
   the class of layout assertions that moved; `banter_last` fed to the match
   start **only inside a series** (`state.and(self.banter_last)`), so Quick Play
   and rematches pick exactly as before (sign-off B1).
   **Docs on the branch**: confirm `design/brief.md`'s amendment, `Readme.md`'s
-  phrase and `assets/CREDITS.md`'s sentence landed (T002/T003).
+  phrase and `assets/CREDITS.md`'s sentence landed (T002/T003), and
+  `Readme.md`'s "music/SFX/voice volume" (T002a).
   `grep -n -i "banter\|sound\|animation\|line" assets/how_to_play_text.txt`,
   read and judge. No change is expected; if one is needed, it is a finding,
   not an edit.
@@ -359,17 +515,22 @@ file (`assets/sfx/burble.wav`) that must be added by name.
   **Mechanical checks** (three-dot, since `main` may move): `git diff
   main...HEAD --stat` lists none of `src/game.rs`, `src/card.rs`,
   `src/player.rs`, `src/campaign.rs`, `src/profile.rs`, `src/save.rs`,
-  `src/economy.rs`, `src/opponent.rs`, `Cargo.toml`, `Cargo.lock` (AC 15).
+  `src/economy.rs`, `src/opponent.rs`, `Cargo.toml`, `Cargo.lock` (AC 15), and
+  the only file under `tests/` it lists is `tests/whole_file_write.rs` (T002a's
+  one literal).
   `grep -n "VERSION" src/save.rs src/profile.rs` still reads 1 and 1.
   `git ls-files assets/sfx | wc -l` → 14. `grep -c 'include_bytes!("../assets/sfx/'
   src/audio.rs` → 14. `git diff main...HEAD -- assets/sfx` names only
   `burble.wav`. `grep -nE 'self\.screen = Screen::(CampaignMap|Venue)'
   src/app.rs` → exactly two lines, both in `open_campaign_home`. `grep -n
   'burble_cue(' src/app.rs` → exactly one line; `grep -n 'self\.burble('
-  src/app.rs` → exactly two. `cargo build --all-targets`
+  src/app.rs` → exactly three (amended: `say`, `advance_speech`, the Settings
+  Voices preview); `grep -n 'EVENT_BEAT_MS' src/app.rs` → the import and one
+  use, in `update_banter`'s event branch. `cargo build --all-targets`
   warning count equals `main`'s (compare via a throwaway `git worktree` with
   its own `CARGO_TARGET_DIR`, as spec 029's close-out did — never switch the
-  branch). Check off `spec.md`'s **16** acceptance criteria with evidence: the
+  branch). Check off `spec.md`'s **17** acceptance criteria (amended: AC 17,
+  the Voices volume, is new) with evidence: the
   tests by name with their green output, the Phase 1–3 walkthrough reports,
   and for AC 9 the person's approval quoted. Request the **pre-merge sweep**:
   its bundle is `git diff main...HEAD`, `spec.md`, `plan.md`, this file, and
@@ -389,6 +550,16 @@ file (`assets/sfx/burble.wav`) that must be added by name.
 
 ## Handoff note
 
+**Amendment pending sign-off (2026-09-23).** At the Phase 1 pause the person
+ruled 9A, 10A and 11A (`spec.md` *Resolved decisions*). This file and
+`plan.md` carry the amendment as a **draft**: T002a, T002b and T003a, plus the
+edits marked *amended*. It goes to the `skeptical-reviewer` for sign-off (one
+review, at most one re-review), and the person gets a spec-conformance summary.
+No amendment task is dispatched before both. After sign-off, resume at
+**T002a**, the first unchecked task in file order. Phase 1 is complete again
+only when T003a is checked, the amendment review has passed, the amended
+walkthrough has been driven, and the person has re-listened.
+
 Read `CLAUDE.md` and `specs/030-series-banter/{spec,plan,tasks}.md`, then
 implement from the first unchecked task. Involvement level is **product owner**:
 the person owns `spec.md`, attests by using the app at phase pauses, and
@@ -406,8 +577,8 @@ Dispatch each task to `sdd-implementer` on a shell-assembled task bundle (task
 line, plan section, acceptance criteria, files, the pattern file to copy).
 Verify from the implementer's verbatim output. **No task is `review:
 per-task`**, so the orchestrator never re-runs the command itself before
-committing. The game drives named in T003, T006 and T008 are walkthroughs,
-not re-verifications.
+committing. The game drives named in T003, T003a, T006 and T008 are
+walkthroughs, not re-verifications.
 
 **Foundational phase: Phase 1.** One `skeptical-reviewer` pass at the end of
 each phase — after T003, T006, T008 and T009 (the sweep) — on a shell-assembled
@@ -415,7 +586,11 @@ bundle (the phase diff, the task lines, plan §Design and §Tests, the acceptanc
 criteria), one review plus at most one re-review. The Phase 1 review also
 checks that no input path in `handle_key` reads `speech` (AC 11), that
 `burble` is the only burble emitter (one `burble_cue(` call, two
-`self.burble(` calls), and that its gap guard matches plan §Design tension 3. The Phase 3 review also
+`self.burble(` calls), and that its gap guard matches plan §Design tension 3.
+(Amended: the Phase 1 review passed on T001–T003. T002a–T003a get their own
+review after T003a, per plan §Verification *Review of the amendment*, which
+also checks for three `self.burble(` calls and the Settings overlay's shape.)
+The Phase 3 review also
 checks the venue against the constitution's *acted-on element stands apart*
 rule. The line is not acted on and sits compact inside the panel, and the
 action row's air is unchanged.
@@ -424,25 +599,36 @@ action row's air is unchanged.
 **Phase 1**, **Phase 2** and **Phase 3**, once each phase's review and the
 orchestrator's driven walkthrough are done. Only the close-out is marked
 `walkthrough: none`; it runs without a pause and appends its reason to the
-walkthrough list.
+walkthrough list. (Amended: the Phase 1 pause **repeats** after T003a. The
+amendment changes what the person hears and sees, so its walkthrough is not
+`none`. The pause report says what changed since the first listen: a louder
+murmur, the Voices slider, and the beat after round and match sounds. It also
+mentions plan §Open questions 5, the match-end jingle's last note.)
 
 **The Phase 1 pause is where the burble is approved, and it may loop.** The
 person listens and either approves (AC 9) or asks for a change. Each change is
-a sub-lettered task on T002 (`T002a`, `T002b`, …), per plan §Verification's
-*Tweak loop*: edit the `BURBLE` numbers and/or `BURBLE_PITCHES`, run `python3
-scripts/gen_sfx.py burble`, and run the full command green. Then, **in
-addition**, run `cargo test -q --lib the_burble_is_softer_than_the_music --
---nocapture 2>&1 | grep -iE 'peak|rms|test result'` and quote its figures.
-`git status --porcelain assets/sfx` shows only ` M assets/sfx/burble.wav`. The
-person listens again. A tweak is routine, not a decision review. **A
-numbers-only tweak needs no review** (the ceiling test is its check). Anything
-more (the synth's code, a new parameter) rides the next phase review's bundle,
-or the pre-merge sweep if none remains. It never gets a review of its own,
-because the review cap does not allow one. **If they want it louder than the
-test's ceiling allows**, that is plan §Open questions 3: a product question,
-not a weaker test. Phase 2 may start once the person says continue, even if
+a sub-lettered task on T002 **from `T002c` on** (T002a and T002b are the
+amendment's), per plan §Verification's *Tweak loop*: edit the `BURBLE` numbers
+and/or `BURBLE_PITCHES`, run `python3 scripts/gen_sfx.py burble`, and run the
+full command green. Then, **in addition**, run `cargo test -q --lib
+the_burble_is_as_loud_as_the_other_sounds -- --nocapture 2>&1 | grep -iE
+'peak|rms|test result'` and quote its figures. `git status --porcelain
+assets/sfx` shows only ` M assets/sfx/burble.wav`. The person listens again. A
+tweak is routine, not a decision review. **A numbers-only tweak needs no
+review** (the band-and-floor test is its check). Anything more (the synth's
+code, a new parameter) rides the next phase review's bundle, or the pre-merge
+sweep if none remains. It never gets a review of its own. **If they want it
+outside the test's band** (louder than the loudest board move sound, softer
+than the quietest, or under the music at defaults), that is plan §Open
+questions 3: a product question, not a looser test. "Louder just for me" is
+the Voices slider. Phase 2 may start once the person says continue, even if
 the burble is still being tuned. Tweaks are independent of Phases 2–3, and
 AC 9 stays unticked until approval.
+
+**Rulings 9A, 10A and 11A (the person, 2026-09-23, at the Phase 1 pause) are
+transcribed**: plan §Amendment, §Design tensions 9 (rewritten), 13 and 14.
+Plan §Open questions 3 is restated for 9A, and §Open questions 5 is for the
+re-listen, not a blocker.
 
 **Rulings 7A and 8A (the person, 2026-09-23) are transcribed**: no line on the
 compact board, so no burble there (plan §Design tension 5); a resumed match

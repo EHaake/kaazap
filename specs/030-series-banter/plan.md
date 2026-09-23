@@ -1,6 +1,9 @@
 # Plan: Series-aware banter, spoken word by word — spec 030
 
-**Status**: Final — signed off 2026-09-23 (one review, one re-review)
+**Status**: Draft — pending sign-off (the Phase 1 amendment, rulings 9A,
+10A, 11A, 2026-09-23 — see *Amendment* below). The plan before it was final —
+signed off 2026-09-23 (one review, one re-review) — and Phase 1 (T001–T003)
+was built and reviewed against it.
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -23,8 +26,10 @@ learns any of them.
    one-shot `App` field.
 
 No engine file, no `campaign.rs`, `profile.rs`, `save.rs`, `economy.rs` or
-`opponent.rs` change; no persisted field; no crate. `SAVE_VERSION` and
-`PROFILE_VERSION` stay 1.
+`opponent.rs` change; no save or profile field; no crate. `SAVE_VERSION` and
+`PROFILE_VERSION` stay 1. (Amended: the settings file gains one field,
+`voices_volume`, under ruling 10A. AC 15 says that is not a save-format
+change. Before the amendment this line read "no persisted field".)
 
 The places this is most likely to go wrong, and where the design went:
 
@@ -34,8 +39,43 @@ The places this is most likely to go wrong, and where the design went:
   function on both. §Design tension 6.
 - **The deciding match** — settlement clears the live series one tick before
   the game-over frame and the closing line both need it. §Design tension 8.
-- **"Never louder than the music"** — a sentence until it is a number.
-  §Design tension 9.
+- **"As loud as the other sound effects"** — a sentence until it is a number.
+  §Design tension 9. (Amended: until ruling 9A this bullet was "never louder
+  than the music".)
+
+## Amendment (2026-09-23, at the Phase 1 pause — rulings 9A, 10A, 11A)
+
+The person listened to Phase 1. The burble was "really, really quiet". They
+asked for a volume of its own for voices. And the line landed on top of the
+round-end and match-end sound and popup. Three rulings follow, and each one
+changes a named part of this plan. Every other part stands as signed off.
+
+| Ruling | What changes | Where in this plan |
+|---|---|---|
+| **9A** — the burble is as loud as the other sound effects, and "never louder than the music" is dropped | Loudness is now a **band** (between the quietest and loudest of the board's move sounds) plus a **floor** (above the music at default settings). It replaces the ceiling. `BURBLE.peak` is raised to land in the band. The test `the_burble_is_softer_than_the_music` is **replaced** (not deleted) by `the_burble_is_as_loud_as_the_other_sounds`. | §Design tension 9 (rewritten), §Design 3, §Tests *audio.rs*, §Verification (walkthrough and tweak loop), §Open questions 3 |
+| **10A** — a Voices slider in Settings; the burble follows it instead of Sound FX; `m` mutes it | `Settings.voices_volume` (serde default 0.8), `SettingRow::Voices` between Sound FX and Animations, and one pure routing function `audio::sfx_level`. Adjusting Voices previews one burble at the new level. | §Design tension 14 (new), §Design 4, §Design 5 (*Phase 1*), §Design 10, §Design 11 (new), §Tests *settings.rs*, *audio.rs* |
+| **11A** — a line said on a round, bust, tie or match/series event waits a beat before its first word; greetings and venue lines start at once | `EVENT_BEAT_MS = 400` beside `WORD_STEP_MS`. `Speech` gains one field (`wait`) and one method (`after`). `say` takes the wait. Only `update_banter`'s event branch passes a non-zero wait. | §Design tensions 3, 4 (touched), 13 (new), §Design 1, 2, 5, §Tests *banter.rs*, *audio.rs*, §Verification |
+
+Tasks: T002a (the Voices volume), T002b (the loudness), T003a (the event
+beat), in that order, all in Phase 1 (`tasks.md`). T002b's test reads the
+Voices default, so it follows T002a. T003a is independent of both.
+
+**Existing tests this amendment supersedes**, each named in §Tests. No other
+existing assertion changes:
+- `audio::tests::the_burble_is_softer_than_the_music`: replaced (9A).
+- `settings::tests::settings_rows_move_over_three_rows_and_clamp`: now walks
+  four rows, renamed `…_over_four_rows_…` (10A).
+- `settings::tests::the_animations_row_reads_on_or_off_and_fits`: its
+  `OverlayLayout::new(config, content_width, 7)` becomes `8`, because the box
+  gains a row (10A).
+- Six full `Settings { … }` literals gain the new field. Five are in
+  `settings.rs`'s tests (`settings_json_round_trips` ×3,
+  `settings_missing_or_legacy_fields_use_defaults`,
+  `adjust_toggles_animations_and_steps_volumes`), and one is in
+  `tests/whole_file_write.rs` (~65). A struct literal must name every field,
+  so these would not compile otherwise. No condition changes (10A).
+  `grep -rn 'Settings {' src tests` finds them. The literals that already
+  use `..Settings::default()` do not change.
 
 ## What the code already gives us
 
@@ -119,8 +159,10 @@ place.
 the line is said. Nothing is scheduled in the audio thread, so a replaced or
 cleared line cannot burble again: there is nothing left to advance.
 
-**Burbles never overlap**, because two at once play louder, which is the one
-thing the spec forbids. Every burble goes through one `App::burble(word)`,
+**Burbles never overlap**, because two at once play louder than one. Before
+ruling 9A that was the one thing the spec forbade. It now pushes the burble
+above the other sound effects' level, and garbles it. Every burble goes
+through one `App::burble(word)`,
 which plays only if `audio::burble_clear(since_burble)` holds: at least
 `BURBLE_GAP_MS` (150) since the last one. Two bounds make that safe, and a
 test pins both. The burble, at its slowest per-word pitch, ends within
@@ -138,15 +180,23 @@ divergences from "one burble per word" that exist to keep the sound soft:
   `advance_speech` runs before `update_banter` in `tick`, so an old word and a
   new line's first word can fall on the same step or one step apart. The new
   line's first word then appears silently, and its later words burble as usual.
+  (Amended, 11A: a line answering an event shows its first word
+  `EVENT_BEAT_MS` after it is said, so this case now arises only for a line
+  with no beat: a greeting, a rematch's greeting, a venue arrival.)
 - **A stalled frame** that crosses two word boundaries shows both words and
   owes one burble.
+
+(Amended, 10A: the Settings overlay's Voices row also calls `self.burble(0)`
+to preview the new level (§Design tension 14). So `self.burble(` has three
+callers, and the gap guard keeps a held ←/→ from stacking previews.)
 
 ### 4. The Animations setting is read when the line is said, not when it is drawn
 
 Spec 027 passes `settings.animations.then_some(&motion)` at draw time. A spoken
 line cannot: the setting decides how many burbles it is owed, and that is
 settled when the line is chosen. `Speech::new(line, animated)` starts with every
-word said when `animated` is false (AC 12: whole, one burble). The setting can
+word said when `animated` is false (AC 12: whole, one burble — after the event
+beat where one applies, §Design tension 13). The setting can
 only change from the Settings overlay over the start menu, where no line is on
 screen, so reading it at say-time is never stale.
 
@@ -221,25 +271,55 @@ touch `campaign.rs`, `profile.rs` and every `MapBanner` match. A test drives
 that `decided_series` agrees with it at every decision, so the repetition
 cannot drift.
 
-### 9. "Never louder than the music", as a number
+### 9. "As loud as the other sound effects", as a number (amended, ruling 9A)
 
-**The burble's peak sample amplitude is at most the music track's RMS
-amplitude times `default music volume / default SFX volume`** (0.5 / 0.8 =
-0.625), with the music's RMS measured over its first 60 seconds. Since both
-volumes scale linearly, this means:
+**Superseded.** As signed off, this tension turned "never louder than the
+music" into a ceiling: the burble's peak had to be at most the music's RMS ×
+default music / default SFX volume. That held with `peak` 0.08 against a
+ceiling of 0.1025 (music RMS 0.1641 over 60 s, T002). The person found the
+result "really, really quiet" and ruled 9A, which drops the music sentence. The
+ceiling and its test go with it. They are replaced by the check below, not
+deleted.
 
-- at **equal** settings (the spec's condition) the burble's loudest instant is
-  under two-thirds of the music's average level, which is clearly softer;
-- at the **default** settings the player starts on, where SFX is 1.6× the
-  music, the burble's loudest instant still does not exceed the music's average.
+**The rule now, in two parts.** Loudness is measured as **RMS over the whole
+decoded clip**, not peak. A square-wave blip's RMS sits near its peak, but a
+voice with a soft envelope and a tremolo has an RMS far below its peak. So
+matching peaks, as the old ceiling did, leaves the burble quiet again. Whole-clip
+RMS is the simplest measure the repo can take without a crate. It does not
+weight frequencies the way the ear does, which is why the person's ear is the
+other half (AC 9). With `d = Settings::default()`:
 
-A unit test in `audio.rs` decodes both embedded assets with rodio's `Decoder`
-(no audio device is opened) and asserts this, reading the defaults from
-`Settings::default()` so a change of default is caught. The first 60 seconds
-bounds the test's decode time in a debug build. If the track opens quietly,
-that only makes the bound stricter. The person's ear is the other half (AC 9).
-If they ask for a burble louder than this ceiling allows, that is a conflict
-with the spec's own sentence and goes back to them (§Open questions 3).
+- **The band** ("as loud as the other sound effects"). The burble's RMS ×
+  `d.voices_volume` lies between the smallest and the largest RMS × `d.sfx_volume`
+  of the board's move sounds: `CardDraw`, `CardPlay`, `Flip`, `Stand`. Those
+  are the effects the burble plays among during a round. Menu ticks are UI
+  sounds, and the round and game jingles are the events the beat now waits out
+  (§Design tension 13).
+- **The floor** ("clearly audible over the music at the default settings").
+  The burble's RMS × `d.voices_volume` is at least the music's RMS ×
+  `d.music_volume`, with the music measured over its first 60 s as before.
+- And the burble's peak is below full scale (`< 1.0`), so the regenerated clip
+  does not clip.
+
+Estimated from the script's parameters (the test prints the real figures), the
+move sounds' RMS runs from about 0.09 (`Stand`, triangle at 0.4) to about 0.20
+(`CardPlay` and `Flip`). The floor is 0.1641 × 0.5 / 0.8 ≈ 0.103 on the
+burble's own RMS. Both scale by 0.8, so the band is the same before and after
+scaling. That leaves roughly 0.10–0.20 for the burble's RMS. T002b sets `peak`
+so that the RMS lands at the **mean of the four move sounds' RMS**, which is
+the middle of the band and clear of the floor, and records the figures. If the
+measured band and floor cannot both hold, T002b stops and reports rather than
+loosening either one.
+
+The test is `the_burble_is_as_loud_as_the_other_sounds` in `audio.rs`. It
+decodes the embedded assets with rodio's `Decoder`, opening no device, the way
+the old test did. It reads the defaults from `Settings::default()`, so a change
+of default, including Voices, is caught. The music decode keeps the old test's
+60 s window, measured at about 4 s in a debug build (T002). If the person asks
+by ear for a burble louder or softer than the band allows, that is a question
+about "as loud as the other sound effects" and goes back to them (§Open
+questions 3). The Voices slider is the player's own way to move the level
+without touching the asset.
 
 A tweak by ear is a **parameter change**: every number that shapes the sound
 sits in one `BURBLE` block in `gen_sfx.py` (§Design 3), plus the per-word pitch
@@ -278,6 +358,110 @@ pools are plain fields on the existing `BanterSet` rather than a nested
 `SeriesLines` struct. There are eleven voices and one consumer, so a second
 type would only rename the fields.
 
+(Amended: the three rulings add no type. They add one field on `Speech`, one
+on `Settings`, one `SettingRow` variant, one pure function (`audio::sfx_level`),
+one constant (`EVENT_BEAT_MS`) and one `Speech` method (`after`). §Design
+tensions 13–14 give the reasons.)
+
+### 13. The event beat lives in the `Speech`, not at the call site (ruling 11A)
+
+A line answering an event is still **chosen** on the tick the event fires, as
+today. It is picked, it becomes `banter_last` (so `pick`'s no-repeat rule is
+unchanged), and it replaces whatever `Speech` was there. What waits is only its
+first word: `Speech` gains `wait: Duration`, the time left before anything
+shows. While `wait` is non-zero, `words_shown()` is 0 and `text()` is
+`revealed(line, 0)`, which is all spaces and draws as an empty row. `advance`
+spends `dt` on the wait first. On the step the wait runs out it returns true,
+because the first appearance is owed its burble. `advance_speech` already plays
+that burble as `burble(words_shown() - 1)`, so it needs no change. `say` plays
+its immediate burble only when a word is showing (`words_shown() > 0`), so a
+waiting line is silent when said. One `EVENT_BEAT_MS` for every event, because
+the spec rules one value.
+
+Rejected: a pending line held at the `App` beside `speech` and moved into it by
+`tick` when the beat ends. It would be a second field that interruption,
+clearing and settling must each remember. That is exactly the split §Design
+tension 1 refused. With the wait inside the `Speech`, every existing rule
+covers the beat as-is:
+
+- **Interruption.** A new `say` replaces the `Speech`, waiting or not, so a
+  waiting line that is replaced never shows and never sounds (AC 10).
+- **Clearing.** `speech = None` during the beat (play resuming inside 0.4 s)
+  drops it unseen. That is spec 017's clear, and AC 10's "stops there".
+- **Settling** (the line's screen left during the beat, for example by
+  acknowledging the game over within 0.4 s). `settle` zeroes `wait` and shows
+  every word, silently, as it does today.
+- **Animations Off.** `Speech::new(line, false)` already holds every word. With
+  a wait, nothing shows until the beat ends, then the whole line appears with
+  `advance`'s one `true`, which is one burble (AC 12). That burble's pitch is
+  the last word's `BURBLE_PITCHES` entry rather than the first's, which makes
+  no difference to hear.
+- **Resumed match.** No line, so there is nothing to wait for (8A).
+- **Compact board, too-small screen.** The beat runs and the first word comes
+  due, but `line_visible()` is false, so nothing sounds (7A).
+- **Keys, phases, popups, other sounds.** Untouched. No input path reads
+  `speech` (the Phase 1 review checked this), and the beat is only drawing and
+  burble state.
+
+**The value: `EVENT_BEAT_MS = 400`**, the top of the ruled 0.3–0.4 s. The event
+sound and the event line are both triggered in the same `tick`:
+`emit_audio_cues` runs just before `update_banter`, and both diff the same
+bust / outcome / game-over edges. So the beat is measured from the sound's
+start. The round-level sounds, from `gen_sfx.py`, are `round_win` 0.21 s,
+`round_loss` 0.27 s, `round_tie` 0.21 s and `bust` 0.35 s. The opponent's bust
+plays at `OPPONENT_PITCH` (0.92), which stretches it to 0.38 s, and that is
+what rules out 350. So at 400 every round, tie and bust sound has finished
+before the first word, which a test pins. **The match-end jingles are longer**:
+`game_win` 0.45 s and `game_loss` 0.52 s. A match or series line's first word
+lands during their last note. The spec rules the 0.3–0.4 s range, so the plan
+keeps one value inside it. The re-listen hears it (§Open questions 5). The
+round and game **popup** draws `POPUP_BEAT_MS` (800 ms) after the round
+resolves when Animations is on (spec 027), so the first word now lands between
+the sound's end and the popup. The line's later words run on as the popup
+appears, and the popup's timing does not change.
+
+`say` takes the wait: `fn say(&mut self, line, wait: Duration)`. Only
+`update_banter`'s event branch passes `Duration::from_millis(EVENT_BEAT_MS)`.
+The match start, the in-place rematch greeting and (T008) the venue arrival
+pass `Duration::ZERO`: "The match-start greeting and the venue line … start at
+once." Rejected: a second method (`say_after_beat`), which would duplicate
+`say`'s body for one caller.
+
+### 14. Voices: one field, one routing function (ruling 10A)
+
+`Settings` gains `voices_volume: f32`, serde-defaulted like its siblings, so an
+older file, with the key absent, loads with Voices at its default and keeps
+every other value. Without the serde default, `from_json_or_default` would fail
+the whole parse and silently reset **all** of that file's settings, which a
+test rules out. **The default is 0.8, equal to Sound FX's default.** At the
+default settings the burble then sits at the other effects' scale, which is
+what 9A asks, and T002b's band test compares the two at those defaults. A
+player who had lowered Sound FX before this spec gets Voices at 0.8. That is
+the spec's "loads with Voices at its default", taken literally.
+
+`audio.rs` routes by the effect, in one pure function:
+`sfx_level(muted, sfx, settings) -> Option<f32>`. It gives the volume the
+effect plays at, or `None` when it is silent. The burble uses
+`voices_volume`, gated on mute and on Voices being above zero. Every other
+effect uses `sfx_volume` through the existing `should_play_sfx`, unchanged.
+`AudioState::play` calls it in place of its gate and its
+`amplify(sfx_volume)`. The Voices value already reaches the audio thread,
+because `set_settings` sends the whole `Settings`. So `m` (the session mute)
+silences the burble, Voices at 0 silences only the burble, and Sound FX at 0
+silences every other effect but leaves the burble (AC 9, AC 17). Rejected:
+changing `should_play_sfx`'s signature, which would rewrite the existing gating
+test's calls for no gain.
+
+The Settings overlay gets a fourth row. Voices goes **between Sound FX and
+Animations**, because the spec puts it "beside Music and Sound FX" as a third
+slider. The row is drawn by the existing `volume_row`, labelled `Voices`, and
+the box grows from 7 content rows to 8. **Adjusting Voices previews one burble
+at the new level** instead of the `MenuMove` tick the other rows play. The Sound
+FX row's tick exists so you hear the new level, and a tick played at the Sound
+FX volume would tell a player nothing about Voices. The preview goes through
+`self.burble(0)`, so the gap guard keeps a held key from stacking previews
+(§Design tension 3).
+
 ## Design
 
 ### 1. `src/lib.rs`
@@ -288,6 +472,17 @@ Beside the spec 027 beats:
 // Spec 030 — a spoken line shows one more word every WORD_STEP_MS, the first
 // at once. Bounds pinned by banter::tests::the_word_step_is_about_a_fifth_of_a_second.
 pub const WORD_STEP_MS: u64 = 200;
+```
+
+Amended (T003a, ruling 11A), directly below it:
+
+```rust
+// Spec 030 (ruling 11A) — a line answering a round, bust, tie or match event
+// shows its first word EVENT_BEAT_MS after it is chosen, once the event's own
+// sound has played. Bounds pinned by
+// banter::tests::the_event_beat_is_about_a_third_of_a_second and
+// audio::tests::the_event_beat_outlasts_the_round_sounds.
+pub const EVENT_BEAT_MS: u64 = 400;
 ```
 
 ### 2. `src/banter.rs`
@@ -330,6 +525,30 @@ impl Speech {
     pub fn text(&self) -> String
 }
 ```
+
+**Amended (T003a, ruling 11A; §Design tension 13).** `Speech` gains one
+private field, `wait: Duration`, which is `ZERO` from `new`. It also gains one
+method, and four existing ones get a clause each. `new`'s signature and
+behaviour do not change, so T001's tests stand as written.
+
+```rust
+    /// The same line, but nothing shows and nothing is owed until `wait` has
+    /// passed (ruling 11A: a line answering an event waits out the event's
+    /// sound). `after(Duration::ZERO)` is `self`.
+    pub fn after(self, wait: Duration) -> Self
+```
+
+- `advance(dt)`: while `wait` is non-zero, spend `dt` on it first. If `dt`
+  does not use it up, return false. On the step it runs out, carry the rest of
+  `dt` into `elapsed`, raise `shown` to `words_due` as usual (never lowering
+  it, so Animations Off stays whole), and **return true**: that is the first
+  appearance, and the caller owes one burble. After that, as today. Doc gains:
+  "A line waiting out its beat shows nothing and owes nothing until the step
+  that ends the beat, which owes one burble."
+- `settle()`: also zeroes `wait`.
+- `words_shown()`: 0 while `wait` is non-zero, else `shown`.
+- `text()`: `revealed(line, words_shown())`. While waiting that is all spaces,
+  the finished line's length, which draws as an empty row.
 
 **The series state** (pure):
 
@@ -424,6 +643,15 @@ under the ceiling, and records the number. `main()` gains optional names:
 arguments writes all of them, as today. Output is mono 16-bit 44.1 kHz through
 the existing `write_wav`.
 
+**Amended (T002b, ruling 9A).** The T002 build set `peak` to 0.08. T002b
+raises it so that the burble's whole-clip RMS lands at the mean RMS of the four
+board move sounds (§Design tension 9). The block's leading comment now names
+`the_burble_is_as_loud_as_the_other_sounds` in place of
+`the_burble_is_softer_than_the_music`. `peak`'s trailing comment reads "loudest
+sample, full scale 1.0; set so the RMS sits in the move sounds' band (see the
+audio test)". No other number changes in T002b. Shape tweaks by ear are the
+tweak loop's (§Verification). Only `burble.wav` is regenerated.
+
 ### 4. `src/audio.rs`
 
 - `Sfx::Burble` → `include_bytes!("../assets/sfx/burble.wav")`.
@@ -445,7 +673,20 @@ the existing `write_wav`.
   Played through `play_cue`, so the existing `should_play_sfx` gate (mute, SFX
   at zero) and `amplify(sfx_volume)` apply unchanged (AC 9's "silent" and
   "follows the Sound Effects volume" are by construction; the gate's own test
-  already pins it).
+  already pins it). **Superseded by the next bullet (10A)**: the burble now
+  follows Voices, not Sound FX.
+- **Amended (T002a, ruling 10A; §Design tension 14):**
+  ```rust
+  /// The volume `sfx` plays at, or None when it is silent (spec 030, ruling
+  /// 10A): the burble on the Voices volume — silent when muted or at zero —
+  /// and every other effect on Sound FX, gated by `should_play_sfx`. Pure.
+  fn sfx_level(muted: bool, sfx: Sfx, settings: Settings) -> Option<f32>
+  ```
+  `AudioState::play` begins `let Some(volume) = sfx_level(self.muted, sfx,
+  self.settings) else { return };` and amplifies by `volume`. Its old
+  `should_play_sfx` early return and its `amplify(self.settings.sfx_volume)`
+  go. `should_play_sfx` and `should_music_sound` themselves do not change.
+  `Audio::set_settings`'s doc ("the Music/SFX volumes") names Voices too.
 - Tests (§Tests).
 
 ### 5. `src/app.rs`
@@ -485,7 +726,8 @@ the existing `write_wav`.
   borrowing `self.speech`, then calls `self.burble(words_shown - 1)` when
   `advance` returns true and the line is visible. `say` calls `self.burble(0)`
   when visible. **`burble_cue(` is called in exactly one place** (`burble`),
-  and `self.burble(` in exactly two (`say`, `advance_speech`).
+  and `self.burble(` in exactly two (`say`, `advance_speech`). (Amended: three
+after T002a, which adds the Settings preview below.)
 - `tick`: call `self.advance_speech(dt)` just before `self.emit_audio_cues()`,
   so a line said later in this tick keeps its full first step.
 - Every `self.banter = Some(line); self.banter_last = Some(line);` pair
@@ -498,6 +740,27 @@ the existing `write_wav`.
   screen match; the `InGame` arm passes `line.as_deref()` where it passed
   `self.banter`.
 - Pools unchanged in this phase: `match_start` and `lines_for` as today.
+
+**Phase 1 amendment — the event beat (T003a, ruling 11A; §Design tension 13).**
+
+- `say` becomes `fn say(&mut self, line: &'static str, wait: Duration)`. It
+  builds `Speech::new(line, self.settings.animations).after(wait)`, sets
+  `banter_last` as today, and plays `self.burble(0)` only when the new speech
+  `words_shown() > 0` **and** `line_visible()`. Its doc gains: "`wait` is zero
+  for a match start or a venue arrival, and `EVENT_BEAT_MS` for a line
+  answering an event (ruling 11A). Nothing shows or sounds until it passes;
+  then `advance_speech` plays the first word's burble."
+- Call sites (`grep -n 'self\.say(' src/app.rs`, three today): `start_match`
+  and `update_banter`'s rematch branch pass `Duration::ZERO`. `update_banter`'s
+  event branch passes `Duration::from_millis(EVENT_BEAT_MS)`. `advance_speech`,
+  `burble`, `line_visible` and `draw` do not change.
+
+**Phase 1 amendment — the Voices preview (T002a, ruling 10A; §Design tension
+14).** `handle_settings_input`'s `Left | Right` arm plays `self.burble(0)` when
+the adjusted row is `SettingRow::Voices`, and `self.audio.play(Sfx::MenuMove)`
+otherwise, as today. The comment above it says which. After this, `self.burble(`
+has **three** callers: `say`, `advance_speech`, and the settings arm.
+`burble_cue(` still has one, in `burble`.
 
 **Phase 2 — the series (T005, T006).**
 
@@ -551,7 +814,9 @@ the existing `write_wav`.
   fn arrive_at_campaign(&mut self)
   ```
   Its line: `pick(start_lines(banter_for(&series.opponent),
-  Some(series_state(series))), self.banter_last, …)`, then `say`.
+  Some(series_state(series))), self.banter_last, …)`, then `say(line,
+  Duration::ZERO)`. A venue line has no event to wait out (ruling 11A;
+  amended from plain `say`).
   `enter_campaign`'s and `launch_from_map`'s `self.open_campaign_home()`
   become `self.arrive_at_campaign()`. The `Screen::Venue` draw arm passes
   `line.as_deref()`. An arrival under a notice (the run-over notice after a
@@ -613,6 +878,38 @@ module doc each gain a clause about the opponent's line.
 - `assets/how_to_play_text.txt`: nothing in it describes banter, sound or
   animation (`grep -n -i "banter\|sound\|animation\|line" …` at close-out), so
   no change is expected. The close-out confirms that.
+- **Amended (T002a, ruling 10A):** `Readme.md` status paragraph, line 19:
+  "music/SFX volume" → "music/SFX/voice volume". It is inside the same `> `
+  block quote, the prefix stays, and the line needs no re-wrap. `design/brief.md`
+  and `assets/how_to_play_text.txt` name no settings rows (`grep -n -i
+  "volume\|sound fx\|settings"` finds none), so they do not change.
+
+### 11. `src/settings.rs` (T002a, ruling 10A; §Design tension 14)
+
+- Field, after `sfx_volume`:
+  ```rust
+      /// Spec 030 (ruling 10A): the opponent's spoken-word burble, and no
+      /// other sound. A file without the key reads as the default, equal to
+      /// Sound FX's.
+      #[serde(default = "default_voices_volume")]
+      pub voices_volume: f32,
+  ```
+  `fn default_voices_volume() -> f32 { 0.8 }` beside its siblings, and
+  `Default` sets it. The struct doc's "Volumes are 0.0–1.0" already covers it.
+- `SettingRow::Voices`, between `Sfx` and `Animations`. `ROWS` becomes
+  `[Music, Sfx, Voices, Animations]`, and the enum's doc names "the three
+  volumes". `adjust` steps and clamps it like the other volumes.
+- `row_text`: `SettingRow::Voices => volume_row(marker, "Voices",
+  settings.voices_volume)`. `Voices` fits the 9-wide label column, so every row
+  keeps the 28-character width and the Animations padding comment stands.
+- `draw_overlay`: the content column is 8 rows (title, gap, four rows, gap,
+  hint). `OverlayLayout::new(*config, content_width, 8)`, and the hint is drawn
+  on row 7. The two comments that count rows, and the doc's "the two volume
+  rows", say three.
+- The overlay keeps the constitution's *acted-on element* shape as it is today:
+  the rows are the list the cursor moves through, framed by the gap rows under
+  the title and above the hint. It does not change at 89×31, which the Phase 1
+  walkthrough captures.
 
 ## Files
 
@@ -627,11 +924,19 @@ module doc each gain a clause about the opponent's line.
 - `design/brief.md`, `Readme.md` — one sentence each. (T003)
 - `src/layout.rs`, `src/venue.rs`. (T007)
 - `specs/030-series-banter/closeout-main-docs.md` (new). (T009)
+- **Amendment:** `src/settings.rs` (field, row, overlay, tests), `src/audio.rs`
+  (`sfx_level`, tests), `src/app.rs` (settings arm), `tests/whole_file_write.rs`
+  (one literal), `Readme.md` (one phrase). (T002a) `scripts/gen_sfx.py` (the
+  `BURBLE` comment and `peak`), `assets/sfx/burble.wav` (regenerated, now
+  tracked), `src/audio.rs` (the replaced test). (T002b) `src/lib.rs`
+  (`EVENT_BEAT_MS`), `src/banter.rs` (`Speech::after`, tests), `src/audio.rs`
+  (one test), `src/app.rs` (`say` and its callers). (T003a)
 
 **No change**: `src/board.rs`, `src/game.rs`, `src/card.rs`, `src/player.rs`,
 `src/campaign.rs`, `src/profile.rs`, `src/save.rs`, `src/economy.rs`,
 `src/opponent.rs`, `src/motion.rs`, `src/campaign_map.rs`, `src/shop.rs`,
-`src/wager.rs`, `tests/`, `Cargo.toml`, `Cargo.lock`, the other thirteen
+`src/wager.rs`, `tests/` other than T002a's one literal in
+`tests/whole_file_write.rs` (amended), `Cargo.toml`, `Cargo.lock`, the other thirteen
 `assets/sfx/*.wav`, `assets/how_to_play_text.txt` (expected, confirmed at
 close-out). `ROADMAP.md` and `DECISIONS.md` change only via the close-out doc
 on `main` after the merge.
@@ -671,12 +976,11 @@ where a claim is cheap to pin on a drawn frame (as spec 029's venue tests do).
 
 **`audio.rs` (T002)**
 
-- `the_burble_is_softer_than_the_music` — §Design tension 9's inequality. It
-  prints both measurements, read with `cargo test -q --lib
-  the_burble_is_softer_than_the_music -- --nocapture 2>&1 | grep -iE
-  'peak|rms|test result'` (in addition to the full command, never instead of
-  it), so the implementer and any later tweak can quote them. The implementer
-  also reports its runtime in a debug build (the 60 s MP3 decode).
+- ~~`the_burble_is_softer_than_the_music`~~ — the signed-off ceiling. It
+  **is replaced in T002b** by `the_burble_is_as_loud_as_the_other_sounds`
+  (below), because ruling 9A drops the sentence it tested. It is not deleted
+  silently: T002b's diff removes it and adds its replacement in the same
+  place.
 - `a_burble_ends_before_the_next_can_start` — the decoded burble's duration
   divided by the smallest `BURBLE_PITCHES` entry is at most `BURBLE_GAP_MS`,
   and `BURBLE_GAP_MS <= 3 * GAME_LOOP_SLEEP_MS` (three ticks, each at least
@@ -687,6 +991,88 @@ where a claim is cheap to pin on a drawn frame (as spec 029's venue tests do).
 - `each_word_has_its_own_burble_pitch` — `burble_cue(i).sfx == Sfx::Burble`;
   every pitch within `0.9..=1.1`; neighbouring words' pitches differ;
   `burble_cue` wraps past the table's end.
+
+**Amendment tests**
+
+*`settings.rs` (T002a)*
+
+- `the_voices_volume_defaults_loads_and_persists` (AC 17). It checks that
+  `Settings::default().voices_volume == default_voices_volume() ==
+  default_sfx_volume()`. A file without the key (`{}`, and the pre-amendment
+  shape `{"music_volume":0.3,"sfx_volume":0.4,"animations":false}`) loads with
+  Voices at the default **and every other value as written**, so the old file
+  is not reset. `{"voices_volume":0.2}` reads 0.2. A value round-trips through
+  JSON.
+- `adjust_steps_and_clamps_the_voices_volume`. ← and → step by
+  `VOLUME_STEP`, clamp at 0 and 1, and leave Music, Sound FX and Animations
+  alone.
+- `the_voices_row_sits_between_sound_fx_and_animations`. At 89 and 139
+  columns, the drawn overlay has a `Voices` row directly below `Sound FX` and
+  above `Animations`, with its label in the Music row's label column, a bar and
+  a percentage. The box's corners are inside the frame. It copies
+  `the_animations_row_reads_on_or_off_and_fits`.
+- **Superseded, named:** `settings_rows_move_over_three_rows_and_clamp` becomes
+  `settings_rows_move_over_four_rows_and_clamp`. It walks Music → Sound FX →
+  Voices → Animations and back, clamped at both ends.
+  `the_animations_row_reads_on_or_off_and_fits` gets its layout rows changed
+  from `7` to `8`, and nothing else. The six struct literals (§Amendment) each
+  gain `voices_volume`. The three in `settings_json_round_trips` use
+  exact-in-f32 values (0.0, 0.5, 1.0). The one in `tests/whole_file_write.rs`
+  uses `0.5`, which is not the default, so the on-disk round trip there now
+  also proves Voices persists.
+
+*`audio.rs` (T002a)*
+
+- `the_burble_follows_voices_and_nothing_else_does` (AC 9, AC 17). For every
+  `Sfx` variant, listed in the test, `sfx_level` gives the following. With
+  Sound FX 0.3 and Voices 0.7: the burble plays at `Some(0.7)` and every other
+  effect at `Some(0.3)`. With Voices 0: the burble is `None` and the others are
+  unchanged. With Sound FX 0: the burble is still `Some(0.7)` and the others
+  are `None`. Muted: every one is `None`.
+- `audio_gating_respects_mute_and_volume`: unchanged. It uses
+  `..Settings::default()`.
+
+*`audio.rs` (T002b)*
+
+- `the_burble_is_as_loud_as_the_other_sounds` (replaces
+  `the_burble_is_softer_than_the_music`; §Design tension 9). With `d =
+  Settings::default()` and whole-clip RMS from decoding each embedded clip, it
+  asserts three things. First, `min(rms of CardDraw, CardPlay, Flip, Stand) ×
+  d.sfx_volume <= burble_rms × d.voices_volume <= max(…) × d.sfx_volume`.
+  Second, `burble_rms × d.voices_volume >= music_rms × d.music_volume`, with
+  the music over its first 60 s. Third, the burble's peak is `< 1.0`. It prints
+  every figure on lines that contain `rms` or `peak`, read with `cargo test -q
+  --lib the_burble_is_as_loud_as_the_other_sounds -- --nocapture 2>&1 | grep
+  -iE 'peak|rms|test result'`, in addition to the full command and never
+  instead of it. A small `fn rms(bytes) -> f64` helper in the tests module may
+  serve both clips and the music window.
+
+*`banter.rs` (T003a)*
+
+- `the_event_beat_is_about_a_third_of_a_second`: `300 <= EVENT_BEAT_MS <= 400`.
+- `a_line_after_a_beat_shows_nothing_until_the_beat_ends`. `Speech::new("Here
+  goes nothing!", true).after(beat)`: `words_shown()` is 0 and `text()` is all
+  spaces with the line's length. `advance(beat − 1 ms)` gives false and still
+  0. `advance(1 ms)` gives true and shows "Here" only. `advance(step)` gives
+  true and two words.
+- `after_zero_is_the_line_at_once`. `Speech::new(l, a).after(Duration::ZERO)
+  == Speech::new(l, a)` for both `a`, so greetings and venue lines are
+  unchanged.
+- `animations_off_after_a_beat_is_whole_with_one_burble`. `new(line,
+  false).after(beat)`: nothing shows until `advance(beat)`, which returns true
+  and shows the whole line. `advance` never returns true again.
+- `a_line_settled_in_its_beat_is_whole_and_silent`. `settle` during the beat
+  shows the whole line, and `advance` never returns true after.
+- `a_stalled_step_across_the_beat_shows_every_due_word_once`. On a four-word
+  line, one `advance(beat + 2 × step)` shows three words and returns true once.
+
+*`audio.rs` (T003a)*
+
+- `the_event_beat_outlasts_the_round_sounds`. For `RoundWin`, `RoundLoss` and
+  `RoundTie` at pitch 1.0, and `Bust` at `OPPONENT_PITCH`, the decoded length
+  divided by the pitch is at most `EVENT_BEAT_MS`. It prints `GameWin`'s and
+  `GameLoss`'s lengths without asserting them, because they are longer than the
+  beat by design (§Design tension 13).
 
 **`banter.rs` (T004)**
 
@@ -765,6 +1151,42 @@ data dir:
 5. The person, by ear: the murmur on each word; SFX 0 or `m` → silent; at
    equal Music/SFX settings it is clearly softer than the music. **AC 9 is met
    only when they approve it.** Tweaks are sub-lettered tasks on T002 (below).
+   **Superseded by the amended walkthrough below (9A, 10A)**: item 5 was heard
+   once and prompted the amendment.
+
+**Phase 1 walkthrough, amended** (after T003a and the amendment review;
+orchestrator first, then the person), 139×31 unless stated, scratch data dir.
+Items 1–4 above still hold, and item 1's round-end capture changes as in item
+6 here.
+
+6. **The beat.** Capture frames at about 200 ms and about 500 ms after a round
+   resolves, and the same after a bust and a match end. At 200 ms the panel's
+   line row is empty. At 500 ms the first word is showing. Each popup draws
+   when it does today, which is 800 ms after the round resolves with
+   Animations On. A Quick Play greeting still shows its first word on the first
+   frame.
+7. **Animations Off with the beat.** At about 200 ms after a round resolves
+   there is no line. At about 500 ms the whole line is showing.
+8. **Settings.** The overlay shows Music, Sound FX, Voices and Animations, in
+   that order, with Voices drawn like the other two volumes. ←/→ on Voices moves
+   its bar, and the value is still there after quitting and relaunching.
+   Capture at 139×31 and at 89×31.
+9. **An old settings file.** Write `settings.json` in the scratch dir with only
+   the pre-amendment keys and non-default values, for example `{"music_volume":
+   0.3, "sfx_volume": 0.4, "animations": false}`. The overlay then shows Music
+   30%, Sound FX 40%, Voices 80%, Animations Off.
+10. **The person, by ear** (a driver cannot hear):
+    - the murmur is about as loud as a card being played, and clearly audible
+      over the music at the default settings;
+    - Voices at 0, or `m`, silences the murmur;
+    - Sound FX at 0 leaves the murmur and silences the rest;
+    - ←/→ on Voices plays one murmur at the new level;
+    - a round line's first word comes just after the round sound, not on top
+      of it, and a match-end line's comes during the jingle's last note
+      (§Open questions 5);
+    - Animations Off and 89 columns, per the Phase 1 review's second look 4.
+
+    **AC 9 is met only when they approve.**
 
 **Phase 2 walkthrough**, 139×31, scratch data dir (the orchestrator may raise
 the purse and hand-edit the profile's `series` to reach a state quickly):
@@ -797,19 +1219,33 @@ the purse and hand-edit the profile's `series` to reach a state quickly):
    exists only after it has been dismissed — and the report says so rather
    than driving it.
 
-**Tweak loop for the burble.** At the Phase 1 pause the person may ask for the
-sound to change. Each request is a sub-lettered task (`T002a`, `T002b`, …):
-edit `BURBLE` (and/or `BURBLE_PITCHES`), run `python3 scripts/gen_sfx.py
-burble`, run the full verification command green, then — in addition —
-`cargo test -q --lib the_burble_is_softer_than_the_music -- --nocapture 2>&1 |
-grep -iE 'peak|rms|test result'`, with the figures quoted. `git status
---porcelain assets/sfx` shows only ` M assets/sfx/burble.wav`. The person
-listens again. **A numbers-only tweak needs no review**: the ceiling test is
-its check. A tweak that changes anything beyond numbers (the synth's code, a
-new parameter) rides the next phase review's bundle, or the pre-merge sweep if
-no phase review remains. It never opens a review of its own, which the
-constitution's review cap would not allow once Phase 1's review and re-review
-are spent.
+**Tweak loop for the burble** (amended: 9A's test, and the letters T002a and
+T002b now belong to the amendment). At the Phase 1 pause the person may ask
+for the sound to change. Each request is a sub-lettered task on T002
+continuing from **`T002c`** (`T002c`, `T002d`, …). Edit `BURBLE` (and/or
+`BURBLE_PITCHES`), run `python3 scripts/gen_sfx.py burble`, and run the full
+verification command green. Then, in addition, run `cargo test -q --lib
+the_burble_is_as_loud_as_the_other_sounds -- --nocapture 2>&1 | grep -iE
+'peak|rms|test result'` and quote the figures. `git status --porcelain
+assets/sfx` shows only ` M assets/sfx/burble.wav`. The person listens again.
+**A numbers-only tweak needs no review**: the band-and-floor test is its check.
+A tweak the band will not hold (louder than the loudest move sound, or softer
+than the quietest, or under the music) is §Open questions 3, not a looser
+test. A tweak that changes anything beyond numbers (the synth's code, a new
+parameter) rides the next phase review's bundle, or the pre-merge sweep if no
+phase review remains. It never opens a review of its own.
+
+**Review of the amendment.** T002a, T002b and T003a are new work, not fixes to
+the Phase 1 review's findings. So they get **one** `skeptical-reviewer` pass of
+their own after T003a: a new invocation under the review cap, one review plus
+at most one re-review. It runs on a shell-assembled bundle: the diff from
+the commit that lands this signed-off amendment to T003a's commit, the three
+task lines, plan §Amendment, §Design tensions 3, 9, 13 and 14, §Design 1–5 and
+11, §Tests *Amendment tests*, and AC 8–12, 15 and 17. It also checks:
+- still no input path reads `speech` (AC 11);
+- `self.burble(` has exactly three callers and `burble_cue(` has one;
+- the Settings overlay against the constitution's *acted-on element* rule;
+- each superseded test changed only as §Amendment names it.
 
 ## Non-goals (from spec)
 
@@ -823,10 +1259,20 @@ lines; a skip key; music; the final score on the map.
 2. **Closed — ruling 8A (the person, 2026-09-23).** A resumed match stays
    blank and no line is spoken; `spec.md`'s AC 13 now says exactly that
    (§Design tension 11).
-3. **If the person wants the burble louder than §Design tension 9's ceiling**,
-   that conflicts with "never louder than the music" and goes back to them
-   rather than into a weaker test.
+3. ~~If the person wants the burble louder than §Design tension 9's ceiling~~
+   — **superseded by ruling 9A**, which dropped the ceiling. **Now:** if, by
+   ear, the person wants the burble outside §Design tension 9's band (louder
+   than the loudest board move sound, softer than the quietest, or under the
+   music at defaults), that is a question about "as loud as the other sound
+   effects". It goes back to them rather than into a looser test. The Voices
+   slider answers "louder for me" without changing the asset.
 4. **A venue arrival under the run-over notice** says its line (§Design 5,
    Phase 3). Whether the notice covers the panel at 89 columns is driven and
    captured at the Phase 3 walkthrough (item 7). If it does, that is a Phase 3
    review finding.
+5. **For the re-listen, not a blocker (amendment, 11A).** `EVENT_BEAT_MS` is
+   400 ms, the top of the ruled 0.3–0.4 s. That outlasts every round, tie and
+   bust sound, but not the match-end jingles (`game_win` 0.45 s, `game_loss`
+   0.52 s), so a match or series line's first word lands on their last note.
+   Waiting out the whole jingle, about 0.55 s, would be outside the ruled
+   range, so it is the person's to ask for (§Design tension 13).
