@@ -117,11 +117,25 @@ place.
 `Speech::advance(dt) -> bool` says whether a new word appeared on this step;
 `App` plays at most one burble per step, and plays the first word's burble when
 the line is said. Nothing is scheduled in the audio thread, so a replaced or
-cleared line cannot burble again: there is nothing left to advance. A step that
-crosses two word boundaries (a stalled frame) shows both words and owes **one**
-burble. Two burbles on the same instant would play louder, which is the one
-thing the spec forbids. This is a small divergence from "one burble per word,"
-reachable only when a frame stalls for more than a word step.
+cleared line cannot burble again: there is nothing left to advance.
+
+**Burbles never overlap**, because two at once play louder, which is the one
+thing the spec forbids. Every burble goes through one `App::burble(word)`,
+which plays only if `audio::burble_clear(since_burble)` holds: at least
+`BURBLE_GAP_MS` (150) since the last one. Two bounds make that safe, and a
+test pins both. The burble, at its slowest per-word pitch, ends within
+`BURBLE_GAP_MS`, so a burble that is allowed never overlaps the one before.
+And `BURBLE_GAP_MS <= WORD_STEP_MS − GAME_LOOP_SLEEP_MS`: tick quantisation puts
+consecutive words of one line at least 150 ms apart, so the guard never drops a
+word of an ordinary line. The guard drops a burble in exactly two cases, both
+divergences from "one burble per word" that exist to keep the sound soft:
+
+- **An interruption within 150 ms of the old line's last burble.**
+  `advance_speech` runs before `update_banter` in `tick`, so an old word and a
+  new line's first word can fall on the same step or one step apart. The new
+  line's first word then appears silently, and its later words burble as usual.
+- **A stalled frame** that crosses two word boundaries shows both words and
+  owes one burble.
 
 ### 4. The Animations setting is read when the line is said, not when it is drawn
 
@@ -132,14 +146,15 @@ word said when `animated` is false (AC 12: whole, one burble). The setting can
 only change from the Settings overlay over the start menu, where no line is on
 screen, so reading it at say-time is never stale.
 
-### 5. A burble plays only for a word the player can see — pending the person
+### 5. A burble plays only for a word the player can see — ruled 7A
 
 The spec says each word "as it appears, plays one … burble." On the compact
-board (89–138 columns) no line appears at all, so this plan plays no burble
-there. At the venue the panel draws at every width, so venue lines always
-burble. The rule is one predicate, `App::line_visible()`. If the person wants
-the opponent heard on the compact board as well, the fix is one line in that
-predicate. **§Open questions 1 — returned to the person, not settled here.**
+board (89–138 columns) no line appears at all, so no burble plays there —
+**the person's ruling 7A (2026-09-23)**. At the venue the panel draws at every
+width, so venue lines always burble. The rule is one predicate,
+`App::line_visible()`, which reads the board's existing `BoardView::is_wide()`
+(`board.rs`: `self.layout.opponent_panel.is_some()`), so `board.rs` does not
+change.
 
 ### 6. Arrival is the caller's word, not something remembered
 
@@ -171,12 +186,14 @@ The venue and the match that follows it read the same state (nothing settles
 between them), so they draw from one pool. `pick` is fed `banter_last`, so the
 match never opens on the venue's line (AC 6).
 
-**`start_match` now passes `self.banter_last` to `pick` instead of `None`.**
-That is what AC 6 needs, and it is spec 017's no-repeat rule applied to the
-greeting too. The one visible effect outside a series: a Quick Play greeting can
-no longer be the same line as the one shown just before it. AC 4 ("exactly as
-they do today") holds for *which pool* every event draws from — pinned by a
-test — but not for this one input to `pick`. Stated here rather than slipped in.
+**`start_match` feeds `banter_last` to `pick` only inside a series**:
+`let state = self.series_state_now(); let last = state.and(self.banter_last);`.
+A series match start therefore avoids the line the venue just said (AC 6).
+Every match with no series — Quick Play, a cleared-planet rematch, a match left
+in flight without one — passes `None` exactly as `start_match` does today
+(spec 017's no-repeat rule is within a match). AC 4 holds literally, for the
+pool and for `pick`'s input. The venue arrival always has a series, so it
+always passes `banter_last`.
 
 ### 8. The deciding match: one held value serves both the closing line and the frame
 
@@ -240,20 +257,18 @@ opponent rather than the opponent speaking, and differs from the board.
 AC 11's parenthetical "existing tests untouched". That parenthetical is about
 phases, popups and timings, none of which these assertions pin.
 
-### 11. A resumed match has no line, so it has nothing to say
+### 11. A resumed match has no line, so it has nothing to say — ruled 8A
 
 Today the Continue arm blanks the line on purpose (spec 017), and the next event
-supplies one. The spec's "a resumed saved match shows its line whole, with no
-burble — the first frame … is drawn settled" is satisfied by keeping that: no
-line, no burble. The next event's line is a new line and is spoken like any
-other. Showing a line on resume would be a new banter moment, which the spec's
-first non-goal rules out. **An interpretation, flagged for the
-spec-conformance summary** (§Open questions 2).
+supplies one. **The person's ruling 8A (2026-09-23)** keeps that: a resumed
+match stays blank, and no line is spoken, which is what `spec.md`'s AC 13 now
+says. The Continue arm sets `self.speech = None`. The next event's line is a new
+line and is spoken like any other.
 
 ### 12. Scale
 
-Two new types (`Speech`, `SeriesState`), one new sound, one new `App` method
-pair (`say`, `advance_speech`), one shared drawer. No trait, no per-opponent
+Two new types (`Speech`, `SeriesState`), one new sound, three small `App`
+methods (`say`, `advance_speech`, `burble`), one shared drawer. No trait, no per-opponent
 burble table (a non-goal), no reveal configuration beyond one constant. The six
 pools are plain fields on the existing `BanterSet` rather than a nested
 `SeriesLines` struct. There are eleven voices and one consumer, so a second
@@ -414,6 +429,14 @@ the existing `write_wav`.
   pub const BURBLE_PITCHES: [f32; 5] = [1.0, 0.94, 1.05, 0.97, 1.02];
   /// The burble for word `i` of a line (0 = the first).
   pub fn burble_cue(word: usize) -> Cue
+
+  /// The least time between two burbles (spec 030): longer than one burble at
+  /// its slowest pitch, so they never overlap and stack louder, and shorter
+  /// than a word step less one loop tick, so no word of an ordinary line is
+  /// ever dropped (plan §Design tension 3).
+  pub const BURBLE_GAP_MS: u64 = 150;
+  /// Whether a burble may play `since_last` after the previous one. Pure.
+  pub fn burble_clear(since_last: Duration) -> bool
   ```
   Played through `play_cue`, so the existing `should_play_sfx` gate (mute, SFX
   at zero) and `amplify(sfx_volume)` apply unchanged (AC 9's "silent" and
@@ -435,8 +458,9 @@ the existing `write_wav`.
   /// once, and this is its only burble.
   fn say(&mut self, line: &'static str)
 
-  /// Whether the line is drawn (plan §Design tension 5): at the venue always,
-  /// on the board only on the wide layout, never under the too-small screen.
+  /// Whether the line is drawn (plan §Design tension 5, ruling 7A): at the
+  /// venue always, on the board only when `board_view.is_wide()`, never under
+  /// the too-small screen.
   fn line_visible(&self) -> bool
 
   /// Speak the current line on: while its screen — the board or the venue —
@@ -444,11 +468,20 @@ the existing `write_wav`.
   /// other screen it settles, whole and silent, so returning shows it without
   /// a sound (spec 030).
   fn advance_speech(&mut self, dt: Duration)
+
+  /// Play word `word`'s burble — unless one played less than BURBLE_GAP_MS
+  /// ago, so two never overlap (plan §Design tension 3). The only place a
+  /// burble is sent.
+  fn burble(&mut self, word: usize)
   ```
-  `advance_speech` computes `line_visible()` before borrowing `self.speech`,
-  then plays `burble_cue(speech.words_shown() - 1)` when `advance` returns
-  true and the line is visible. The **only two** burble call sites in the
-  crate are `say` and `advance_speech`.
+  A field `since_burble: Duration` (doc: "time since the last burble (spec
+  030); starts at `Duration::MAX` so the first is always clear"), advanced
+  with `saturating_add(dt)` at the top of `advance_speech`, is reset to zero
+  by `burble` when it plays. `advance_speech` computes `line_visible()` before
+  borrowing `self.speech`, then calls `self.burble(words_shown - 1)` when
+  `advance` returns true and the line is visible. `say` calls `self.burble(0)`
+  when visible. **`burble_cue(` is called in exactly one place** (`burble`),
+  and `self.burble(` in exactly two (`say`, `advance_speech`).
 - `tick`: call `self.advance_speech(dt)` just before `self.emit_audio_cues()`,
   so a line said later in this tick keeps its full first step.
 - Every `self.banter = Some(line); self.banter_last = Some(line);` pair
@@ -490,8 +523,10 @@ the existing `write_wav`.
   /// (Quick Play, a rematch), by the board's own rule.
   fn series_state_now(&self) -> Option<SeriesState>
   ```
-- `start_match`: `pick(start_lines(banter_for(opp_id), self.series_state_now()),
-  self.banter_last, …)` — note `banter_last`, not `None` (§Design tension 7).
+- `start_match`: `let state = self.series_state_now(); let last =
+  state.and(self.banter_last);` then `pick(start_lines(banter_for(opp_id),
+  state), last, …)` — `banter_last` inside a series (AC 6), `None` outside it,
+  exactly as today (AC 4; §Design tension 7).
 - `update_banter`: the rematch branch draws `start_lines(banter_for(id),
   self.series_state_now())` (always `None` today — only Quick Play restarts in
   place); the event branch draws `lines_in_series(banter_for(id), ev,
@@ -515,20 +550,15 @@ the existing `write_wav`.
   Some(series_state(series))), self.banter_last, …)`, then `say`.
   `enter_campaign`'s and `launch_from_map`'s `self.open_campaign_home()`
   become `self.arrive_at_campaign()`. The `Screen::Venue` draw arm passes
-  `line.as_deref()`. An arrival under a run-over notice (a non-deciding loss
-  that leaves the player broke) still says its line. That is simplest, and the
-  panel is beside the notice rather than under it (§Open questions 4).
+  `line.as_deref()`. An arrival under a notice (the run-over notice after a
+  non-deciding loss leaves the player broke) still says its line. Whether the
+  notice covers the panel at 89 columns is **checked at the Phase 3
+  walkthrough**, not assumed (§Open questions 4).
 
 ### 6. `src/board.rs`
 
-```rust
-/// Whether this layout draws the opponent's line — the wide board's presence
-/// panel (spec 026: the compact board has none). `App` plays a word's burble
-/// only when it is drawn (spec 030).
-pub fn shows_banter(&self) -> bool { self.layout.opponent_panel.is_some() }
-```
-
-No other change. `draw`'s `banter: Option<&str>` receives the revealed text.
+**No change.** `BoardView::is_wide()` (~34) already answers whether the board
+draws the line, and `draw`'s `banter: Option<&str>` receives the revealed text.
 
 ### 7. `src/portrait.rs` (T007)
 
@@ -567,7 +597,9 @@ module doc each gain a clause about the opponent's line.
   never repeats or breathes. With Animations off the line appears whole."
 - `Readme.md` status paragraph (T003): "an **Animations** on/off row for the
   board's card and score transitions" → "… for the board's card and score
-  transitions and the opponent's word-by-word lines".
+  transitions and the opponent's word-by-word lines". The phrase spans lines
+  20–21 inside a `> ` block quote, so the edit keeps the `> ` prefix on every
+  line it touches and may re-wrap only those lines.
 - `src/settings.rs`, the `animations` field doc (T003): "the board's one-shot
   transitions and the opponent's spoken lines (spec 030). Off draws the board
   settled and each line whole."
@@ -587,13 +619,12 @@ module doc each gain a clause about the opponent's line.
 - `scripts/gen_sfx.py`, `assets/sfx/burble.wav` (**new, untracked until the
   orchestrator stages it by path**), `src/audio.rs`, `assets/CREDITS.md`. (T002)
 - `src/app.rs` — T003, T005, T006, T008, T007 (one argument).
-- `src/board.rs` — `shows_banter`. (T003)
 - `src/settings.rs` — doc only. (T003)
 - `design/brief.md`, `Readme.md` — one sentence each. (T003)
 - `src/layout.rs`, `src/venue.rs`. (T007)
 - `specs/030-series-banter/closeout-main-docs.md` (new). (T009)
 
-**No change**: `src/game.rs`, `src/card.rs`, `src/player.rs`,
+**No change**: `src/board.rs`, `src/game.rs`, `src/card.rs`, `src/player.rs`,
 `src/campaign.rs`, `src/profile.rs`, `src/save.rs`, `src/economy.rs`,
 `src/opponent.rs`, `src/motion.rs`, `src/campaign_map.rs`, `src/shop.rs`,
 `src/wager.rs`, `tests/`, `Cargo.toml`, `Cargo.lock`, the other thirteen
@@ -636,12 +667,18 @@ where a claim is cheap to pin on a drawn frame (as spec 029's venue tests do).
 
 **`audio.rs` (T002)**
 
-- `the_burble_is_softer_than_the_music` — §Design tension 9's inequality; it
-  prints both measurements (`--nocapture`) so the implementer and any later
-  tweak can quote them.
-- `a_burble_ends_before_the_next_word` — the decoded burble's duration divided
-  by the smallest `BURBLE_PITCHES` entry is under `WORD_STEP_MS`, so burbles
-  never overlap (overlap would stack loudness).
+- `the_burble_is_softer_than_the_music` — §Design tension 9's inequality. It
+  prints both measurements, read with `cargo test -q --lib
+  the_burble_is_softer_than_the_music -- --nocapture 2>&1 | grep -iE
+  'peak|rms|test result'` (in addition to the full command, never instead of
+  it), so the implementer and any later tweak can quote them. The implementer
+  also reports its runtime in a debug build (the 60 s MP3 decode).
+- `a_burble_ends_before_the_next_can_start` — the decoded burble's duration
+  divided by the smallest `BURBLE_PITCHES` entry is at most `BURBLE_GAP_MS`,
+  and `BURBLE_GAP_MS <= WORD_STEP_MS - GAME_LOOP_SLEEP_MS` (no word of an
+  ordinary line is dropped).
+- `burbles_are_spaced_by_the_gap` — `burble_clear` is false below
+  `BURBLE_GAP_MS`, true at and above it, and true for `Duration::MAX`.
 - `each_word_has_its_own_burble_pitch` — `burble_cue(i).sfx == Sfx::Burble`;
   every pitch within `0.9..=1.1`; neighbouring words' pitches differ;
   `burble_cue` wraps past the table's end.
@@ -744,15 +781,30 @@ the purse and hand-edit the profile's `series` to reach a state quickly):
 3. Play → commit: the match opens on a different line.
 4. After a non-deciding match: the venue has a new line for the new score.
 5. Quit to menu → Start Campaign: a fresh line.
+6. Quit the game with a series in progress, relaunch, Start Campaign: a fresh
+   line (AC 5's "launching the game").
+7. At 89×31, the venue under a notice: the run-over notice (a scratch profile
+   locked mid-series whose purse a non-deciding loss leaves below the locked
+   ante). Capture the frame and say whether the portrait panel and its line
+   are covered. If they are, the line is spoken under a notice nobody can see
+   past, which is a finding for the Phase 3 review, not an assumption
+   (§Open questions 4). The primer cannot appear over the venue — a series
+   exists only after it has been dismissed — and the report says so rather
+   than driving it.
 
 **Tweak loop for the burble.** At the Phase 1 pause the person may ask for the
 sound to change. Each request is a sub-lettered task (`T002a`, `T002b`, …):
 edit `BURBLE` (and/or `BURBLE_PITCHES`), run `python3 scripts/gen_sfx.py
-burble`, the verification command green with `the_burble_is_softer_than_the_music`
-still passing, and `git status --porcelain assets/sfx` showing only
-` M assets/sfx/burble.wav`. The person listens again. No redesign, no new
-review phase: the Phase 1 review's re-review covers the tweak diff if it is
-anything more than numbers.
+burble`, run the full verification command green, then — in addition —
+`cargo test -q --lib the_burble_is_softer_than_the_music -- --nocapture 2>&1 |
+grep -iE 'peak|rms|test result'`, with the figures quoted. `git status
+--porcelain assets/sfx` shows only ` M assets/sfx/burble.wav`. The person
+listens again. **A numbers-only tweak needs no review**: the ceiling test is
+its check. A tweak that changes anything beyond numbers (the synth's code, a
+new parameter) rides the next phase review's bundle, or the pre-merge sweep if
+no phase review remains. It never opens a review of its own, which the
+constitution's review cap would not allow once Phase 1's review and re-review
+are spent.
 
 ## Non-goals (from spec)
 
@@ -761,17 +813,15 @@ lines; a skip key; music; the final score on the map.
 
 ## Open questions
 
-1. **The compact board (89–138 columns) — should a line the player cannot see
-   still burble?** The spec: "Each word, as it appears, plays one short, soft,
-   voice-like burble." On the compact board no line appears (spec 026), so this
-   plan plays none there, and the opponent is silent in matches at the
-   minimum terminal size. The alternative is a burble per word regardless: the
-   opponent heard but not seen. **A product question for the person; drafted
-   as the literal reading.** Either answer is one line in `line_visible`.
-2. **A resumed match shows no line** (§Design tension 11) — the spec's AC 13 is
-   met by keeping spec 017's blank-on-resume. Flag in the conformance summary.
+1. **Closed — ruling 7A (the person, 2026-09-23).** On the compact board no
+   line is drawn, so no burble plays (§Design tension 5).
+2. **Closed — ruling 8A (the person, 2026-09-23).** A resumed match stays
+   blank and no line is spoken; `spec.md`'s AC 13 now says exactly that
+   (§Design tension 11).
 3. **If the person wants the burble louder than §Design tension 9's ceiling**,
    that conflicts with "never louder than the music" and goes back to them
    rather than into a weaker test.
 4. **A venue arrival under the run-over notice** says its line (§Design 5,
-   Phase 3). Seen at the Phase 3 walkthrough only if driven. Noted, not asked.
+   Phase 3). Whether the notice covers the panel at 89 columns is driven and
+   captured at the Phase 3 walkthrough (item 7). If it does, that is a Phase 3
+   review finding.
