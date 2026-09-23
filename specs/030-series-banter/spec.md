@@ -137,8 +137,12 @@ construction.
 - **Animations Off** (spec 027's setting) → the line appears whole on the
   frame it is chosen, with **one** burble (the sound follows the Sound
   Effects setting, not the Animations setting).
-- **A resumed saved match** shows its line whole, with no burble — the first
-  frame of a resumed match is drawn settled (spec 027).
+- **A resumed saved match** shows no line, as today (spec 017 resumes with
+  the line blank), so nothing is spoken and no burble plays; the first frame
+  of a resumed match is drawn settled (spec 027). Ruling 8A.
+- **The compact board** (89–138 columns, spec 026) draws no opponent line, so
+  nothing is spoken there and no burble plays: "if the banter isn't visible,
+  it makes no sense to include the speech burble." Ruling 7A.
 
 ### The deciding match's final score
 
@@ -192,8 +196,9 @@ construction.
     are unchanged (existing tests untouched).
 12. [ ] **Animations Off.** A line appears whole on the frame it is chosen,
     with one burble.
-13. [ ] **Resumed match.** A resumed saved match shows its line whole, with
-    no burble.
+13. [ ] **Resumed match and compact board.** A resumed saved match shows no
+    line and plays no burble (ruling 8A); a match on the compact board shows
+    no line and plays no burble (ruling 7A).
 14. [ ] **Final score held.** The game-over frame of a deciding match, won or
     lost, shows the final series score; non-deciding matches' frames are
     unchanged; the map afterwards shows no series score and its banner is
@@ -218,6 +223,11 @@ construction.
   sort of a 'soft burble' if possible."
 - **6A** — the deciding match's game-over frame holds the final series
   score, which "should not follow the player to the galaxy screen."
+- **7A** (asked at planning) — on the compact board, where no line is
+  drawn, no burble plays. The person may later want the line on the compact
+  board without the portrait; that is a backlog item, not this spec.
+- **8A** (asked at planning) — a resumed match stays blank, as today; no
+  line is spoken on resume.
 - **Approval (2026-09-23)** — approved, with the burble subject to the
   person's approval by ear once implemented, and possible tweaks.
 
