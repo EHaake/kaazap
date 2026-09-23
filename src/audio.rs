@@ -637,4 +637,30 @@ mod tests {
         assert_eq!(burble_cue(n), burble_cue(0));
         assert_eq!(burble_cue(n + 2), burble_cue(2));
     }
+
+    #[test]
+    fn the_event_beat_outlasts_the_round_sounds() {
+        fn length_ms(sfx: Sfx) -> f64 {
+            let clip = Decoder::new(Cursor::new(sfx.bytes())).unwrap();
+            let per_second = clip.sample_rate().get() as f64 * clip.channels().get() as f64;
+            clip.count() as f64 / per_second * 1000.0
+        }
+        let beat = crate::EVENT_BEAT_MS as f64;
+        // `speed(pitch)` below 1.0 stretches the clip; the opponent's bust plays
+        // at OPPONENT_PITCH.
+        for (sfx, pitch) in [
+            (Sfx::RoundWin, 1.0),
+            (Sfx::RoundLoss, 1.0),
+            (Sfx::RoundTie, 1.0),
+            (Sfx::Bust, OPPONENT_PITCH),
+        ] {
+            let heard = length_ms(sfx) / pitch as f64;
+            println!("{sfx:?} at pitch {pitch}: {heard:.0} ms, beat {beat:.0} ms");
+            assert!(heard <= beat, "{sfx:?} at pitch {pitch} lasts {heard} ms, past the beat");
+        }
+        // Longer than the beat by design (plan §Design tension 13): printed, not asserted.
+        for sfx in [Sfx::GameWin, Sfx::GameLoss] {
+            println!("{sfx:?}: {:.0} ms, beat {beat:.0} ms", length_ms(sfx));
+        }
+    }
 }

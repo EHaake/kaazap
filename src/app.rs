@@ -3,7 +3,7 @@ use std::time::Duration;
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::{
-    SELECTION_PULSE_MS,
+    EVENT_BEAT_MS, SELECTION_PULSE_MS,
     audio::{Audio, AudioSnapshot, Sfx, audio_cues, burble_clear, burble_cue},
     banter::{
         BanterSnapshot, Speech, banter_event, banter_for, lines_for, match_restarted, pick,
@@ -1090,7 +1090,7 @@ impl App {
         // seeds the diff silently.
         self.prev_banter = None;
         let line = pick(banter_for(opp_id).match_start, None, &mut rand::rng());
-        self.say(line);
+        self.say(line, Duration::ZERO);
         // Fresh match — reset the play log; the first snapshot seeds its diff
         // silently, mirroring the banter/audio seeding above.
         self.play_log.reset(opp_name);
@@ -1125,11 +1125,16 @@ impl App {
     /// Say `line` (spec 030): it replaces any line still being spoken, at once,
     /// from its first word, and becomes `banter_last`; its first word's burble
     /// plays now — if the line is on screen. With Animations off it is whole at
-    /// once, and this is its only burble.
-    fn say(&mut self, line: &'static str) {
-        self.speech = Some(Speech::new(line, self.settings.animations));
+    /// once, and this is its only burble. `wait` is zero for a match start or a
+    /// venue arrival, and `EVENT_BEAT_MS` for a line answering an event (ruling
+    /// 11A). Nothing shows or sounds until it passes; then `advance_speech`
+    /// plays the first word's burble.
+    fn say(&mut self, line: &'static str, wait: Duration) {
+        let speech = Speech::new(line, self.settings.animations).after(wait);
+        let showing = speech.words_shown() > 0;
+        self.speech = Some(speech);
         self.banter_last = Some(line);
-        if self.line_visible() {
+        if showing && self.line_visible() {
             self.burble(0);
         }
     }
@@ -1199,12 +1204,12 @@ impl App {
                 // menu, not the lingering closing line (spec 017 §8 rematch
                 // note). A match start outranks the round-level branches.
                 let line = pick(banter_for(id).match_start, self.banter_last, &mut rand::rng());
-                self.say(line);
+                self.say(line, Duration::ZERO);
             } else if let Some(ev) = banter_event(&prev, &curr) {
                 // A new event: pick a line, avoiding the last one shown, and
                 // record it in both fields.
                 let line = pick(lines_for(banter_for(id), ev), self.banter_last, &mut rand::rng());
-                self.say(line);
+                self.say(line, Duration::from_millis(EVENT_BEAT_MS));
             } else if play_resumed(&prev, &curr) {
                 // The next round's play has begun and no new line fired: clear
                 // the shown line (spec 017 §8), but keep `banter_last` so the

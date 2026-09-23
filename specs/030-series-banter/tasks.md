@@ -281,7 +281,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   The report quotes the `BURBLE` block and the new test verbatim. The
   orchestrator stages `assets/sfx/burble.wav` by path.*
 
-- [ ] **T003a** — `src/lib.rs` + `src/banter.rs` + `src/audio.rs` +
+- [x] **T003a** — `src/lib.rs` + `src/banter.rs` + `src/audio.rs` +
   `src/app.rs` + `design/brief.md`: the event beat (ruling 11A). Per plan §Design tension 13,
   §Design 1 (the amended block), §Design 2 (the amended paragraph) and §Design
   5 (*Phase 1 amendment — the event beat*).
@@ -721,3 +721,4 @@ redo, and why). -->
 | T002a (sdd-implementer) | opus → claude-opus-5-5 | ~77K | 2 (one resume) | no — stopped on a judgment call | — | serde also parses a struct from a positional JSON array, so `voices_volume` third let `[1,2,3]` load and failed `settings_malformed_or_empty_json_falls_back_to_default`. Decision review → A: declare it last (transcribed into plan §Design 11). Done: 504 lib tests, 0 warnings, 4 new tests + renamed one green, superseded edits only |
 | Decision review: T002a field order (skeptical-reviewer) | opus → claude-opus-5-5 | ~25K | 1 | — | — | recommend A (declare last, test untouched); B edits a test to pass, C adds unasked code |
 | T002b (sdd-implementer) | opus → claude-opus-5-5 | ~53K | 1 | yes | — | done; `peak` 0.08 → 0.79 (burble RMS 0.1668 ≈ move-sound mean 0.1660; at defaults 0.1335 in band 0.0794–0.1710, floor 0.0820, margin 0.0515). Test ~4 s debug. 504 lib tests, 0 warnings |
+| T003a (sdd-implementer) | opus → claude-opus-5-5 | ~72K | 1 | yes | — | done; `EVENT_BEAT_MS` 400 inside `Speech` (`after`); 511 lib tests, 0 warnings, 7 new tests green. Tightest case: opponent bust at 0.92 pitch 380 ms (20 ms spare); match-end jingles overrun the beat by 50/120 ms (§Open questions 5) |

@@ -193,13 +193,15 @@ pub fn words_due(line: &str, elapsed: Duration) -> usize {
     steps.saturating_add(1).min(word_count(line))
 }
 
-/// A line being spoken (spec 030): the line, the time since it was chosen, and
-/// how many of its words are showing. Drawing state only — never saved.
+/// A line being spoken (spec 030): the line, the time since its beat ended
+/// (since it was chosen, when there is no beat), and how many of its words are
+/// showing. Drawing state only — never saved.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Speech {
     line: &'static str,
     elapsed: Duration,
     shown: usize,
+    wait: Duration,
 }
 
 impl Speech {
@@ -208,14 +210,33 @@ impl Speech {
     /// burble the first appearance owes.
     pub fn new(line: &'static str, animated: bool) -> Self {
         let shown = if animated { words_due(line, Duration::ZERO) } else { word_count(line) };
-        Self { line, elapsed: Duration::ZERO, shown }
+        Self { line, elapsed: Duration::ZERO, shown, wait: Duration::ZERO }
+    }
+
+    /// The same line, but nothing shows and nothing is owed until `wait` has
+    /// passed (ruling 11A: a line answering an event waits out the event's
+    /// sound). `after(Duration::ZERO)` is `self`.
+    pub fn after(self, wait: Duration) -> Self {
+        Self { wait, ..self }
     }
 
     /// Advance by `dt`. True when a word appeared on this step, meaning the caller
     /// owes one burble. A step that crosses more than one word boundary shows
     /// them all and still returns true once (plan §Design tension 3).
     /// `shown` never decreases, so a settled speech stays settled.
+    /// A line waiting out its beat shows nothing and owes nothing until the step
+    /// that ends the beat, which owes one burble.
     pub fn advance(&mut self, dt: Duration) -> bool {
+        if !self.wait.is_zero() {
+            if dt < self.wait {
+                self.wait -= dt;
+                return false;
+            }
+            self.elapsed = self.elapsed.saturating_add(dt - self.wait);
+            self.wait = Duration::ZERO;
+            self.shown = self.shown.max(words_due(self.line, self.elapsed));
+            return true;
+        }
         self.elapsed = self.elapsed.saturating_add(dt);
         let due = words_due(self.line, self.elapsed);
         if due > self.shown {
@@ -228,16 +249,17 @@ impl Speech {
 
     /// Show the rest at once, silently — the line's screen was left.
     pub fn settle(&mut self) {
+        self.wait = Duration::ZERO;
         self.shown = word_count(self.line);
     }
 
     pub fn words_shown(&self) -> usize {
-        self.shown
+        if self.wait.is_zero() { self.shown } else { 0 }
     }
 
-    /// What the panel draws: `revealed(line, shown)`.
+    /// What the panel draws: `revealed(line, words_shown())`.
     pub fn text(&self) -> String {
-        revealed(self.line, self.shown)
+        revealed(self.line, self.words_shown())
     }
 }
 
@@ -876,5 +898,96 @@ mod tests {
         assert_eq!(s.text(), line);
         assert!(!s.advance(Duration::ZERO));
         assert!(!s.advance(step()));
+    }
+
+    // ---- Spec 030 T003a: the event beat (ruling 11A) ----------------------
+
+    fn beat() -> Duration {
+        Duration::from_millis(crate::EVENT_BEAT_MS)
+    }
+
+    #[test]
+    fn the_event_beat_is_about_a_third_of_a_second() {
+        assert!(300 <= crate::EVENT_BEAT_MS);
+        assert!(crate::EVENT_BEAT_MS <= 400);
+    }
+
+    #[test]
+    fn a_line_after_a_beat_shows_nothing_until_the_beat_ends() {
+        let line = "Here goes nothing!";
+        let mut s = Speech::new(line, true).after(beat());
+        assert_eq!(s.words_shown(), 0);
+        assert_eq!(s.text(), " ".repeat(line.chars().count()));
+
+        assert!(!s.advance(beat() - Duration::from_millis(1)));
+        assert_eq!(s.words_shown(), 0);
+        assert_eq!(s.text(), " ".repeat(line.chars().count()));
+
+        assert!(s.advance(Duration::from_millis(1)));
+        assert_eq!(s.words_shown(), 1);
+        assert_eq!(s.text(), "Here              ");
+
+        assert!(s.advance(step()));
+        assert_eq!(s.words_shown(), 2);
+        assert_eq!(s.text(), "Here goes         ");
+    }
+
+    #[test]
+    fn after_zero_is_the_line_at_once() {
+        let line = "Here goes nothing!";
+        for animated in [true, false] {
+            assert_eq!(
+                Speech::new(line, animated).after(Duration::ZERO),
+                Speech::new(line, animated),
+                "animated {animated}"
+            );
+        }
+    }
+
+    #[test]
+    fn animations_off_after_a_beat_is_whole_with_one_burble() {
+        let line = "Here goes nothing!";
+        let mut s = Speech::new(line, false).after(beat());
+        assert_eq!(s.words_shown(), 0);
+        assert_eq!(s.text(), " ".repeat(line.chars().count()));
+        assert!(!s.advance(beat() - Duration::from_millis(1)));
+        assert_eq!(s.words_shown(), 0);
+
+        let mut s = Speech::new(line, false).after(beat());
+        assert!(s.advance(beat()));
+        assert_eq!(s.words_shown(), word_count(line));
+        assert_eq!(s.text(), line);
+        for _ in 0..20 {
+            assert!(!s.advance(step()));
+        }
+        assert_eq!(s.text(), line);
+    }
+
+    #[test]
+    fn a_line_settled_in_its_beat_is_whole_and_silent() {
+        let line = "Here goes nothing!";
+        let mut s = Speech::new(line, true).after(beat());
+        assert!(!s.advance(beat() / 2));
+        assert_eq!(s.words_shown(), 0);
+        s.settle();
+        assert_eq!(s.words_shown(), word_count(line));
+        assert_eq!(s.text(), line);
+        for _ in 0..20 {
+            assert!(!s.advance(step()));
+        }
+        assert_eq!(s.text(), line);
+    }
+
+    #[test]
+    fn a_stalled_step_across_the_beat_shows_every_due_word_once() {
+        let line = "Court is in session.";
+        assert_eq!(word_count(line), 4);
+        let mut s = Speech::new(line, true).after(beat());
+        assert_eq!(s.words_shown(), 0);
+        assert!(s.advance(beat() + step() * 2));
+        assert_eq!(s.words_shown(), 3);
+        assert_eq!(s.text(), "Court is in         ");
+        assert!(!s.advance(Duration::ZERO));
+        assert_eq!(s.words_shown(), 3);
     }
 }
