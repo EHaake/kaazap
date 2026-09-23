@@ -11,9 +11,10 @@
 ## Sound effects
 
 All sound effects in `assets/sfx/` are synthesized by
-`scripts/gen_sfx.py` — square/triangle-wave blips generated from scratch,
-so they carry no third-party licensing. Re-run that script to regenerate
-them.
+`scripts/gen_sfx.py` — square/triangle-wave blips and one additive,
+voice-like burble (the opponent's murmur as a line is spoken, spec 030), all
+generated from scratch, so they carry no third-party licensing. Re-run that
+script to regenerate them.
 
 ## Portraits
 

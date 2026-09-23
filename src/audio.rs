@@ -7,6 +7,7 @@
 use std::io::Cursor;
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player, Source};
 
@@ -34,6 +35,8 @@ pub enum Sfx {
     MenuMove,
     MenuSelect,
     MenuBack,
+    /// The opponent's per-word murmur (spec 030), one per spoken word.
+    Burble,
 }
 
 impl Sfx {
@@ -53,6 +56,7 @@ impl Sfx {
             Sfx::MenuMove => include_bytes!("../assets/sfx/menu_move.wav"),
             Sfx::MenuSelect => include_bytes!("../assets/sfx/menu_select.wav"),
             Sfx::MenuBack => include_bytes!("../assets/sfx/menu_back.wav"),
+            Sfx::Burble => include_bytes!("../assets/sfx/burble.wav"),
         }
     }
 }
@@ -243,6 +247,26 @@ pub struct Cue {
 /// How much lower the opponent's action sounds play than the player's.
 /// Subtle on purpose — "very similar but slightly different." Easy to tune.
 pub const OPPONENT_PITCH: f32 = 0.92;
+
+/// Per-word pitch for the burble (spec 030): a small, fixed rise and fall
+/// so a line reads as speech rather than one blip repeated. Tune by ear.
+pub const BURBLE_PITCHES: [f32; 5] = [1.0, 0.94, 1.05, 0.97, 1.02];
+
+/// The burble for word `i` of a line (0 = the first).
+pub fn burble_cue(word: usize) -> Cue {
+    Cue { sfx: Sfx::Burble, pitch: BURBLE_PITCHES[word % BURBLE_PITCHES.len()] }
+}
+
+/// The least time between two burbles (spec 030): longer than one burble at
+/// its slowest pitch, so they never overlap and stack louder, and no more
+/// than three loop ticks, so no word of an ordinary line is ever dropped
+/// (plan §Design tension 3).
+pub const BURBLE_GAP_MS: u64 = 150;
+
+/// Whether a burble may play `since_last` after the previous one. Pure.
+pub fn burble_clear(since_last: Duration) -> bool {
+    since_last >= Duration::from_millis(BURBLE_GAP_MS)
+}
 
 /// A minimal snapshot of the game state's audible facts, for both sides.
 /// `App` diffs successive snapshots to decide which SFX to play — the
@@ -485,5 +509,61 @@ mod tests {
         let mut curr = prev;
         curr.p_dealer = 1; // some unrelated change
         assert_eq!(audio_cues(prev, curr), vec![pc(Sfx::CardDraw)]);
+    }
+
+    // The burble's loudest sample against the music's RMS over its first
+    // 60 s (plan §Design tension 9), scaled by the default volumes. Decodes
+    // the embedded assets only; opens no audio device.
+    #[test]
+    fn the_burble_is_softer_than_the_music() {
+        let burble = Decoder::new(Cursor::new(Sfx::Burble.bytes())).unwrap();
+        let peak = burble.map(|s| (s as f64).abs()).fold(0.0, f64::max);
+
+        let music = Decoder::new(Cursor::new(MUSIC_BYTES)).unwrap();
+        let window = 60 * music.sample_rate().get() as usize * music.channels().get() as usize;
+        let (sum, count) = music
+            .take(window)
+            .fold((0.0, 0usize), |(sum, count), s| (sum + (s as f64).powi(2), count + 1));
+        let rms = (sum / count as f64).sqrt();
+
+        let d = Settings::default();
+        let ceiling = rms * d.music_volume as f64 / d.sfx_volume as f64;
+        println!("burble peak {peak:.4}");
+        println!("music rms {rms:.4} over its first 60 s; ceiling {ceiling:.4}");
+        assert!(peak <= ceiling, "burble peak {peak} above the ceiling {ceiling}");
+    }
+
+    #[test]
+    fn a_burble_ends_before_the_next_can_start() {
+        let burble = Decoder::new(Cursor::new(Sfx::Burble.bytes())).unwrap();
+        let per_second = burble.sample_rate().get() as f64 * burble.channels().get() as f64;
+        let length_ms = burble.count() as f64 / per_second * 1000.0;
+        let slowest = BURBLE_PITCHES.iter().copied().fold(f32::INFINITY, f32::min) as f64;
+        // `speed(pitch)` below 1.0 stretches the clip.
+        assert!(length_ms / slowest <= BURBLE_GAP_MS as f64);
+        assert!(BURBLE_GAP_MS <= 3 * crate::GAME_LOOP_SLEEP_MS);
+    }
+
+    #[test]
+    fn burbles_are_spaced_by_the_gap() {
+        assert!(!burble_clear(Duration::ZERO));
+        assert!(!burble_clear(Duration::from_millis(BURBLE_GAP_MS - 1)));
+        assert!(burble_clear(Duration::from_millis(BURBLE_GAP_MS)));
+        assert!(burble_clear(Duration::from_millis(BURBLE_GAP_MS + 1)));
+        assert!(burble_clear(Duration::MAX));
+    }
+
+    #[test]
+    fn each_word_has_its_own_burble_pitch() {
+        let n = BURBLE_PITCHES.len();
+        for i in 0..n {
+            let cue = burble_cue(i);
+            assert_eq!(cue.sfx, Sfx::Burble);
+            assert!((0.9..=1.1).contains(&cue.pitch), "word {i}: {}", cue.pitch);
+            assert_ne!(cue.pitch, burble_cue(i + 1).pitch, "words {i} and {}", i + 1);
+        }
+        // Past the table's end, the pitches wrap.
+        assert_eq!(burble_cue(n), burble_cue(0));
+        assert_eq!(burble_cue(n + 2), burble_cue(2));
     }
 }

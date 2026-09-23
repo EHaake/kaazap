@@ -91,7 +91,7 @@ file (`assets/sfx/burble.wav`) that must be added by name.
   exactly `src/lib.rs`, `src/banter.rs`, `src/portrait.rs`. The report quotes
   `Speech::advance` and `revealed` verbatim.*
 
-- [ ] **T002** — `scripts/gen_sfx.py` + `assets/sfx/burble.wav` (new) +
+- [x] **T002** — `scripts/gen_sfx.py` + `assets/sfx/burble.wav` (new) +
   `src/audio.rs` + `assets/CREDITS.md`: the burble. Per plan §Design 3–4 and
   §Design tension 9. In the script: the `BURBLE` parameter block with the
   plan's comment, and a `burble()` synth. It is additive: `harmonics` harmonics
@@ -501,3 +501,4 @@ redo, and why). -->
 | Planning: sign-off (skeptical-reviewer) | opus → claude-opus-5-5 | ~179K | 1 | — | 2 (B1 match start changed Quick Play's pick, against AC 4; B2 T002's `tail -n 15` cut off the burble figures) | fix and re-review; ten second-look notes, 1–6, 8, 9 folded into the revision |
 | Planning: sign-off re-review (skeptical-reviewer, same context) | opus → claude-opus-5-5 | ~30K | 1 | — | 0 | **signed off**. Notes carried: the `BURBLE_GAP_MS` bound's reasoning was backwards (ticks are *at least* 50 ms) — transcribed into plan §Design tension 3 and §Tests by the orchestrator as `BURBLE_GAP_MS <= 3 * GAME_LOOP_SLEEP_MS`, numbers unchanged; the stale `BURBLE` block comments fixed the same way. Residual: words go silent only if the loop sustains ticks over ≈ 66 ms |
 | T001 (sdd-implementer) | opus → claude-opus-5-5 | ~66K | 1 | yes | — | done; 7 banter + 1 portrait tests green, 496 lib tests, 0 warnings. Note: the verify tail cuts off the lib summary (many test binaries); implementer added the `grep "test result"` line |
+| T002 (sdd-implementer) | opus → claude-opus-5-5 | ~63K | 1 | yes | — | done; 4 audio tests green, 500 lib tests, 0 warnings. `peak` 0.08 (music RMS 0.1641 over 60 s, ceiling 0.1025). Ceiling test ~4 s in debug; 60 s window kept. Deviations: `BURBLE_GAP_MS` doc follows the corrected §Design tension 3 wording; script errors on an unknown sound name |
