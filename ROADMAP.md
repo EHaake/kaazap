@@ -608,6 +608,16 @@ of, not guessed at here in advance.
 
 ## Backlog
 
+**What's left for v1 (the person, 2026-09-23).** The game is basically
+complete. Two things remain before it counts as done: **series-aware
+banter** (below, taken as spec 030 with a word-by-word speaking animation)
+and **music** — *Original cantina-vibe music* and/or *Per-planet music*
+(below). Everything else here is optional polish or post-v1. The
+**roguelike mode** is low priority, because the campaign already plays like
+one: going broke ends the run and wipes it. The **difficulty curve** is in a
+good place; another pass is possible, but nothing changes unless it is
+clearly an improvement (see *Re-tune the curve for series play*).
+
 ### Campaign (epic — now being actively sequenced)
 
 The campaign is an **integration layer** over several self-contained
@@ -655,9 +665,11 @@ file — the engine works, so the campaign is now being planned in order.)
   it did **not** depend on C; the "rewards/meta" half of the original D-split
   (granting C's credits/cards on win) rides with **C**. Wins record progress
   only; a loss just returns to the map.
-- **E · Roguelike mode** (stretch, optional) — an alternate run structure:
-  go as far as you can, a fixed number of losses before you restart. Reuses
-  A–D's infrastructure; last.
+- **E · Roguelike mode** — **low priority (the person, 2026-09-23):** the
+  campaign already works like a roguelike, since going broke ends the run and
+  resets it, so a separate mode adds little. Original framing: an alternate
+  run structure — go as far as you can, a fixed number of losses before you
+  restart. Reuses A–D's infrastructure; last.
 - **More campaign worlds / roster expansion** — ✅ **Shipped (spec 011** — see
   Shipped above). Grew the campaign to 10 opponents across 8 worlds, ending in a
   new final boss. As predicted, it was pure `const` content: `campaign::PLANETS`
@@ -778,7 +790,9 @@ the endgame and the mode-identity question are deferred, below.
   player-facing selector layered on this curve, which is now the baseline it
   moves relative to.
 - **Re-tune the curve for series play, if it plays badly** (raised by spec 029,
-  2026-09-22). Spec 029 turned every opponent into a Best of 3 series and the
+  2026-09-22). **The person, 2026-09-23:** the difficulty is in a good place
+  overall. Another pass is possible, but change nothing unless we are sure it
+  is an objective improvement. Spec 029 turned every opponent into a Best of 3 series and the
   final opponent into a Best of 5, and **measured, it did not change**:
   `docs/balance.md`'s *Series rates* section converts the per-match rates into
   series rates, and the sharpening is real in both directions — the starter
