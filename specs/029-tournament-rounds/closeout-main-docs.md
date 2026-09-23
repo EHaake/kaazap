@@ -15,6 +15,14 @@ verbatim, which is what to match on; every anchor below was re-checked with
 `grep -c` against `git show main:<file>` at `a5a854c` and is unique there
 (`ROADMAP.md` 937 lines, `DECISIONS.md` 1921).
 
+**Refreshed after Phase 6 (ruling R9), 2026-09-22**, with the branch at
+`7e5fe11` and `main` still at `a5a854c`, so every line number and anchor above
+still holds — the anchors were re-checked with `grep -cF` against
+`git show main:ROADMAP.md` for the refresh (each 1; 937 and 1921 lines). The
+refresh changes only what R9 made false or added: §1a, §1b, §1c, the R9
+material in §2a, §3's `design/brief.md` bullet, the triage of notes 49–56
+(§4), §5 re-run in full, and §6's criterion 16 and new criterion 21.
+
 Applying: never chain a file edit, a branch switch and a commit in one shell
 command (spec 025's miss) — switch to `main`, edit, verify the anchors again,
 then commit.
@@ -38,7 +46,8 @@ shipped, it may name the Outfitter; it never renames it after the fact.
 `grep -n -i "series\|tournament\|venue\|best of" ROADMAP.md` on `main` returns
 the **F · Tournament rounds** backlog bullet (638–654, the item this spec
 ships), the **Per-planet venue art** bullet (873–900, written 2026-09-20 against
-the *pre-amendment* design and now wrong about the layout), and the
+the *pre-amendment* design as a deferred item — which this spec now ships, by
+ruling R9), and the
 **Per-planet music** bullet (902–924, which names the venue once and stays
 accurate).
 
@@ -76,11 +85,17 @@ Insert after them:
   length and the credit balance, and offers **Play**, the **Card Shop**, the
   collection and quit to the menu (`b` and `c` as on the map); the Card Shop
   and the collection return to it. The venue is drawn as horizontal bands:
-  its text above and below a dominant **planet art region** that holds a
-  plain placeholder (the planet's name), with the opponent's portrait in its
-  own column three columns beside it, at **every** width — 50×22 at 89
-  columns, 94×22 at 139 — and every text row centred on the art rather than
-  the terminal. Starting a series **commits** the player to it: the map is
+  its text above and below a dominant **planet art region** that shows **each
+  planet's own art** — sixteen monochrome drawings, a 48×20 narrow and a 92×20
+  wide one per planet, authored outside the codebase from an in-repo brief and
+  validated by a test — with the opponent's portrait in its own column three
+  columns beside it, at **every** width. The box is sized exactly to the
+  drawing: the narrow drawing below 139 columns (a 50×22 box), the wide one
+  from 139 up (94×22), and at every other size the spare space is margin
+  around the art and the portrait, never blank space inside the frame; a
+  taller terminal centres the whole venue. Every text row is centred on the
+  art rather than the terminal. `design/brief.md` gained a second bounded
+  exception for the art, beside the portraits'. Starting a series **commits** the player to it: the map is
   unreachable, entering the campaign lands on the venue, and only the series
   resolving or a reset releases the lock. A lost series costs only the stakes
   already lost and resets to 0–0; a won one beats the opponent exactly then,
@@ -97,18 +112,20 @@ Insert after them:
   `docs/balance.md` gained *Series rates*: the curve sharpens in both
   directions (starter vs Greeb 70.3 % a match → 78.8 % a series, starter vs Rix
   28.1 → 19.3), and the starter's chance against the final opponent falls from
-  23.2 % to **8.6 %**. No new records or statistics. A **per-planet art brief**
-  for the deferred art spec ships at
+  23.2 % to **8.6 %**. No new records or statistics. The **per-planet art
+  brief** the drawings were made from ships at
   `specs/029-tournament-rounds/planet-art-brief.md`. No engine, AI, save-format,
   economy-constant, balance-data or dependency change: `game.rs`, `card.rs`,
   `player.rs`, `save.rs`, `opponent.rs`, `Cargo.toml` and `Cargo.lock` are
   untouched, `PROFILE_VERSION` / `SAVE_VERSION` stay 1, and the two new
   persisted fields (`NodeRef::settled`, `CampaignRun::series`) are additive and
   `#[serde(default)]` — a pre-029 profile loads with no series running and every
-  beaten opponent still beaten. The person amended the spec three times
-  mid-implementation after walking the venue (R1–R8), and attested at every
-  paused phase; driver walkthroughs against a scratch `KAAZAP_DATA_DIR` covered
-  the venue, the lock, the routing and the board at 89×31 and 139×31.
+  beaten opponent still beaten. The person amended the spec mid-implementation
+  after walking the venue (R1–R8), then at the merge pause brought the art
+  itself into the spec (R9), and attested at every paused phase; driver
+  walkthroughs against a scratch `KAAZAP_DATA_DIR` covered the venue, the lock,
+  the routing and the board at 89×31 and 139×31, and all eight planets' art at
+  both sizes, plus 120×31 and 139×40.
   `Readme.md`'s campaign paragraph names the series, the venue and the lock.
 ```
 
@@ -139,16 +156,21 @@ with:
   the records are unchanged; and a save mid-series resumes at the venue, which
   is where the Card Shop and the collection are visited between matches. The
   person's longer-range wish to lean further into the tournament theme stays a
-  direction, not an item — per-planet venue art, per-planet music and
-  series-aware banter (below) are its first concrete pieces.
+  direction, not an item — per-planet venue art shipped with this spec (ruling
+  R9), and per-planet music and series-aware banter (below) are its next
+  concrete pieces.
 ```
 
-### 1c. Rewrite the **Per-planet venue art** bullet (currently lines 873–900)
+### 1c. Mark the **Per-planet venue art** bullet shipped (currently lines 873–900)
 
-The bullet was written on 2026-09-20 against the pre-amendment venue (a 30×15
-region at 139 columns and wider, text only below). Rulings R3, R4 and R7
-replaced that design, and the brief the bullet says to write now exists. Replace
-the whole bullet — from
+The bullet was written on 2026-09-20 as a deferred item, against the
+pre-amendment venue (a 30×15 region at 139 columns and wider, text only below).
+Ruling R9 (2026-09-22) brought the art into this spec, so the item ships here.
+It is **marked shipped in the roadmap's own form** (✅ **Shipped (spec NNN** —
+…), like every other shipped backlog bullet and like 1b — not removed, which
+would drop the record that it was once a deferred item, and not left, which
+would leave `main` promising a spec that will not be written. Replace the whole
+bullet — from
 
 ```markdown
 - **Per-planet venue art** (deferred by spec 029, 2026-09-20). Spec 029 builds
@@ -163,41 +185,23 @@ through its last line
 with:
 
 ```markdown
-- **Per-planet venue art** (deferred by spec 029, 2026-09-20; the brief written
-  on spec 029's branch, 2026-09-21). Spec 029 built the venue — the tournament
-  hall the player stands in between the matches of a series — and **reserves
-  the art region with a plain placeholder in it** (the planet's name, kept by
-  the person's ruling until there is real art). This item authors the art.
-
-  **The brief is already written**: `specs/029-tournament-rounds/planet-art-brief.md`,
-  in the shape of spec 016's portrait brief. So this is **not** "write a brief"
-  — it is: hand that file to a design tool, validate the **sixteen** grids it
-  asks for against its own checklist (exact width, 20 lines, UTF-8, LF, a closed
-  23-codepoint whitelist, and a single command that checks the encoding and the
-  glyphs together), then wire them in the way the portraits are: two
-  `&'static str` fields on `Planet` in `src/campaign.rs`, `include_str!` from
-  `assets/planets/<id>-narrow.txt` (48×20) and `<id>-wide.txt` (92×20), and the
-  venue picking the asset that fits.
-
-  The layout is settled and is not this item's to redesign: the art region
-  draws at **every** width as the venue's dominant element, with the opponent's
-  portrait in its own column three columns beside it (rulings R3, R4, R7). Its
-  interior is 48×20 at 89 columns and 92×20 at 139, which is why the brief asks
-  for **two grids per planet** — the cost ruling R3 named. The brief records the
-  single-asset alternative (one 92-wide grid composed so its central 48 columns
-  stand alone), which halves the drawing, if the person prefers eight drawings
-  to sixteen.
-
-  Questions for its spec conversation, not here: **the loading rule between the
-  two fit sizes** — the interior grows continuously with the terminal, so
-  "widest asset that fits, centred" leaves up to 21–22 blank columns a side at
-  138 columns and reopens above 139; the brief prices four answers (letterbox,
-  stretch, extend, a third size) and chooses none. Both canvases are exact to
-  the column, so any change to `VenueLayout`'s `MARGIN_X`, `PANEL_GAP`,
-  `PANEL_W` or the art's 7/8 share invalidates them — re-derive from the brief's
-  table first. Whether the art falls under `design/brief.md`'s bounded
-  exception for portraits or needs its own amendment. Whether it is static, as
-  spec 027 ruled the portraits are (the brief assumes so).
+- **Per-planet venue art** — ✅ **Shipped (spec 029** — see Shipped above and
+  `DECISIONS.md`). Deferred by spec 029 on 2026-09-20 and brought back into it
+  by the person's ruling R9 at its merge pause, 2026-09-22. Each planet's venue
+  shows its own art: **sixteen** monochrome drawings, a 48×20 narrow and a
+  92×20 wide one per planet, in `assets/planets/`, loaded with `include_str!`
+  like the portraits. The path spec 016 established was reused: a brief in the
+  repo (`specs/029-tournament-rounds/planet-art-brief.md`), the art drawn by a
+  more capable tool, and Claude Code validating it against the brief's
+  checklist — now a test, whose canvas sizes are read from the venue's own
+  layout rather than restated. The questions this entry listed were settled as:
+  **one piece per planet**, two sizes each (the art region is a different width
+  at the two layouts); **static**, as the portraits are; and the art draws at
+  **every** width, below 139 columns too. Between the two sizes the **box fits
+  the drawing** — the person's choice over letterboxing, stretching, extending
+  or a third size — so spare space is margin around the art and the portrait, never blank
+  space inside the frame. `design/brief.md` records the art as a second bounded
+  exception, beside the portraits'.
 ```
 
 ### 1d. New bullet: **series-aware banter**, in *Immersion & personality*
@@ -325,12 +329,15 @@ matches, and one lucky match could take a world. Spec 029 puts a **series**
 between the match and the opponent, a **venue** between the map and the match,
 and a **lock** that makes the series the only campaign match playable while it
 runs. It adds one `Screen` (`Venue`), one module (`src/venue.rs`), one layout
-struct (`VenueLayout`), and two persisted fields (`CampaignRun::series`,
-`NodeRef::settled`), both `#[serde(default)]` with no version bump. No engine,
-AI, save-format, economy-constant, balance-data or dependency change. Ruled by
-the person on 2026-09-20 (A1–I1, then J1–Q on the consequences of D2 and E2),
-and amended three times after they walked the venue (R1–R3 on 2026-09-21, R4–R6
-the same day, R7 and R8 on 2026-09-22).
+struct (`VenueLayout`), two persisted fields (`CampaignRun::series`,
+`NodeRef::settled`), both `#[serde(default)]` with no version bump, and — by
+ruling R9 — sixteen drawings of the planets in `assets/planets/`, with a second
+bounded exception for them in `design/brief.md`. No engine, AI, save-format,
+economy-constant, balance-data or dependency change. Ruled by the person on
+2026-09-20 (A1–I1, then J1–Q on the consequences of D2 and E2), amended three
+times after they walked the venue (R1–R3 on 2026-09-21, R4–R6 the same day, R7
+and R8 on 2026-09-22), and extended at the merge pause the same day (R9), which
+brought the art itself into the spec.
 
 ### The rulings (the person, 2026-09-20)
 
@@ -369,6 +376,9 @@ the same day, R7 and R8 on 2026-09-22).
   opponent, so the two are laid out as separate elements now and neither later
   spec reworks the layout. Then on 2026-09-21 (R3, below): the art region
   becomes the screen's dominant element, with the text above and below it.
+  **Its placeholder half was superseded on 2026-09-22 by R9** (below): the
+  region now holds the planet's art, and the art was authored outside the
+  codebase from this spec's brief rather than in a spec of its own.
 - **N1 — the art region draws at 139 columns and wider only.** **Superseded
   2026-09-21 by R3**: it draws at every width.
 - **O1 — while locked, broke is judged against the locked opponent's ante
@@ -403,7 +413,8 @@ the same day, R7 and R8 on 2026-09-22).
   below. Two consequences the person ruled on when asked: **the portrait keeps
   its own column** (M1's reason survives intact), and **it draws at 89 columns
   too**, superseding N1 — a text-only venue at the minimum size is the version
-  they least wanted. The cost, named because it lands on the deferred art spec:
+  they least wanted. The cost, named at the time because it would land on a
+  deferred art spec (R9 later brought the art into this one):
   **each planet's art must work at two quite different sizes.** R3 also cost
   one struct and one constant — `VenueRail` (which made "both regions or
   neither" a fact of the type) and `VENUE_ART_W` — **deleted** rather than kept
@@ -421,7 +432,10 @@ the same day, R7 and R8 on 2026-09-22).
   R4 asks for a percentage, and no fixed column inset lands inside 15–20 % at
   both fit sizes (the workable insets, 7–9 and 12–17, do not overlap). The
   height is still a pure subtraction; there is still no minimum-art-size
-  constant and no breakpoint.
+  constant and no breakpoint. **R9 deleted the fraction** (below): the box now
+  follows the drawings, whose sizes are R4's result, so R4 survives as those
+  sizes and its band test still pins it; and the narrow and wide drawings now
+  switch at 139 columns, the layout's existing threshold.
 - **R5 — every text row centres on the art's centre, not the terminal's.** The
   person's eye caught it: the portrait's column puts the band's centre well
   right of the art box, so text centred on the terminal read as shifted off the
@@ -452,18 +466,22 @@ the same day, R7 and R8 on 2026-09-22).
   *content* is not asserted, which the plan sanctioned.
 - **Plan §Open questions 2, closed by the person: the placeholder keeps the
   planet's name** until there is real art. (It had been asked at the Phase 2
-  pause and re-put at the first amendment's walkthrough.)
+  pause and re-put at the first amendment's walkthrough.) Since R9 the name is
+  only the fallback for a planet with no art, which a validated delivery never
+  has.
 - **A deliverable, not a behavior: the per-planet art brief** ships on the
   branch as `specs/029-tournament-rounds/planet-art-brief.md`, in spec 016's
   shape. It asks for **two grids per planet — 48×20 and 92×20, sixteen files**
   under `assets/planets/` — because the art region's interior is a different
   width at the two layout sizes, which is the cost R3 named. It records the
   **single-asset alternative** (one 92-wide grid whose central 48 columns stand
-  alone) for the deferred art spec to take if the person prefers eight drawings
-  to sixteen, and it leaves the **loading rule between the fit sizes** to that
-  spec, pricing four options and choosing none (T005e). The count was put to
-  the person at the second amendment's pause; they answered with R7 and
-  continued, so the brief stands at sixteen with the alternative recorded.
+  alone) in case the person preferred eight drawings to sixteen, and it priced
+  four options for the **loading rule between the fit sizes** and chose none
+  (T005e). The count was put to the person at the second amendment's pause;
+  they answered with R7 and continued, so the brief stood at sixteen with the
+  alternative recorded. There is no deferred art spec now: **R9** took both
+  questions into this spec — sixteen drawings were delivered, and the person
+  chose the loading rule from the four the brief priced.
 
 ### Two more rulings (the person, 2026-09-22)
 
@@ -480,6 +498,74 @@ the same day, R7 and R8 on 2026-09-22).
   lines now read "Each opponent is Best of 3 matches, the last / Best of 5. A
   started series is played out." (asked at the Phase 4 pause).
 
+### R9 — the art, integrated (the person, 2026-09-22, at the merge pause)
+
+- **R9 — the per-planet art is integrated in this spec**, rather than merging
+  on the placeholder and leaving it to a spec of its own. The person's words:
+  *let's add integrating the art into this spec.* **Authoring stays outside**:
+  the sixteen drawings were made from `planet-art-brief.md` by the tool the
+  person used (**Opus 5.5**, credited in `assets/CREDITS.md`), and this spec
+  validates them and draws them. It added acceptance criterion **21** and a
+  phase of its own (Phase 6), and narrowed the spec's art non-goal to
+  *authoring*.
+- **Between the fit sizes, the box fits the art** — the person's choice over
+  the four options the brief priced (letterbox the drawing in a larger box,
+  stretch it, tile or extend it, commission a third size). The box is always
+  exactly the drawing plus its border — the narrow drawing below 139 columns,
+  the wide one from 139 up, 20 rows tall — and space the drawing does not use
+  is margin *around* the art-and-portrait group, never blank space inside the
+  frame. At exactly 89×31 and 139×31 this is the layout R4, R5 and R7 had
+  already approved, so nothing moved at the fit sizes (the orchestrator
+  captured the venue at both before and after the geometry change, and the
+  captures were identical). **The planet's name survives only as the fallback**
+  for a planet with no art.
+- **Three plan calls, each with its reason.** (1) **A taller terminal centres
+  the whole venue vertically** (plan §Open questions 8): the 31-row
+  composition keeps its internal spacing and the spare rows go above and below
+  it, the odd one below, as the board's block does — so the text keeps its
+  relationship to the picture it labels. The cost: above 31 rows the controls
+  hint is no longer on the last row. (2) **The drawing is drawn at full
+  strength** — `Emphasis::Normal`, the portraits' weight, inside a muted
+  border (§Open questions 7): the brief told the artist the picture is drawn at
+  one uniform emphasis with depth carried by glyph density, which dimming would
+  compress. (3) **R4's fraction is deleted**: the box follows the drawings now,
+  R4's result survives as their size, and its 15–20 % band test still pins it.
+- **AC 21's checklist test derives its canvas from the venue's layout**
+  (`VenueLayout::new(c).art` at each fit size) rather than restating 48, 92 and
+  20 — which closes close-out note 37's concern that nothing tied the brief to
+  the code. The test runs the brief's items 1–6 (exact file set, 20 lines, one
+  trailing newline, exact width in characters, the closed 23-character
+  palette with its count asserted, distinct drawings) and checks for `\r`
+  *before* the palette, so a CRLF file fails on the right assertion. Two
+  mutation checks confirmed it bites (one extra space; one file converted to
+  CRLF). Three more tests: every planet's art fills its box at all 660 sizes
+  the venue's every-size tests measure (every width from 89 to 220, at 31, 32,
+  33, 40 and 60 rows), the drawn frame's interior equals the drawing, and a
+  planet without art shows its name.
+- **`.gitattributes` marks `assets/planets/*.txt -text`.** Windows is a target
+  and Git for Windows defaults to `core.autocrlf=true`. The first reason given
+  for it was half wrong, and corrected at the Phase 6 review: a CRLF checkout
+  would **not** mis-size the art, because `str::lines` strips `\r\n` and the
+  drawer iterates `lines()` — but it **would** fail the new `\r` assertion, so
+  `cargo test` would break on such a checkout. That alone justifies the rule.
+  The portraits have no such protection, which is fine only because they have
+  no `\r` test.
+- **`design/brief.md` records the art as a second bounded exception** to its
+  *Skeuomorphism boundary*, beside the portraits' (Phase 6 plan sign-off, B3:
+  the portraits had been the *single* exception, amended before spec 016
+  shipped them, and R9 needed the same amendment). Bounded the same way:
+  static, venue-only, inside one single-weight box sized to the drawing, no
+  colour, the portraits' glyphs plus four ASCII marks (`. ' * +`), no
+  lettering, no discernible figures, original places. Written by the
+  orchestrator on the branch and shown to the person at the Phase 6 pause.
+- **The person's answers at the Phase 6 pause (2026-09-22).** The art tool was
+  Opus 5.5. The person had **Cinder's and Scree's art redrawn "with right
+  angles only"** and committed it themselves (`bc2598c`), then said to
+  continue — read as the go on the art (the brief's checklist item 7, the
+  product owner's look). The redraw was validated like the first delivery:
+  items 2–5 by shell on the four files, and AC 21's test over all sixteen.
+  Three things were shown and **not ruled on**; see *Asked, and not answered*.
+
 ### Asked, and not answered
 
 - **Plan §Open questions 1 — the deciding match's game-over frame shows no
@@ -493,6 +579,12 @@ the same day, R7 and R8 on 2026-09-22).
   ruling. Left as built, and not treated as a ruling either way.** Holding the
   final score is a one-shot `App` field in the `victory_due` idiom, a
   sub-lettered task rather than a redesign, if they later want it.
+- **Three things shown at the Phase 6 pause (2026-09-22)**: the art's weight
+  (plan §Open questions 7 — drawn at full plain weight; dimming it is a
+  one-word change), vertical centring on terminals taller than 31 rows (§Open
+  questions 8 — the hint leaves the last row), and the text of the
+  `design/brief.md` amendment. **The person continued without changing any of
+  them. Left as built**; the amendment text stands as written.
 
 ### The design calls (plan, signed off 2026-09-20)
 
@@ -630,6 +722,9 @@ under-warned.
   is unreachable in play — only a hand-edited save could produce it.
 - The winning series banner (`★  Series won · …`) was never seen on screen —
   six auto-played attempts lost — and is pinned by an exact-string test.
+- AC 21's checklist test is the whole of the validation a machine can do.
+  Nothing can test `assets/CREDITS.md`'s originality claims — original places,
+  no franchise imagery — which rest on the person's look at the art.
 - `T003` renamed the `sweep_run` test helper to `sweep_run_in_series` and
   changed its behaviour where the task line said helpers should *gain* a
   series form; the rename is total, so every call site shows in the diff, which
@@ -661,6 +756,24 @@ returns 0 for a failed build as readily as a clean one; and two bundles echoed a
 gate's *label* rather than the command actually run. Echo the command, don't
 retype it.
 
+Phase 6 added two more of the same kind at its plan sign-off, both caught
+before dispatch: **B1**, a grep gate for deleted constants that substring-matched
+`CampaignMapLayout`'s `FIELD_MARGIN_X` and so could never come back empty (fixed
+with `grep -w`); and **B2**, a "clean working tree" check that an implementer
+who never commits cannot satisfy (scoped to `assets/planets`).
+
+**And one orchestrator miss of a different kind: the art was committed before
+it was validated.** The art session wrote the sixteen files into
+`assets/planets/` while the orchestrator was committing the Phase 6 plan with
+`git add -A`, which swept them into that commit (`7445c68`) unvalidated and
+unmentioned in its message. History was not rewritten (never force-push); the
+delivery checkpoint, T013, validated the files already committed instead of
+committing them, and they passed first time. The Phase 6 review checked the
+commit: exactly the sixteen art files plus the three spec documents, nothing
+else swept in. From then on the orchestrator stages **explicit paths, never
+`git add -A`** — a checkpoint that validates before committing only works if
+nothing else can commit first.
+
 ### What didn't change
 
 `game.rs`, `card.rs`, `player.rs`, `save.rs`, `opponent.rs`, `Cargo.toml` and
@@ -669,7 +782,11 @@ new persisted fields are `#[serde(default)]`, the pattern spec 021 used for
 `NodeRef::stake`; `economy.rs` lost only two doc lines and the `pub` on
 `cheapest_floor` — no constant moved; no new crate; the build has no warnings,
 the same count as `main`. Monochrome by construction: the venue, the series line
-and the banners use the existing emphasis levels and add none.
+and the banners use the existing emphasis levels and add none, and the art is
+drawn at the portraits' plain weight from a closed 23-character palette that
+admits no escape character. The art adds sixteen text files, a
+`.gitattributes` line and a `CREDITS.md` section — no crate, and no engine or
+save file.
 ```
 
 ---
@@ -683,11 +800,18 @@ and the banners use the existing emphasis levels and add none.
 - **`docs/economy.md` and `docs/balance.md` are on the branch** — the reserve
   floor, the settlement and the Card Shop wording (T002, T003, T005b, T007), and
   *Series rates* (T010). No close-out edit.
-- **`design/brief.md` is untouched** — the venue uses the existing emphasis
-  vocabulary and the constitution's *acted-on element stands apart* rule as
-  written (an empty row above and below the action row; the modals it can raise
-  pad evenly through `OverlayLayout`). Whether real planet art needs its own
-  bounded-exception amendment is the deferred art spec's question (1c).
+- **`design/brief.md` is on the branch** — its *Skeuomorphism boundary* gained a
+  second bounded exception for the venue art (R9; Phase 6 plan sign-off B3),
+  written by the orchestrator and shown to the person at the Phase 6 pause. It
+  rides into `main` with the merge. The question the first draft of this
+  close-out left open here — whether the art needed its own amendment — is
+  **closed**: it did, and it has one. Otherwise the venue uses the existing
+  emphasis vocabulary and the constitution's *acted-on element stands apart*
+  rule as written (an empty row above and below the action row; the modals it
+  can raise pad evenly through `OverlayLayout`).
+- **`assets/CREDITS.md` and `.gitattributes` are on the branch** — the *Venue
+  art* section naming Opus 5.5 as the tool, and the `-text` rule for the art
+  files (T014). They ride into `main` with the merge.
 - **No `CLAUDE.md` amendment.** The venue is a new `Screen` — a full mode the
   player navigates *to* — which is exactly what the Architecture section asks
   for, copied from `opponent_select.rs`'s shape (one state struct,
@@ -704,13 +828,16 @@ and the banners use the existing emphasis levels and add none.
 
 ## 4. The close-out notes, triaged
 
-All 51 notes gathered in `tasks.md` (*Notes for the close-out*), plus the items
+All 56 notes gathered in `tasks.md` (*Notes for the close-out*), plus the items
 the tier log carried to the sweep outside that list. Each is **resolved**
 (nothing owed), **DECISIONS** (recorded in §2a), **ROADMAP** (a follow-up in
-§1), or **sweep** (listed in §4b for the pre-merge sweep to rule on — the sweep
-decides code; this close-out changes none).
+§1), or **sweep** (listed in §4b for the first pre-merge sweep, or §4c for the
+second, to rule on — the sweep decides code; this close-out changes none).
+Notes 1–51 were triaged before R9 and went to the first sweep; notes 52–56 come
+from the Phase 6 review and were triaged at the refresh, with 49–51 re-checked
+alongside them.
 
-### 4a. The 51 notes
+### 4a. The 56 notes
 
 | # | Subject | Disposition | Where / why |
 |---|---|---|---|
@@ -750,7 +877,7 @@ decides code; this close-out changes none).
 | 34 | T005c under-enumeration | DECISIONS | *The gate pattern* |
 | 35 | Credit row content untested | DECISIONS | *Coverage, stated honestly* |
 | 36 | Binding-case fit assertion pinned to a literal `89×31` | sweep | S14 |
-| 37 | Three soft spots in the art brief | resolved | Fixed in T005e before hand-off |
+| 37 | Three soft spots in the art brief | resolved | Fixed in T005e before hand-off; and since R9, AC 21's checklist test derives the canvas from `VenueLayout`, so the brief is tied to the code (§2a, *R9*) |
 | 38 | "Equal outer margins" only to within one column | sweep | S15 (the DECISIONS text already says "to within one column") |
 | 39 | Two badly-reading doc sentences from T005f | sweep | S16 |
 | 40 | `MARGIN_X` no longer names an on-screen margin | sweep | S17 |
@@ -765,11 +892,24 @@ decides code; this close-out changes none).
 | 49 | `docs/balance.md` series cells differ by 0.1 when recomputed | sweep | S23 |
 | 50 | Balance-value gate half missing from the bundle | resolved | Closed by the orchestrator; re-checked in §5 |
 | 51 | Starter vs Rix drift ~2.8 SE | ROADMAP | §1e, the re-tuning follow-up |
+| 52 | `assets/CREDITS.md` named no art tool (a visible marker) | resolved | The person named **Opus 5.5** at the Phase 6 pause and it replaced the marker (`7e5fe11`); `grep -n "ART TOOL" assets/CREDITS.md` is empty (§5). Was a merge gate for the second sweep; no longer |
+| 53 | `.DS_Store` trap in AC 21's `read_dir` exact-match check | sweep | P1 (§4c) — the second sweep to rule |
+| 54 | `spec.md`'s brief paragraph still said the art non-goal "stands" | resolved | Corrected by the orchestrator with a pointer to R9 (`spec.md`, *A new deliverable*, "Superseded the next day by R9") |
+| 55 | The `.gitattributes` rationale half wrong in the record | DECISIONS | §2a, *R9* — the corrected reason (a CRLF checkout fails the `\r` assertion; it does not mis-size the art) |
+| 56 | `CREDITS.md`'s originality claims are untestable | DECISIONS | *Coverage, stated honestly* |
 
-**Counts: resolved 10, DECISIONS 17, ROADMAP 1, sweep 23** (51 in all).
-Resolved: 1, 7, 9, 15, 19, 23, 31, 37, 46, 50. DECISIONS: 3, 4, 5, 6, 14, 17,
-18, 20, 25, 26, 29, 32, 33, 34, 35, 43, 45. ROADMAP: 51. Sweep: 2, 8, 10, 11,
-12, 13, 16, 21, 22, 24, 27, 28, 30, 36, 38, 39, 40, 41, 42, 44, 47, 48, 49.
+**Counts: resolved 12, DECISIONS 19, ROADMAP 1, sweep 24** (56 in all).
+Resolved: 1, 7, 9, 15, 19, 23, 31, 37, 46, 50, 52, 54. DECISIONS: 3, 4, 5, 6,
+14, 17, 18, 20, 25, 26, 29, 32, 33, 34, 35, 43, 45, 55, 56. ROADMAP: 51. Sweep:
+2, 8, 10, 11, 12, 13, 16, 21, 22, 24, 27, 28, 30, 36, 38, 39, 40, 41, 42, 44,
+47, 48, 49 (the first sweep), and 53 (the second).
+
+Re-checked at the refresh: **49** stays with the first sweep, which ruled it
+leave-and-record — `docs/balance.md` still carries no "unrounded" clause
+(`grep -n unrounded docs/balance.md` is empty), so the recomputation caveat
+lives only in S23 below; **50** holds after Phase 6 — `src/opponent.rs` still
+untouched and `src/economy.rs`'s removed lines unchanged (§5); **51** stays in
+§1e.
 
 ### 4b. The pre-merge sweep list
 
@@ -900,20 +1040,54 @@ except possibly **N1**, which is new and the one to look at first.
 
 **23 S-items from the 51, and 10 N-items: 33 sweep items in all.**
 
+**Mooted since by Phase 6.** T012 deleted `VenueLayout::MARGIN_X`, `ART_W_NUM`,
+`ART_W_DEN` and `span_w` (`grep -nwE "MARGIN_X|ART_W_NUM|ART_W_DEN|span_w"
+src/layout.rs` is empty), so **S12** (the bands test's `3` beside a visible
+`MARGIN_X` — the literal `3` is now the only form of that bound), **S17**
+(`MARGIN_X`'s name) and the `ART_W_NUM` half of **S16** refer to code that no
+longer exists, and **S15**'s "`MARGIN_X`'s doc" is gone with it. All four were
+leave-and-record; nothing is owed.
+
+### 4c. The second pre-merge sweep list (scoped to Phase 6)
+
+The first sweep's findings are closed (T011a, re-reviewed). The second sweep is
+the orchestrator's to dispatch, on the Phase 6 diff; this is what the close-out
+hands it from the notes:
+
+- **P1** [53] **A `.DS_Store` trap.** `every_planets_art_passes_the_briefs_checklist`
+  lists `assets/planets/` with `read_dir` and demands an exact match with the
+  sixteen expected names, and `.gitignore` hides `.DS_Store` — so if Finder
+  ever opens that folder, `cargo test` fails on this machine while
+  `git status` shows nothing. Skipping dotfiles in the listing would remove the
+  trap. (No `.DS_Store` is there today: `ls -a assets/planets` shows only the
+  sixteen files.) **The sweep to rule.**
+- **Note 52 is no longer a merge gate**: `assets/CREDITS.md` names the tool
+  (§4a, §5).
+- The seam named in the task line, for the sweep itself to check: nothing from
+  Phases 1–5 — the brief and the tests' comments — still assumes the art box
+  grows with the terminal.
+
+**1 sweep item from the notes (P1), plus the seam check.**
+
 ---
 
-## 5. Mechanical checks (T011, run on the branch at `7d323eb`, 2026-09-22)
+## 5. Mechanical checks (T011 refresh, run on the branch at `7e5fe11`, 2026-09-22)
 
-`main` was at `a5a854c` for every comparison below. Nothing was applied to
-`main` and no branch was switched: `main`'s content was read with
-`git show main:<path>`, and `main` was built in a throwaway `git worktree` with
-its own `CARGO_TARGET_DIR`, removed afterwards. The working tree was clean
-before this document was written.
+**Every check below was re-run fresh after Phase 6**; the first run's outputs
+(at `7d323eb`) predate the art and are not evidence for it, so they are
+replaced rather than kept. `main` was at `a5a854c` for every comparison below.
+Nothing was applied to `main` and no branch was switched: `main`'s content was
+read with `git show main:<path>`, and `main` was built in a throwaway
+`git worktree` with its own `CARGO_TARGET_DIR`, removed afterwards. The working
+tree was clean (`git status --short` empty, `HEAD` = `7e5fe11`) when the checks
+ran; this document's refresh is the only uncommitted change.
 
 ### `cargo test -q`, three consecutive runs
 
+Preceded by `cargo build --all-targets 2>&1 | tail -n 20` →
+``    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.06s``.
 `tail -n 25` reaches only the last few of the **eleven** test binaries. The
-tails, verbatim:
+tails, verbatim (each run exited 0):
 
 ```
 === run 1 ===
@@ -996,18 +1170,21 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 ```
 
 Because that tail hides the counts, the same three runs filtered to every
-`running` / `test result` line — **482 + 7 + 7 = 496 passing, 0 failing, 1
+`running` / `test result` line — **488 + 7 + 7 = 502 passing, 0 failing, 1
 ignored** (the long balance simulation, ignored since spec 022), identical
-across the three runs (each run exited 0):
+across the three runs. The library's 488 is the first run's 482 plus the one
+test T011a added, T012's one new layout test and T014's four new venue tests
+(counted by `#[test]` in `src/` at `7d323eb`, `19810a7` and `HEAD`: 482, 483,
+488):
 
 ```
 === run 1 ===
-running 482 tests
-test result: ok. 482 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+running 488 tests
+test result: ok. 488 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 8 tests
-test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.02s
+test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.00s
 running 1 test
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 1 test
@@ -1025,12 +1202,12 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 === run 2 ===
-running 482 tests
-test result: ok. 482 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+running 488 tests
+test result: ok. 488 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 8 tests
-test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.02s
+test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.99s
 running 1 test
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 1 test
@@ -1048,12 +1225,12 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 === run 3 ===
-running 482 tests
-test result: ok. 482 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+running 488 tests
+test result: ok. 488 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.09s
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 8 tests
-test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.01s
+test result: ok. 7 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.99s
 running 1 test
 test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 running 1 test
@@ -1071,41 +1248,75 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 running 0 tests
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 ```
+
+### AC 21's tests, by name
+
+```
+$ cargo test --lib -- every_planets_art_passes_the_briefs_checklist every_planets_art_fills_its_box_at_every_size the_venue_draws_the_planets_art_inside_its_box a_planet_without_art_shows_its_name the_art_box_is_the_drawing_plus_its_border_at_every_size 2>&1 | grep -E "^test |^test result"
+test venue::tests::a_planet_without_art_shows_its_name ... ok
+test layout::tests::the_art_box_is_the_drawing_plus_its_border_at_every_size ... ok
+test venue::tests::every_planets_art_passes_the_briefs_checklist ... ok
+test venue::tests::the_venue_draws_the_planets_art_inside_its_box ... ok
+test venue::tests::every_planets_art_fills_its_box_at_every_size ... ok
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 483 filtered out; finished in 0.03s
+```
+
+T014's four (the checklist, the fill at every size, the drawn frame, the
+fallback) and T012's every-size geometry test.
 
 ### The branch's whole diff against `main` (three-dot, since `main` may move)
 
 ```
 $ git diff main...HEAD --stat=120
- Readme.md                                       |   40 +-
- assets/how_to_play_text.txt                     |    4 +-
- assets/primer_text.txt                          |    6 +-
- docs/balance.md                                 |   47 +-
- docs/economy.md                                 |  116 ++--
- specs/029-tournament-rounds/plan.md             | 1740 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- specs/029-tournament-rounds/planet-art-brief.md |  381 ++++++++++++
- specs/029-tournament-rounds/spec.md             |  530 +++++++++++++++++
- specs/029-tournament-rounds/tasks.md            | 2004 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- src/app.rs                                      |  268 +++++++--
- src/board.rs                                    |   79 ++-
- src/campaign.rs                                 |  336 ++++++++++-
- src/campaign_map.rs                             |   99 +++-
- src/deck_builder.rs                             |   23 +-
- src/economy.rs                                  |   63 +-
- src/layout.rs                                   |  244 ++++++++
- src/lib.rs                                      |    1 +
- src/overlay.rs                                  |   18 +-
- src/profile.rs                                  |  457 +++++++++++++--
- src/screen.rs                                   |    2 +
- src/shop.rs                                     |   26 +-
- src/venue.rs                                    |  453 +++++++++++++++
- src/wager.rs                                    |   11 +-
- tests/balance.rs                                |   47 +-
- 24 files changed, 6761 insertions(+), 234 deletions(-)
+ .gitattributes                                    |    1 +
+ Readme.md                                         |   40 +-
+ assets/CREDITS.md                                 |   12 +
+ assets/how_to_play_text.txt                       |    4 +-
+ assets/planets/ashfall-narrow.txt                 |   20 +
+ assets/planets/ashfall-wide.txt                   |   20 +
+ assets/planets/cinder-narrow.txt                  |   20 +
+ assets/planets/cinder-wide.txt                    |   20 +
+ assets/planets/drift-narrow.txt                   |   20 +
+ assets/planets/drift-wide.txt                     |   20 +
+ assets/planets/karrus-narrow.txt                  |   20 +
+ assets/planets/karrus-wide.txt                    |   20 +
+ assets/planets/scree-narrow.txt                   |   20 +
+ assets/planets/scree-wide.txt                     |   20 +
+ assets/planets/the-anvil-narrow.txt               |   20 +
+ assets/planets/the-anvil-wide.txt                 |   20 +
+ assets/planets/the-spindle-narrow.txt             |   20 +
+ assets/planets/the-spindle-wide.txt               |   20 +
+ assets/planets/zenith-narrow.txt                  |   20 +
+ assets/planets/zenith-wide.txt                    |   20 +
+ assets/primer_text.txt                            |    6 +-
+ design/brief.md                                   |   16 +
+ docs/balance.md                                   |   47 +-
+ docs/economy.md                                   |  125 +++-
+ specs/029-tournament-rounds/closeout-main-docs.md | 1369 +++++++++++++++++++++++++++++++++++
+ specs/029-tournament-rounds/plan.md               | 2189 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ specs/029-tournament-rounds/planet-art-brief.md   |  354 +++++++++
+ specs/029-tournament-rounds/spec.md               |  575 +++++++++++++++
+ specs/029-tournament-rounds/tasks.md              | 2378 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ src/app.rs                                        |  294 ++++++--
+ src/board.rs                                      |   79 +-
+ src/campaign.rs                                   |  359 +++++++++-
+ src/campaign_map.rs                               |   99 ++-
+ src/config.rs                                     |   15 +
+ src/deck_builder.rs                               |   23 +-
+ src/economy.rs                                    |  128 +++-
+ src/layout.rs                                     |  339 +++++++++
+ src/lib.rs                                        |    1 +
+ src/overlay.rs                                    |   18 +-
+ src/profile.rs                                    |  457 ++++++++++--
+ src/screen.rs                                     |    2 +
+ src/shop.rs                                       |   28 +-
+ src/venue.rs                                      |  632 ++++++++++++++++
+ src/wager.rs                                      |   37 +-
+ tests/balance.rs                                  |   47 +-
+ 45 files changed, 9740 insertions(+), 254 deletions(-)
 ```
 
-(This document is untracked when the stat ran, so it is not in it; the commit
-that adds it will be.) **None of the seven forbidden paths appears**, and the
-explicit query is empty:
+**None of the seven forbidden paths appears**, and the explicit query is empty:
 
 ```
 $ git diff main...HEAD --stat=120 -- src/game.rs src/card.rs src/player.rs src/save.rs src/opponent.rs Cargo.toml Cargo.lock
@@ -1140,12 +1351,12 @@ src/profile.rs:1729:        val["version"] = serde_json::json!(PROFILE_VERSION +
 
 ```
 $ grep -rn "serde(default" src/campaign.rs
-src/campaign.rs:152:    #[serde(default)]
-src/campaign.rs:156:    #[serde(default)]
-src/campaign.rs:216:    #[serde(default)]
-src/campaign.rs:218:    #[serde(default)]
-src/campaign.rs:225:    #[serde(default)]
-src/campaign.rs:230:    #[serde(default)]
+src/campaign.rs:175:    #[serde(default)]
+src/campaign.rs:179:    #[serde(default)]
+src/campaign.rs:239:    #[serde(default)]
+src/campaign.rs:241:    #[serde(default)]
+src/campaign.rs:248:    #[serde(default)]
+src/campaign.rs:253:    #[serde(default)]
 
 $ git show main:src/campaign.rs | grep -n "serde(default"
 152:    #[serde(default)]
@@ -1154,22 +1365,23 @@ $ git show main:src/campaign.rs | grep -n "serde(default"
 169:    #[serde(default)]
 ```
 
-The field under each, on the branch: 152 `pub stake: u32` (spec 021), **156
-`pub settled: bool` (new)**, 216 `beaten`, 218 `in_progress`, **225
-`series: Option<Series>` (new)**, 230 `run_stats`. Four on `main`, six on the
-branch — the four old ones unchanged, the two new ones added.
+The field under each, on the branch: 175 `pub stake: u32` (spec 021), **179
+`pub settled: bool` (new)**, 239 `beaten`, 241 `in_progress`, **248
+`series: Option<Series>` (new)**, 253 `run_stats`. Four on `main`, six on the
+branch — the four old ones unchanged, the two new ones added. (The lines moved
+down 23 since the first run: T014's two art fields on `Planet`, above.)
 
 ### `cheapest_floor` survives only inside `src/economy.rs`
 
 ```
 $ grep -rn "cheapest_floor" src/ tests/ docs/
 src/economy.rs:132:fn cheapest_floor(run: &CampaignRun) -> u32 {
-src/economy.rs:152:        None => cheapest_floor(run),
-src/economy.rs:301:    fn cheapest_floor_is_the_min_over_launchable_nodes() {
-src/economy.rs:331:            assert_eq!(cheapest_floor(run), expected(run), "{label}");
-src/economy.rs:333:            assert_eq!(cheapest_floor(run), 10, "{label}");
-src/economy.rs:351:            assert_eq!(reserve_floor(run), cheapest_floor(run), "{label}: no lock, no change");
-src/economy.rs:359:        assert_eq!(cheapest_floor(&locked), 10, "sanity: Cinder is still the cheapest node");
+src/economy.rs:151:        None => cheapest_floor(run),
+src/economy.rs:311:    fn cheapest_floor_is_the_min_over_launchable_nodes() {
+src/economy.rs:341:            assert_eq!(cheapest_floor(run), expected(run), "{label}");
+src/economy.rs:343:            assert_eq!(cheapest_floor(run), 10, "{label}");
+src/economy.rs:361:            assert_eq!(reserve_floor(run), cheapest_floor(run), "{label}: no lock, no change");
+src/economy.rs:369:        assert_eq!(cheapest_floor(&locked), 10, "sanity: Cinder is still the cheapest node");
 ```
 
 Every hit is in `src/economy.rs` (the private function, its one caller
@@ -1179,44 +1391,89 @@ Every hit is in `src/economy.rs` (the private function, its one caller
 
 ```
 $ grep -nE "self\.screen = Screen::(CampaignMap|Venue)" src/app.rs
-781:            self.screen = Screen::Venue {
-785:            self.screen = Screen::CampaignMap {
+782:            self.screen = Screen::Venue {
+786:            self.screen = Screen::CampaignMap {
+
+$ grep -n "fn open_campaign_home" src/app.rs
+780:    fn open_campaign_home(&mut self) {
 ```
 
 Exactly two lines, both inside `fn open_campaign_home(&mut self)` (declared at
-`src/app.rs:779`, closing at 789).
+`src/app.rs:780`, closing at 790).
 
 ### `Readme.md` no longer claims a launch opens a wager prompt
 
 The readme is tracked as `Readme.md` (on darwin `README.md` resolves to the same
-file, so both spellings return the same line; the tracked name is used here):
+file; the tracked name is used here):
 
 ```
 $ grep -rn "wager prompt" Readme.md
 Readme.md:85:costs only the stakes already lost. Each match opens a **wager prompt** — pick
 ```
 
-In context (lines 80–86) the sentence follows "played at the planet's
-**venue**, where you start each match": it says each **match** opens a wager
-prompt, which is true, and no longer says launching from the map does.
+In context the sentence follows "played at the planet's **venue**, where you
+start each match": it says each **match** opens a wager prompt, which is true,
+and no longer says launching from the map does.
 
-### No colour path, no balance value
+### The art (R9): sixteen files, sixteen loads, LF-only, credited
+
+```
+$ git ls-files assets/planets | wc -l
+      16
+
+$ grep -c 'include_str!("../assets/planets/' src/campaign.rs
+16
+
+$ cat .gitattributes
+assets/planets/*.txt -text
+
+$ grep -n "ART TOOL" assets/CREDITS.md
+(exit 1)
+
+$ LC_ALL=C grep -c $'\x1b' assets/planets/*.txt | grep -v ':0$'
+(exit 1 — all sixteen files count 0 escape bytes)
+
+$ LC_ALL=C grep -c $'\r' assets/planets/*.txt | grep -v ':0$'
+(exit 1 — all sixteen files count 0 carriage returns)
+
+$ ls -a assets/planets | grep "^\."
+.
+..
+
+$ grep -nwE "48|92|20|50|94|22" src/venue.rs
+(exit 1)
+```
+
+Sixteen tracked art files, sixteen `include_str!` loads; the `-text` rule is
+in place; the credit names the tool (no marker left); no art file carries an
+escape byte (and AC 21's test enforces the 23-character palette, which admits
+none); no dotfile sits in the folder the checklist test lists; and `venue.rs`
+restates no canvas or box size — they are derived from `VenueLayout`.
+
+### No colour path, no balance value, no starter-deck line (AC 19, AC 20 after Phase 6)
 
 ```
 $ git diff main...HEAD -- src tests | grep -nE "^\+.*(Color|SetForegroundColor|SetBackgroundColor|style::)"
-(exit 1 — no match)
+(exit 1)
 
 $ git diff main...HEAD --stat -- src/opponent.rs
-(exit 0 — empty)
+(exit 0)
 
 $ git diff main...HEAD -- src/economy.rs | grep -E "^-" | grep -v "^---"
 -    /// (spec 025: the Outfitter's group headings use the map's words).
 -/// since the start planet is always unlocked and always has a rematch.
 -pub fn cheapest_floor(run: &CampaignRun) -> u32 {
+
+$ git diff main...HEAD -- src/ | grep -nE "^[-+].*(STARTER|starter_deck|fn starter)"
+(exit 1)
 ```
 
 Every removed line of `economy.rs` is a doc line or the `pub` on
-`cheapest_floor` (re-added without it); no constant is removed or changed.
+`cheapest_floor` (re-added without it); no constant is removed or changed;
+`src/opponent.rs` is untouched; no starter-deck line changed; no added line in
+`src/` or `tests/` names a colour API. Phase 6 added no crate (`Cargo.toml` and
+`Cargo.lock` are in the empty forbidden-path query above) and touched no engine
+or save file.
 
 ### Warning count equals `main`'s
 
@@ -1228,27 +1485,33 @@ neither replayed a cached diagnostic and neither disturbed the other's
 
 ```
 $ git worktree add --detach <scratch>/main-wt main
+Preparing worktree (detached HEAD a5a854c)
 HEAD is now at a5a854c Roadmap: per-planet venue art as its own spec
 $ (cd <scratch>/main-wt && CARGO_TARGET_DIR=<scratch>/main-target cargo build --all-targets) > main-build.txt 2>&1
 main exit 0
 $ CARGO_TARGET_DIR=<scratch>/branch-target cargo build --all-targets > branch-build.txt 2>&1
 branch exit 0
-
 $ grep -c warning main-build.txt
 0
 $ grep -c warning branch-build.txt
 0
+$ git worktree remove <scratch>/main-wt; git worktree list
+/Users/erikh/Projects/Rust/kaazap 7e5fe11 [029-tournament-rounds]
 ```
 
-Both finished successfully (`Finished \`dev\` profile … in 17.50s` on `main`,
-`… in 17.15s` on the branch) and neither emitted a line containing "warning".
+Both finished successfully (``Finished `dev` profile … in 15.84s`` on `main`,
+``… in 16.68s`` on the branch) and neither emitted a line containing "warning".
 **0 on `main`, 0 on the branch — equal.** The worktree and both target
-directories were removed afterwards (`git worktree remove`; `git worktree list`
-shows only the main checkout).
+directories were removed afterwards; `git worktree list` shows only the main
+checkout, and the branch is still `029-tournament-rounds`.
 
 ---
 
-## 6. `spec.md`'s 20 acceptance criteria, checked off with evidence
+## 6. `spec.md`'s 21 acceptance criteria, checked off with evidence
+
+Criteria 1–20 were checked at the first close-out; the refresh re-checked the
+evidence each cites against Phase 6 and changed only criterion 16's test name
+(renamed by T012). Criterion 21 is new with R9.
 
 - [x] **1. Series length.** `wins_needed_is_two_except_for_the_final_opponent`,
   `a_series_resolves_only_at_the_required_wins`, `the_final_opponent_needs_three`
@@ -1336,10 +1599,13 @@ shows only the main checkout).
   the diff (§5); `resolve_match_moves_the_run_credit_counters_and_nothing_else_does`
   and `resolve_match_reports_the_completion_edge_and_skips_quick_play` pass; the
   `Some(Won(0))` → `None` change moves no counter (plan §Design tension 3).
-- [x] **16. Both layouts.** `the_venue_bands_stack_and_the_art_takes_the_rest`,
-  `the_art_region_dominates_at_both_widths` (art 1100 cells at 89, 2068 at 139,
-  portrait 330 — largest at both, strictly larger at 139),
-  `the_venue_text_fits_the_minimum_terminal` (right *and* left edges). The
+- [x] **16. Both layouts.** `the_venue_bands_stack_around_the_art` (renamed
+  from `…_and_the_art_takes_the_rest` by T012, since under R9 the art no longer
+  takes the rest), `the_art_region_dominates_at_both_widths` (art 1100 cells
+  at 89, 2068 at 139, portrait 330 — largest at both, strictly larger at 139),
+  `the_venue_text_fits_the_minimum_terminal` (right *and* left edges; since
+  T012 at every size from the minimum, not only the two fit sizes). After R9
+  the region holds the planet's art rather than the placeholder — see 21. The
   second amendment review counted the rendered borders (50×22 and 94×22 against
   a 22×15 portrait); walkthroughs at both widths after each amendment and after
   R7 (three clear columns between art and portrait at each). Caveat recorded:
@@ -1367,3 +1633,39 @@ shows only the main checkout).
 - [x] **20. No forbidden change.** §5: `game.rs`, `card.rs`, `player.rs`,
   `save.rs` absent from the diff; `SAVE_VERSION` and `PROFILE_VERSION` both 1;
   `Cargo.toml` and `Cargo.lock` untouched (no new crate); no colour call added.
+- [x] **21. The planet's art at the venue** (ruling R9). **Validation, items
+  1–6**: T013 validated the delivery by shell against the brief's checklist,
+  first time — exactly the sixteen expected names; 20 lines each with one
+  trailing newline; every line exactly 48 or 92 characters (counted as
+  characters, not bytes); only the 23 whitelisted codepoints, valid UTF-8, LF
+  only (the brief's own one-command check, every file `lf-ok glyphs-ok`); eight
+  distinct narrow grids and eight distinct wide (tier log, T013). The person's
+  redraw of Cinder and Scree (`bc2598c`) was validated the same way (items 2–5
+  by shell on the four files) and by the test below. **As a test**, with the
+  canvas derived from the layout: `every_planets_art_passes_the_briefs_checklist`
+  reads the expected sizes from `VenueLayout::new(c).art` over
+  `Config::fit_sizes()` (and `grep -nwE "48|92|20|50|94|22" src/venue.rs` is
+  empty, §5), with T014's two mutation checks failing it as they should (an
+  extra space on width, a CRLF file on the `\r` assertion). **In place of the
+  placeholder, in a box sized exactly to the drawing, at every size from
+  89×31, nothing clipped, no blank space inside the frame**:
+  `every_planets_art_fills_its_box_at_every_size` (all 660 sizes),
+  `the_venue_draws_the_planets_art_inside_its_box` (every planet, both fit
+  sizes, the drawn frame's interior equals the drawing),
+  `a_planet_without_art_shows_its_name` (the fallback), and T012's
+  `the_art_box_is_the_drawing_plus_its_border_at_every_size` — all five green
+  in §5 (`5 passed; 0 failed`), and in all three full runs. **Seen**: the Phase 6
+  walkthrough (tier log, *Phase 6 walkthrough*) rendered all eight planets'
+  venues at 89×31 and 139×31 — "every one shows its own drawing filling its
+  box, the portrait beside it, nothing clipped, no planet name in the box" —
+  plus Cinder at 120×31 (the narrow box, spare columns either side of the
+  group) and 139×40 (the whole venue centred vertically), and the sixteen
+  fit-size frames were sent to the person for item 7. The Phase 6 review
+  confirmed AC 21 end to end ("all 660 sizes fill exactly, and the drawn-frame
+  test catches a fallback to one planet"). **The go/no-go, checklist item 7**:
+  at the Phase 6 pause the person had Cinder's and Scree's art redrawn "with
+  right angles only", committed it (`bc2598c`), and then **said to continue** —
+  recorded in the tier log (*Phase 6 pause — the person's answers*) as "read
+  as the item-7 go on the art". That is the product owner's look at both fit
+  sizes, given by continuing after acting on what they saw rather than in so
+  many words.

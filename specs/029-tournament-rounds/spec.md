@@ -256,6 +256,10 @@ and no series. The opponent stays beaten either way.
 > All twenty checked at the close-out (2026-09-22). The evidence for each —
 > the walkthrough rows, the tests, T010's simulator run, and four recorded
 > caveats (AC 3, 6, 11 and 16) — is in `closeout-main-docs.md` §6.
+> Criterion 21 (ruling R9) checked at the close-out's refresh after Phase 6
+> (2026-09-22): T013's checklist validation, AC 21's tests (green), the Phase 6
+> walkthrough of all eight planets at both fit sizes, and the person's go at
+> the Phase 6 pause — also in §6.
 
 1. [x] **Series length.** Every campaign opponent except The Sovereign is
    defeated by 2 match wins and no fewer; The Sovereign by 3. Winning
@@ -328,7 +332,7 @@ and no series. The opponent stays beaten either way.
 20. [x] **No forbidden change.** No behavior change in `game.rs`, `card.rs`,
     `player.rs` or `save.rs`; `SAVE_VERSION` and `PROFILE_VERSION` both
     stay 1; no new crate; no color path.
-21. [ ] **The planet's art at the venue** (ruling R9). Every planet's venue
+21. [x] **The planet's art at the venue** (ruling R9). Every planet's venue
     shows its own art in place of the placeholder — the narrow drawing below
     139 columns, the wide one from 139 up — inside a box sized exactly to the
     drawing, at every terminal size from the 89×31 minimum up, with no blank
