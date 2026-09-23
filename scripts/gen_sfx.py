@@ -78,7 +78,7 @@ def mix(a, b):
 # The opponent's burble (spec 030): one soft, voice-like murmur per spoken word.
 # Every number that shapes it is here, so a tweak by ear is an edit to this
 # block and `python3 scripts/gen_sfx.py burble`. `peak` is bounded by the audio
-# test `the_burble_is_softer_than_the_music`; `length_s` bounded by BURBLE_GAP_MS.
+# test `the_burble_is_as_loud_as_the_other_sounds`; `length_s` bounded by BURBLE_GAP_MS.
 BURBLE = {
     "length_s": 0.12,          # within BURBLE_GAP_MS even at the slowest pitch
     "pitch_hz": 150,           # the voice's fundamental
@@ -88,7 +88,7 @@ BURBLE = {
     "formants": ((500, 750, 90), (1100, 1400, 140)),  # (start Hz, end Hz, width Hz)
     "harmonics": 18,           # fewer = rounder, more = buzzier
     "attack_s": 0.015, "release_s": 0.06,
-    "peak": 0.08,              # loudest sample, full scale 1.0 — set from the test's measurement
+    "peak": 0.79,              # loudest sample, full scale 1.0; set so the RMS sits in the move sounds' band (see the audio test)
 }
 
 

@@ -553,26 +553,55 @@ mod tests {
         assert_eq!(audio_cues(prev, curr), vec![pc(Sfx::CardDraw)]);
     }
 
-    // The burble's loudest sample against the music's RMS over its first
-    // 60 s (plan §Design tension 9), scaled by the default volumes. Decodes
-    // the embedded assets only; opens no audio device.
-    #[test]
-    fn the_burble_is_softer_than_the_music() {
-        let burble = Decoder::new(Cursor::new(Sfx::Burble.bytes())).unwrap();
-        let peak = burble.map(|s| (s as f64).abs()).fold(0.0, f64::max);
-
-        let music = Decoder::new(Cursor::new(MUSIC_BYTES)).unwrap();
-        let window = 60 * music.sample_rate().get() as usize * music.channels().get() as usize;
-        let (sum, count) = music
+    /// Whole-clip RMS of an embedded clip, or of its first `seconds` when
+    /// given. Decodes only; opens no audio device.
+    fn rms(bytes: &'static [u8], seconds: Option<usize>) -> f64 {
+        let source = Decoder::new(Cursor::new(bytes)).unwrap();
+        let per_second = source.sample_rate().get() as usize * source.channels().get() as usize;
+        let window = seconds.map_or(usize::MAX, |s| s * per_second);
+        let (sum, count) = source
             .take(window)
             .fold((0.0, 0usize), |(sum, count), s| (sum + (s as f64).powi(2), count + 1));
-        let rms = (sum / count as f64).sqrt();
+        (sum / count as f64).sqrt()
+    }
 
+    // The burble against the board's move sounds and the music (plan §Design
+    // tension 9, ruling 9A), each by whole-clip RMS scaled by its default
+    // volume: inside the move sounds' band, at or above the music over its
+    // first 60 s, and never clipping. Decodes the embedded assets only.
+    #[test]
+    fn the_burble_is_as_loud_as_the_other_sounds() {
         let d = Settings::default();
-        let ceiling = rms * d.music_volume as f64 / d.sfx_volume as f64;
-        println!("burble peak {peak:.4}");
-        println!("music rms {rms:.4} over its first 60 s; ceiling {ceiling:.4}");
-        assert!(peak <= ceiling, "burble peak {peak} above the ceiling {ceiling}");
+        let (sfx, voices, music_volume) =
+            (d.sfx_volume as f64, d.voices_volume as f64, d.music_volume as f64);
+
+        let moves = [Sfx::CardDraw, Sfx::CardPlay, Sfx::Flip, Sfx::Stand];
+        let mut low = f64::INFINITY;
+        let mut high = 0.0f64;
+        let mut total = 0.0;
+        for sound in moves {
+            let r = rms(sound.bytes(), None);
+            println!("{sound:?} rms {r:.4}");
+            low = low.min(r * sfx);
+            high = high.max(r * sfx);
+            total += r;
+        }
+        println!("move sounds mean rms {:.4}", total / moves.len() as f64);
+
+        let burble_rms = rms(Sfx::Burble.bytes(), None);
+        let burble = Decoder::new(Cursor::new(Sfx::Burble.bytes())).unwrap();
+        let peak = burble.map(|s| (s as f64).abs()).fold(0.0, f64::max);
+        let heard = burble_rms * voices;
+        println!("burble rms {burble_rms:.4}, peak {peak:.4}; at default voices rms {heard:.4}");
+
+        let music = rms(MUSIC_BYTES, Some(60));
+        let floor = music * music_volume;
+        println!("band (rms at default sfx) {low:.4}..={high:.4}");
+        println!("floor: music rms {music:.4} over its first 60 s, at default music rms {floor:.4}");
+
+        assert!(low <= heard && heard <= high, "burble rms {heard} outside the band {low}..={high}");
+        assert!(heard >= floor, "burble rms {heard} under the music's {floor}");
+        assert!(peak < 1.0, "burble peak {peak} clips");
     }
 
     #[test]

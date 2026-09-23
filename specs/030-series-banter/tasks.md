@@ -249,7 +249,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   `AudioState::play`, the settings arm and the new field with its serde
   attribute verbatim.*
 
-- [ ] **T002b** — `scripts/gen_sfx.py` + `assets/sfx/burble.wav` +
+- [x] **T002b** — `scripts/gen_sfx.py` + `assets/sfx/burble.wav` +
   `src/audio.rs`: the burble as loud as the other sound effects (ruling 9A).
   Per plan §Design tension 9 (rewritten), §Design 3 (the amended paragraph)
   and §Tests *Amendment tests*. **Replace** `the_burble_is_softer_than_the_music`
@@ -720,3 +720,4 @@ redo, and why). -->
 | Amendment re-review (skeptical-reviewer, same context) | opus → claude-opus-5-5 | ~10K | 1 | — | 0 | **signed off**; note: the brief clause is loose for match-end jingles (§Open questions 5) |
 | T002a (sdd-implementer) | opus → claude-opus-5-5 | ~77K | 2 (one resume) | no — stopped on a judgment call | — | serde also parses a struct from a positional JSON array, so `voices_volume` third let `[1,2,3]` load and failed `settings_malformed_or_empty_json_falls_back_to_default`. Decision review → A: declare it last (transcribed into plan §Design 11). Done: 504 lib tests, 0 warnings, 4 new tests + renamed one green, superseded edits only |
 | Decision review: T002a field order (skeptical-reviewer) | opus → claude-opus-5-5 | ~25K | 1 | — | — | recommend A (declare last, test untouched); B edits a test to pass, C adds unasked code |
+| T002b (sdd-implementer) | opus → claude-opus-5-5 | ~53K | 1 | yes | — | done; `peak` 0.08 → 0.79 (burble RMS 0.1668 ≈ move-sound mean 0.1660; at defaults 0.1335 in band 0.0794–0.1710, floor 0.0820, margin 0.0515). Test ~4 s debug. 504 lib tests, 0 warnings |
