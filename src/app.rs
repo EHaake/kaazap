@@ -10,7 +10,7 @@ use crate::{
         play_resumed,
     },
     board::BoardView,
-    campaign::{NodeRef, PLANETS, Series, planet_by_id},
+    campaign::{NodeRef, PLANETS, Series, SeriesOutcome, planet_by_id},
     campaign_map::{CampaignMapState, MapBanner, MapOutcome},
     card::Card,
     config::Config,
@@ -446,9 +446,31 @@ fn campaign_entry_modal(broke: bool, victory_due: bool, primer_due: bool) -> Opt
 /// started mid-series has no campaign pointer; and a campaign pointer left over
 /// from another node is not this series. All three fall out of the same check.
 fn board_series_line(node: Option<&NodeRef>, series: Option<&Series>) -> Option<String> {
+    match_series(node, series)
+        .map(|series| format!("Series {} – {}", series.player_wins, series.opponent_wins))
+}
+
+/// This match's series — the series in progress, if the in-flight node is
+/// the one it is played against (`board_series_line`'s rule, spec 029).
+fn match_series<'a>(node: Option<&NodeRef>, series: Option<&'a Series>) -> Option<&'a Series> {
     let (node, series) = (node?, series?);
-    (node.planet == series.planet && node.opponent == series.opponent)
-        .then(|| format!("Series {} – {}", series.player_wins, series.opponent_wins))
+    (node.planet == series.planet && node.opponent == series.opponent).then_some(series)
+}
+
+/// The series a settled match decided, at its final score (spec 030, ruling
+/// 6A), or None. `before` is the match's series as it stood before
+/// settlement — the live one is cleared when decided. Pure.
+fn decided_series(before: Option<Series>, outcome: SeriesOutcome, player_won: bool) -> Option<Series> {
+    let mut series = before?;
+    if !matches!(outcome, SeriesOutcome::Won | SeriesOutcome::Lost) {
+        return None;
+    }
+    if player_won {
+        series.player_wins += 1;
+    } else {
+        series.opponent_wins += 1;
+    }
+    Some(series)
 }
 
 /// The victory notice's content (spec 024), title first and dismiss line last,
@@ -671,6 +693,13 @@ pub struct App {
     // UI state only — never saved, since the completion and its payout are
     // already persisted and only the notice is lost by quitting under it.
     victory_due: bool,
+    // The decided series at its final score (spec 030): set at settlement, from
+    // the match's series cloned before `resolve_match` plus this match's
+    // result, and only when the series was won or lost. The closing line draws
+    // on it and the board's game-over frame shows it; the map never reads it.
+    // Discarded on any screen but the board, beside the motion reset, because
+    // the held score belongs to one screen. UI state only — never saved.
+    final_series: Option<Series>,
     // One-shot board transitions in flight (spec 027). Observed every tick
     // while in a match, reset to default off the board; never saved.
     motion: BoardMotion,
@@ -708,6 +737,7 @@ impl App {
             too_small: None,
             banner: None,
             victory_due: false,
+            final_series: None,
             motion: BoardMotion::default(),
         }
     }
@@ -1939,9 +1969,14 @@ impl App {
             let opponent_id = game_state.opponent_profile.id;
             let player_rounds = game_state.player.rounds_won as u32;
             let opp_rounds = game_state.opponent.rounds_won as u32;
+            // This match's series as it stood, taken before settlement clears
+            // a decided one (spec 030).
+            let campaign = self.profile.campaign();
+            let before = match_series(campaign.in_progress(), campaign.series()).cloned();
             if let Some(settlement) =
                 self.profile.resolve_match(opponent_id, player_won, player_rounds, opp_rounds)
             {
+                self.final_series = decided_series(before, settlement.series, player_won);
                 self.banner = Some(MapBanner::Settled {
                     outcome: settlement.outcome,
                     series: settlement.series,
@@ -1968,7 +2003,10 @@ impl App {
         // and discard them the moment it is not.
         match &self.screen {
             Screen::InGame { game_state, .. } => self.motion.observe(game_state, dt),
-            _ => self.motion = BoardMotion::default(),
+            _ => {
+                self.motion = BoardMotion::default();
+                self.final_series = None;
+            }
         }
     }
 
@@ -2007,7 +2045,10 @@ impl App {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
                 let campaign = self.profile.campaign();
-                let series = board_series_line(campaign.in_progress(), campaign.series());
+                let series = board_series_line(
+                    campaign.in_progress(),
+                    campaign.series().or(self.final_series.as_ref()),
+                );
                 self.board_view.draw(
                     game_state,
                     cursor,
@@ -2821,6 +2862,63 @@ mod tests {
         // A stale pointer from another node is not this series.
         assert_eq!(board_series_line(Some(&node("cinder", "other")), Some(&series)), None);
         assert_eq!(board_series_line(Some(&node("elsewhere", "greeb")), Some(&series)), None);
+    }
+
+    #[test]
+    fn decided_series_agrees_with_the_series_rule() {
+        use crate::campaign::{CampaignRun, FINAL_OPPONENT, wins_needed};
+        // Each series, match by match (true = the player won that match): a
+        // best of 3 both ways and a best of 5 both ways.
+        let cases: [(&str, &[bool]); 6] = [
+            ("greeb", &[true, true]),
+            ("greeb", &[true, false, true]),
+            ("greeb", &[false, true, false]),
+            ("greeb", &[false, false]),
+            (FINAL_OPPONENT, &[true, false, true, false, true]),
+            (FINAL_OPPONENT, &[false, true, false, true, false]),
+        ];
+        for (opponent, matches) in cases {
+            let mut run = CampaignRun::default();
+            run.begin_series("cinder", opponent);
+            for (i, &won) in matches.iter().enumerate() {
+                let before = run.series().cloned();
+                let outcome = run.record_series_match("cinder", opponent, won);
+                let decided = decided_series(before.clone(), outcome, won);
+                if i + 1 < matches.len() {
+                    assert_eq!(outcome, SeriesOutcome::Continues, "{opponent} {matches:?} match {i}");
+                    assert_eq!(decided, None, "{opponent} {matches:?} match {i}");
+                    continue;
+                }
+                // The deciding match: the winner at `wins_needed`, the loser's
+                // tally as it stood.
+                let before = before.expect("a series was running");
+                let decided = decided.expect("a decided series has a final score");
+                let needed = wins_needed(opponent);
+                if won {
+                    assert_eq!(outcome, SeriesOutcome::Won, "{opponent} {matches:?}");
+                    assert_eq!(decided.player_wins, needed, "{opponent} {matches:?}");
+                    assert_eq!(decided.opponent_wins, before.opponent_wins, "{opponent} {matches:?}");
+                } else {
+                    assert_eq!(outcome, SeriesOutcome::Lost, "{opponent} {matches:?}");
+                    assert_eq!(decided.opponent_wins, needed, "{opponent} {matches:?}");
+                    assert_eq!(decided.player_wins, before.player_wins, "{opponent} {matches:?}");
+                }
+                assert_eq!((decided.planet.as_str(), decided.opponent.as_str()), ("cinder", opponent));
+                assert_eq!(run.series(), None, "a decided series is cleared");
+            }
+        }
+
+        // A rematch is in no series, and a match with no series before it has
+        // no final score to hold.
+        let series = Series {
+            planet: "cinder".to_string(),
+            opponent: "greeb".to_string(),
+            player_wins: 1,
+            opponent_wins: 1,
+        };
+        assert_eq!(decided_series(Some(series), SeriesOutcome::NotInSeries, true), None);
+        assert_eq!(decided_series(None, SeriesOutcome::Won, true), None);
+        assert_eq!(decided_series(None, SeriesOutcome::Lost, false), None);
     }
 
     #[test]

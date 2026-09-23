@@ -381,7 +381,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   class is stop-and-report. The report states the new-line count per voice and
   quotes `series_state`, `start_lines` and `lines_in_series` verbatim.*
 
-- [ ] **T005** — `src/app.rs`: the deciding match's final score. Per plan
+- [x] **T005** — `src/app.rs`: the deciding match's final score. Per plan
   §Design 5 (*Phase 2*, first four bullets) and §Design tension 8. `fn
   match_series` (with `board_series_line` rewritten over it, same format, same
   tests), `fn decided_series` (pure, the plan's doc), field `final_series:
@@ -732,3 +732,4 @@ redo, and why). -->
 | T002c (sdd-implementer) | opus → claude-opus-5-5 | ~30K | 1 | yes | — | done; Voices default 0.8 → 0.5; loudness test unchanged and green at 0.0834 (band floor 0.0794, music floor 0.0820 — thin margin); 511 lib tests, 0 warnings. Numbers-only tweak, no review (tweak loop) |
 | **Phase 1 summary** | — | — | — | — | — | T001–T003 + amendment T002a/T002b/T003a/T002c; one judgment-call stop (T002a), one decision review; phase review pass; amendment sign-off 1 blocker fixed; amendment review pass. AC 9 approved by the person |
 | T004 (sdd-implementer) | opus → claude-opus-5-5 | ~70K | 2 (one resume) | yes | — | done; 146 lines (13 per voice, 16 for The Sovereign), 6 new tests, 517 lib tests, 0 warnings, no existing line changed. Resume: widened `a_line_is_revealed_in_place_word_by_word` to `all_pools` too (T001 line says every line of every pool; inside the sanctioned class) — five widened tests, not four |
+| T005 (sdd-implementer) | opus → claude-opus-5-5 | ~51K | 1 | yes | — | done; 518 lib tests, 0 warnings; `final_series` in the five sanctioned places only; field doc uses `//` like its neighbours |
