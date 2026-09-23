@@ -552,6 +552,59 @@ of, not guessed at here in advance.
   6/6, which is why the guard now joins the render thread before restoring)
   and all six data scenarios at 89×31 after Phase 4. `Readme.md`'s **Saved
   data** paragraph names the set-aside file.
+- **Tournament rounds** (spec 029) — a campaign opponent is no longer beaten by
+  one lucky match. Every opponent is a **series**: **Best of 3** (two match
+  wins), and **Best of 5** (three) for the final opponent, The Sovereign on
+  Zenith. A match is unchanged — first to 3 round wins — and each match of a
+  series is staked, prompted and settled exactly as spec 021 has it. The minimum
+  path through the campaign goes from 10 matches to 21. Between matches the
+  player stands at the **venue**, a new `Screen` — the tournament hall on that
+  planet — which names the planet and the opponent, shows the series score and
+  length and the credit balance, and offers **Play**, the **Card Shop**, the
+  collection and quit to the menu (`b` and `c` as on the map); the Card Shop
+  and the collection return to it. The venue is drawn as horizontal bands:
+  its text above and below a dominant **planet art region** that shows **each
+  planet's own art** — sixteen monochrome drawings, a 48×20 narrow and a 92×20
+  wide one per planet, authored outside the codebase from an in-repo brief and
+  validated by a test — with the opponent's portrait in its own column three
+  columns beside it, at **every** width. The box is sized exactly to the
+  drawing: the narrow drawing below 139 columns (a 50×22 box), the wide one
+  from 139 up (94×22), and at every other size the spare space is margin
+  around the art and the portrait, never blank space inside the frame; a
+  taller terminal centres the whole venue. Every text row is centred on the
+  art rather than the terminal. `design/brief.md` gained a second bounded
+  exception for the art, beside the portraits'. Starting a series **commits** the player to it: the map is
+  unreachable, entering the campaign lands on the venue, and only the series
+  resolving or a reset releases the lock. A lost series costs only the stakes
+  already lost and resets to 0–0; a won one beats the opponent exactly then,
+  and clearing, unlocking and completion counting are unchanged. While locked,
+  "broke" is judged against the **locked opponent's ante**, and the Card Shop
+  reserves the same floor — one `economy::reserve_floor` behind both. The map's
+  planet detail names `Best of 3` / `Best of 5` before a launch; the board's
+  status band carries `Series 1 – 0` during every series match at both widths;
+  the map banner after the deciding match names the series result beside the
+  settlement. Rematches on cleared planets stay single matches launched from
+  the map. The shop is renamed **Card Shop** everywhere the player reads it.
+  The first-campaign primer and How to Play state the rule and the commitment.
+  The balance simulator was re-run with **no lever moved** and
+  `docs/balance.md` gained *Series rates*: the curve sharpens in both
+  directions (starter vs Greeb 70.3 % a match → 78.8 % a series, starter vs Rix
+  28.1 → 19.3), and the starter's chance against the final opponent falls from
+  23.2 % to **8.6 %**. No new records or statistics. The **per-planet art
+  brief** the drawings were made from ships at
+  `specs/029-tournament-rounds/planet-art-brief.md`. No engine, AI, save-format,
+  economy-constant, balance-data or dependency change: `game.rs`, `card.rs`,
+  `player.rs`, `save.rs`, `opponent.rs`, `Cargo.toml` and `Cargo.lock` are
+  untouched, `PROFILE_VERSION` / `SAVE_VERSION` stay 1, and the two new
+  persisted fields (`NodeRef::settled`, `CampaignRun::series`) are additive and
+  `#[serde(default)]` — a pre-029 profile loads with no series running and every
+  beaten opponent still beaten. The person amended the spec mid-implementation
+  after walking the venue (R1–R8), then at the merge pause brought the art
+  itself into the spec (R9), and attested at every paused phase; driver
+  walkthroughs against a scratch `KAAZAP_DATA_DIR` covered the venue, the lock,
+  the routing and the board at 89×31 and 139×31, and all eight planets' art at
+  both sizes, plus 120×31 and 139×40.
+  `Readme.md`'s campaign paragraph names the series, the venue and the lock.
 
 ## Backlog
 
@@ -635,23 +688,19 @@ spec 005's versioning).
   full-universe **album** with placeholders, a **`c`** map launch key, and a
   return-path bug fix. Human-requested during spec 008.
 
-- **F · Tournament rounds: beat each opponent best-of-three, the final
-  best-of-five** (raised by the person 2026-09-19, after spec 027). Today a
-  single match win "defeats" a campaign opponent and opens the next; the
-  person rules that is too simple and makes the campaign too short. The
-  direction: each campaign opponent must be beaten **2 times out of 3
-  matches** to be defeated, and the final opponent **3 out of 5** — a
-  best-of series that fits the theme of competing in tournaments across the
-  galaxy. **Between the matches of a series the player can visit the shop
-  and their collection** to buy cards and change up their deck. Spec
-  questions to settle in the spec conversation, not here: how the series
-  interacts with the per-match stake and the loss condition (spec 021 — is
-  each match staked, or the series?), what a lost match inside a series
-  means for the run, how series progress is shown on the map and in the
-  records, and how a save mid-series resumes. Further down the road, the
-  person wants the campaign to **lean even further into the tournament
-  theme** — a direction to keep in mind when shaping the series, not a
-  commitment in this entry.
+- **F · Tournament rounds** — ✅ **Shipped (spec 029** — see Shipped above and
+  `DECISIONS.md`). Every campaign opponent is a Best of 3 series, the final
+  opponent Best of 5. The spec questions this entry listed were settled as:
+  **each match is staked separately** (spec 021's escrow, settlement and loss
+  condition untouched); a lost match inside a series costs its stake and a lost
+  series costs **only** the stakes already lost; the map shows the series
+  **length** before a launch and the venue and the board show the **score**;
+  the records are unchanged; and a save mid-series resumes at the venue, which
+  is where the Card Shop and the collection are visited between matches. The
+  person's longer-range wish to lean further into the tournament theme stays a
+  direction, not an item — per-planet venue art shipped with this spec (ruling
+  R9), and per-planet music and series-aware banter (below) are its next
+  concrete pieces.
 
 ### Immersion & personality (now being sequenced)
 
@@ -684,6 +733,16 @@ touches the stakes work below, so they can interleave freely.
   spec 027 (Q5 A): portraits stay static**, as the brief's portrait amendment says, and the
   animation pass left the presence panel untouched; **banter** (above)
   is the next slice and now has a face to attach to.
+- **Series-aware banter** (deferred by spec 029, 2026-09-20). Since spec 029 a
+  campaign opponent is a Best of 3 series (Best of 5 for the final opponent), so
+  each opponent's **match-start line now fires two or three times in a row** —
+  up to five against The Sovereign — and the match-end lines know nothing about
+  whether that match took or lost the series. Accepted as a non-goal there. The
+  work is lines, not machinery: `banter.rs`'s event classes would gain a
+  series-aware variant of match start (first match, a match with the series
+  level, a match that can decide it) and perhaps of match end, reading the
+  series the board already shows (`board_series_line`'s inputs). As with spec
+  017, the real cost is the writing — ten voices and the fallback.
 
 ### Stakes, loss condition & difficulty balance (now being sequenced)
 
@@ -718,6 +777,27 @@ the endgame and the mode-identity question are deferred, below.
   global **Difficulty setting** (easy / normal / hard) in *Other* — that is a
   player-facing selector layered on this curve, which is now the baseline it
   moves relative to.
+- **Re-tune the curve for series play, if it plays badly** (raised by spec 029,
+  2026-09-22). Spec 029 turned every opponent into a Best of 3 series and the
+  final opponent into a Best of 5, and **measured, it did not change**:
+  `docs/balance.md`'s *Series rates* section converts the per-match rates into
+  series rates, and the sharpening is real in both directions — the starter
+  deck against Greeb goes from 70.3 % a match to 78.8 % a series, against Rix
+  from 28.1 % to 19.3 %, and against The Sovereign's best of five from 23.2 %
+  to **8.6 %**, while the full-pool deck's 51.3 % there becomes 52.4 %. That is
+  the direction spec 022's gates were tuned to want, but the campaign is also
+  longer — 21 matches at minimum rather than 10, roughly 25 expected — and
+  nobody has played it end to end yet. If playtesting
+  says the Mid Rim wall or the final is now too steep, the levers are the same
+  three spec 022 tuned (opponents, prices, economy constants), plus two new
+  ones: the series length itself (`campaign::wins_needed`, one expression) and
+  best of five for the final opponent only. Re-measure with the simulator first
+  (`KAAZAP_SIM_N=10000 cargo test --release --test balance balance_table --
+  --ignored --nocapture`, as `docs/balance.md` gives it; about 9 s in release). One note for whoever runs it: the
+  largest per-match drift between the 2026-09-13 and 2026-09-22 runs, starter
+  vs Rix 29.9 → 28.1, is about 2.8 standard errors — plausible as the largest
+  of 50 cells with no fixed seed, but if a later run drifts the same way again,
+  look at the engine before blaming chance.
 
 ### Onboarding, endgame & release readiness (suggested 2026-09-13, after spec 022)
 
@@ -800,6 +880,15 @@ human's stated priority is the first-run onboarding.
   construction). Related trap for anyone testing by hand: **never run
   `cargo test` from a shell with `KAAZAP_DATA_DIR` exported at a fixture
   directory** — it repairs the scenario you were about to test.
+  **Spec 029 widened the surface again.** A campaign screen is now chosen from
+  the profile (`open_campaign_home` reads the series lock), so any `App` test
+  that asserts on a campaign screen passes or fails on whoever's save is on
+  disk unless it first sets `app.profile = Profile::default()` — which
+  `the_primer_swallows_map_keys` had to, after failing against the person's own
+  mid-series profile. And `Profile::save()` has no `cfg(test)` guard, so "replace
+  the profile with a default, then drive input" is one save away from
+  overwriting the developer's real profile; the one test doing it today is safe
+  only because its keys cannot dismiss the modal it sits under.
 - **Release readiness** (chores, not a spec): a **CI workflow** running
   `cargo build --all-targets` and `cargo test` on push (none exists);
   **README screenshots** of the menu, a match, the map and the shop;
@@ -870,34 +959,23 @@ human's stated priority is the first-run onboarding.
   Pazaak music, can't be used; see DECISIONS.md). Nothing in the CC0/CC-BY
   libraries surveyed got close to that specific flavor, so an original is
   the path. Human-requested during spec 004.
-- **Per-planet venue art** (deferred by spec 029, 2026-09-20). Spec 029 builds
-  the venue — the tournament hall the player stands in between the matches of a
-  series — and **reserves the art region but ships a plain placeholder in it**,
-  on the person's ruling. This item authors the actual art.
-
-  The layout is already settled, so this spec is authoring plus integration, not
-  design: at 139 columns and wider the venue draws a **30×15 cell** art region
-  with the **opponent's portrait beside it** as a separate element sharing its
-  top and bottom edge, and below 139 columns the venue is text only. The two are
-  separate by the person's explicit requirement — the art belongs to the planet
-  and does not change with the opponent, and a planet may later hold more than
-  one opponent. Replacing the region's contents moves nothing around it; the
-  canvas size is one constant and one test if it turns out wrong.
-
-  The authoring path is the one **spec 016** established for the portraits and
-  should be reused rather than re-invented: a brief written into the repo, the
-  art drawn by a more capable tool, Claude Code validating the format and
-  integrating it. Expect the same two obligations spec 016 hit — the art is
-  **monochrome by construction** (check whether it falls under `design/brief.md`'s
-  existing bounded exception for portraits or needs its own amendment), and the
-  format wants a spike before the authoring, not after.
-
-  Questions for its spec conversation, not here: one piece per planet (eight,
-  plus a fallback) or one per region (three or four), which is the same
-  granularity-versus-cost trade as **Per-planet music** below and probably wants
-  the same answer; whether the art is static, as spec 027 ruled the portraits
-  are; and whether anything shows in the region below 139 columns or the venue
-  stays text-only there.
+- **Per-planet venue art** — ✅ **Shipped (spec 029** — see Shipped above and
+  `DECISIONS.md`). Deferred by spec 029 on 2026-09-20 and brought back into it
+  by the person's ruling R9 at its merge pause, 2026-09-22. Each planet's venue
+  shows its own art: **sixteen** monochrome drawings, a 48×20 narrow and a
+  92×20 wide one per planet, in `assets/planets/`, loaded with `include_str!`
+  like the portraits. The path spec 016 established was reused: a brief in the
+  repo (`specs/029-tournament-rounds/planet-art-brief.md`), the art drawn by a
+  more capable tool, and Claude Code validating it against the brief's
+  checklist — now a test, whose canvas sizes are read from the venue's own
+  layout rather than restated. The questions this entry listed were settled as:
+  **one piece per planet**, two sizes each (the art region is a different width
+  at the two layouts); **static**, as the portraits are; and the art draws at
+  **every** width, below 139 columns too. Between the two sizes the **box fits
+  the drawing** — the person's choice over letterboxing, stretching, extending
+  or a third size — so spare space is margin around the art and the portrait, never blank
+  space inside the frame. `design/brief.md` records the art as a second bounded
+  exception, beside the portraits'.
 
 - **Per-planet music** (raised by the person 2026-09-20, during the spec 029
   conversation, and ruled out of scope there as its own spec). Today one

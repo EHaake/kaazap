@@ -1919,3 +1919,470 @@ ProfileProblem>` precisely so every existing profile test stands unedited and
 the gate's behaviour is visibly the same; no new crate; the build has no
 warnings, the same count as `main`. Monochrome by construction: the notice
 reuses `draw_notice`'s existing emphasis levels and adds none.
+
+## Tournament rounds (spec 029)
+
+A single match win used to defeat a campaign opponent: ten opponents, ten
+matches, and one lucky match could take a world. Spec 029 puts a **series**
+between the match and the opponent, a **venue** between the map and the match,
+and a **lock** that makes the series the only campaign match playable while it
+runs. It adds one `Screen` (`Venue`), one module (`src/venue.rs`), one layout
+struct (`VenueLayout`), two persisted fields (`CampaignRun::series`,
+`NodeRef::settled`), both `#[serde(default)]` with no version bump, and — by
+ruling R9 — sixteen drawings of the planets in `assets/planets/`, with a second
+bounded exception for them in `design/brief.md`. No engine, AI, save-format,
+economy-constant, balance-data or dependency change. Ruled by the person on
+2026-09-20 (A1–I1, then J1–Q on the consequences of D2 and E2), amended three
+times after they walked the venue (R1–R3 on 2026-09-21, R4–R6 the same day, R7
+and R8 on 2026-09-22), and extended at the merge pause the same day (R9), which
+brought the art itself into the spec.
+
+### The rulings (the person, 2026-09-20)
+
+- **A1 — the new unit is a "series."** "Round" is already the within-match
+  unit, and "tournament round" would collide with it.
+- **B1 — each match is staked separately**, exactly as spec 021 has it. Keeps
+  escrow, settlement and the broke check intact, and makes the between-match
+  shop visit worth something: a win pays before the next match starts.
+- **C1 — losing a series costs only the stakes already lost.** The score resets
+  to 0–0, the opponent stays un-beaten, nothing further is taken.
+- **D2 — a venue screen between matches**, rather than returning to the map.
+  The person's reason: it is a place, and an opportunity for art that raises
+  the immersion of the campaign.
+- **E2 — the player is locked into a series once it starts.** No abandon
+  action; quitting to the menu leaves it in progress.
+- **F1 — rematches stay single matches** (the grinding path is meant to be
+  low-friction).
+- **G1 — best of five for the final opponent only**, not for the Core
+  generally.
+- **H1 — no new records or statistics.** Match counters count matches;
+  campaign completion counts once. The lifetime first-clear record stops being
+  comparable with anything set before this spec (the campaign takes roughly
+  2.4× as many matches) — accepted, not reset.
+- **I1 — the series is visible on the map and in the match**, which with E2 and
+  P1 resolves as: the map shows the series **length** before a launch (the
+  player is never on the map while a series is live), and the venue and the
+  match board show the **score**. Confirmed by the person.
+- **J1 — the map launches to the venue at 0–0**, staking nothing, and every
+  match of the series starts from the venue. **K1 — the venue offers play, the
+  shop, the collection and quit**, the shop and collection returning to the
+  venue. **L1 — rematches keep today's flow**: map → wager → match → map.
+- **M1 — the art region is reserved now and filled with a plain placeholder;
+  authoring it is its own spec.** Amended **twice**. The same day: the
+  opponent's portrait sits **beside** the region rather than inside it, because
+  the art belongs to the planet and a planet may later hold more than one
+  opponent, so the two are laid out as separate elements now and neither later
+  spec reworks the layout. Then on 2026-09-21 (R3, below): the art region
+  becomes the screen's dominant element, with the text above and below it.
+  **Its placeholder half was superseded on 2026-09-22 by R9** (below): the
+  region now holds the planet's art, and the art was authored outside the
+  codebase from this spec's brief rather than in a spec of its own.
+- **N1 — the art region draws at 139 columns and wider only.** **Superseded
+  2026-09-21 by R3**: it draws at every width.
+- **O1 — while locked, broke is judged against the locked opponent's ante
+  floor**, and the shop reserves that floor. The cheapest ante on the map may
+  be on a planet the player is not allowed to play.
+- **P1 — entering the campaign mid-series goes straight to the venue**; the map
+  is not reachable while locked.
+- **Q — per-planet music is out of scope**, its own spec (on `ROADMAP.md`).
+
+### The first amendment (the person, 2026-09-21, after walking the venue)
+
+- **R1 — the series length reads `Best of 3` / `Best of 5`**, the same words
+  the map's planet detail uses, so the player meets one phrase for one idea.
+  "first to 2" had been a session choice, never a ruling. (When R1 was ruled
+  the map did not say it yet — T007 landed it later in the spec — and the
+  amendment sign-off made the pause reports say so rather than claim it early.)
+- **R2 — the shop is the "Card Shop" everywhere the player reads it**: the
+  venue's action, the shop screen's own header, the key hints, How to Play,
+  `Readme.md` and `docs/economy.md`. The person found "Outfitter" unclear, and a
+  button that says one thing and opens a screen titled another reads as a
+  defect. **Earlier specs' documents, `DECISIONS.md` and `ROADMAP.md` keep the
+  old word on purpose** — they record what those specs did, and rewriting them
+  would falsify history. Spec 029's own `spec.md` is the live contract and was
+  corrected (caught at the amendment sign-off, which found the carve-out had
+  been widened to all of `specs/**`). No symbol was renamed — `ShopState`,
+  `open_shop`, `shop.rs` were never false — and `shop::TITLE` became the one
+  string the venue's button and the shop's header both read.
+- **R3 — the art dominates the screen, at every width.** The person's words: a
+  much larger canvas allows more detailed, immersive art, and makes it feel like
+  you are in the venue, on the planet. The venue became horizontal bands — the
+  header rows above, the art and the portrait beside it, the action row and hint
+  below. Two consequences the person ruled on when asked: **the portrait keeps
+  its own column** (M1's reason survives intact), and **it draws at 89 columns
+  too**, superseding N1 — a text-only venue at the minimum size is the version
+  they least wanted. The cost, named at the time because it would land on a
+  deferred art spec (R9 later brought the art into this one):
+  **each planet's art must work at two quite different sizes.** R3 also cost
+  one struct and one constant — `VenueRail` (which made "both regions or
+  neither" a fact of the type) and `VENUE_ART_W` — **deleted** rather than kept
+  as unconditional wrappers: a one-variant wrapper whose doc describes a
+  condition that no longer exists is the false-name defect this spec renamed
+  four symbols to avoid.
+
+### The second amendment (the person, 2026-09-21, after walking the rebuilt venue)
+
+- **R4 — the art about 15–20 % smaller.** Landed at **17.5 %** smaller at 89
+  columns (58×23 → 50×22) and **16.8 %** at 139 (108×23 → 94×22) by giving the
+  art **seven eighths** of the columns left of the portrait's gap. That is the
+  **one scale factor** the plan takes, and a stated divergence from its own
+  "the art's size is a subtraction, not a ratio" (plan §Design tension 7):
+  R4 asks for a percentage, and no fixed column inset lands inside 15–20 % at
+  both fit sizes (the workable insets, 7–9 and 12–17, do not overlap). The
+  height is still a pure subtraction; there is still no minimum-art-size
+  constant and no breakpoint. **R9 deleted the fraction** (below): the box now
+  follows the drawings, whose sizes are R4's result, so R4 survives as those
+  sizes and its band test still pins it; and the narrow and wide drawings now
+  switch at 139 columns, the layout's existing threshold.
+- **R5 — every text row centres on the art's centre, not the terminal's.** The
+  person's eye caught it: the portrait's column puts the band's centre well
+  right of the art box, so text centred on the terminal read as shifted off the
+  thing it labels. Header and footer alike — aligning only the header would
+  trade one mismatch for another. The consequence the person was warned of —
+  at 89 columns the 63-character controls hint cannot fit over a 50-column art
+  box and would land flush against column 0 — was resolved by **shortening the
+  hint to 55 characters** with the board's own single-space ` · ` separators.
+  Rejected, each for a stated reason: aligning only the header (`spec.md`
+  forbids it — one mismatch traded for another); clamping the hint's column to
+  a minimum (the row would be centred on nothing, bringing back for one row the
+  off-centre look R5 removes); splitting the hint over two rows (it costs a row
+  the art needs and puts a second text row in the footer band, where only the
+  action row may have air); and widening the art to contain the hint
+  (impossible at 89 columns — the widest art there is 58, and R4 wants about
+  50). The shortened hint still overhangs the art box by 3 columns left and 2
+  right at 89, which `spec.md` sanctions. `spec.md`'s "not flush against column 0" became
+  an assertion: the fit test had been satisfying it silently, because
+  `saturating_sub` clamps a left overflow to column 0 and the test checked only
+  the right edge. The assertion now makes **61 characters** the ceiling for any
+  future venue row at 89 columns.
+- **R6 — the venue shows the credit balance**, in the Card Shop's own words:
+  `shop::credits_label` is the one function both screens call, so the wording
+  cannot drift. It is the screen where the player chooses between playing and
+  shopping, which is the choice a balance informs (asked at the Phase 2 pause,
+  answered here). Checked by the existing drawn-frame breathing test — which
+  requires the row to be non-blank — rather than by a new test; the row's
+  *content* is not asserted, which the plan sanctioned.
+- **Plan §Open questions 2, closed by the person: the placeholder keeps the
+  planet's name** until there is real art. (It had been asked at the Phase 2
+  pause and re-put at the first amendment's walkthrough.) Since R9 the name is
+  only the fallback for a planet with no art, which a validated delivery never
+  has.
+- **A deliverable, not a behavior: the per-planet art brief** ships on the
+  branch as `specs/029-tournament-rounds/planet-art-brief.md`, in spec 016's
+  shape. It asks for **two grids per planet — 48×20 and 92×20, sixteen files**
+  under `assets/planets/` — because the art region's interior is a different
+  width at the two layout sizes, which is the cost R3 named. It records the
+  **single-asset alternative** (one 92-wide grid whose central 48 columns stand
+  alone) in case the person preferred eight drawings to sixteen, and it priced
+  four options for the **loading rule between the fit sizes** and chose none
+  (T005e). The count was put to the person at the second amendment's pause;
+  they answered with R7 and continued, so the brief stood at sixteen with the
+  alternative recorded. There is no deferred art spec now: **R9** took both
+  questions into this spec — sixteen drawings were delivered, and the person
+  chose a rule the brief had not priced — **the box fits the art** — over all
+  four it had.
+
+### Two more rulings (the person, 2026-09-22)
+
+- **R7 — a consistent, slight gap between the art and the portrait.** The
+  person's words: the portrait sat a little too far to the right. The gap is
+  now exactly `PANEL_GAP` (3 columns) at every width and the art-plus-portrait
+  group is centred; the art's size (R4) and the text's alignment (R5) did not
+  move. The outer margins are equal to within one column (at an odd leftover
+  the right is one wider). Specified as a **class** of sanctioned assertion
+  changes rather than a list — see *The gate pattern* below — and it landed
+  first time.
+- **R8 — How to Play says "matches."** How to Play opens with a rule about
+  *rounds*, so "Opponents are Best of 3" could be read as rounds. The campaign
+  lines now read "Each opponent is Best of 3 matches, the last / Best of 5. A
+  started series is played out." (asked at the Phase 4 pause).
+
+### R9 — the art, integrated (the person, 2026-09-22, at the merge pause)
+
+- **R9 — the per-planet art is integrated in this spec**, rather than merging
+  on the placeholder and leaving it to a spec of its own. The person's words:
+  *let's add integrating the art into this spec.* **Authoring stays outside**:
+  the sixteen drawings were made from `planet-art-brief.md` by the tool the
+  person used (**Opus 5.5**, credited in `assets/CREDITS.md`), and this spec
+  validates them and draws them. It added acceptance criterion **21** and a
+  phase of its own (Phase 6), and narrowed the spec's art non-goal to
+  *authoring*.
+- **Between the fit sizes, the box fits the art** — the person's choice over
+  the four options the brief priced (letterbox the drawing in a larger box,
+  stretch it, tile or extend it, commission a third size). The box is always
+  exactly the drawing plus its border — the narrow drawing below 139 columns,
+  the wide one from 139 up, 20 rows tall — and space the drawing does not use
+  is margin *around* the art-and-portrait group, never blank space inside the
+  frame. At exactly 89×31 and 139×31 this is the layout R4, R5 and R7 had
+  already approved, so nothing moved at the fit sizes (the orchestrator
+  captured the venue at both before and after the geometry change, and the
+  captures were identical). **The planet's name survives only as the fallback**
+  for a planet with no art.
+- **Three plan calls, each with its reason.** (1) **A taller terminal centres
+  the whole venue vertically** (plan §Open questions 8): the 31-row
+  composition keeps its internal spacing and the spare rows go above and below
+  it, the odd one below, as the board's block does — so the text keeps its
+  relationship to the picture it labels. The cost: above 31 rows the controls
+  hint is no longer on the last row. (2) **The drawing is drawn at full
+  strength** — `Emphasis::Normal`, the portraits' weight, inside a muted
+  border (§Open questions 7): the brief told the artist the picture is drawn at
+  one uniform emphasis with depth carried by glyph density, which dimming would
+  compress. (3) **R4's fraction is deleted**: the box follows the drawings now,
+  R4's result survives as their size, and its 15–20 % band test still pins it.
+- **AC 21's checklist test derives its canvas from the venue's layout**
+  (`VenueLayout::new(c).art` at each fit size) rather than restating 48, 92 and
+  20 — which closes close-out note 37's concern that nothing tied the brief to
+  the code. The test runs the brief's items 1–6 (exact set of visible files, 20 lines, one
+  trailing newline, exact width in characters, the closed 23-character
+  palette with its count asserted, distinct drawings) and checks for `\r`
+  *before* the palette, so a CRLF file fails on the right assertion. Two
+  mutation checks confirmed it bites (one extra space; one file converted to
+  CRLF). Three more tests: every planet's art fills its box at all 660 sizes
+  the venue's every-size tests measure (every width from 89 to 220, at 31, 32,
+  33, 40 and 60 rows), the drawn frame's interior equals the drawing, and a
+  planet without art shows its name.
+- **`.gitattributes` marks `assets/planets/*.txt -text`.** Windows is a target
+  and Git for Windows defaults to `core.autocrlf=true`. The first reason given
+  for it was half wrong, and corrected at the Phase 6 review: a CRLF checkout
+  would **not** mis-size the art, because `str::lines` strips `\r\n` and the
+  drawer iterates `lines()` — but it **would** fail the new `\r` assertion, so
+  `cargo test` would break on such a checkout. That alone justifies the rule.
+  The portraits have no such protection, which is fine only because they have
+  no `\r` test.
+- **`design/brief.md` records the art as a second bounded exception** to its
+  *Skeuomorphism boundary*, beside the portraits' (Phase 6 plan sign-off, B3:
+  the portraits had been the *single* exception, amended before spec 016
+  shipped them, and R9 needed the same amendment). Bounded the same way:
+  static, venue-only, inside one single-weight box sized to the drawing, no
+  colour, the portraits' glyphs plus four ASCII marks (`. ' * +`), no
+  lettering, no discernible figures, original places. Written by the
+  orchestrator on the branch and shown to the person at the Phase 6 pause.
+- **The person's answers at the Phase 6 pause (2026-09-22).** The art tool was
+  Opus 5.5. The person had **Cinder's and Scree's art redrawn "with right
+  angles only"** and committed it themselves (`bc2598c`), then said to
+  continue — read as the go on the art (the brief's checklist item 7, the
+  product owner's look). The redraw was validated like the first delivery:
+  items 2–5 by shell on the four files, and AC 21's test over all sixteen.
+  Three things were shown and **not ruled on**; see *Asked, and not answered*.
+
+### Asked, and not answered
+
+- **Plan §Open questions 1 — the deciding match's game-over frame shows no
+  series score.** The in-match score is derived from the live series, and the
+  deciding match ends the series during settlement, one tick before the
+  game-over popup; so after a non-deciding match the band shows the updated
+  score, and after the deciding one (won or lost) it shows nothing, while the
+  map banner that follows names the result. The plan sign-off ruled it **not an
+  AC 11 violation** (the score is on every frame the player can act in). Put to
+  the person at the Phase 3 pause, with both frames; **they continued without
+  ruling. Left as built, and not treated as a ruling either way.** Holding the
+  final score is a one-shot `App` field in the `victory_due` idiom, a
+  sub-lettered task rather than a redesign, if they later want it.
+- **Three things shown at the Phase 6 pause (2026-09-22)**: the art's weight
+  (plan §Open questions 7 — drawn at full plain weight; dimming it is a
+  one-word change), vertical centring on terminals taller than 31 rows (§Open
+  questions 8 — the hint leaves the last row), and the text of the
+  `design/brief.md` amendment. **The person continued without changing any of
+  them. Left as built**; the amendment text stands as written.
+
+### The design calls (plan, signed off 2026-09-20)
+
+- **The return target is derived from the lock, never remembered.** Spec 015
+  shipped a bug where a *remembered* origin was not set on one path; a second
+  remembered target (a venue origin on the deck builder and the shop) would
+  have doubled the places that can forget. Instead `App::open_campaign_home` is
+  the **only** place that assigns `Screen::CampaignMap` or `Screen::Venue`, and
+  it reads whether a series exists. Every door — Continue, New Campaign, Reset
+  Everything, the game-over acknowledgement, Back from the shop and the deck
+  builder, the map's launch — goes through it, and the deck builder's
+  invalid-deck divert gets the venue return for free. **The invariant is held by
+  a reviewed grep, not by the type system**:
+  `grep -nE "self\.screen = Screen::(CampaignMap|Venue)" src/app.rs` must return
+  exactly two lines, both in `open_campaign_home`. It is written as two
+  assignment statements rather than one `if` expression precisely so the grep
+  can see them — in the expression form neither line names a variant and the
+  gate would pass while checking nothing (T006's deviation, upheld at the
+  Phase 2 review, which also widened the grep three ways). A `CampaignHome`
+  enum with a mapping test was drafted and dropped: the test would have been a
+  tautology aimed at the wrong risk.
+- **One floor, one predicate: `economy::reserve_floor`.** O1 changes what the
+  floor *is* while locked, not how many there are. `cheapest_floor` kept its
+  body and became private; `reserve_floor` returns the locked opponent's ante
+  while a series runs and the cheapest launchable ante otherwise, and all of
+  `Profile::is_broke` and `Profile::can_afford` (and through it the shop's
+  purchases, dimming and *spendable* readout) read it. While locked, the
+  reserve **is** the venue opponent's own ante, so a player at the venue who is
+  not broke can always cover the match it offers and the venue draws no banner
+  — **but only because the map's launch refuses a series the balance cannot
+  cover**, which the pre-merge sweep found missing (its blocking B1): the floor
+  rises at the moment a series starts, and without that check a player with 15
+  credits could launch a 20-ante series, be locked into it with no playable
+  match, and lose the run at the next campaign entry. One helper,
+  `App::refuse_uncovered`, now guards both the map's series launch and every
+  wager. The wager prompt's warning reads `economy::reserve_after_a_loss`
+  instead — see *O1's side effect* below.
+- **Settling exactly once stays a data property, and now covers the series.**
+  Spec 021 made the payout idempotent by zeroing the escrow; a series tally
+  increment has no such property, and `mark_beaten` on the wrong match would
+  clear a planet early. So the in-flight `NodeRef` carries a `settled` flag and
+  `CampaignRun::take_settlement` takes the node and its stake **once** — a
+  second call returns `None`, pays nothing, moves no tally and beats nobody.
+  `take_stake` was deleted: two ways to empty one escrow is one too many. **What
+  it still does not cover**: `Profile::record_match`, which `resolve_match` runs
+  *before* settlement, so a second `resolve_match` on one match would still
+  double-count lifetime and run statistics — pre-existing, still guarded only by
+  the `phase_changed && GameOver` edge, and stated in `take_settlement`'s doc
+  rather than claimed away. One visible consequence in tests only: a second
+  settlement now returns `None` where it returned `Some(Won(0))`; the claim that
+  this changes nothing in production rests on inspection of that edge, not on a
+  test.
+- **The series is stored beside the in-flight pointer, not inside it**, because
+  the two have different lifetimes: a Quick Play match and the kill-with-no-save
+  forfeit both clear the pointer, and neither may end a series. So a Quick Play
+  match started mid-series cannot end it, and the board's score line is gated on
+  the in-flight node *matching* the series, not on a series existing.
+- **How many wins a series needs is derived from the opponent id**
+  (`wins_needed`, `FINAL_OPPONENT = "sovereign"`), never stored: a stored count
+  is a second source of truth a hand-edited or older save could contradict, and
+  derived, a pre-029 profile gets the right length for free. One constant
+  rather than a roster field, because `opponent.rs` is balance data this spec
+  must not touch.
+- **The migration rule: `is_opponent_beaten`, not the presence of a series,
+  decides whether a settled match can beat its opponent** (plan sign-off B1).
+  The first draft settled a match left in flight across the upgrade as a
+  non-series match, so a player mid-match against Greeb when they upgraded would
+  have cleared Cinder in one win — the outcome this spec exists to remove. Now
+  `record_series_match` **begins a series** when none is running and the
+  opponent is un-beaten, and credits the match to it, exactly as `spec.md`'s
+  "a match left in flight resolves as the first match of a fresh series" says.
+  So a beaten opponent is a rematch and an un-beaten one is always in a series,
+  and **no settled match can beat an opponent who has not lost a series**. The
+  `NotInSeries && player_won` clause that remains in the beat condition can
+  only ever re-mark an already-beaten opponent — a no-op kept to preserve the
+  rematch path literally.
+- **Four renames, each because the old name would assert something false**:
+  `take_stake` → `take_settlement`; `cheapest_floor` → `reserve_floor` (the old
+  one kept, private, as its implementation); `BuilderOrigin::Map` /
+  `BackTo::Map` → `…::Campaign` (the builder no longer necessarily returns to
+  the map); `map_entry_modal` → `campaign_entry_modal`. `enter_campaign_map` →
+  `enter_campaign` and `open_campaign_map` → `open_campaign_home` followed from
+  the first design call. `src/wager.rs`'s reserve doc was corrected with them
+  (plan sign-off B6): exempting it from the rename's grep would have satisfied
+  the gate and left the false claim standing.
+
+### O1's side effect, which no walkthrough could reach
+
+The wager prompt's warning row — **"Lose this and the run is over."**, added by
+the 2026-09-17 chore — is driven by the prompt's reserve, which is now
+`reserve_floor`. While locked against a deep opponent that reserve rises from
+the map's cheapest (10, Cinder's rematch, in every run state) to **that
+opponent's own ante** — 50 against Rix and up — so the warning fires at far
+lower stakes than it did. That is correct under O1 and probably desirable: the
+warning still reads the same floor the broke check reads. But it is a real
+change in how often a player sees that row, it needs a Core-depth run that no
+walkthrough in this spec reached, and so it is recorded here rather than
+attested. It also **supersedes, while a series is locked, the chore's bullet
+"The predicate is the run's cheapest ante, not the prompt's own floor"**: while
+locked the two are the same number. The chore's own section above is left as
+written.
+
+**Fixed on the branch by the pre-merge sweep (its N1).** A loss that decides a
+series releases the lock, so the broke check after it reads the map's cheapest
+ante again; the warning had been reading the locked opponent's ante and could
+say "Lose this and the run is over" when the run would continue. The prompt now
+takes `economy::reserve_after_a_loss` — the floor the broke check reads after
+this match is lost, found by recording the loss on a copy of the run so the
+series' own rule decides it — and so again predicts exactly the check that ends
+the run, as the 2026-09-17 chore ruled. It only ever over-warned; it never
+under-warned.
+
+### Coverage, stated honestly
+
+- AC 14 is two-thirds instrumented: `every_reset_clears_the_lock` covers New
+  Campaign and Reset Everything; the run-over reset is covered by the fact — in
+  a comment — that it is the same call.
+- AC 16's "the largest element on the screen" is asserted only as art area >
+  portrait area, which is sufficient while every other element is a single row
+  of text; a later spec adding a second panel would not be caught.
+- The venue's credit row (R6) is pinned by being non-blank and by the shared
+  `credits_label`, not by an assertion on its text.
+- `the_deciding_match_and_the_series_agree` plays only all-win and all-loss
+  series; `wins_needed_is_two_except_for_the_final_opponent`'s loop computes its
+  expectation with the function's own expression and is rescued by its other two
+  assertions — don't trim it to the loop.
+- `no_settled_match_beats_an_unbeaten_opponent_outright` reads
+  `is_opponent_beaten` *after* the call, which is sound only because
+  `record_series_match` marks nobody beaten; if `mark_beaten` ever moves into
+  it, that assertion silently changes meaning.
+- A non-deciding match's `MapBanner::Settled` is set and never shown as a
+  banner (the venue draws none); nothing is lost, because `stake_to_show` puts
+  the settled amount on the game-over frame, but the case was un-discussed
+  rather than decided. A contradictory banner ("Series won · Lost N credits")
+  is unreachable in play — only a hand-edited save could produce it.
+- The winning series banner (`★  Series won · …`) was never seen on screen —
+  six auto-played attempts lost — and is pinned by an exact-string test.
+- AC 21's checklist test is the whole of the validation a machine can do.
+  Nothing can test `assets/CREDITS.md`'s originality claims — original places,
+  no franchise imagery — which rest on the person's look at the art.
+- `T003` renamed the `sweep_run` test helper to `sweep_run_in_series` and
+  changed its behaviour where the task line said helpers should *gain* a
+  series form; the rename is total, so every call site shows in the diff, which
+  is what that bar protected.
+
+### The gate pattern (process, recorded so the next spec plans against it)
+
+This spec hit, repeatedly, **a Verify gate or an "exhaustive" list of changing
+assertions that could not be satisfied or was incomplete**: T001's
+one-exception list (three assertions had to move; a decision review ruled it a
+planner enumeration error), plan sign-off B2/B3/B6 (Verify gates unsatisfiable
+because call sites were under-enumerated — B6 was `src/wager.rs`, listed under
+*No change* while it named the renamed function), T006 (the plan's code listing
+would have made its own grep gate return zero lines), T005b (a gate spelling the
+file `README.md` when it is tracked as `Readme.md` — harmless on darwin,
+silently unsatisfiable on a case-sensitive filesystem), T004a and T005c (each
+changed an assertion or a doc its "anything else is a stop-and-report" list
+omitted, and neither implementer stopped), T007 (an unlisted construction site),
+and the second amendment sign-off's B1 (a `git diff --stat` gate for a task
+whose whole product is one untracked file, which that command cannot list — a
+lesson specs 022 and 023 had already written down). **What worked**: T005f
+stated the sanctioned change as a **class** ("any assertion whose subject is
+the portrait's x position, the art–portrait gap, or the right-hand margin")
+rather than a list, and landed first time; T008 enumerated its call sites by
+grep before editing and found no gap. Related orchestrator misses: review
+bundles showed `cargo test -q --lib` plus a warning-count grep instead of the
+constitution's full command — three recurrences before it stuck — and the grep
+returns 0 for a failed build as readily as a clean one; and two bundles echoed a
+gate's *label* rather than the command actually run. Echo the command, don't
+retype it.
+
+Phase 6 added two more of the same kind at its plan sign-off, both caught
+before dispatch: **B1**, a grep gate for deleted constants that substring-matched
+`CampaignMapLayout`'s `FIELD_MARGIN_X` and so could never come back empty (fixed
+with `grep -w`); and **B2**, a "clean working tree" check that an implementer
+who never commits cannot satisfy (scoped to `assets/planets`).
+
+**And one orchestrator miss of a different kind: the art was committed before
+it was validated.** The art session wrote the sixteen files into
+`assets/planets/` while the orchestrator was committing the Phase 6 plan with
+`git add -A`, which swept them into that commit (`7445c68`) unvalidated and
+unmentioned in its message. History was not rewritten (never force-push); the
+delivery checkpoint, T013, validated the files already committed instead of
+committing them, and they passed first time. The Phase 6 review checked the
+commit: exactly the sixteen art files plus the three spec documents, nothing
+else swept in. From then on the orchestrator stages **explicit paths, never
+`git add -A`** — a checkpoint that validates before committing only works if
+nothing else can commit first.
+
+### What didn't change
+
+`game.rs`, `card.rs`, `player.rs`, `save.rs`, `opponent.rs`, `Cargo.toml` and
+`Cargo.lock` are untouched; `PROFILE_VERSION` and `SAVE_VERSION` stay 1; the two
+new persisted fields are `#[serde(default)]`, the pattern spec 021 used for
+`NodeRef::stake`; `economy.rs` lost only two doc lines and the `pub` on
+`cheapest_floor` — no constant moved; no new crate; the build has no warnings,
+the same count as `main`. Monochrome by construction: the venue, the series line
+and the banners use the existing emphasis levels and add none, and the art is
+drawn at the portraits' plain weight from a closed 23-character palette that
+admits no escape character. The art adds sixteen text files, a
+`.gitattributes` line and a `CREDITS.md` section — no crate, and no engine or
+save file.
