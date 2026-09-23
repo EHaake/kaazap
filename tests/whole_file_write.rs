@@ -62,7 +62,8 @@ fn every_writer_lands_whole_and_a_failed_save_leaves_the_previous_file() {
     let save_path: PathBuf = saves_dir.join("savegame.json");
 
     // --- Each writer lands its contents, and leaves no debris. ---
-    let settings = Settings { music_volume: 0.25, sfx_volume: 0.75, animations: false };
+    let settings =
+        Settings { music_volume: 0.25, sfx_volume: 0.75, voices_volume: 0.5, animations: false };
     settings.save();
 
     let mut profile = Profile::default();

@@ -16,7 +16,7 @@ side-deck cards for tougher matchups ahead. Run out of credits and the
 run is over.
 
 > **Status:** actively being built. The core Pazaak engine, a terminal
-> UI overhaul, audio with a settings menu (music/SFX volume, a global
+> UI overhaul, audio with a settings menu (music/SFX/voice volume, a global
 > mute, and an **Animations** on/off row for the board's card and score
 > transitions and the opponent's word-by-word lines), mid-match
 > save/resume (a **Continue** on the menu), a **ten-opponent**

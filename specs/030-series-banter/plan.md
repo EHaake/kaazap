@@ -904,16 +904,28 @@ module doc each gain a clause about the opponent's line.
 
 ### 11. `src/settings.rs` (T002a, ruling 10A; §Design tension 14)
 
-- Field, after `sfx_volume`:
+- Field, declared **last**, after `animations` (T002a decision review):
+  serde's derived `Deserialize` also accepts a struct as a JSON array in
+  declaration order, and `settings_malformed_or_empty_json_falls_back_to_default`
+  relies on `[1,2,3]` failing when its third element lands on the `animations`
+  bool. Declaring the new volume third would let that array parse. Every struct
+  literal and JSON object is keyed by name, so the only visible effect is key
+  order in the saved `settings.json`. The Settings panel's row order comes from
+  `ROWS`, not the struct. The existing test stays untouched.
   ```rust
       /// Spec 030 (ruling 10A): the opponent's spoken-word burble, and no
       /// other sound. A file without the key reads as the default, equal to
-      /// Sound FX's.
+      /// Sound FX's. Declared last on purpose: serde also accepts a struct
+      /// as a positional JSON array, and the malformed-JSON test's `[1,2,3]`
+      /// must keep failing on the `animations` bool.
       #[serde(default = "default_voices_volume")]
       pub voices_volume: f32,
   ```
   `fn default_voices_volume() -> f32 { 0.8 }` beside its siblings, and
-  `Default` sets it. The struct doc's "Volumes are 0.0–1.0" already covers it.
+  `Default` sets it, listed in the same order as the struct. The struct doc's
+  "Volumes are 0.0–1.0" already covers it. If any existing test compares
+  serialized settings text word for word, the field order moves that
+  assertion: stop and report, don't edit it.
 - `SettingRow::Voices`, between `Sfx` and `Animations`. `ROWS` becomes
   `[Music, Sfx, Voices, Animations]`, and the enum's doc names "the three
   volumes". `adjust` steps and clamps it like the other volumes.

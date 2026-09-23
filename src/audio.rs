@@ -133,7 +133,7 @@ impl Audio {
         self.send(AudioCommand::PlaySfx { sfx: cue.sfx, pitch: cue.pitch });
     }
 
-    /// Adopt new settings (the Music/SFX volumes) and reconcile music.
+    /// Adopt new settings (the Music/SFX/Voices volumes) and reconcile music.
     pub fn set_settings(&self, settings: Settings) {
         self.send(AudioCommand::SetSettings(settings));
     }
@@ -198,13 +198,11 @@ struct AudioState {
 
 impl AudioState {
     fn play(&self, sfx: Sfx, pitch: f32) {
-        if !should_play_sfx(self.muted, self.settings) {
-            return;
-        }
+        let Some(volume) = sfx_level(self.muted, sfx, self.settings) else { return };
         let Some(backend) = &self.backend else { return };
         if let Ok(source) = Decoder::new(Cursor::new(sfx.bytes())) {
             // `speed` shifts pitch (1.0 = normal); `amplify` sets volume.
-            let source = source.speed(pitch).amplify(self.settings.sfx_volume);
+            let source = source.speed(pitch).amplify(volume);
             backend.sink.mixer().add(source);
         }
     }
@@ -228,6 +226,16 @@ impl AudioState {
 /// device.) A zero volume is off, like the mute.
 fn should_play_sfx(muted: bool, settings: Settings) -> bool {
     !muted && settings.sfx_volume > 0.0
+}
+
+/// The volume `sfx` plays at, or None when it is silent (spec 030, ruling
+/// 10A): the burble on the Voices volume — silent when muted or at zero —
+/// and every other effect on Sound FX, gated by `should_play_sfx`. Pure.
+fn sfx_level(muted: bool, sfx: Sfx, settings: Settings) -> Option<f32> {
+    match sfx {
+        Sfx::Burble => (!muted && settings.voices_volume > 0.0).then_some(settings.voices_volume),
+        _ => should_play_sfx(muted, settings).then_some(settings.sfx_volume),
+    }
 }
 
 /// Pure gating: should the music be playing in this state?
@@ -412,6 +420,40 @@ mod tests {
             false,
             Settings { music_volume: 0.0, sfx_volume: 0.8, ..Settings::default() }
         ));
+    }
+
+    #[test]
+    fn the_burble_follows_voices_and_nothing_else_does() {
+        // Spec 030 (ruling 10A; AC 9, AC 17).
+        let others = [
+            Sfx::CardDraw,
+            Sfx::CardPlay,
+            Sfx::Flip,
+            Sfx::Stand,
+            Sfx::Bust,
+            Sfx::RoundWin,
+            Sfx::RoundLoss,
+            Sfx::RoundTie,
+            Sfx::GameWin,
+            Sfx::GameLoss,
+            Sfx::MenuMove,
+            Sfx::MenuSelect,
+            Sfx::MenuBack,
+        ];
+        let both = Settings { sfx_volume: 0.3, voices_volume: 0.7, ..Settings::default() };
+        let no_voices = Settings { voices_volume: 0.0, ..both };
+        let no_sfx = Settings { sfx_volume: 0.0, ..both };
+
+        assert_eq!(sfx_level(false, Sfx::Burble, both), Some(0.7));
+        assert_eq!(sfx_level(false, Sfx::Burble, no_voices), None);
+        assert_eq!(sfx_level(false, Sfx::Burble, no_sfx), Some(0.7));
+        assert_eq!(sfx_level(true, Sfx::Burble, both), None);
+        for sfx in others {
+            assert_eq!(sfx_level(false, sfx, both), Some(0.3), "{sfx:?}");
+            assert_eq!(sfx_level(false, sfx, no_voices), Some(0.3), "{sfx:?}");
+            assert_eq!(sfx_level(false, sfx, no_sfx), None, "{sfx:?}");
+            assert_eq!(sfx_level(true, sfx, both), None, "{sfx:?}");
+        }
     }
 
     // A player cue (normal pitch) and an opponent cue (lower pitch).

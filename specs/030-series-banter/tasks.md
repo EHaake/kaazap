@@ -189,7 +189,7 @@ T003a stands alone. One review covers all three, after T003a (plan
 §Verification *Review of the amendment*). Then the orchestrator drives the
 amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
 
-- [ ] **T002a** — `src/settings.rs` + `src/audio.rs` + `src/app.rs` +
+- [x] **T002a** — `src/settings.rs` + `src/audio.rs` + `src/app.rs` +
   `tests/whole_file_write.rs` + `Readme.md`: the Voices volume (ruling 10A).
   Per plan §Amendment, §Design tension 14, §Design 4 (the amended bullet),
   §Design 5 (*Phase 1 amendment — the Voices preview*), §Design 10 (the amended
@@ -718,3 +718,5 @@ redo, and why). -->
 | Amendment sign-off (skeptical-reviewer) | opus → claude-opus-5-5 | ~150K | 1 | — | 1 (B1 the `EVENT_BEAT_MS` grep would match the import and `say` doc too) | fix and re-review; six second looks folded in |
 | Amendment revision (sdd-planner, same context) | opus → claude-opus-5-5 | ~15K | 1 | yes | — | B1 → `from_millis(EVENT_BEAT_MS)` grep; second looks 1–6 |
 | Amendment re-review (skeptical-reviewer, same context) | opus → claude-opus-5-5 | ~10K | 1 | — | 0 | **signed off**; note: the brief clause is loose for match-end jingles (§Open questions 5) |
+| T002a (sdd-implementer) | opus → claude-opus-5-5 | ~77K | 2 (one resume) | no — stopped on a judgment call | — | serde also parses a struct from a positional JSON array, so `voices_volume` third let `[1,2,3]` load and failed `settings_malformed_or_empty_json_falls_back_to_default`. Decision review → A: declare it last (transcribed into plan §Design 11). Done: 504 lib tests, 0 warnings, 4 new tests + renamed one green, superseded edits only |
+| Decision review: T002a field order (skeptical-reviewer) | opus → claude-opus-5-5 | ~25K | 1 | — | — | recommend A (declare last, test untouched); B edits a test to pass, C adds unasked code |

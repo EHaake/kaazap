@@ -33,7 +33,7 @@ use crate::{
     profile::{Profile, ProfileFailure, ProfileProblem},
     records::{RecordsOutcome, RecordsState},
     screen::Screen,
-    settings::{Settings, SettingsAction, SettingsState},
+    settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
     stats::{RunStats, run_summary_lines},
     venue::{VenueOutcome, VenueState},
@@ -1651,9 +1651,14 @@ impl App {
                 self.settings.adjust(row, matches!(action, SettingsAction::Right));
                 self.audio.set_settings(self.settings);
                 self.settings.save();
-                // A tick after set_settings so you hear the new SFX level
-                // (the music change is already live).
-                self.audio.play(Sfx::MenuMove);
+                // After set_settings, so you hear the new level (the music
+                // change is already live): a burble on the Voices row, which
+                // it follows, and a tick on every other row, at the SFX level.
+                if row == SettingRow::Voices {
+                    self.burble(0);
+                } else {
+                    self.audio.play(Sfx::MenuMove);
+                }
             }
             SettingsAction::Back => {
                 self.modal = None;
