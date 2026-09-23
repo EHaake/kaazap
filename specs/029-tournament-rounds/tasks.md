@@ -1,7 +1,15 @@
 # Tasks: Tournament rounds — spec 029
 
-> **Status**: Signed off (skeptical-reviewer, 2026-09-21 — second amendment revision: one review, one re-review, B1 and B2 resolved and seven notes applied)
+**Status**: Draft — pending sign-off (the **R9 revision**, 2026-09-22: Phase 6 and the revised T011. Everything above Phase 6 was signed off — last on 2026-09-21, the second amendment revision — and is built, reviewed and attested)
 **Implements**: plan.md in this directory
+
+**The R9 revision (2026-09-22).** At the merge pause the person ruled that the
+per-planet art is integrated in this spec (ruling **R9**, acceptance criterion
+**21**). **Phase 6** (T012–T014) is added for it, and **T011** is revised to
+close again after Phase 6 with a second pre-merge sweep scoped to it. Nothing in
+Phases 1–5 or T011a is reopened. The art itself arrives from another session as
+sixteen files in `assets/planets/`; **T012 runs now, T013 and T014 wait for the
+files** (plan §Design 12 says why: `include_str!` cannot compile without them).
 
 T001–T006 were signed off on 2026-09-20 (one review, one re-review, B1–B6
 resolved), implemented, reviewed, committed, and attested by the person at the
@@ -36,12 +44,17 @@ close-out is dispatched to `sdd-implementer`.
 **Foundational phase: Phase 1.** It is the data model and the settlement rule
 every later phase reads — the series on the run, the one floor, the one
 exactly-once take. Phases 2–5 each depend on it and on nothing else of each
-other's.
+other's. Phase 6 (R9) depends on Phase 2's venue and on nothing else; it is not
+foundational.
 
-**Two tasks carry `review: per-task`** — T001 (the persisted data model and the
+**Three tasks carry `review: per-task`** — T001 (the persisted data model and the
 exactly-once `take_settlement`, which every later task builds on and which a
-save file inherits) and T003 (the settlement: the one place credits are paid and
-an opponent is beaten). Every other task is covered by its phase review.
+save file inherits), T003 (the settlement: the one place credits are paid and
+an opponent is beaten), and **T012** (R9's geometry: AC 21's validation test
+derives its canvas from this layout, so a slip here would be baked into the very
+test meant to catch it — and the art's delivery sits between T012 and the rest
+of its phase, so a phase-end review would come too late). Every other task is
+covered by its phase review.
 
 **This is the first spec under the `walkthrough:` marking rule.** Every phase
 header below carries `walkthrough: <what the person can try>` or `walkthrough:
@@ -1424,6 +1437,157 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   additions only; `git diff main...HEAD -- src/opponent.rs src/economy.rs` shows
   no changed balance value.*
 
+## Phase 6 — The planet's art at the venue (ruling R9; walkthrough: every planet's venue shows its own picture filling its box edge to edge — the narrow picture at 89×31, the wide one at 139×31 — with nothing clipped, no planet name in the box, and the opponent's portrait beside it; at a width in between (120 columns) the box keeps the narrow picture's size and the spare columns sit either side of the picture-and-portrait pair; on a taller terminal (139×40) the whole screen sits centred with the spare rows above and below it. The person's look at both fit sizes is the go/no-go on the art)
+
+<!-- Added by the R9 revision, 2026-09-22, after T011a; the close-out below
+closes again after this phase. Sequencing, because the art arrives from another
+session at an unknown time:
+
+- T012 runs NOW. It is geometry only and names no asset — the drawing sizes are
+  known (48×20 and 92×20, the brief's canvas).
+- Then the phase WAITS for the sixteen files in `assets/planets/`. The wait is
+  not a phase pause and not a design question; the orchestrator says in one
+  plain sentence that the venue is ready for the art and waits.
+- T013 is the checkpoint: the first thing done when the files arrive, and a
+  failing delivery is bounced to the art session with its failures listed — a
+  bounce, not a fix, and not a question for the planner.
+- T014 needs T013 committed: its `include_str!` lines do not compile without
+  the files.
+
+T012 is observable on its own (at non-fit sizes the placeholder box shrinks to
+the drawing's size; at taller terminals the screen centres), but it is walked
+with the rest of the phase rather than paused on: a pause after T012 would show
+the person an empty box they are about to see filled. -->
+
+- [ ] **T012** — `src/layout.rs` + `src/config.rs` + `src/venue.rs` +
+  `specs/029-tournament-rounds/planet-art-brief.md`: the art box fits the
+  drawing (ruling **R9**'s geometry). `review: per-task`. **Runs before the art
+  arrives** — it names no asset. Per plan §Design 4's R9 section, which gives
+  the code and the arithmetic:
+  **(a) `src/layout.rs`, `VenueLayout`.** Delete `MARGIN_X`, `ART_W_NUM`,
+  `ART_W_DEN` and `span_w`. Add the three private constants
+  `ART_CANVAS_W_NARROW = 48`, `ART_CANVAS_W_WIDE = 92`, `ART_CANVAS_H = 20` with
+  the plan's doc, and the field `pub wide_art: bool` with its doc. Rewrite `new`
+  to the plan's arithmetic, line for line (horizontal: the box is the drawing
+  plus its border, the group centred as T005f already does; vertical: the
+  31-row composition centred, odd spare row below). Correct every doc the plan's
+  R9 section lists as falsified: `VENUE_PANEL_H`'s, the struct doc, `art`'s,
+  `hint_y`'s, `new`'s (the `.max()` paragraph and the "seven eighths" comment).
+  **(b) `src/config.rs`.** Beside `fit_sizes()`, `#[cfg(test)] pub fn
+  sizes_from_minimum() -> Vec<Config>`: every width from `min_size().0` to 220
+  inclusive, at `min_size().1`, `+ 1`, `+ 2`, 40 and 60 rows (660 sizes), doc'd
+  as "the sizes the venue's every-size tests measure". Pattern: `fit_sizes()`.
+  **(c) `src/layout.rs` tests.** Rename `the_venue_bands_stack_and_the_art_takes
+  _the_rest` → `the_venue_bands_stack_around_the_art` and rewrite its comment
+  block (the art no longer takes the rest). Add
+  `the_art_box_is_the_drawing_plus_its_border_at_every_size` exactly as plan
+  §Tests' R9 bullet lists it, including the four pinned non-fit rows of §Design
+  4's R9 table and the opening assertion that `sizes_from_minimum()` contains
+  both `fit_sizes()`. The expected box at each size is taken from
+  `VenueLayout::new` at the fit size with the same `wide_art` — **no literal 50,
+  94 or 22** in that relation. In `the_art_region_dominates_at_both_widths`,
+  comment only ("the fraction" → "the canvas sizes").
+  **(d) `src/venue.rs`.** In `the_venue_text_fits_the_minimum_terminal` only: the
+  outer loop runs over `Config::sizes_from_minimum()` instead of
+  `Config::fit_sizes()`, and the comment's "at both layout widths" becomes "at
+  every size from the minimum". `draw` is **not** touched — the placeholder
+  stays until T014.
+  **(e) The brief.** The three statements plan §Design 11's R9 note names, and
+  the old test name wherever the brief uses it. The canvas, the palette, the
+  checklist, the file names and the per-planet table do not change.
+  **Sanctioned assertion changes — the complete list, and the class behind it.**
+  (1) the rename above; (2) in it, `l.art.x0 >= VenueLayout::MARGIN_X` →
+  `l.art.x0 >= 3` (same bound; message unchanged); (3) the fit test's loop
+  source, `fit_sizes()` → `sizes_from_minimum()`. **The class**: nothing whose
+  value is observed at 89×31 or 139×31 may move — every pinned Rect, `text_x`
+  31 / 56, `header_y` 0, `action_y` 28, `hint_y` 30 and `hint_y == rows − 1`,
+  the equal outer margins, the R4 band and its 1334 / 2484, the hint's left
+  column 4, the breathing test. An existing assertion that fails, or any change
+  outside the three items, is a **stop-and-report**: it means the fit-size
+  layout moved, and R9 says it must not.
+  Do not run `cargo fmt`.
+  *Verify: the constitution's full command, verbatim; `git diff --stat` lists
+  exactly the four files; `grep -nE "MARGIN_X|ART_W_NUM|ART_W_DEN|span_w"
+  src/layout.rs` empty; `grep -rn "the_venue_bands_stack_and_the_art_takes_the_rest"
+  src/ specs/029-tournament-rounds/planet-art-brief.md` empty; the report gives
+  the computed `art`, `portrait`, `header_y`, `action_y`, `hint_y` and `text_x`
+  at all six sizes of §Design 4's R9 table, and maps every changed assertion to
+  items (1)–(3). Then the orchestrator: re-runs the command itself; captures the
+  venue on one scratch profile (`KAAZAP_DATA_DIR`) at 89×31 and 139×31 **before
+  dispatching T012 and again after**, and confirms the two captures at each size
+  are identical — the strongest evidence that nothing moved at the fit sizes;
+  and dispatches the per-task review on T012's diff alone. Then the phase waits
+  for the art (see the comment above).*
+
+- [ ] **T013** — `assets/planets/` (sixteen delivered files): **the delivery
+  checkpoint — starts only when the art session's files are in
+  `assets/planets/`.** Validate them against `planet-art-brief.md`'s checklist,
+  items 1–6, by shell, using the brief's own numbers and commands. **Writes no
+  code and edits no file.**
+  Item 1: `ls -1 assets/planets/` lists exactly `{id}-narrow.txt` and
+  `{id}-wide.txt` for the eight ids of `PLANETS` (`cinder`, `scree`, `ashfall`,
+  `karrus`, `drift`, `the-anvil`, `the-spindle`, `zenith`) and nothing else.
+  Items 2–3: one `python3` check that prints, per file, its line count, whether
+  it ends in exactly one LF, and the set of its line lengths **in characters, not
+  bytes** — every file must read 20, yes, `{48}` for a `-narrow` file and `{92}`
+  for a `-wide` one. Items 4–5: the brief's own command, verbatim — every file
+  `lf-ok glyphs-ok`. Item 6: `python3` prints the count of distinct contents
+  among the eight `-narrow` files and among the eight `-wide` files — 8 and 8.
+  **A failing delivery is a bounce, not a fix**: the report lists every failing
+  file with its item and what was found; the orchestrator sends that list back
+  to the art session through the person; no file is edited, re-padded or
+  converted here — a repaired file is no longer the delivered artwork, and the
+  checklist exists to be enforceable without judgement. T013 stays unchecked
+  until a delivery passes, and each attempt is a tier-log row.
+  *Verify: every command and its full output in the report;
+  `git status --short -uall` shows exactly sixteen `?? assets/planets/…` lines
+  and nothing else (`-uall`, because without it git collapses an untracked
+  directory to one line). On a pass the orchestrator stages `assets/planets/`,
+  confirms `git diff --cached --stat` lists exactly the sixteen files, and
+  commits them unmodified as T013.*
+
+- [ ] **T014** — `src/campaign.rs` + `src/venue.rs` + `assets/CREDITS.md`: the
+  art at the venue, and AC 21's tests. **Needs T013 committed.** Per plan
+  §Design 12, which gives the code:
+  **(a) `src/campaign.rs`.** `Planet` gains `art_narrow` and `art_wide`
+  (`&'static str`) with the plan's doc; each of the eight `PLANETS` entries gains
+  `art_narrow: include_str!("../assets/planets/{id}-narrow.txt")` and
+  `art_wide: include_str!("../assets/planets/{id}-wide.txt")`. Pattern:
+  `src/opponent.rs`'s `portrait: include_str!(…)` fields.
+  **(b) `src/venue.rs`.** `planet_art` and `draw_art` exactly as the plan writes
+  them; in `draw`, the three placeholder lines (`draw_box`, `art_cy`, the
+  centred `planet.name`) and their comment become one `draw_art(frame,
+  layout.art, planet_art(&planet, &layout), planet.name)` with a comment saying
+  the box is the drawing's size (R9), the portraits' drawer draws it, and the
+  name is only the fallback. Imports gain `campaign::Planet`, `layout::Rect` and
+  `portrait::draw_portrait`. Any doc in the file that still calls the region a
+  placeholder is corrected; nothing else in `draw` moves.
+  **(c) Four tests in `src/venue.rs`**, each as plan §Design 12 specifies:
+  `every_planets_art_passes_the_briefs_checklist` (items 1–6, the canvas
+  derived from `VenueLayout::new(c).art` over `Config::fit_sizes()`, the
+  23-character palette with its count asserted, the `\r` check explicit),
+  `every_planets_art_fills_its_box_at_every_size` (over
+  `Config::sizes_from_minimum()`), `the_venue_draws_the_planets_art_inside_its_box`
+  (every planet, both fit sizes, the drawn frame's interior equals the drawing),
+  and `a_planet_without_art_shows_its_name`. No new test constructs an `App`.
+  **(d) `assets/CREDITS.md`.** A *Venue art* section after *Portraits*, in its
+  shape; the orchestrator's bundle names the tool the art was authored with.
+  **Existing assertions: none changes** — T014 only adds. An existing test that
+  fails is a stop-and-report. Do not run `cargo fmt`.
+  *Verify: the full command, verbatim; `cargo test --lib venue -- --list`
+  shows the four new names; `git diff --stat` lists exactly the three files;
+  `grep -c 'include_str!("../assets/planets/' src/campaign.rs` → 16;
+  `grep -nwE '48|92|20' src/venue.rs` → nothing (it returns nothing today) (AC 21: the canvas is derived,
+  not restated; `-w` rather than `\b`, for darwin's BSD grep). **Two mutation checks, each reported with the failing test's
+  output**: (i) append one space to one line of one `-narrow` file → the
+  checklist test fails, naming that file and the width; (ii) convert one file to
+  CRLF (`perl -pi -e 's/\n/\r\n/'`) → the checklist test fails on the `\r`
+  assertion, which is the hole `str::lines` would otherwise leave. Restore each
+  with `git checkout -- <file>` and show `git status --short` clean before
+  returning. Then the orchestrator: the Phase 6 review, then the walkthrough in
+  plan §Verification ("After the Phase 6 review"), then the pause for the
+  person's go/no-go.*
+
 ## Final phase — Spec close-out (walkthrough: none — documentation, mechanical checks and the pre-merge sweep; the person's walkthrough list above is what they walk at this phase)
 
 - [x] **T011a** — `src/app.rs` + `src/economy.rs` + `src/wager.rs` + `src/shop.rs` +
@@ -1488,20 +1652,22 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
 > spec as it then stood; it is **re-opened**, and closes again after the art
 > phase lands — its close-out doc, AC checklist and mechanical checks must be
 > refreshed for acceptance criterion 21 and a second pre-merge sweep run on the
-> art phase. The art phase's tasks are added by the planner (plan revision
-> pending sign-off) and run once the sixteen files arrive in `assets/planets/`.
+> art phase. The art phase is **Phase 6** (T012–T014, above); T011 runs after
+> T014 and the Phase 6 pause. **Revised by the R9 revision**: the close-out doc
+> the first T011 run drafted is **refreshed, not redrafted** — the edits below
+> marked *(R9)* are the whole of what changes in it; everything it already
+> records stays. The first sweep's findings are closed (T011a and its
+> re-review); only the second sweep is owed.
 
 - [ ] **T011** — Close-out. Draft
   `specs/029-tournament-rounds/closeout-main-docs.md` in spec 028's shape:
   **ROADMAP** — mark tournament rounds shipped as spec 029 (`grep -n -i
   "series\|tournament\|venue\|best of" ROADMAP.md`, read and judge), and add the
-  follow-ups this spec deliberately deferred and named: **per-planet venue art**
-  (the region is reserved and holds a plain placeholder; author it the way spec
-  016's portraits were run — and **the brief is already written**, on this
-  branch at `specs/029-tournament-rounds/planet-art-brief.md`, so the follow-up
-  is "hand that file to a design tool, validate the sixteen grids, wire the two
-  fields and the pick-the-widest-that-fits rule", not "write a brief"),
-  **per-planet music**
+  follow-ups this spec deliberately deferred and named. *(R9)* **Per-planet venue
+  art is no longer one of them** — it ships in this spec: remove it from the
+  draft's follow-ups and record it with the shipped spec instead (each planet's
+  venue shows its own art, sixteen drawings, the box sized to the drawing).
+  The follow-ups that remain: **per-planet music**
   (ruling Q, its own spec), **series-aware banter** (an opponent's match-start
   line now fires two or three times in a row), and **re-tuning the curve if the
   measured series rates play badly** (spec 029 measures, it does not change).
@@ -1548,6 +1714,21 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   92×20, sixteen files) because the art region is a different width at the two
   layout sizes — the cost R3 named — with the single-asset alternative recorded
   in the brief for the deferred art spec to take if the person prefers it.
+  *(R9)* Correct that sentence's ending — there is no deferred art spec now —
+  and add **R9**, the person's ruling at the merge pause: the art is integrated
+  in this spec (authoring it stays outside, by the tool the person used, from the
+  brief); **between the fit sizes the box fits the art** — the person's choice
+  over the four options the brief priced (letterbox, stretch, tile/extend, a
+  third size); the planet's name survives only as the fallback for a planet with
+  no art. And R9's three plan calls with their reasons: **a taller terminal
+  centres the whole venue vertically** (plan §Open questions 8 — the text keeps
+  its relationship to the picture, as the board's block does; the hint leaves the
+  last row above 31 rows); **the drawing at full strength**, like the portraits
+  (§Open questions 7, and whatever the person said about it at the Phase 6
+  pause); **R4's fraction deleted** — the box follows the drawings now, R4's
+  result survives as their size and its band test still pins it. And that
+  **AC 21's checklist test derives its canvas from the venue's layout**, which
+  closes note 37's concern that nothing tied the brief to the code.
   And the plan's
   design calls: the return target **derived from the lock** rather than
   remembered (and why — spec 015's bug, and that the invariant is held by a
@@ -1577,13 +1758,33 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   README.md` no longer claims a launch opens one; `cargo build --all-targets`
   warning count equals `main`'s (compare via a throwaway `git worktree` with its
   own `CARGO_TARGET_DIR`, as spec 028's close-out did — never switch the branch).
-  Check off `spec.md`'s 20 acceptance criteria with evidence (the Phase 2, 3 and
-  4 walkthrough reports are the evidence for the venue, the routing, the board
-  and the texts; T010's simulator output for criterion 19). Request the pre-merge
-  sweep; apply `closeout-main-docs.md` on `main` after the merge. Never chain a
+  *(R9)* Plus: `git ls-files assets/planets | wc -l` → 16;
+  `grep -c 'include_str!("../assets/planets/' src/campaign.rs` → 16; and the
+  AC 20 checks above re-run after Phase 6 (the art adds no crate, no colour path
+  — the palette admits no escape character — and touches no engine or save file).
+  **Re-run every mechanical check and the three test runs fresh**; the first
+  run's outputs predate Phase 6 and are not evidence for it.
+  Check off `spec.md`'s **21** acceptance criteria with evidence (the Phase 2, 3
+  and 4 walkthrough reports are the evidence for the venue, the routing, the
+  board and the texts; T010's simulator output for criterion 19; *(R9)* for
+  criterion 21, T013's checklist output, T014's four tests by name with their
+  green output, and the person's go/no-go at the Phase 6 pause — item 7 — quoted).
+  *(R9)* The first pre-merge sweep ran on 2026-09-22 and its findings are closed
+  (T011a, re-reviewed). **Request the second pre-merge sweep, scoped to
+  Phase 6**: its bundle is `git diff <the R9 plan commit>..HEAD` (the commit that
+  lands this revision of `plan.md` and `tasks.md`; the orchestrator names its
+  hash), `spec.md`'s R9 and AC 21, plan §Design 4's R9 section, §Design 11's R9
+  note, §Design 12, the R9 bullets of §Tests, and `closeout-main-docs.md`'s diff
+  since the first sweep. Beyond the diff it checks the one seam Phase 6 opens
+  across phases: nothing from Phases 1–5 still assumes the art box grows with
+  the terminal — the brief, the tests' comments, `spec.md`'s own venue
+  paragraph and AC 16's "holding its placeholder" (the last two are the spec
+  session's to reconcile, not this task's; the sweep reports them).
+  Apply `closeout-main-docs.md` on `main` after the merge. Never chain a
   file edit, a branch switch and a commit in one shell command (spec 025's miss).
   *Verify: three green tails, zero failures; every mechanical check listed with
-  its command and output; sweep clean or findings resolved.*
+  its command and fresh output; AC 21 ticked with the evidence above; the second
+  sweep clean or its findings resolved.*
 
 ---
 
@@ -1603,13 +1804,14 @@ role back to it unless the person says so.
 
 Dispatch each task to `sdd-implementer` on a shell-assembled task bundle (task
 line, plan section, acceptance criteria, files, the pattern file to copy).
-Verify from the implementer's verbatim output, except **T001 and T003
+Verify from the implementer's verbatim output, except **T001, T003 and T012
 (`review: per-task`)**: the orchestrator re-runs the verification command itself
 and dispatches a `skeptical-reviewer` on that task's diff alone before the next
 task starts.
 
-**Foundational phase: Phase 1.** One `skeptical-reviewer` pass at the end of
-each phase — after T003, T006, T008, T009 and T010 — on a shell-assembled bundle
+**Foundational phase: Phase 1** (Phase 6 is not foundational). One
+`skeptical-reviewer` pass at the end of each phase — after T003, T006, T008,
+T009, T010 and **T014** — on a shell-assembled bundle
 (the phase diff, the task lines, plan §Design and §Tests, the acceptance
 criteria), one review plus at most one re-review. **Phase 2 has three reviews
 rather than one**, because the person amended `spec.md` twice mid-phase: the
@@ -1624,7 +1826,7 @@ element stands apart* rule and the modal's even padding, and runs the
 single-assignment grep itself rather than taking T006's report for it.
 
 **Pause cadence — when there's something to try.** Pause for the person after
-**Phase 1**, **Phase 2**, **Phase 3** and **Phase 4**, once each phase's review
+**Phase 1**, **Phase 2**, **Phase 3**, **Phase 4** and **Phase 6**, once each phase's review
 and its walkthrough are done — and Phase 2 pauses **three** times, once per
 amendment, because each amendment changed what the venue shows and the person is
 the only one who can attest to that. The third pause is T005d's, after the
@@ -1642,6 +1844,21 @@ opponent with no series running *starts* one — so from T003 onward a single
 campaign win no longer beats anyone, which is the spec's central rule becoming
 true three tasks before the venue exists. That is observable, so it is marked
 `yes` and paused. Four pauses, not three.
+
+**Phase 6 (the R9 revision) pauses once, and waits once.** It is marked with a
+walkthrough and pauses after T014's phase review and the orchestrator's driven
+renders: the person's look at every planet's art at both fit sizes is AC 21's
+go/no-go, and nobody else can give it. Before that, between **T012** (runs now,
+per-task review) and **T013** (the delivery checkpoint), the phase **waits** for
+the sixteen files. The wait is not a phase pause and not a blocker: the
+orchestrator reports in plain words that the venue is ready for the art and that
+it will continue when the files are in `assets/planets/`. No continuation prompt
+unless the person asks for one or says they are stopping — the first unchecked
+task, T013, is the resume point. A delivery that fails T013 goes back to the art
+session with its failures listed; that is a bounce, reported plainly, not a
+question for the person to decide. After Phase 6, **T011** runs without a pause
+(the close-out is `walkthrough: none`) and ends at the second pre-merge sweep and
+the merge pause.
 
 **Every driver session runs with `KAAZAP_DATA_DIR` pointed at a scratch
 directory**, and the report says which. These walkthroughs play campaign

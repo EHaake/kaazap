@@ -110,12 +110,12 @@ construction.
   planet where the series is being played. It is where a series begins,
   where the player returns after every match that does not end the series,
   and the only door to the Card Shop and the collection while locked.
-- **The planet art region** — the venue's **dominant element**: a region
-  reserved for art of the venue itself, as wide and as tall as the screen
-  allows once the text has its rows, drawn at **every** width. In this
-  spec it holds a plain placeholder; a later spec replaces its contents
-  without changing the layout around it. (Amended by the person
-  2026-09-21, superseding rulings M1 and N1 — see *Amendment, 2026-09-21*.)
+- **The planet art region** — the venue's **dominant element**: the
+  planet's own art (drawn outside this spec from `planet-art-brief.md`,
+  integrated here since ruling R9), in a box sized exactly to the drawing,
+  drawn at **every** width. (Amended by the person 2026-09-21, superseding
+  rulings M1 and N1, and 2026-09-22 by R9 — see *Amendment, 2026-09-21* and
+  *R9*.)
 - **The opponent portrait** — the existing portrait art (spec 016), drawn
   at the venue **beside** the planet art region as its own element, not
   inside it. The two are separate because they answer to different things:
@@ -149,12 +149,14 @@ construction.
   to take gets an empty row above and below it; the rest stays compact.
 - The venue draws the **planet art region** with the **opponent's
   portrait beside it**, as two distinct elements with room between them,
-  at **every** width. The art takes the height left over once the text has its rows, and most
-  of the width left over once the portrait has its column — **most**, not
-  all, since ruling **R4** trimmed it (see *Amendment, 2026-09-21
-  (second)*). It still dominates the screen. The art region holds a plain
-  placeholder in this spec. (Amended by the person 2026-09-21 — see
-  *Amendment, 2026-09-21*.)
+  at **every** width. It dominates the screen, and it holds **the planet's
+  own art** (ruling **R9**): the narrow drawing below 139 columns and the wide
+  one from 139 up, in a box sized exactly to the drawing — so at the two fit
+  sizes it takes the space R4 gave it, and at every other size the spare
+  space becomes margin around the art and the portrait rather than blank
+  space inside the frame. The planet's name is only a fallback for a planet
+  with no art. (Amended by the person 2026-09-21 and again 2026-09-22 — see
+  *Amendment, 2026-09-21* and *R9*.)
 - The rows sit **above and below the art**, not beside it: the place, the
   planet, the opponent, the series score and the **credit balance** above;
   the action row and the controls hint below. Every one of them centres on
@@ -306,7 +308,8 @@ and no series. The opponent stays beaten either way.
     appears anywhere.
 16. [x] **Both layouts.** The venue is legible at 89×31 with no overflow and
     nothing clipped, and at 139×31 likewise. At **both** widths it draws the
-    planet art region holding its placeholder, with the opponent's portrait
+    planet art region holding the planet's art (ruling R9 — before R9, its
+    placeholder), with the opponent's portrait
     beside it as a separate element, neither overlapping nor clipped. The
     art region is the largest element on the screen at both widths, and is
     strictly larger at 139 than at 89. (Amended by the person 2026-09-21,
