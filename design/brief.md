@@ -131,7 +131,11 @@ emphasized. **Amendment (spec 027).** The one-thing-moves rule counts
 *continuous* motion: a one-shot emphasis transition — a card arriving, a
 total changing, a popup held back a beat — may run alongside the
 selection pulse, because it ends on its own within a beat and never
-breathes.
+breathes. **Amendment (spec 030).** An opponent's spoken line — its words
+appearing one at a time, each where it sits in the finished line — is a
+one-shot transition too: it ends on its own once the line is complete, in
+under a second, and never repeats or breathes. With Animations off the line
+appears whole.
 
 **Amendment (spec-D exploration — the campaign map).** Everything above
 governs *functional* surfaces — the board, menus, overlays — and still

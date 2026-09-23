@@ -133,7 +133,7 @@ file (`assets/sfx/burble.wav`) that must be added by name.
   report quotes the `BURBLE` block, `burble_cue` and `burble_clear` verbatim. The orchestrator
   stages `assets/sfx/burble.wav` by path.*
 
-- [ ] **T003** — `src/app.rs` + `src/settings.rs` (doc) + `design/brief.md` +
+- [x] **T003** — `src/app.rs` + `src/settings.rs` (doc) + `design/brief.md` +
   `Readme.md`: the speech seam. Per plan §Design 5 (*Phase 1*), §Design 10 and
   §Design tensions 1, 3–5. In `app.rs`: field `banter` → `speech:
   Option<Speech>` and a new field `since_burble: Duration` (`Duration::MAX` in
@@ -502,3 +502,4 @@ redo, and why). -->
 | Planning: sign-off re-review (skeptical-reviewer, same context) | opus → claude-opus-5-5 | ~30K | 1 | — | 0 | **signed off**. Notes carried: the `BURBLE_GAP_MS` bound's reasoning was backwards (ticks are *at least* 50 ms) — transcribed into plan §Design tension 3 and §Tests by the orchestrator as `BURBLE_GAP_MS <= 3 * GAME_LOOP_SLEEP_MS`, numbers unchanged; the stale `BURBLE` block comments fixed the same way. Residual: words go silent only if the loop sustains ticks over ≈ 66 ms |
 | T001 (sdd-implementer) | opus → claude-opus-5-5 | ~66K | 1 | yes | — | done; 7 banter + 1 portrait tests green, 496 lib tests, 0 warnings. Note: the verify tail cuts off the lib summary (many test binaries); implementer added the `grep "test result"` line |
 | T002 (sdd-implementer) | opus → claude-opus-5-5 | ~63K | 1 | yes | — | done; 4 audio tests green, 500 lib tests, 0 warnings. `peak` 0.08 (music RMS 0.1641 over 60 s, ceiling 0.1025). Ceiling test ~4 s in debug; 60 s window kept. Deviations: `BURBLE_GAP_MS` doc follows the corrected §Design tension 3 wording; script errors on an unknown sound name |
+| T003 (sdd-implementer) | opus → claude-opus-5-5 | ~56K | 1 | yes | — | done; 500 lib tests, 0 warnings; greps as specified. Note: the Verify grep `^\s*banter:` false-matches the `banter::{` import (line 8), which matched before the task too; `^\s*banter: ` is empty. `banter_last` field comment updated to name `speech` |

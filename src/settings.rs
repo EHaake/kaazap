@@ -20,7 +20,8 @@ pub struct Settings {
     pub music_volume: f32,
     #[serde(default = "default_sfx_volume")]
     pub sfx_volume: f32,
-    /// Spec 027: the board's one-shot transitions. Off draws the board settled.
+    /// Spec 027: the board's one-shot transitions and the opponent's spoken
+    /// lines (spec 030). Off draws the board settled and each line whole.
     /// A file without the key reads as On.
     #[serde(default = "default_animations")]
     pub animations: bool,

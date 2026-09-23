@@ -4,9 +4,10 @@ use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::{
     SELECTION_PULSE_MS,
-    audio::{Audio, AudioSnapshot, Sfx, audio_cues},
+    audio::{Audio, AudioSnapshot, Sfx, audio_cues, burble_clear, burble_cue},
     banter::{
-        BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
+        BanterSnapshot, Speech, banter_event, banter_for, lines_for, match_restarted, pick,
+        play_resumed,
     },
     board::BoardView,
     campaign::{NodeRef, PLANETS, Series, planet_by_id},
@@ -632,10 +633,13 @@ pub struct App {
     // The last in-game audio snapshot; the next one is diffed against it to
     // decide which SFX to play. None outside a game.
     prev_audio: Option<AudioSnapshot>,
-    // The opponent's current banter line, shown in the portrait panel. None
-    // outside a game, or when there's no appropriate line for the state yet.
-    banter: Option<&'static str>,
-    // The most recently shown banter line, kept independently of `banter` so
+    // The opponent's line being spoken (spec 030; the line was spec 017's
+    // `banter`). None when no line shows.
+    speech: Option<Speech>,
+    // Time since the last burble (spec 030); starts at `Duration::MAX` so the
+    // first is always clear.
+    since_burble: Duration,
+    // The most recently shown banter line, kept independently of `speech` so
     // the no-back-to-back-repeat rule survives the phase-clear (spec 017 §1):
     // `pick` is fed this, and it is never cleared by the phase-clear.
     banter_last: Option<&'static str>,
@@ -694,7 +698,8 @@ impl App {
             settings,
             profile,
             prev_audio: None,
-            banter: None,
+            speech: None,
+            since_burble: Duration::MAX,
             banter_last: None,
             prev_banter: None,
             play_log: PlayLog::default(),
@@ -1085,8 +1090,7 @@ impl App {
         // seeds the diff silently.
         self.prev_banter = None;
         let line = pick(banter_for(opp_id).match_start, None, &mut rand::rng());
-        self.banter = Some(line);
-        self.banter_last = Some(line);
+        self.say(line);
         // Fresh match — reset the play log; the first snapshot seeds its diff
         // silently, mirroring the banter/audio seeding above.
         self.play_log.reset(opp_name);
@@ -1118,6 +1122,65 @@ impl App {
         self.prev_audio = Some(curr);
     }
 
+    /// Say `line` (spec 030): it replaces any line still being spoken, at once,
+    /// from its first word, and becomes `banter_last`; its first word's burble
+    /// plays now — if the line is on screen. With Animations off it is whole at
+    /// once, and this is its only burble.
+    fn say(&mut self, line: &'static str) {
+        self.speech = Some(Speech::new(line, self.settings.animations));
+        self.banter_last = Some(line);
+        if self.line_visible() {
+            self.burble(0);
+        }
+    }
+
+    /// Whether the line is drawn (plan §Design tension 5, ruling 7A): at the
+    /// venue always, on the board only when `board_view.is_wide()`, never under
+    /// the too-small screen.
+    fn line_visible(&self) -> bool {
+        if self.too_small.is_some() {
+            return false;
+        }
+        match &self.screen {
+            Screen::InGame { .. } => self.board_view.is_wide(),
+            Screen::Venue { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// Speak the current line on: while its screen — the board or the venue —
+    /// is up, one more word every WORD_STEP_MS, each with its burble; on any
+    /// other screen it settles, whole and silent, so returning shows it without
+    /// a sound (spec 030).
+    fn advance_speech(&mut self, dt: Duration) {
+        self.since_burble = self.since_burble.saturating_add(dt);
+        let visible = self.line_visible();
+        let Some(speech) = &mut self.speech else {
+            return;
+        };
+        let spoke = match &self.screen {
+            Screen::InGame { .. } | Screen::Venue { .. } => speech.advance(dt),
+            _ => {
+                speech.settle();
+                false
+            }
+        };
+        if spoke && visible {
+            let word = speech.words_shown() - 1;
+            self.burble(word);
+        }
+    }
+
+    /// Play word `word`'s burble — unless one played less than BURBLE_GAP_MS
+    /// ago, so two never overlap (plan §Design tension 3). The only place a
+    /// burble is sent.
+    fn burble(&mut self, word: usize) {
+        if burble_clear(self.since_burble) {
+            self.audio.play_cue(burble_cue(word));
+            self.since_burble = Duration::ZERO;
+        }
+    }
+
     /// Update the opponent's banter line for whatever just changed, by diffing
     /// the current state against the previous snapshot — mirroring
     /// `emit_audio_cues`. A no-op outside a game. On a fired event, picks a line
@@ -1136,19 +1199,17 @@ impl App {
                 // menu, not the lingering closing line (spec 017 §8 rematch
                 // note). A match start outranks the round-level branches.
                 let line = pick(banter_for(id).match_start, self.banter_last, &mut rand::rng());
-                self.banter = Some(line);
-                self.banter_last = Some(line);
+                self.say(line);
             } else if let Some(ev) = banter_event(&prev, &curr) {
                 // A new event: pick a line, avoiding the last one shown, and
                 // record it in both fields.
                 let line = pick(lines_for(banter_for(id), ev), self.banter_last, &mut rand::rng());
-                self.banter = Some(line);
-                self.banter_last = Some(line);
+                self.say(line);
             } else if play_resumed(&prev, &curr) {
                 // The next round's play has begun and no new line fired: clear
                 // the shown line (spec 017 §8), but keep `banter_last` so the
                 // no-repeat rule still holds across the blank (§1).
-                self.banter = None;
+                self.speech = None;
             }
         }
         self.prev_banter = Some(curr);
@@ -1761,7 +1822,7 @@ impl App {
                     // Blank the banter on resume — no greeting for a match
                     // already underway; the next event supplies a line.
                     self.prev_banter = None;
-                    self.banter = None;
+                    self.speech = None;
                     self.banter_last = None;
                     // Reset the play log for the resumed match; its first
                     // observe seeds silently, so a resumed match is not
@@ -1883,6 +1944,9 @@ impl App {
             self.profile.save();
         }
 
+        // Speak the shown line on before any new line is said, so a line said
+        // later in this tick keeps its full first step.
+        self.advance_speech(dt);
         // Sound the opponent's moves and round/game resolutions, which
         // happen here in the update rather than from a player keypress.
         self.emit_audio_cues();
@@ -1928,6 +1992,7 @@ impl App {
         }
 
         let pulse = self.pulse.emphasis();
+        let line = self.speech.as_ref().map(Speech::text);
         match &self.screen {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
@@ -1936,7 +2001,7 @@ impl App {
                 self.board_view.draw(
                     game_state,
                     cursor,
-                    self.banter,
+                    line.as_deref(),
                     self.stake_to_show(),
                     series.as_deref(),
                     pulse,
