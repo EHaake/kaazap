@@ -189,7 +189,7 @@ T003a stands alone. One review covers all three, after T003a (plan
 §Verification *Review of the amendment*). Then the orchestrator drives the
 amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
 
-- [x] **T002a** — `src/settings.rs` + `src/audio.rs` + `src/app.rs` +
+- [x] **T002a** — *(Done with one change from this line: `voices_volume` is declared **last**, after `animations`, per the decision review transcribed into plan §Design 11.)* `src/settings.rs` + `src/audio.rs` + `src/app.rs` +
   `tests/whole_file_write.rs` + `Readme.md`: the Voices volume (ruling 10A).
   Per plan §Amendment, §Design tension 14, §Design 4 (the amended bullet),
   §Design 5 (*Phase 1 amendment — the Voices preview*), §Design 10 (the amended
@@ -691,6 +691,7 @@ next person to touch this code finds them. -->
 - **Phase 1 review, second look 4:** the silent cases (Animations Off one murmur, 89 columns silent, resumed match, replaced/cleared line) rest on construction and the counted-call greps; the driver cannot hear. The person's by-ear pass should cover Animations Off and 89 columns too.
 - **Amendment sign-off, second look 6 (for DECISIONS):** with the event beat, an opponent bust's line is replaced one tick later by the round-outcome line (`game.rs` ~282–285 vs ~399–400). Before the beat it showed for one tick, about 50 ms. With the beat it never shows (plan §Design tension 13, *Interruption*). Nobody could see the difference; recorded so it isn't mistaken for a bug.
 - **Amendment sign-off, second look 4:** `design/brief.md`'s "in under a second" for a spoken line gains T003a's clause about the beat. The close-out confirms it landed.
+- **Amendment review notes:** the event beat lands at 400 ms plus up to one loop tick (≈0.40–0.45 s), at the top of AC 8's range; bust and match-end beat timing were not driven (same `update_banter` branch as the driven round end; the person hears the match end at the re-listen); `the_burble_follows_voices_and_nothing_else_does` lists the other sounds by hand, so a later sound is not caught automatically; burble peak 0.79 at Voices 100% is near full scale, for the ear; any later `Settings` field should also be declared last (the positional-array quirk).
 - **Phase 1 review, second look 2:** plan §Design 4's `BURBLE_GAP_MS` doc still gave the pre-sign-off reasoning; corrected by the orchestrator to match §Design tension 3 (numbers unchanged).
 
 ---
@@ -722,3 +723,5 @@ redo, and why). -->
 | Decision review: T002a field order (skeptical-reviewer) | opus → claude-opus-5-5 | ~25K | 1 | — | — | recommend A (declare last, test untouched); B edits a test to pass, C adds unasked code |
 | T002b (sdd-implementer) | opus → claude-opus-5-5 | ~53K | 1 | yes | — | done; `peak` 0.08 → 0.79 (burble RMS 0.1668 ≈ move-sound mean 0.1660; at defaults 0.1335 in band 0.0794–0.1710, floor 0.0820, margin 0.0515). Test ~4 s debug. 504 lib tests, 0 warnings |
 | T003a (sdd-implementer) | opus → claude-opus-5-5 | ~72K | 1 | yes | — | done; `EVENT_BEAT_MS` 400 inside `Speech` (`after`); 511 lib tests, 0 warnings, 7 new tests green. Tightest case: opponent bust at 0.92 pitch 380 ms (20 ms spare); match-end jingles overrun the beat by 50/120 ms (§Open questions 5) |
+| Amendment driven walkthrough (orchestrator) | claude-opus-5-5 (session) | — | — | — | — | items 6–9 pass on a scratch data dir: round line empty ~0.3 s after the round resolves, then word by word; popup still at ~0.8 s; greeting has no beat; Animations Off whole after the beat; old settings file → Voices 80% with the others kept; Voices persists across relaunch; overlay fine at 89 and 139. Bust and match-end timing not driven |
+| Amendment tasks review (skeptical-reviewer) | opus → claude-opus-5-5 | ~92K | 1 | — | 0 | **pass**; seven second-look notes, carried to the close-out notes |
