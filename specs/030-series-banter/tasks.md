@@ -403,7 +403,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   quotes `decided_series`, `match_series` and the changed `tick` lines
   verbatim.*
 
-- [ ] **T006** — `src/app.rs`: lines that follow the series. Per plan §Design 5
+- [x] **T006** — `src/app.rs`: lines that follow the series. Per plan §Design 5
   (*Phase 2*, last three bullets) and §Design tension 7. `fn series_state_now`
   with the plan's doc. `start_match`: `let state = self.series_state_now();
   let last = state.and(self.banter_last);` then `pick(start_lines(banter_for(opp_id),
@@ -733,3 +733,4 @@ redo, and why). -->
 | **Phase 1 summary** | — | — | — | — | — | T001–T003 + amendment T002a/T002b/T003a/T002c; one judgment-call stop (T002a), one decision review; phase review pass; amendment sign-off 1 blocker fixed; amendment review pass. AC 9 approved by the person |
 | T004 (sdd-implementer) | opus → claude-opus-5-5 | ~70K | 2 (one resume) | yes | — | done; 146 lines (13 per voice, 16 for The Sovereign), 6 new tests, 517 lib tests, 0 warnings, no existing line changed. Resume: widened `a_line_is_revealed_in_place_word_by_word` to `all_pools` too (T001 line says every line of every pool; inside the sanctioned class) — five widened tests, not four |
 | T005 (sdd-implementer) | opus → claude-opus-5-5 | ~51K | 1 | yes | — | done; 518 lib tests, 0 warnings; `final_series` in the five sanctioned places only; field doc uses `//` like its neighbours |
+| T006 (sdd-implementer) | opus → claude-opus-5-5 | ~45K | 1 | yes | — | done; 518 lib tests, 0 warnings; all greps as specified; `say` waits kept (ZERO / EVENT_BEAT_MS) |

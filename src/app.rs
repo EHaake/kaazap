@@ -6,8 +6,8 @@ use crate::{
     EVENT_BEAT_MS, SELECTION_PULSE_MS,
     audio::{Audio, AudioSnapshot, Sfx, audio_cues, burble_clear, burble_cue},
     banter::{
-        BanterSnapshot, Speech, banter_event, banter_for, lines_for, match_restarted, pick,
-        play_resumed,
+        BanterSnapshot, SeriesState, Speech, banter_event, banter_for, lines_in_series,
+        match_restarted, pick, play_resumed, series_state, start_lines,
     },
     board::BoardView,
     campaign::{NodeRef, PLANETS, Series, SeriesOutcome, planet_by_id},
@@ -1119,7 +1119,11 @@ impl App {
         // Seed the banter with the opponent's greeting; the first snapshot
         // seeds the diff silently.
         self.prev_banter = None;
-        let line = pick(banter_for(opp_id).match_start, None, &mut rand::rng());
+        // Inside a series the greeting avoids the line the venue just said
+        // (spec 030 AC 6); outside one nothing is avoided, exactly as before.
+        let state = self.series_state_now();
+        let last = state.and(self.banter_last);
+        let line = pick(start_lines(banter_for(opp_id), state), last, &mut rand::rng());
         self.say(line, Duration::ZERO);
         // Fresh match — reset the play log; the first snapshot seeds its diff
         // silently, mirroring the banter/audio seeding above.
@@ -1134,6 +1138,13 @@ impl App {
         // Persist immediately (overwriting any prior save), so quitting right
         // away still leaves a resumable game and Continue appears next launch.
         self.save_game();
+    }
+
+    /// Where this match's series stands (spec 030) — None outside a series
+    /// (Quick Play, a rematch), by the board's own rule.
+    fn series_state_now(&self) -> Option<SeriesState> {
+        let campaign = self.profile.campaign();
+        match_series(campaign.in_progress(), campaign.series()).map(series_state)
     }
 
     /// Play the SFX for whatever just changed in the game, by diffing the
@@ -1233,12 +1244,14 @@ impl App {
                 // match-start greeting so it fires like a match entered from the
                 // menu, not the lingering closing line (spec 017 §8 rematch
                 // note). A match start outranks the round-level branches.
-                let line = pick(banter_for(id).match_start, self.banter_last, &mut rand::rng());
+                let pool = start_lines(banter_for(id), self.series_state_now());
+                let line = pick(pool, self.banter_last, &mut rand::rng());
                 self.say(line, Duration::ZERO);
             } else if let Some(ev) = banter_event(&prev, &curr) {
                 // A new event: pick a line, avoiding the last one shown, and
                 // record it in both fields.
-                let line = pick(lines_for(banter_for(id), ev), self.banter_last, &mut rand::rng());
+                let pool = lines_in_series(banter_for(id), ev, self.final_series.is_some());
+                let line = pick(pool, self.banter_last, &mut rand::rng());
                 self.say(line, Duration::from_millis(EVENT_BEAT_MS));
             } else if play_resumed(&prev, &curr) {
                 // The next round's play has begun and no new line fired: clear
