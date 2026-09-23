@@ -16,7 +16,8 @@ that differ (a much larger canvas, and **every line exactly the canvas width**)
 are called out below.
 
 Authoring this art is a **non-goal of spec 029**. The brief rides spec 029's
-branch so the drawing can be handed out and folded back in under its own spec.
+branch so the drawing can be handed out and folded back in under spec 029
+(ruling R9).
 
 ---
 
@@ -123,7 +124,7 @@ box around it**; the picture goes **inside** that box. So the drawable canvas is
 the reserved rectangle **minus its one-cell border on every side**.
 
 The rectangle is pinned, at both of the game's two fit sizes, by the test
-`the_venue_bands_stack_and_the_art_takes_the_rest` in `src/layout.rs`:
+`the_venue_bands_stack_around_the_art` in `src/layout.rs`:
 
 ```rust
 let (art, portrait) = if cols < WIDE_LAYOUT_MIN_WIDTH {
@@ -157,10 +158,12 @@ Both canvases are **20 rows**; they differ only in width, 48 against 92.
 
 > **If the venue's geometry ever moves again, re-derive these numbers from
 > `VenueLayout` — do not copy them from this brief.** Nothing in the build reads
-> this document, so nothing will catch it drifting out of date. The source of
-> truth is `VenueLayout::new` in `src/layout.rs` and the Rects pinned in
-> `the_venue_bands_stack_and_the_art_takes_the_rest`; the canvas is always that
-> Rect's width and height each minus 2.
+> this document. The build does check the art against the geometry: acceptance
+> criterion 21's test measures every delivered file against the venue's own art
+> box, so a drift between the two fails `cargo test`. The source of truth is
+> `VenueLayout::new` in `src/layout.rs` and the Rects pinned in
+> `the_venue_bands_stack_around_the_art`; the canvas is always that Rect's width
+> and height each minus 2.
 
 Keeping the border rather than handing the art the whole rectangle is
 deliberate: the border is already drawn, it reads as a viewport onto the planet,
@@ -275,54 +278,24 @@ readable figure, or anyone seated at the table, no.
 
 ---
 
-## How it loads — and that it is **not** spec 029's work
+## How it loads — spec 029's work (ruling R9)
 
-For context only, so the format lands where it is going. The portraits'
-mechanism is the model: authored text under `assets/`, `include_str!`-embedded
-into a `&'static str` field on the profile struct
-(`OpponentProfile.portrait`), drawn line-by-line by a clip-safe drawer. Planet
-art would hang off a field on `Planet` in `src/campaign.rs`, and the venue would
-pick the **widest asset that fits the region** and centre it.
+For context, so the format lands where it is going. The portraits' mechanism is
+the model: authored text under `assets/`, `include_str!`-embedded into a
+`&'static str` field on the profile struct (`OpponentProfile.portrait`), drawn
+line-by-line by a clip-safe drawer. Planet art hangs off a field on `Planet` in
+`src/campaign.rs`, and spec 029 wires it up itself (ruling R9) — this brief
+still specifies only the *artifact*, not the plumbing.
 
-**That rule is exact at the two fit sizes and unsettled at every width in
-between — the later art spec decides it, not this brief.** The art interior is
-`span_w * 7/8 - 2` of a span that varies continuously with the terminal width
-(`VenueLayout::new`), so it equals 48 or 92 only at exactly 89 and 139 columns:
-
-| Terminal | `span_w` | `art_w` | Interior | Widest asset that fits | Blank columns each side |
-|---|---|---|---|---|---|
-| 89 (minimum fit) | 58 | 50 | 48 | narrow, 48 | 0 |
-| 120 | 89 | 77 | 75 | narrow, 48 | 13 and 14 |
-| 138 | 107 | 93 | 91 | narrow, 48 | 21 and 22 |
-| 139 (wide fit) | 108 | 94 | 92 | wide, 92 | 0 |
-| 160 | 129 | 112 | 110 | wide, 92 | 9 and 9 |
-
-At 138 columns "widest that fits, centred" leaves 21 and 22 blank columns — the
-same emptiness this brief rejects the single-asset option for ("leaves 22 blank
-columns on each side, which undoes exactly the dominance rulings R3 and R4 are
-about") — and above 139 the gap opens again and widens with the terminal. So
-centring is not a settled answer away from the two fit sizes. **The later art
-spec chooses** among:
-
-- **letterbox** — centre and leave the blank columns, accepting up to ~22 a side
-  as the price of one rule with no width threshold in it;
-- **stretch** — resample the grid to the interior width, which on a character
-  grid means duplicating whole columns, visibly, in a hand-authored image;
-- **tile or extend** — repeat or continue edge material outward, which the
-  compositions would have to be authored for;
-- **a third size**, or one size per band of widths, which multiplies the drawing
-  work this brief already prices at sixteen files.
-
-Nothing here picks one, and spec 029 builds none of them. **What it means for the
-drawing now: nothing changes.** Author exactly 48 × 20 and 92 × 20 — those two
-grids are what the two fit sizes need under all four options, and two of the four
-would arrive later as an additional ask rather than a change to these sixteen
-files.
-
-**None of that is built in spec 029, and wiring it up is the deferred art spec's
-job.** Spec 029 reserves the region and draws a placeholder in it; this brief
-specifies the *artifact*, not the plumbing. Nothing in it is a work order
-against spec 029's branch.
+**Between the two fit sizes, the box fits the art.** The venue's art box is
+always exactly the drawing plus its border: the narrow drawing's box below 139
+columns, the wide one's from 139 up, 20 rows tall; the space the drawing does
+not use becomes margin around the art-and-portrait group, never blank space
+inside the frame. The alternatives this brief once priced — letterbox, stretch,
+tile or extend, and a third size — were considered, and the person chose
+box-fits-art over all four (ruling R9). **What it means for the drawing: nothing
+changes.** Author exactly 48 × 20 and 92 × 20 — every terminal size shows one
+of those two grids, whole and unscaled.
 
 ---
 

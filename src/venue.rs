@@ -39,8 +39,9 @@ const ACTION_GAP: usize = 6;
 /// The place line, above the planet.
 const PLACE: &str = "Tournament Hall";
 
-/// The controls hint on the last row. A module `const`, like the map's, so the
-/// fit test can measure it without a terminal. `board.rs`'s in-match hint's
+/// The controls hint, on the venue block's last row (the terminal's last row at
+/// 31 rows; ruling R9 centres the block on a taller terminal). A module
+/// `const`, like the map's, so the fit test can measure it without a terminal. `board.rs`'s in-match hint's
 /// single-space `·` separators rather than the venue's own `  ·  `: 55 cells
 /// instead of 63, which is what lets the row centre on the art's centre at 89
 /// columns without ending up flush against the frame (amendment R5).
@@ -331,7 +332,7 @@ mod tests {
     fn the_venue_text_fits_the_minimum_terminal() {
         // Every drawn text row of every reachable planet/opponent pairing,
         // centered on `text_x` as `draw` centers it, lands inside the frame
-        // at both layout widths — clear of *both* edges: `draw_text_centered`
+        // at every size from the minimum — clear of *both* edges: `draw_text_centered`
         // clamps a left overflow to column 0 with `saturating_sub`, which is
         // exactly the "reads as a rendering fault" `spec.md` forbids, so the
         // left edge is checked too (amendment R5). The text is above and below
@@ -351,7 +352,7 @@ mod tests {
             "the hint's left column at 89 columns"
         );
 
-        for config in Config::fit_sizes() {
+        for config in Config::sizes_from_minimum() {
             let cols = config.num_cols;
             let layout = VenueLayout::new(config);
 

@@ -29,6 +29,21 @@ impl Config {
         ]
     }
 
+    /// The sizes the venue's every-size tests measure: every width from the
+    /// minimum to 220 columns, at the minimum's rows, one and two more, 40 and
+    /// 60 (660 sizes, both [`Self::fit_sizes`] among them). Test-only.
+    #[cfg(test)]
+    pub fn sizes_from_minimum() -> Vec<Config> {
+        let (min_cols, min_rows) = Self::min_size();
+        let mut sizes = Vec::new();
+        for num_rows in [min_rows, min_rows + 1, min_rows + 2, 40, 60] {
+            for num_cols in min_cols..=220 {
+                sizes.push(Config { num_cols, num_rows });
+            }
+        }
+        sizes
+    }
+
     /// Does a terminal of this size meet the minimum?
     pub fn fits(cols: usize, rows: usize) -> bool {
         let (min_cols, min_rows) = Self::min_size();
