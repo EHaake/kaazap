@@ -1,6 +1,6 @@
 # Plan: Series-aware banter, spoken word by word — spec 030
 
-**Status**: Draft — pending sign-off (the Phase 1 amendment, rulings 9A,
+**Status**: Final — amendment signed off 2026-09-23, one review and one re-review (the Phase 1 amendment, rulings 9A,
 10A, 11A, 2026-09-23 — see *Amendment* below). The plan before it was final —
 signed off 2026-09-23 (one review, one re-review) — and Phase 1 (T001–T003)
 was built and reviewed against it.

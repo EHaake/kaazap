@@ -1,6 +1,6 @@
 # Tasks: Series-aware banter, spoken word by word — spec 030
 
-**Status**: Draft — pending sign-off (the Phase 1 amendment: T002a, T002b,
+**Status**: Final — amendment signed off 2026-09-23, one review and one re-review (the Phase 1 amendment: T002a, T002b,
 T003a and the edits marked *amended*, from rulings 9A, 10A, 11A of
 2026-09-23). The list before it was final — signed off 2026-09-23 (one review,
 one re-review) — and T001–T003 are done against it.
@@ -714,3 +714,7 @@ redo, and why). -->
 | T003 (sdd-implementer) | opus → claude-opus-5-5 | ~56K | 1 | yes | — | done; 500 lib tests, 0 warnings; greps as specified. Note: the Verify grep `^\s*banter:` false-matches the `banter::{` import (line 8), which matched before the task too; `^\s*banter: ` is empty. `banter_last` field comment updated to name `speech` |
 | Phase 1 driven walkthrough (orchestrator) | claude-opus-5-5 (session) | — | — | — | — | items 1–4 pass on a scratch data dir at 139×31 and 89×31: greeting and round-end lines grow a word per ~0.2 s in place; Animations Off whole; resumed match blank; no line at 89. **Miss:** one Animations-Off run hit a zsh `nomatch` error that skipped the chained `export`, so it ran against the real data dir (re-saved the profile, wrote a Quick Play `savegame.json`, set Animations Off in `settings.json`); reported to the person, not touched further |
 | Phase 1 review (skeptical-reviewer) | opus → claude-opus-5-5 | ~72K | 1 | — | 0 | **pass**; four second-look notes carried to the close-out notes. T002's verbatim output and ceiling-test runtime (~4 s debug, 60 s window kept) are in its row above |
+| Amendment 9A/10A/11A: draft (sdd-planner) | opus → claude-opus-5-5 | ~195K | 1 | — | — | T002a (Voices), T002b (loudness), T003a (event beat, `EVENT_BEAT_MS` 400) added to Phase 1; burble ceiling test superseded by a loudness band against the move sounds; named settings tests superseded for AC 17. Flag: match-end jingles run 0.45–0.52 s, past the 400 ms beat (plan §Open questions 5), for the re-listen |
+| Amendment sign-off (skeptical-reviewer) | opus → claude-opus-5-5 | ~150K | 1 | — | 1 (B1 the `EVENT_BEAT_MS` grep would match the import and `say` doc too) | fix and re-review; six second looks folded in |
+| Amendment revision (sdd-planner, same context) | opus → claude-opus-5-5 | ~15K | 1 | yes | — | B1 → `from_millis(EVENT_BEAT_MS)` grep; second looks 1–6 |
+| Amendment re-review (skeptical-reviewer, same context) | opus → claude-opus-5-5 | ~10K | 1 | — | 0 | **signed off**; note: the brief clause is loose for match-end jingles (§Open questions 5) |
