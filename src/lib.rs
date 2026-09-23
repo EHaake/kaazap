@@ -80,6 +80,10 @@ pub const ARRIVAL_BEAT_MS: u64 = 600; // a card arriving / a total changing draw
 pub const POPUP_BEAT_MS: u64 = 800; // the round/game popup waits this long after the round resolves
 pub const THINKING_STEP_MS: u64 = 300; // the thinking indicator steps . / .. / ... at this cadence
 
+// Spec 030 — a spoken line shows one more word every WORD_STEP_MS, the first
+// at once. Bounds pinned by banter::tests::the_word_step_is_about_a_fifth_of_a_second.
+pub const WORD_STEP_MS: u64 = 200;
+
 // Campaign-map starfield twinkle period, per star. Deliberately slower than the
 // selection pulse so the ambient backdrop reads as depth, not a synchronized
 // blink (see design/brief.md's Motion amendment).

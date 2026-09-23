@@ -290,4 +290,29 @@ mod tests {
         assert_ne!(f[left_border][banter_y].ch, 'y', "left border untouched");
         assert_ne!(f[right_border][banter_y].ch, 'y', "right border untouched");
     }
+
+    #[test]
+    fn a_revealed_line_draws_each_word_where_the_finished_line_has_it() {
+        use crate::banter::{revealed, word_count};
+        let banter_y = 15; // interior.y0 (1) + 14
+        let line = "Here goes nothing!";
+
+        let (mut whole, panel) = inmatch_panel();
+        draw_presence_extras(&mut whole, panel, Some(line), 0, None);
+
+        for n in 0..=word_count(line) {
+            let (mut f, panel) = inmatch_panel();
+            draw_presence_extras(&mut f, panel, Some(&revealed(line, n)), 0, None);
+            let mut drawn = 0;
+            for x in 0..PANEL_W {
+                let ch = f[x][banter_y].ch;
+                if ch != ' ' && ch != '\0' {
+                    drawn += 1;
+                    assert_eq!(ch, whole[x][banter_y].ch, "{n} words: col {x} is not where the finished line has it");
+                }
+            }
+            let expected: usize = line.split(' ').take(n).map(|w| w.chars().count()).sum();
+            assert_eq!(drawn, expected, "{n} words: every shown character is drawn");
+        }
+    }
 }

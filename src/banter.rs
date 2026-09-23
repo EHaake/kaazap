@@ -6,7 +6,12 @@
 //! engine itself says nothing). Lines are picked from a per-opponent [`BanterSet`]
 //! (or [`GENERIC`] for the default / an unknown id) via [`pick`], which never
 //! repeats the currently-shown line back-to-back. Spec 017.
+//!
+//! A chosen line is spoken word by word, in place, through a [`Speech`] (spec 030).
 
+use std::time::Duration;
+
+use crate::WORD_STEP_MS;
 use crate::game::{GamePhase, GameState, RoundOutcome};
 use crate::player::Player;
 
@@ -151,6 +156,88 @@ pub fn pick(lines: &[&'static str], last: Option<&str>, rng: &mut impl rand::Rng
         if Some(candidate) != last {
             return candidate;
         }
+    }
+}
+
+/// The number of words in `line`: its maximal runs of non-space characters.
+pub fn word_count(line: &str) -> usize {
+    line.split(' ').filter(|w| !w.is_empty()).count()
+}
+
+/// `line` with only its first `words` words showing — each later word's
+/// characters blanked to spaces — so the text always has the finished line's
+/// length and every shown word sits where it will in the finished line,
+/// whatever centres it (spec 030, AC 8). `words >= word_count` is the line.
+pub fn revealed(line: &str, words: usize) -> String {
+    let mut seen = 0;
+    let mut prev_space = true;
+    line.chars()
+        .map(|c| {
+            if c == ' ' {
+                prev_space = true;
+                return ' ';
+            }
+            if prev_space {
+                seen += 1;
+                prev_space = false;
+            }
+            if seen <= words { c } else { ' ' }
+        })
+        .collect()
+}
+
+/// Words showing `elapsed` after the line was chosen: the first at once, one
+/// more each WORD_STEP_MS, never more than the line has.
+pub fn words_due(line: &str, elapsed: Duration) -> usize {
+    let steps = (elapsed.as_millis() / WORD_STEP_MS as u128) as usize;
+    steps.saturating_add(1).min(word_count(line))
+}
+
+/// A line being spoken (spec 030): the line, the time since it was chosen, and
+/// how many of its words are showing. Drawing state only — never saved.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Speech {
+    line: &'static str,
+    elapsed: Duration,
+    shown: usize,
+}
+
+impl Speech {
+    /// Just chosen: its first word showing, or — `animated` false, the
+    /// Animations setting Off — every word at once. The caller plays the one
+    /// burble the first appearance owes.
+    pub fn new(line: &'static str, animated: bool) -> Self {
+        let shown = if animated { words_due(line, Duration::ZERO) } else { word_count(line) };
+        Self { line, elapsed: Duration::ZERO, shown }
+    }
+
+    /// Advance by `dt`. True when a word appeared on this step, meaning the caller
+    /// owes one burble. A step that crosses more than one word boundary shows
+    /// them all and still returns true once (plan §Design tension 3).
+    /// `shown` never decreases, so a settled speech stays settled.
+    pub fn advance(&mut self, dt: Duration) -> bool {
+        self.elapsed = self.elapsed.saturating_add(dt);
+        let due = words_due(self.line, self.elapsed);
+        if due > self.shown {
+            self.shown = due;
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Show the rest at once, silently — the line's screen was left.
+    pub fn settle(&mut self) {
+        self.shown = word_count(self.line);
+    }
+
+    pub fn words_shown(&self) -> usize {
+        self.shown
+    }
+
+    /// What the panel draws: `revealed(line, shown)`.
+    pub fn text(&self) -> String {
+        revealed(self.line, self.shown)
     }
 }
 
@@ -665,5 +752,129 @@ mod tests {
         }
         assert_eq!(set_fingerprint(banter_for("default")), generic);
         assert_eq!(set_fingerprint(banter_for("nonexistent-id")), generic);
+    }
+
+    // ---- Spec 030 T001: the reveal ----------------------------------------
+
+    fn step() -> Duration {
+        Duration::from_millis(WORD_STEP_MS)
+    }
+
+    #[test]
+    fn the_word_step_is_about_a_fifth_of_a_second() {
+        assert!(150 <= WORD_STEP_MS);
+        assert!(WORD_STEP_MS <= 250);
+    }
+
+    #[test]
+    fn every_line_finishes_inside_a_second() {
+        for (id, set) in all_sets() {
+            for class in classes(set) {
+                for line in class {
+                    let words = word_count(line) as u64;
+                    assert!(
+                        words.saturating_sub(1) * WORD_STEP_MS < 1000,
+                        "{id}: line {line:?} takes a second or more to say"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_line_is_revealed_in_place_word_by_word() {
+        for (id, set) in all_sets() {
+            for class in classes(set) {
+                for &line in class {
+                    let total = word_count(line);
+                    let chars: Vec<char> = line.chars().collect();
+                    for n in 0..=total {
+                        let shown = revealed(line, n);
+                        let got: Vec<char> = shown.chars().collect();
+                        assert_eq!(got.len(), chars.len(), "{id}: {line:?} at {n} changed length");
+                        for (i, &c) in got.iter().enumerate() {
+                            assert!(c == chars[i] || c == ' ', "{id}: {line:?} at {n}: stray {c:?}");
+                        }
+                        assert_eq!(word_count(&shown), n, "{id}: {line:?} at {n}: word count");
+                        // The first n words' characters sit where the line has them.
+                        let mut word = 0;
+                        let mut prev_space = true;
+                        for (i, &c) in chars.iter().enumerate() {
+                            if c != ' ' && prev_space {
+                                word += 1;
+                            }
+                            prev_space = c == ' ';
+                            if c != ' ' && word <= n {
+                                assert_eq!(got[i], c, "{id}: {line:?} at {n}: col {i} moved");
+                            }
+                        }
+                    }
+                    assert_eq!(revealed(line, total), line, "{id}: {line:?} not whole at the end");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_spoken_line_shows_a_word_per_step_from_the_first_frame() {
+        let line = "Here goes nothing!";
+        let mut s = Speech::new(line, true);
+        assert_eq!(s.words_shown(), 1);
+        assert_eq!(s.text(), "Here              ");
+
+        assert!(!s.advance(step() - Duration::from_millis(1)));
+        assert_eq!(s.words_shown(), 1);
+        assert!(s.advance(Duration::from_millis(1)));
+        assert_eq!(s.words_shown(), 2);
+        assert_eq!(s.text(), "Here goes         ");
+
+        assert!(s.advance(step()));
+        assert_eq!(s.words_shown(), 3);
+        assert_eq!(s.text(), line);
+
+        for _ in 0..20 {
+            assert!(!s.advance(step()));
+        }
+        assert_eq!(s.text(), line);
+    }
+
+    #[test]
+    fn animations_off_speaks_the_whole_line_and_owes_no_more_burbles() {
+        let line = "Here goes nothing!";
+        let mut s = Speech::new(line, false);
+        assert_eq!(s.words_shown(), word_count(line));
+        assert_eq!(s.text(), line);
+        for _ in 0..20 {
+            assert!(!s.advance(step()));
+        }
+        assert_eq!(s.text(), line);
+    }
+
+    #[test]
+    fn a_settled_line_is_whole_and_silent() {
+        let line = "Here goes nothing!";
+        let mut s = Speech::new(line, true);
+        assert!(s.advance(step()));
+        assert_eq!(s.words_shown(), 2);
+        s.settle();
+        assert_eq!(s.words_shown(), word_count(line));
+        assert_eq!(s.text(), line);
+        for _ in 0..20 {
+            assert!(!s.advance(step()));
+        }
+        assert_eq!(s.text(), line);
+    }
+
+    #[test]
+    fn a_stalled_step_shows_every_due_word_and_owes_one_burble() {
+        let line = "Court is in session.";
+        assert_eq!(word_count(line), 4);
+        let mut s = Speech::new(line, true);
+        assert_eq!(s.words_shown(), 1);
+        assert!(s.advance(step() * 3));
+        assert_eq!(s.words_shown(), 4);
+        assert_eq!(s.text(), line);
+        assert!(!s.advance(Duration::ZERO));
+        assert!(!s.advance(step()));
     }
 }
