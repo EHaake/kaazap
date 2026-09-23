@@ -1,7 +1,9 @@
 # Spec: Series-aware banter, spoken word by word — spec 030
 
-**Status**: Draft (2026-09-23), awaiting the person's approval. Rulings 1B,
-2A, 3B, 4A, 5B, 6A (the person, 2026-09-23) — see *Resolved decisions*.
+**Status**: Approved (2026-09-23). Rulings 1B, 2A, 3B, 4A, 5B, 6A (the
+person, 2026-09-23) — see *Resolved decisions*. Approved with one condition:
+the person approves the burble by ear once it is built, and may ask for it to
+be tweaked (see AC 9).
 **Depends on**: spec 017 (opponent banter), spec 004 (audio and the
 generated sound effects), spec 027 (the Animations setting and the Motion
 amendment), spec 029 (series, the venue, the in-match series line).
@@ -179,6 +181,9 @@ construction.
 9. [ ] **The burble.** One burble plays as each word appears; it is soft,
    voice-like, and at equal settings clearly softer than the music; it is
    silent with Sound Effects at zero or muted; it is generated in-repo.
+   **The person approves the sound by ear** at a walkthrough once it is
+   playable in the game, and may ask for it to be tweaked; this criterion is
+   not met until they have.
 10. [ ] **Interruption and clearing.** A new line replaces one being spoken
     and starts from its first word; a line cleared mid-reveal stops, and in
     both cases no further burble from the old line plays.
@@ -213,6 +218,8 @@ construction.
   sort of a 'soft burble' if possible."
 - **6A** — the deciding match's game-over frame holds the final series
   score, which "should not follow the player to the galaxy screen."
+- **Approval (2026-09-23)** — approved, with the burble subject to the
+  person's approval by ear once implemented, and possible tweaks.
 
 Defaults set in the spec conversation, not separately ruled: words appear in
 place; a new line interrupts; Animations Off shows the line whole; a resumed
