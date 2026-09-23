@@ -497,7 +497,9 @@ named, where they live in the project, and how Claude Code validates and
 integrates them. Written the way spec 016's portrait brief was.
 
 This is documentation, not behavior: no acceptance criterion changes for
-it, and the spec's *Non-goals* entry for per-planet art stands.
+it, and the spec's *Non-goals* entry for per-planet art stands. (**Superseded
+the next day by R9**, which brought integrating the art into this spec, added
+acceptance criterion 21 and narrowed that non-goal to *authoring*.)
 
 ## Resolved decisions (the person, 2026-09-20)
 
