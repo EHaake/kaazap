@@ -1,6 +1,6 @@
 # Plan: Series-aware banter, spoken word by word — spec 030
 
-**Status**: Draft — pending sign-off
+**Status**: Final — signed off 2026-09-23 (one review, one re-review)
 **Implements**: `spec.md` in this directory
 
 ## Context
@@ -125,9 +125,13 @@ which plays only if `audio::burble_clear(since_burble)` holds: at least
 `BURBLE_GAP_MS` (150) since the last one. Two bounds make that safe, and a
 test pins both. The burble, at its slowest per-word pitch, ends within
 `BURBLE_GAP_MS`, so a burble that is allowed never overlaps the one before.
-And `BURBLE_GAP_MS <= WORD_STEP_MS − GAME_LOOP_SLEEP_MS`: tick quantisation puts
-consecutive words of one line at least 150 ms apart, so the guard never drops a
-word of an ordinary line. The guard drops a burble in exactly two cases, both
+And `BURBLE_GAP_MS <= 3 * GAME_LOOP_SLEEP_MS`: every tick is at least
+`GAME_LOOP_SLEEP_MS` (sleep plus the loop's work, `main.rs`), so three ticks
+cover the gap, and while ticks stay under `WORD_STEP_MS / 3` (≈ 66 ms) two
+consecutive words of one line are at least three ticks apart — the guard never
+drops a word of an ordinary line. (Corrected at the sign-off re-review: the
+earlier `<= WORD_STEP_MS − GAME_LOOP_SLEEP_MS` reasoning assumed ticks are *at
+most* 50 ms; they are at least that. The numbers are unchanged.) The guard drops a burble in exactly two cases, both
 divergences from "one burble per word" that exist to keep the sound soft:
 
 - **An interruption within 150 ms of the old line's last burble.**
@@ -394,9 +398,9 @@ naming spec 030 and the tweak workflow:
 # The opponent's burble (spec 030): one soft, voice-like murmur per spoken word.
 # Every number that shapes it is here, so a tweak by ear is an edit to this
 # block and `python3 scripts/gen_sfx.py burble`. `peak` is bounded by the audio
-# test `the_burble_is_softer_than_the_music`; `length_s` by the word step.
+# test `the_burble_is_softer_than_the_music`; `length_s` bounded by BURBLE_GAP_MS.
 BURBLE = {
-    "length_s": 0.12,          # shorter than WORD_STEP_MS even at the slowest pitch
+    "length_s": 0.12,          # within BURBLE_GAP_MS even at the slowest pitch
     "pitch_hz": 150,           # the voice's fundamental
     "glide": -0.12,            # fractional pitch fall over the burble
     "vibrato_hz": 18, "vibrato_depth": 0.04,   # the murmur's wobble in pitch …
@@ -675,8 +679,9 @@ where a claim is cheap to pin on a drawn frame (as spec 029's venue tests do).
   also reports its runtime in a debug build (the 60 s MP3 decode).
 - `a_burble_ends_before_the_next_can_start` — the decoded burble's duration
   divided by the smallest `BURBLE_PITCHES` entry is at most `BURBLE_GAP_MS`,
-  and `BURBLE_GAP_MS <= WORD_STEP_MS - GAME_LOOP_SLEEP_MS` (no word of an
-  ordinary line is dropped).
+  and `BURBLE_GAP_MS <= 3 * GAME_LOOP_SLEEP_MS` (three ticks, each at least
+  `GAME_LOOP_SLEEP_MS`, cover the gap, so no word of an ordinary line is
+  dropped while ticks stay under `WORD_STEP_MS / 3`).
 - `burbles_are_spaced_by_the_gap` — `burble_clear` is false below
   `BURBLE_GAP_MS`, true at and above it, and true for `Duration::MAX`.
 - `each_word_has_its_own_burble_pitch` — `burble_cue(i).sfx == Sfx::Burble`;
