@@ -207,7 +207,10 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
     `Audio::set_settings`'s doc names Voices.
   - `app.rs`: `handle_settings_input`'s `Left | Right` arm plays
     `self.burble(0)` for `SettingRow::Voices` and `Sfx::MenuMove` otherwise,
-    with its comment updated.
+    with its comment updated. The comment and every doc touched in this task
+    must not contain the literal text `self.burble(`, which would break the
+    "exactly three" counts here, in T003a and in T009. Say "a burble" in
+    prose.
   - `Readme.md` line 19: "music/SFX volume" → "music/SFX/voice volume", keeping
     the `> ` prefix, with no re-wrap.
 
@@ -224,7 +227,9 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   - the six full `Settings { … }` literals (`grep -rn 'Settings {' src
     tests`) gain `voices_volume`. The three round-trip ones use 0.0/0.5/1.0.
     The one in `settings_missing_or_legacy_fields_use_defaults` uses
-    `default_voices_volume()`. `tests/whole_file_write.rs` uses `0.5`.
+    `default_voices_volume()`. The one in
+    `adjust_toggles_animations_and_steps_volumes` (~337) uses `0.5`.
+    `tests/whole_file_write.rs` uses `0.5`.
 
   Any other existing assertion that would move is stop-and-report. Do not run
   `cargo fmt`. (Copies: the `sfx_volume` field, its default fn and its
@@ -277,7 +282,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   orchestrator stages `assets/sfx/burble.wav` by path.*
 
 - [ ] **T003a** — `src/lib.rs` + `src/banter.rs` + `src/audio.rs` +
-  `src/app.rs`: the event beat (ruling 11A). Per plan §Design tension 13,
+  `src/app.rs` + `design/brief.md`: the event beat (ruling 11A). Per plan §Design tension 13,
   §Design 1 (the amended block), §Design 2 (the amended paragraph) and §Design
   5 (*Phase 1 amendment — the event beat*).
   - `lib.rs`: `pub const EVENT_BEAT_MS: u64 = 400;` directly below
@@ -285,8 +290,12 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   - `banter.rs`: `Speech` gains the private field `wait: Duration` (`ZERO` from
     `new`) and `pub fn after(self, wait: Duration) -> Self` with the plan's
     doc. `advance`, `settle`, `words_shown` and `text` change as the plan's
-    four bullets say, with `advance`'s doc gaining its sentence. `new`'s
+    four bullets say, with `advance`'s doc gaining its sentence. The
+    `Speech` doc's "the time since it was chosen" becomes "the time since its
+    beat ended (since it was chosen, when there is no beat)". `new`'s
     signature and behaviour do not change.
+  - `design/brief.md` *Motion*: the spec 030 amendment sentence gains the
+    plan §Design 10 clause about the beat (amended).
   - `app.rs`: `say(&mut self, line, wait: Duration)`, building
     `Speech::new(…).after(wait)` and burbling at once only when `words_shown()
     > 0` and the line is visible, with the plan's doc clause. `start_match`
@@ -309,12 +318,15 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   tests passing by name, and T001's seven `banter.rs` tests unchanged and
   passing. **No line inside any `#[cfg(test)]` module is removed or
   changed**; this task only adds tests, so stop and report if one would move.
-  `grep -n 'EVENT_BEAT_MS' src/app.rs` returns the import and exactly one use,
-  in `update_banter`'s event branch. `grep -n 'self\.say(' src/app.rs`
+  `grep -n 'from_millis(EVENT_BEAT_MS)' src/app.rs` returns exactly one line,
+  in `update_banter`'s event branch. (A bare `EVENT_BEAT_MS` grep also
+  matches the import and `say`'s doc, so it is not the check; sign-off B1.)
+  `grep -n 'self\.say(' src/app.rs`
   returns exactly three lines, two of them with `Duration::ZERO`. `grep -n
   'self\.burble(' src/app.rs` still returns exactly three, and `burble_cue(`
   one. `git diff --stat` shows exactly `src/lib.rs`, `src/banter.rs`,
-  `src/audio.rs`, `src/app.rs`. The report quotes `Speech::after`, `advance`,
+  `src/audio.rs`, `src/app.rs`, `design/brief.md`. The report quotes the
+  brief's changed sentence, `Speech::after`, `advance`,
   `settle`, `words_shown`, `text`, `say` and the three `say` call lines
   verbatim, and the `the_event_beat_outlasts_the_round_sounds` output (run
   with `-- --nocapture` in addition to the full command). Then the
@@ -507,7 +519,8 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   and rematches pick exactly as before (sign-off B1).
   **Docs on the branch**: confirm `design/brief.md`'s amendment, `Readme.md`'s
   phrase and `assets/CREDITS.md`'s sentence landed (T002/T003), and
-  `Readme.md`'s "music/SFX/voice volume" (T002a).
+  `Readme.md`'s "music/SFX/voice volume" (T002a), and the brief's beat
+  clause (T003a).
   `grep -n -i "banter\|sound\|animation\|line" assets/how_to_play_text.txt`,
   read and judge. No change is expected; if one is needed, it is a finding,
   not an edit.
@@ -525,8 +538,8 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   src/app.rs` → exactly two lines, both in `open_campaign_home`. `grep -n
   'burble_cue(' src/app.rs` → exactly one line; `grep -n 'self\.burble('
   src/app.rs` → exactly three (amended: `say`, `advance_speech`, the Settings
-  Voices preview); `grep -n 'EVENT_BEAT_MS' src/app.rs` → the import and one
-  use, in `update_banter`'s event branch. `cargo build --all-targets`
+  Voices preview); `grep -n 'from_millis(EVENT_BEAT_MS)' src/app.rs` → exactly
+  one line, in `update_banter`'s event branch. `cargo build --all-targets`
   warning count equals `main`'s (compare via a throwaway `git worktree` with
   its own `CARGO_TARGET_DIR`, as spec 029's close-out did — never switch the
   branch). Check off `spec.md`'s **17** acceptance criteria (amended: AC 17,
@@ -615,7 +628,10 @@ the_burble_is_as_loud_as_the_other_sounds -- --nocapture 2>&1 | grep -iE
 'peak|rms|test result'` and quote its figures. `git status --porcelain
 assets/sfx` shows only ` M assets/sfx/burble.wav`. The person listens again. A
 tweak is routine, not a decision review. **A numbers-only tweak needs no
-review** (the band-and-floor test is its check). Anything more (the synth's
+review** (the band-and-floor test is its check). The floor only guarantees
+the burble is not quieter than the music; "clearly audible" is the person's
+ear. So a tweak that moves toward the floor says so in its report, with the
+margin. Anything more (the synth's
 code, a new parameter) rides the next phase review's bundle, or the pre-merge
 sweep if none remains. It never gets a review of its own. **If they want it
 outside the test's band** (louder than the loudest board move sound, softer
@@ -673,6 +689,8 @@ next person to touch this code finds them. -->
 - **Phase 1 review, second look 1 (for the Phase 3 review):** `line_visible` returns true on `Screen::Venue`, but the venue draws no line until T007, so a match-end line still revealing when the player reaches the venue murmurs unseen (under a second; closes in Phase 3). And `speech` still holds the board's last line on arrival at the venue: check which function the game-over → venue path calls, since if it is not `arrive_at_campaign` the venue shows the previous match's closing line (AC 5). Phase 3 walkthrough item 4 checks it by eye.
 - **Phase 1 review, second look 3:** an overlay over the board (`?` help) keeps the screen `InGame`, so remaining words murmur under it even if it covers the portrait panel. Under a second.
 - **Phase 1 review, second look 4:** the silent cases (Animations Off one murmur, 89 columns silent, resumed match, replaced/cleared line) rest on construction and the counted-call greps; the driver cannot hear. The person's by-ear pass should cover Animations Off and 89 columns too.
+- **Amendment sign-off, second look 6 (for DECISIONS):** with the event beat, an opponent bust's line is replaced one tick later by the round-outcome line (`game.rs` ~282–285 vs ~399–400). Before the beat it showed for one tick, about 50 ms. With the beat it never shows (plan §Design tension 13, *Interruption*). Nobody could see the difference; recorded so it isn't mistaken for a bug.
+- **Amendment sign-off, second look 4:** `design/brief.md`'s "in under a second" for a spoken line gains T003a's clause about the beat. The close-out confirms it landed.
 - **Phase 1 review, second look 2:** plan §Design 4's `BURBLE_GAP_MS` doc still gave the pre-sign-off reasoning; corrected by the orchestrator to match §Design tension 3 (numbers unchanged).
 
 ---

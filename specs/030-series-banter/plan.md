@@ -54,7 +54,7 @@ changes a named part of this plan. Every other part stands as signed off.
 |---|---|---|
 | **9A** — the burble is as loud as the other sound effects, and "never louder than the music" is dropped | Loudness is now a **band** (between the quietest and loudest of the board's move sounds) plus a **floor** (above the music at default settings). It replaces the ceiling. `BURBLE.peak` is raised to land in the band. The test `the_burble_is_softer_than_the_music` is **replaced** (not deleted) by `the_burble_is_as_loud_as_the_other_sounds`. | §Design tension 9 (rewritten), §Design 3, §Tests *audio.rs*, §Verification (walkthrough and tweak loop), §Open questions 3 |
 | **10A** — a Voices slider in Settings; the burble follows it instead of Sound FX; `m` mutes it | `Settings.voices_volume` (serde default 0.8), `SettingRow::Voices` between Sound FX and Animations, and one pure routing function `audio::sfx_level`. Adjusting Voices previews one burble at the new level. | §Design tension 14 (new), §Design 4, §Design 5 (*Phase 1*), §Design 10, §Design 11 (new), §Tests *settings.rs*, *audio.rs* |
-| **11A** — a line said on a round, bust, tie or match/series event waits a beat before its first word; greetings and venue lines start at once | `EVENT_BEAT_MS = 400` beside `WORD_STEP_MS`. `Speech` gains one field (`wait`) and one method (`after`). `say` takes the wait. Only `update_banter`'s event branch passes a non-zero wait. | §Design tensions 3, 4 (touched), 13 (new), §Design 1, 2, 5, §Tests *banter.rs*, *audio.rs*, §Verification |
+| **11A** — a line said on a round, bust, tie or match/series event waits a beat before its first word; greetings and venue lines start at once | `EVENT_BEAT_MS = 400` beside `WORD_STEP_MS`. `Speech` gains one field (`wait`) and one method (`after`). `say` takes the wait. Only `update_banter`'s event branch passes a non-zero wait. | §Design tensions 3, 4 (touched), 13 (new), §Design 1, 2, 5, 10 (the brief's sentence), §Tests *banter.rs*, *audio.rs*, §Verification |
 
 Tasks: T002a (the Voices volume), T002b (the loudness), T003a (the event
 beat), in that order, all in Phase 1 (`tasks.md`). T002b's test reads the
@@ -385,7 +385,12 @@ tension 1 refused. With the wait inside the `Speech`, every existing rule
 covers the beat as-is:
 
 - **Interruption.** A new `say` replaces the `Speech`, waiting or not, so a
-  waiting line that is replaced never shows and never sounds (AC 10).
+  waiting line that is replaced never shows and never sounds (AC 10). One
+  consequence, noted at sign-off: an opponent bust's line is replaced one tick
+  later by the round-outcome line (`game.rs` ~282–285 against ~399–400).
+  Before the beat, the bust line showed for a single tick, which is about
+  50 ms. With the beat it never shows. Not a change anyone could see; recorded
+  for the close-out.
 - **Clearing.** `speech = None` during the beat (play resuming inside 0.4 s)
   drops it unseen. That is spec 017's clear, and AC 10's "stops there".
 - **Settling** (the line's screen left during the beat, for example by
@@ -549,6 +554,9 @@ behaviour do not change, so T001's tests stand as written.
 - `words_shown()`: 0 while `wait` is non-zero, else `shown`.
 - `text()`: `revealed(line, words_shown())`. While waiting that is all spaces,
   the finished line's length, which draws as an empty row.
+- The struct doc's "the time since it was chosen" becomes "the time since its
+  beat ended (since it was chosen, when there is no beat)", because `elapsed`
+  now starts counting when the wait runs out.
 
 **The series state** (pure):
 
@@ -758,8 +766,11 @@ after T002a, which adds the Settings preview below.)
 **Phase 1 amendment — the Voices preview (T002a, ruling 10A; §Design tension
 14).** `handle_settings_input`'s `Left | Right` arm plays `self.burble(0)` when
 the adjusted row is `SettingRow::Voices`, and `self.audio.play(Sfx::MenuMove)`
-otherwise, as today. The comment above it says which. After this, `self.burble(`
-has **three** callers: `say`, `advance_speech`, and the settings arm.
+otherwise, as today. The comment above it says which, in prose. It must not
+contain the literal text `self.burble(`, and neither may any doc this
+amendment touches, because the caller counts below are grepped. After this,
+`self.burble(` has **three** callers: `say`, `advance_speech`, and the
+settings arm.
 `burble_cue(` still has one, in `burble`.
 
 **Phase 2 — the series (T005, T006).**
@@ -878,6 +889,13 @@ module doc each gain a clause about the opponent's line.
 - `assets/how_to_play_text.txt`: nothing in it describes banter, sound or
   animation (`grep -n -i "banter\|sound\|animation\|line" …` at close-out), so
   no change is expected. The close-out confirms that.
+- **Amended (T003a, ruling 11A):** `design/brief.md` *Motion*, the spec 030
+  sentence. "it ends on its own once the line is complete, in under a second"
+  becomes "it ends on its own once the line is complete, in under a second
+  from its first word — which, for a line answering a round or match event,
+  comes a short beat after the event's own sound". An event line now
+  completes about 1.0 s after it is chosen, so the old wording would be
+  wrong for it.
 - **Amended (T002a, ruling 10A):** `Readme.md` status paragraph, line 19:
   "music/SFX volume" → "music/SFX/voice volume". It is inside the same `> `
   block quote, the prefix stays, and the line needs no re-wrap. `design/brief.md`
@@ -930,7 +948,8 @@ module doc each gain a clause about the opponent's line.
   `BURBLE` comment and `peak`), `assets/sfx/burble.wav` (regenerated, now
   tracked), `src/audio.rs` (the replaced test). (T002b) `src/lib.rs`
   (`EVENT_BEAT_MS`), `src/banter.rs` (`Speech::after`, tests), `src/audio.rs`
-  (one test), `src/app.rs` (`say` and its callers). (T003a)
+  (one test), `src/app.rs` (`say` and its callers), `design/brief.md` (one
+  clause). (T003a)
 
 **No change**: `src/board.rs`, `src/game.rs`, `src/card.rs`, `src/player.rs`,
 `src/campaign.rs`, `src/profile.rs`, `src/save.rs`, `src/economy.rs`,
@@ -1017,7 +1036,10 @@ where a claim is cheap to pin on a drawn frame (as spec 029's venue tests do).
   `the_animations_row_reads_on_or_off_and_fits` gets its layout rows changed
   from `7` to `8`, and nothing else. The six struct literals (§Amendment) each
   gain `voices_volume`. The three in `settings_json_round_trips` use
-  exact-in-f32 values (0.0, 0.5, 1.0). The one in `tests/whole_file_write.rs`
+  exact-in-f32 values (0.0, 0.5, 1.0). The one in
+  `settings_missing_or_legacy_fields_use_defaults` uses
+  `default_voices_volume()`, and the one in
+  `adjust_toggles_animations_and_steps_volumes` uses `0.5`. The one in `tests/whole_file_write.rs`
   uses `0.5`, which is not the default, so the on-disk round trip there now
   also proves Voices persists.
 
@@ -1229,7 +1251,10 @@ the_burble_is_as_loud_as_the_other_sounds -- --nocapture 2>&1 | grep -iE
 'peak|rms|test result'` and quote the figures. `git status --porcelain
 assets/sfx` shows only ` M assets/sfx/burble.wav`. The person listens again.
 **A numbers-only tweak needs no review**: the band-and-floor test is its check.
-A tweak the band will not hold (louder than the loudest move sound, or softer
+The floor only guarantees the burble is not quieter than the music at the
+defaults. "Clearly audible" is the person's ear to judge, so a tweak that
+brings the burble's RMS toward the floor says so in its report, with the
+margin. A tweak the band will not hold (louder than the loudest move sound, or softer
 than the quietest, or under the music) is §Open questions 3, not a looser
 test. A tweak that changes anything beyond numbers (the synth's code, a new
 parameter) rides the next phase review's bundle, or the pre-merge sweep if no
