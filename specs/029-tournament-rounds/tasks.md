@@ -1,6 +1,6 @@
 # Tasks: Tournament rounds — spec 029
 
-**Status**: Draft — pending sign-off (the **R9 revision**, 2026-09-22: Phase 6 and the revised T011. Everything above Phase 6 was signed off — last on 2026-09-21, the second amendment revision — and is built, reviewed and attested)
+**Status**: Signed off (skeptical-reviewer, 2026-09-22 — Phase 6 / R9 revision: one review, one re-review, B1–B3 resolved and all notes applied)
 **Implements**: plan.md in this directory
 
 **The R9 revision (2026-09-22).** At the merge pause the person ruled that the
@@ -1559,7 +1559,8 @@ the person an empty box they are about to see filled. -->
   confirms `git diff --cached --stat` lists exactly the sixteen files, and
   commits them unmodified as T013.*
 
-- [ ] **T014** — `src/campaign.rs` + `src/venue.rs` + `assets/CREDITS.md`: the
+- [ ] **T014** — `src/campaign.rs` + `src/venue.rs` + `assets/CREDITS.md` +
+  `.gitattributes` (new): the
   art at the venue, and AC 21's tests. **Needs T013 committed.** Per plan
   §Design 12, which gives the code:
   **(a) `src/campaign.rs`.** `Planet` gains `art_narrow` and `art_wide`
@@ -1596,7 +1597,11 @@ the person an empty box they are about to see filled. -->
   would put `\r` in every embedded line — failing the new assertion and
   mis-sizing the art. `.gitattributes` joins this task's file list.
   *Verify: the full command, verbatim; `cargo test --lib venue -- --list`
-  shows the four new names; `git diff --stat` lists exactly the three files;
+  shows the four new names; `git diff --stat` lists exactly the three tracked
+  files **and `git status --short` shows `?? .gitattributes`** — it is new and
+  untracked, so `git diff --stat` alone would pass whether or not it exists
+  (re-review, 2026-09-22); the orchestrator stages it with the commit and
+  includes it in the Phase 6 review diff;
   `grep -c 'include_str!("../assets/planets/' src/campaign.rs` → 16;
   `grep -nwE '48|92|20|50|94|22' src/venue.rs` → nothing (it returns nothing
   today; widened at sign-off so the box sizes can't be restated either) (AC 21: the canvas is derived,
@@ -2323,6 +2328,10 @@ redo, and why). -->
 | T011a (sdd-implementer) | opus → opus | 57K | 1 | yes | — | B1: one `refuse_uncovered` helper for both the map's series launch and every wager, checked before `begin_series`. N1: `economy::reserve_after_a_loss` (records the loss on a copy of the run so the series' own rule decides) with a six-value test whose two deciding cases would fail under the old behaviour. Doc ride-alongs in five files. No assertion value moved |
 | Sweep re-review (skeptical-reviewer) | opus → opus | 42K | 1 | yes | **0 blocking** | **Signed off; clear to merge from the code side.** Checked the six test values against the series rule by hand. Its one open item — a driver check of B1 — was already done by the orchestrator |
 | Sweep fixes, driven (orchestrator, `run-kaazap`) | opus-5.5 (session) | — | — | — | — | Scratch `…/scratchpad/kz5`. **B1**: 15 credits, Cinder cleared, Enter on Ashfall (Vessa, ante 20) → the map banner "Can't cover the 20-credit ante", no venue, profile `series: None`, credits unchanged; Enter on Scree (Dax, ante 10) still opens the venue, as it should. **N1**: locked on Rix (ante 50) with 80 credits — at **0–1** a 50 stake shows **no** warning (a loss decides the series and releases the lock); at **0–0** it shows "Lose this and the run is over." The sweep's example stake of 40 is below Rix's 50 ante, so 50 was used |
+| **Ruling R9** (the person, at the merge pause) | — | — | — | — | — | Integrate the per-planet art in this spec rather than merge on the placeholder; asked the same day, chose **the box fits the art** over centring it in a larger box or commissioning more sizes. `spec.md` amended (R9, AC 21, the non-goal narrowed to authoring); T011 re-opened |
+| Phase 6 replan (sdd-planner) | opus → opus | 246K | 1 | — | — | Phase 6: T012 geometry (runs now, `review: per-task`), T013 the delivery checkpoint, T014 load and draw. Pinned six sizes, the fit sizes identical to today. Flagged three `spec.md` sentences R9 made false — corrected by the orchestrator before sign-off — and two choices for the person (the art's weight, vertical centring on tall terminals) |
+| Phase 6 sign-off (skeptical-reviewer) | opus → opus | 145K | 1 | — | **3 blocking** | Recomputed all six sizes; confirmed T012 genuinely needs no art files and T014 cannot compile without them. **B1**: a grep gate that matched `FIELD_MARGIN_X` and so could never pass. **B2**: a "clean working tree" check impossible for an uncommitting implementer. **B3**: `design/brief.md` makes opponent portraits the *single* exception to "no block-art", amended before spec 016 shipped them — R9 needs the same amendment and none was scheduled. 8 notes, including a real Windows defect: a CRLF checkout would mis-size every art line |
+| Phase 6 fixes + re-review | opus → opus | 41K | 1 | yes | **0 blocking** | B1 word-matched; B2 scoped to `assets/planets`; **B3: the orchestrator wrote the `design/brief.md` amendment**, bounded like the portraits', its text going to the person at the Phase 6 pause; all notes applied, `.gitattributes` added to T014. Re-review signed off; its one note (`.gitattributes` missing from T014's file list, so the rule could silently not ship) fixed before dispatch |
 | Phase 2 amendment re-walkthrough (the orchestrator, `run-kaazap`) | opus → opus (session) | — | — | — | — | Driven at **89×31 and 139×31** with `KAAZAP_DATA_DIR` at a scratch directory. **Attested**: the series row reads `Series  0 – 0   ·   Best of 3` (R1); the second action reads **Card Shop** and taking it from the action row — not just `b` — opens a screen headed **Card Shop**, with Esc returning to the venue (R2, AC 3); the art region draws at **both** widths as the dominant element with the portrait in its own column beside it, sharing a top edge, nothing clipped, the header text centred over the band and the footer below it (R3, AC 16); rows 27 and 29 blank around the action row at both widths (AC 17); Play still opens the wager over the venue and Esc still returns to it. **Still not hand-attested**: the deck-guard divert (second-look note 23). The driver cannot switch the briefcase's focus — `key:\t` reaches the pty but the cursor stays in the Collection pane — so the deck could not be made invalid. Verified by inspection **twice** (the Phase 2 review and the amendment review); left for the person, who can do it in two keystrokes |
 | Deck-guard divert — **attested by the person** | — | — | — | — | — | Second-look note 23, the one item two driver attempts could not reach: the person made their deck invalid and pressed Play at the venue, and it took them to the collection as expected. **Closed by attestation**, after being verified by inspection in two reviews. Nothing further is owed on it |
 | **Phase 2 review** (skeptical-reviewer) | opus → opus | 161K | 1 | — | **0 blocking** | **Signed off.** Did all three checks the handoff note requires. (1) Ran the single-assignment grep itself and **widened it three ways** — `self\.screen\s*=` across `src/` (13 hits, only two set a campaign screen), the bare variant names, and `mem::replace`/`&mut self.screen` — confirming the gate is load-bearing rather than narrow, and **upheld T006's deviation** from the plan's listing: in the expression form neither line contains the variant name, so the gate would return zero and pass while checking nothing. (2) Density verified as instrumented rather than asserted, against the constitution's *corrected* form (only the acted-on line gets air), and both modals the venue can raise already pad evenly through `OverlayLayout`. (3) **Closed the Phase 1 caveat** by walking every door, including a quit and re-entry, a Quick Play match started mid-series, and the deck-builder divert — `launch_from_map` is the only production caller of `begin_series` and is unreachable while a series runs. Also **verified plan §Open question 5 independently**: `CantCover` is unreachable from the venue because the venue's floor *is* `reserve_floor` while locked, and the missing banner-clearing line makes nothing worse, because the map's arm clears the banner before `launch_from_map` runs. 7 second-look notes; one gave `docs/economy.md`'s rename fallout to T007 |

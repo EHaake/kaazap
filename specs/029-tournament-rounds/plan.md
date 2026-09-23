@@ -1,6 +1,6 @@
 # Plan: Tournament rounds — spec 029
 
-**Status**: Draft — pending sign-off (the **R9 revision**, 2026-09-22: Phase 6 and the re-opened close-out. Everything before it was signed off — last on 2026-09-21, the second amendment revision: one review, one re-review, B1 and B2 resolved and seven notes applied — and is built, reviewed and attested)
+**Status**: Signed off (skeptical-reviewer, 2026-09-22 — Phase 6 / R9 revision: one review, one re-review, B1–B3 resolved)
 **Implements**: `spec.md` in this directory
 
 The pre-amendment plan was signed off by the `skeptical-reviewer` on 2026-09-20
