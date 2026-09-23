@@ -6,7 +6,9 @@ out-of-scope on the consequences of D2 + E2 the same day. **Amended
 2026-09-21** (rulings R1, R2, R3) after the person walked the venue — see
 *Amendment, 2026-09-21*, which supersedes M1's art sizing and N1 entirely —
 and **again the same day** (R4, R5, R6) after they walked the rebuilt
-venue: see *Amendment, 2026-09-21 (second)*.
+venue: see *Amendment, 2026-09-21 (second)*. R7 and R8 (2026-09-22) followed
+at the Phase 2 and Phase 4 pauses, and **R9 (2026-09-22) brought integrating
+the per-planet art into this spec**, adding acceptance criterion 21.
 The dated ruling records under *Resolved decisions*, and the **Depends
 on** line's reference to spec 012, keep the word "Outfitter": they record
 what was decided or shipped then. Everything else — the summary, the
@@ -70,10 +72,11 @@ construction.
 
 ## Non-goals (explicitly deferred)
 
-- **Per-planet venue art.** This spec reserves the region and fills it
-  with a placeholder; authoring the art is its own spec, run the way spec
-  016's portraits were — a brief in the repo, the art drawn by a more
-  capable tool, Claude Code validating and integrating.
+- **Authoring the per-planet venue art.** The art is drawn outside this
+  spec, by a more capable tool working from the brief, the way spec 016's
+  portraits were. **Integrating it is in scope** since ruling R9
+  (2026-09-22): this spec validates the delivered files and draws them at
+  the venue. (Originally the whole of per-planet art was a non-goal.)
 - **Per-planet music.** Ruled out of scope by the person; its own spec.
 - **Series-aware banter.** An opponent's match-start line will now fire
   two or three times in a row. Accepted; a roadmap follow-up.
@@ -322,6 +325,15 @@ and no series. The opponent stays beaten either way.
 20. [x] **No forbidden change.** No behavior change in `game.rs`, `card.rs`,
     `player.rs` or `save.rs`; `SAVE_VERSION` and `PROFILE_VERSION` both
     stay 1; no new crate; no color path.
+21. [ ] **The planet's art at the venue** (ruling R9). Every planet's venue
+    shows its own art in place of the placeholder — the narrow drawing below
+    139 columns, the wide one from 139 up — inside a box sized exactly to the
+    drawing, at every terminal size from the 89×31 minimum up, with no blank
+    space inside the frame and nothing clipped. The sixteen delivered files
+    pass the brief's validation checklist (items 1–6) as a test, and that
+    test derives the expected canvas sizes from the venue's own layout
+    rather than restating them. The product owner's look at both fit sizes
+    (checklist item 7) is the go/no-go.
 
 ## Amendment, 2026-09-21 — the venue's wording and its art
 
@@ -447,6 +459,30 @@ text alignment are unchanged — only the portrait moves.
 At the Phase 4 pause the person chose to spell out the unit, since How to
 Play opens with a rule about *rounds*: the campaign lines read "Each opponent
 is Best of 3 matches, the last / Best of 5. A started series is played out."
+
+### R9 — the art is integrated in this spec (2026-09-22)
+
+The person, at the merge pause: *let's add integrating the art into this
+spec.* So spec 029 does not merge on the placeholder. The art itself is
+authored outside this spec from `planet-art-brief.md` (the person is sending
+it to another session) and delivered as sixteen files into `assets/planets/`;
+this spec validates them against the brief's checklist and draws them at the
+venue. Acceptance criterion 21 is added for it, and the per-planet-art
+non-goal is narrowed to *authoring*.
+
+**Between the fit sizes, the box fits the art** (the person's choice, asked
+the same day, over centring the art in a larger box or commissioning more
+sizes). The art box is always exactly the drawing plus its border: the
+narrow drawing below 139 columns, the wide one from 139 up, and 20 rows tall.
+Space the drawing does not use becomes margin *around* the art-and-portrait
+group, never blank space inside the frame. At exactly 89×31 and 139×31 this
+is the layout already approved (the art region is already exactly the
+drawing's size there), so R4, R5 and R7 stand unchanged at the fit sizes;
+what changes is only what happens at every other size, including taller
+terminals, where the box no longer grows past the drawing.
+
+The placeholder (the planet's name) remains only as a fallback for a planet
+with no art, which a validated delivery never has.
 
 ### A new deliverable: the per-planet art brief
 

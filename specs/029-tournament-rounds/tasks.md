@@ -1483,7 +1483,15 @@ the second re-walkthrough is attested — the orchestrator writes it. -->
   venue, and no `series` key in the profile JSON; (b) a hand-edited profile locked
   on Rix with 80 credits — at 0–1 a 40 stake shows no warning, at 0–0 it does.*
 
-- [x] **T011** — Close-out. Draft
+> **Held open by ruling R9 (2026-09-22).** At the merge pause the person
+> added integrating the per-planet art to this spec. T011 was complete for the
+> spec as it then stood; it is **re-opened**, and closes again after the art
+> phase lands — its close-out doc, AC checklist and mechanical checks must be
+> refreshed for acceptance criterion 21 and a second pre-merge sweep run on the
+> art phase. The art phase's tasks are added by the planner (plan revision
+> pending sign-off) and run once the sixteen files arrive in `assets/planets/`.
+
+- [ ] **T011** — Close-out. Draft
   `specs/029-tournament-rounds/closeout-main-docs.md` in spec 028's shape:
   **ROADMAP** — mark tournament rounds shipped as spec 029 (`grep -n -i
   "series\|tournament\|venue\|best of" ROADMAP.md`, read and judge), and add the
