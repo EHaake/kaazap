@@ -3,7 +3,11 @@
 **Status**: Approved (2026-09-23). Rulings 1B, 2A, 3B, 4A, 5B, 6A (the
 person, 2026-09-23) — see *Resolved decisions*. Approved with one condition:
 the person approves the burble by ear once it is built, and may ask for it to
-be tweaked (see AC 9).
+be tweaked (see AC 9). **Amended 2026-09-23 at the Phase 1 pause** (rulings
+9A, 10A, 11A): the burble is as loud as the other sound effects rather than
+softer than the music, has its own Voices volume in Settings, and a line said
+on a round or match event waits a short beat so the event's own sound lands
+first.
 **Depends on**: spec 017 (opponent banter), spec 004 (audio and the
 generated sound effects), spec 027 (the Animations setting and the Motion
 amendment), spec 029 (series, the venue, the in-match series line).
@@ -23,8 +27,9 @@ a series ends on a **series won** or **series lost** line, and the opponent
 now also **speaks at the venue** when the player arrives there.
 
 And every line is now **spoken**: its words appear one at a time, in place,
-as if the opponent were talking, each word with a **soft burble** — quiet,
-never louder than the music.
+as if the opponent were talking, each word with a **soft burble** — soft in
+character, as audible as the game's other sounds, with its own **Voices**
+volume in Settings.
 
 The deciding match's game-over frame also now keeps the **final series
 score** on screen, where today it shows none.
@@ -117,16 +122,28 @@ construction.
 - **Word by word** (ruling 4A). The first word appears on the frame the line
   is chosen; each following word about **0.2 seconds** after the one before.
   A four-word line is complete in about 0.6 seconds.
+- **A short beat on events** (ruling 11A). A line said in answer to a game
+  event — a round won, lost or tied, a bust, a match or series ending — is
+  chosen when it is today, but its first word appears about **0.3–0.4
+  seconds** later, once the event's own sound has played, so the burble does
+  not compete with it. Until then the panel shows no line. The match-start
+  greeting and the venue line have no event sound to wait for and start at
+  once. Nothing else moves: popups, sounds, phases and keys keep today's
+  timing.
 - **In place.** Each word appears in the position it will hold in the
   finished line; the line never shifts sideways or re-centres as it grows.
 - **A soft burble per word** (ruling 5B). Each word, as it appears, plays one
   short, soft, voice-like burble — an alien murmur, not a beep or a
-  typewriter click. It is **never louder than the music**: at the same
-  Music and Sound Effects settings it sounds clearly softer than the music
-  track. It follows the Sound Effects volume and the `m` mute, like every
-  other sound effect; with Sound Effects at zero or muted it is silent. It is
-  generated from scratch like the existing sound effects, so it carries no
-  third-party licence.
+  typewriter click. It is **as loud as the game's other sound effects**
+  (ruling 9A): soft in character, not in level, and clearly audible over the
+  music at the default settings. (The first build held it below the music's
+  average level, and it was nearly inaudible.) It is generated from scratch
+  like the existing sound effects, so it carries no third-party licence.
+- **A Voices volume** (ruling 10A). Settings gains a third slider, **Voices**,
+  beside Music and Sound FX, working the same way. The burble follows Voices,
+  not Sound FX; the `m` mute silences it like every other sound. With Voices
+  at zero or muted it is silent. A settings file written before this spec
+  loads with Voices at its default.
 - **Interruption.** A new line replaces one still being spoken, at once, and
   starts from its first word; the old line's remaining words and burbles
   never play. A line cleared while being spoken (play resuming, as spec 017
@@ -135,8 +152,8 @@ construction.
   being spoken, and the game, the phases, the popups and every other sound
   happen exactly when they do today.
 - **Animations Off** (spec 027's setting) → the line appears whole on the
-  frame it is chosen, with **one** burble (the sound follows the Sound
-  Effects setting, not the Animations setting).
+  frame it is chosen (after the event beat, where one applies), with **one**
+  burble (the sound follows the Voices setting, not the Animations setting).
 - **A resumed saved match** shows no line, as today (spec 017 resumes with
   the line blank), so nothing is spoken and no burble plays; the first frame
   of a resumed match is drawn settled (spec 027). Ruling 8A.
@@ -180,11 +197,14 @@ construction.
    least two for series won and series lost; The Sovereign has at least three
    All square lines; every line fits the panel's 20-character width.
 8. [ ] **Word by word, in place.** A spoken line shows its first word on the
-   frame it is chosen and one more word about every 0.2 seconds; at every
-   step each shown word is at the column it holds in the finished line.
-9. [ ] **The burble.** One burble plays as each word appears; it is soft,
-   voice-like, and at equal settings clearly softer than the music; it is
-   silent with Sound Effects at zero or muted; it is generated in-repo.
+   frame it is chosen — or, for a line said on a round or match event, about
+   0.3–0.4 seconds later (ruling 11A) — and one more word about every 0.2
+   seconds; at every step each shown word is at the column it holds in the
+   finished line.
+9. [ ] **The burble.** One burble plays as each word appears; it is soft in
+   character, voice-like, and about as loud as the other sound effects
+   (ruling 9A); it follows the new Voices volume (ruling 10A) and is silent
+   with Voices at zero or muted; it is generated in-repo.
    **The person approves the sound by ear** at a walkthrough once it is
    playable in the game, and may ask for it to be tweaked; this criterion is
    not met until they have.
@@ -192,10 +212,11 @@ construction.
     and starts from its first word; a line cleared mid-reveal stops, and in
     both cases no further burble from the old line plays.
 11. [ ] **Nothing waits.** Every key has the same effect on the same frame
-    while a line is being spoken; phases, popups, timings and other sounds
-    are unchanged (existing tests untouched).
-12. [ ] **Animations Off.** A line appears whole on the frame it is chosen,
-    with one burble.
+    while a line is being spoken or waiting out its event beat; phases,
+    popups, timings and other sounds are unchanged (existing tests
+    untouched).
+12. [ ] **Animations Off.** A line appears whole on the frame it is chosen
+    (after the event beat, where one applies), with one burble.
 13. [ ] **Resumed match and compact board.** A resumed saved match shows no
     line and plays no burble (ruling 8A); a match on the compact board shows
     no line and plays no burble (ruling 7A).
@@ -204,10 +225,16 @@ construction.
     unchanged; the map afterwards shows no series score and its banner is
     unchanged.
 15. [ ] **Nothing else changes.** No engine, AI, save-format, economy or
-    balance change; no new crate; monochrome.
+    balance change; no new crate; monochrome. (The settings file gaining a
+    Voices field, ruling 10A, is not a save-format change: saves and the
+    profile are untouched.)
 16. [ ] **Docs.** The README and How to Play still describe the game
     accurately; the design brief's Motion section says a spoken line is a
     one-shot transition; `assets/CREDITS.md` covers the new sound.
+17. [ ] **Voices volume.** Settings shows a Voices slider beside Music and
+    Sound FX that changes and persists like them; the burble follows it and
+    no other sound does; a settings file without it loads with the default
+    (ruling 10A).
 
 ## Resolved decisions (the person, 2026-09-23)
 
@@ -228,6 +255,14 @@ construction.
   board without the portrait; that is a backlog item, not this spec.
 - **8A** (asked at planning) — a resumed match stays blank, as today; no
   line is spoken on resume.
+- **9A** (Phase 1 pause) — the burble is as loud as the other sound effects;
+  "never louder than the music" is dropped. The person found it "really,
+  really quiet" and had to turn the music off to hear it.
+- **10A** (Phase 1 pause) — a separate Voices volume slider in Settings,
+  which the burble follows instead of Sound FX.
+- **11A** (Phase 1 pause) — a line said on a round or match event waits a
+  short beat (about 0.3–0.4 s) so it doesn't compete with the event's sound
+  and popup; popups and keys keep today's timing.
 - **Approval (2026-09-23)** — approved, with the burble subject to the
   person's approval by ear once implemented, and possible tweaks.
 
