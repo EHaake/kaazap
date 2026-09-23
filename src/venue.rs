@@ -18,12 +18,12 @@
 use crossterm::event::KeyCode;
 
 use crate::{
-    campaign::{Series, planet_by_id, series_length_label},
+    campaign::{Planet, Series, planet_by_id, series_length_label},
     config::Config,
     frame::{BorderWeight, Emphasis, Frame, draw_box, draw_text, draw_text_centered},
-    layout::VenueLayout,
+    layout::{Rect, VenueLayout},
     opponent::{DEFAULT_OPPONENT, OpponentProfile, opponent_by_id},
-    portrait::draw_presence_panel,
+    portrait::{draw_portrait, draw_presence_panel},
     profile::Profile,
 };
 
@@ -214,15 +214,12 @@ impl VenueState {
         draw_text_centered(frame, cx, top + 3, &rows[3], Emphasis::Normal);
         draw_text_centered(frame, cx, top + 4, &rows[4], Emphasis::Normal);
 
-        // The art region: reserved now, filled with a plain placeholder — a
-        // bordered region carrying the planet's name, so it reads as reserved
-        // rather than as a rendering fault (ruling M1).
-        // Its label centres on `cx`, which *is* the art's centre column after
-        // amendment R5 — the header now sits squarely over the art rather than
-        // 13 columns right of it.
-        draw_box(frame, layout.art, BorderWeight::Single, Emphasis::Muted);
-        let art_cy = (layout.art.y0 + layout.art.y1) / 2;
-        draw_text_centered(frame, cx, art_cy, planet.name, Emphasis::Muted);
+        // The art region: the planet's own drawing in its box. The box is the
+        // drawing's size at every terminal size (ruling R9), so it fills it
+        // exactly; the portraits' clip-safe line-by-line drawer draws it — a
+        // planet is the same kind of art. The planet's name, centred, is only
+        // the fallback for a planet without art.
+        draw_art(frame, layout.art, planet_art(&planet, &layout), planet.name);
 
         // The opponent's portrait in its own column beside it, a separate
         // element (ruling M1) — the same drawer the map's rail and the select
@@ -241,6 +238,27 @@ impl VenueState {
         }
 
         draw_text_centered(frame, cx, layout.hint_y, HINT, Emphasis::Muted);
+    }
+}
+
+/// The drawing the art box holds at this layout: wide from
+/// `WIDE_LAYOUT_MIN_WIDTH` columns, narrow below — `layout.wide_art`'s choice,
+/// so the drawing and the box it fills come from one decision (ruling R9).
+fn planet_art(planet: &Planet, layout: &VenueLayout) -> &'static str {
+    if layout.wide_art { planet.art_wide } else { planet.art_narrow }
+}
+
+/// The art region: the box, and inside it the planet's drawing from the
+/// interior's top-left — the box is the drawing's size, so it fills it
+/// exactly (ruling R9). A planet with no art (an empty drawing) keeps the
+/// placeholder instead: its name, centred, Muted — the fallback R9 keeps.
+fn draw_art(frame: &mut Frame, art: Rect, drawing: &str, name: &str) {
+    draw_box(frame, art, BorderWeight::Single, Emphasis::Muted);
+    if drawing.is_empty() {
+        let cx = (art.x0 + art.x1) / 2;
+        draw_text_centered(frame, cx, (art.y0 + art.y1) / 2, name, Emphasis::Muted);
+    } else {
+        draw_portrait(frame, art.x0 + 1, art.y0 + 1, drawing, Emphasis::Normal);
     }
 }
 
@@ -405,6 +423,166 @@ mod tests {
                 series_line(&s)
             );
         }
+    }
+
+    /// The brief's checklist item 4: the 23 codepoints a planet drawing may
+    /// use — space, the shade and full blocks, the half blocks, the quadrant
+    /// blocks, and the four ASCII marks.
+    const PALETTE: &str = " ░▒▓█▀▄▌▐▖▗▘▝▙▟▛▜▚▞.'*+";
+
+    #[test]
+    fn every_planets_art_passes_the_briefs_checklist() {
+        // AC 21: items 1–6 of `planet-art-brief.md`'s checklist, with the
+        // canvas derived from the box the venue actually draws — never
+        // restated here, so a geometry change without new art fails.
+        assert_eq!(PALETTE.chars().count(), 23, "the brief's palette is 23 codepoints");
+
+        // Item 1: exactly the sixteen expected files (read-only, from the
+        // repo — never the data directory), and each is the one embedded,
+        // which pins the `include_str!` pairing. Item 5's UTF-8 half: the
+        // bytes decode (and `include_str!` fails the build otherwise).
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/planets");
+        let found: std::collections::BTreeSet<String> = std::fs::read_dir(&dir)
+            .expect("assets/planets is readable")
+            .map(|entry| entry.expect("a directory entry").file_name().into_string().expect("a UTF-8 name"))
+            .collect();
+        let expected: std::collections::BTreeSet<String> = PLANETS
+            .iter()
+            .flat_map(|p| [format!("{}-narrow.txt", p.id), format!("{}-wide.txt", p.id)])
+            .collect();
+        assert_eq!(found, expected, "assets/planets holds a missing, extra or misnamed file");
+        for planet in PLANETS {
+            for (file, embedded) in [
+                (format!("{}-narrow.txt", planet.id), planet.art_narrow),
+                (format!("{}-wide.txt", planet.id), planet.art_wide),
+            ] {
+                let bytes = std::fs::read(dir.join(&file)).expect("the art file is readable");
+                let text = String::from_utf8(bytes).unwrap_or_else(|e| panic!("{file} is not UTF-8: {e}"));
+                assert_eq!(text, embedded, "{file} is not the drawing embedded for {}", planet.id);
+            }
+        }
+
+        // The two fit sizes choose different drawings, so neither set of
+        // eight can be skipped silently.
+        let layouts = Config::fit_sizes().map(VenueLayout::new);
+        assert_eq!(layouts.map(|l| l.wide_art), [false, true], "the fit sizes' drawings");
+
+        for l in layouts {
+            // The canvas: the art box minus its border.
+            let (w, h) = (l.art.width() - 2, l.art.height() - 2);
+            let kind = if l.wide_art { "wide" } else { "narrow" };
+            let mut distinct = std::collections::HashSet::new();
+            for planet in PLANETS {
+                let file = format!("{}-{kind}.txt", planet.id);
+                let drawing = planet_art(&planet, &l);
+
+                // Item 5's LF half, first: `str::lines` strips a `\r\n`
+                // ending, so a CRLF file would pass items 2 and 3 untouched —
+                // and would fail item 4 on the wrong assertion.
+                assert!(!drawing.contains('\r'), "{file} has a carriage return (CRLF line endings)");
+
+                // Item 2: exactly `h` lines, one trailing newline.
+                assert!(drawing.ends_with('\n'), "{file} does not end with a newline");
+                assert_eq!(drawing.lines().count(), h, "{file}: line count, canvas height {h}");
+
+                // Item 3: every line exactly `w` wide. Characters equal
+                // displayed columns here only because item 4 admits no wide,
+                // zero-width or combining character.
+                for (n, line) in drawing.lines().enumerate() {
+                    assert_eq!(
+                        line.chars().count(),
+                        w,
+                        "{file} line {}: width, canvas width {w}",
+                        n + 1
+                    );
+                }
+
+                // Item 4: only the palette.
+                for (n, line) in drawing.lines().enumerate() {
+                    for c in line.chars() {
+                        assert!(
+                            PALETTE.contains(c),
+                            "{file} line {}: {c:?} (U+{:04X}) is not in the palette",
+                            n + 1,
+                            c as u32
+                        );
+                    }
+                }
+
+                distinct.insert(drawing);
+            }
+            // Item 6: the eight drawings of each kind are pairwise distinct.
+            assert_eq!(distinct.len(), PLANETS.len(), "two {kind} drawings are identical");
+        }
+    }
+
+    #[test]
+    fn every_planets_art_fills_its_box_at_every_size() {
+        // AC 21's "no blank space inside the frame and nothing clipped": at
+        // every size, the drawing the venue picks is exactly the box's
+        // interior. With the layout's every-size test (the box is on-frame),
+        // it can neither leave a blank cell nor be clipped.
+        for config in Config::sizes_from_minimum() {
+            let l = VenueLayout::new(config);
+            let (w, h) = (l.art.width() - 2, l.art.height() - 2);
+            let size = format!("{}x{}", config.num_cols, config.num_rows);
+            for planet in PLANETS {
+                let drawing = planet_art(&planet, &l);
+                assert_eq!(drawing.lines().count(), h, "{}'s drawing height at {size}", planet.id);
+                assert!(
+                    drawing.lines().all(|line| line.chars().count() == w),
+                    "{}'s drawing is not {w} wide at {size}",
+                    planet.id
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_venue_draws_the_planets_art_inside_its_box() {
+        // The one claim the data tests cannot make: `draw` puts the drawing
+        // where the box is. The breathing test's no-`App` pattern.
+        for config in Config::fit_sizes() {
+            let l = VenueLayout::new(config);
+            for planet in PLANETS {
+                let mut profile = Profile::default();
+                profile.campaign_mut().begin_series(planet.id, planet.opponents[0]);
+                let mut frame = new_frame(&config);
+                VenueState::new().draw(&mut frame, &config, &profile, Emphasis::Strong);
+
+                let lines: Vec<&str> = planet_art(&planet, &l).lines().collect();
+                for (i, y) in (l.art.y0 + 1..=l.art.y1 - 1).enumerate() {
+                    let drawn: String = (l.art.x0 + 1..=l.art.x1 - 1).map(|x| frame[x][y].ch).collect();
+                    assert_eq!(
+                        Some(drawn.as_str()),
+                        lines.get(i).copied(),
+                        "{}'s art row {i} at {}x{}",
+                        planet.id,
+                        config.num_cols,
+                        config.num_rows
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn a_planet_without_art_shows_its_name() {
+        // R9's fallback, which production never reaches (every planet has
+        // art or the build fails): an empty drawing keeps the name on the
+        // box's middle row; a real drawing leaves the name off it.
+        let config = Config::fit_sizes()[0];
+        let l = VenueLayout::new(config);
+        let middle = (l.art.y0 + l.art.y1) / 2;
+        let planet = PLANETS[0];
+
+        let mut frame = new_frame(&config);
+        draw_art(&mut frame, l.art, "", planet.name);
+        assert!(row_text(&frame, middle).contains(planet.name), "the fallback names the planet");
+
+        let mut frame = new_frame(&config);
+        draw_art(&mut frame, l.art, planet_art(&planet, &l), planet.name);
+        assert!(!row_text(&frame, middle).contains(planet.name), "a drawing replaces the name");
     }
 
     #[test]

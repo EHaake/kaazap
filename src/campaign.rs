@@ -33,6 +33,13 @@ pub struct Planet {
     /// Planet ids that must all be cleared for this planet to unlock (empty =
     /// a start node, unlocked from the beginning).
     pub requires: &'static [&'static str],
+    /// The venue's art for this planet (spec 029, ruling R9), authored to
+    /// `specs/029-tournament-rounds/planet-art-brief.md`: the narrow drawing,
+    /// shown below `WIDE_LAYOUT_MIN_WIDTH` columns, and the wide one, from it
+    /// up. Each is exactly the venue's art box interior — AC 21's test checks
+    /// that against `VenueLayout`, not against the brief.
+    pub art_narrow: &'static str,
+    pub art_wide: &'static str,
 }
 
 /// The planet a fresh run begins on (the only one unlocked at the start).
@@ -58,6 +65,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.50,
         opponents: &["greeb"],
         requires: &[],
+        art_narrow: include_str!("../assets/planets/cinder-narrow.txt"),
+        art_wide: include_str!("../assets/planets/cinder-wide.txt"),
     },
     // Lane A: Scree → Karrus (the upper fork off Cinder).
     Planet {
@@ -69,6 +78,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.28,
         opponents: &["dax"],
         requires: &["cinder"],
+        art_narrow: include_str!("../assets/planets/scree-narrow.txt"),
+        art_wide: include_str!("../assets/planets/scree-wide.txt"),
     },
     // Lane B: Ashfall → Drift (the lower fork off Cinder).
     Planet {
@@ -80,6 +91,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.72,
         opponents: &["vessa"],
         requires: &["cinder"],
+        art_narrow: include_str!("../assets/planets/ashfall-narrow.txt"),
+        art_wide: include_str!("../assets/planets/ashfall-wide.txt"),
     },
     Planet {
         id: "karrus",
@@ -90,6 +103,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.36,
         opponents: &["nima"],
         requires: &["scree"],
+        art_narrow: include_str!("../assets/planets/karrus-narrow.txt"),
+        art_wide: include_str!("../assets/planets/karrus-wide.txt"),
     },
     Planet {
         id: "drift",
@@ -100,6 +115,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.64,
         opponents: &["toran"],
         requires: &["ashfall"],
+        art_narrow: include_str!("../assets/planets/drift-narrow.txt"),
+        art_wide: include_str!("../assets/planets/drift-wide.txt"),
     },
     // The rejoin: both lanes must be cleared to reach The Anvil.
     Planet {
@@ -111,6 +128,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.50,
         opponents: &["brakka", "kesh"],
         requires: &["karrus", "drift"],
+        art_narrow: include_str!("../assets/planets/the-anvil-narrow.txt"),
+        art_wide: include_str!("../assets/planets/the-anvil-wide.txt"),
     },
     Planet {
         id: "the-spindle",
@@ -121,6 +140,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.32,
         opponents: &["rix", "magistrate"],
         requires: &["the-anvil"],
+        art_narrow: include_str!("../assets/planets/the-spindle-narrow.txt"),
+        art_wide: include_str!("../assets/planets/the-spindle-wide.txt"),
     },
     Planet {
         id: "zenith",
@@ -131,6 +152,8 @@ pub const PLANETS: [Planet; 8] = [
         fy: 0.66,
         opponents: &["sovereign"],
         requires: &["the-spindle"],
+        art_narrow: include_str!("../assets/planets/zenith-narrow.txt"),
+        art_wide: include_str!("../assets/planets/zenith-wide.txt"),
     },
 ];
 

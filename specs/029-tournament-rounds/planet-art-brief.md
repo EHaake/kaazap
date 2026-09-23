@@ -283,7 +283,7 @@ readable figure, or anyone seated at the table, no.
 For context, so the format lands where it is going. The portraits' mechanism is
 the model: authored text under `assets/`, `include_str!`-embedded into a
 `&'static str` field on the profile struct (`OpponentProfile.portrait`), drawn
-line-by-line by a clip-safe drawer. Planet art hangs off a field on `Planet` in
+line-by-line by a clip-safe drawer. Planet art hangs off two fields on `Planet` in
 `src/campaign.rs`, and spec 029 wires it up itself (ruling R9) — this brief
 still specifies only the *artifact*, not the plumbing.
 
