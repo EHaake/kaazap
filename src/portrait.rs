@@ -72,10 +72,8 @@ pub fn draw_presence_extras(
 ) {
     let interior = Rect::new(panel.x0 + 1, panel.x1 - 1, panel.y0 + 1, panel.y1 - 1);
 
-    // Banter on interior row 14, centered — draw_text_in clips to the interior
-    // width so an over-long line can never overrun the border.
     if let Some(line) = banter {
-        draw_text_in(frame, interior, 14, Align::Center, line, Emphasis::Normal);
+        draw_banter_line(frame, panel, line);
     }
 
     // Pips on interior row 15: `filled` filled glyphs then the rest empty, drawn
@@ -101,6 +99,17 @@ pub fn draw_presence_extras(
     if let Some(stake) = stake {
         draw_text_in(frame, interior, 17, Align::Center, &stake_line(stake), Emphasis::Strong);
     }
+}
+
+/// The opponent's line on a presence panel's interior row 14, centred and
+/// clipped to the interior — the board's extras (spec 017) and the venue
+/// (spec 030). A revealed line is the finished line's length, so each word
+/// lands where the finished line has it.
+pub fn draw_banter_line(frame: &mut Frame, panel: Rect, line: &str) {
+    let interior = Rect::new(panel.x0 + 1, panel.x1 - 1, panel.y0 + 1, panel.y1 - 1);
+    // draw_text_in clips to the interior width so an over-long line can never
+    // overrun the border.
+    draw_text_in(frame, interior, 14, Align::Center, line, Emphasis::Normal);
 }
 
 /// The escrowed stake as the panel shows it — `Stake ◈ N`. One string for the

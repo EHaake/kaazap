@@ -372,11 +372,13 @@ impl BriefcaseLayout {
     }
 }
 
-/// Height of the opponent's presence panel at the venue — border + name row +
-/// portrait, the same 15 rows `opponent_select`'s preview and the map's rail
-/// use. The art box beside it is *not* this height: it is the planet drawing's
-/// 20 rows plus its border, 22 (spec 029, ruling R9).
-pub const VENUE_PANEL_H: usize = 2 + 1 + PORTRAIT_HEIGHT;
+/// Height of the opponent's presence panel at the venue — border, name row,
+/// portrait, a gap row, the opponent's line row (the board panel's interior
+/// row 14, spec 030), border: 17 rows, two taller than `opponent_select`'s
+/// preview and the map's rail at 15. Still shorter than the art box beside it,
+/// which is the planet drawing's 20 rows plus its border, 22 (spec 029, ruling
+/// R9).
+pub const VENUE_PANEL_H: usize = 2 + 1 + PORTRAIT_HEIGHT + 2;
 
 /// The venue's geometry (spec 029, amended 2026-09-21, twice, and by ruling R9):
 /// three horizontal bands at **every** width, not a text block with a right
@@ -887,9 +889,9 @@ mod tests {
 
             // The table's numbers, pinned.
             let (art, portrait) = if cols < WIDE_LAYOUT_MIN_WIDTH {
-                (Rect::new(7, 56, 5, 26), Rect::new(60, 81, 5, 19))
+                (Rect::new(7, 56, 5, 26), Rect::new(60, 81, 5, 21))
             } else {
-                (Rect::new(10, 103, 5, 26), Rect::new(107, 128, 5, 19))
+                (Rect::new(10, 103, 5, 26), Rect::new(107, 128, 5, 21))
             };
             assert_eq!((l.art.x0, l.art.x1, l.art.y0, l.art.y1), (art.x0, art.x1, art.y0, art.y1), "art Rect at {cols}×{rows}");
             assert_eq!(
@@ -905,7 +907,7 @@ mod tests {
         // AC 16's amended sentence: the art is the largest element on the
         // screen at both widths, and strictly larger at 139 columns than at
         // 89 (1100 cells at 89 columns, 2068 at 139, against the panel's
-        // 330 either way). And amendment R4's brief, as a band rather than as
+        // 374 either way). And amendment R4's brief, as a band rather than as
         // two numbers that happen to satisfy it today: both are 15–20 % smaller
         // than R3's first attempt (1334 and 2484) — 17.5 % and 16.8 %.
         let mut art_areas = Vec::new();
@@ -999,10 +1001,10 @@ mod tests {
         // the relations alone would let a uniform slip through. Each row:
         // (cols, rows), art, portrait, header_y, action_y, hint_y, text_x.
         let table = [
-            ((138, 31), Rect::new(31, 80, 5, 26), Rect::new(84, 105, 5, 19), 0, 28, 30, 55),
-            ((120, 40), Rect::new(22, 71, 9, 30), Rect::new(75, 96, 9, 23), 4, 32, 34, 46),
-            ((160, 33), Rect::new(20, 113, 6, 27), Rect::new(117, 138, 6, 20), 1, 29, 31, 66),
-            ((200, 60), Rect::new(40, 133, 19, 40), Rect::new(137, 158, 19, 33), 14, 42, 44, 86),
+            ((138, 31), Rect::new(31, 80, 5, 26), Rect::new(84, 105, 5, 21), 0, 28, 30, 55),
+            ((120, 40), Rect::new(22, 71, 9, 30), Rect::new(75, 96, 9, 25), 4, 32, 34, 46),
+            ((160, 33), Rect::new(20, 113, 6, 27), Rect::new(117, 138, 6, 22), 1, 29, 31, 66),
+            ((200, 60), Rect::new(40, 133, 19, 40), Rect::new(137, 158, 19, 35), 14, 42, 44, 86),
         ];
         for ((cols, rows), art, portrait, header_y, action_y, hint_y, text_x) in table {
             let l = VenueLayout::new(cfg(cols, rows));

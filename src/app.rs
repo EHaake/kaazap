@@ -2079,7 +2079,7 @@ impl App {
                 state.draw(frame, &self.config, &self.profile, self.banner.as_ref(), pulse)
             }
             Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
-            Screen::Venue { state } => state.draw(frame, &self.config, &self.profile, pulse),
+            Screen::Venue { state } => state.draw(frame, &self.config, &self.profile, None, pulse),
         }
 
         // The one open modal draws over the screen.

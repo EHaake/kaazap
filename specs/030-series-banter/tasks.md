@@ -429,7 +429,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
 
 ## Phase 3 — The opponent at the venue (walkthrough: start a series from the map — at the venue the opponent says a line in the portrait panel, word by word, with the murmur; open the Card Shop or the collection and come back — the same line, whole and silent; Play and commit a stake — the match opens on a different line; after a match that doesn't decide the series, the venue has a new line for the new score; quit to the menu and come back in — a fresh line; quit the game mid-series, relaunch, and Start Campaign — a fresh line. At both 89 and 139 columns, plus, at 89, whether the run-over notice covers the opponent's panel)
 
-- [ ] **T007** — `src/portrait.rs` + `src/layout.rs` + `src/venue.rs` +
+- [x] **T007** — `src/portrait.rs` + `src/layout.rs` + `src/venue.rs` +
   `src/app.rs` (one argument): room for the venue line. Per plan §Design 7–9
   and §Design tension 10. `portrait.rs`: `pub fn draw_banter_line(frame, panel,
   line)` with the plan's doc; `draw_presence_extras` calls it in place of its
@@ -738,3 +738,4 @@ redo, and why). -->
 | T006 (sdd-implementer) | opus → claude-opus-5-5 | ~45K | 1 | yes | — | done; 518 lib tests, 0 warnings; all greps as specified; `say` waits kept (ZERO / EVENT_BEAT_MS) |
 | Phase 2 driven walkthrough (orchestrator) | claude-opus-5-5 (session) | — | — | — | — | pass on a scratch data dir at 139×31: Opening greeting; Leading, Trailing, Decider openers vs Greeb; series won (opponent) and series lost (player) end lines, final score held on the game-over frame (0–2, 1–2, 2–0), map banner unchanged with no score; cleared-planet rematch and Quick Play (re-driven after T006) show today's lines; The Sovereign All square at 1–1 and Decider at 2–2 |
 | Phase 2 review (skeptical-reviewer) | opus → claude-opus-5-5 | ~86K | 1 | — | 0 | **pass**; notes carried to the close-out notes |
+| T007 (sdd-implementer) | opus → claude-opus-5-5 | ~54K | 1 | yes | — | done; 519 lib tests, 0 warnings; VENUE_PANEL_H 17; six pinned venue portrait Rects +2 on y1, area comment 330→374, two venue draw calls gain `None` — all inside the sanctioned class |
