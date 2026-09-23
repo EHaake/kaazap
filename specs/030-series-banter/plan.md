@@ -921,7 +921,7 @@ module doc each gain a clause about the opponent's line.
       #[serde(default = "default_voices_volume")]
       pub voices_volume: f32,
   ```
-  `fn default_voices_volume() -> f32 { 0.8 }` beside its siblings, and
+  `fn default_voices_volume() -> f32 { 0.5 }` (T002c: was `0.8`; the person set 50% by ear at the re-listen), beside its siblings, and
   `Default` sets it, listed in the same order as the struct. The struct doc's
   "Volumes are 0.0–1.0" already covers it. If any existing test compares
   serialized settings text word for word, the field order moves that
