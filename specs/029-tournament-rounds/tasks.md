@@ -1532,6 +1532,17 @@ the person an empty box they are about to see filled. -->
   and dispatches the per-task review on T012's diff alone. Then the phase waits
   for the art (see the comment above).*
 
+> **Orchestrator miss, 2026-09-22.** The sixteen art files were committed
+> **before** T013, and by accident: the art session wrote them into
+> `assets/planets/` while the orchestrator was committing the Phase 6 plan with
+> `git add -A`, which swept them into `7445c68` ("plan Phase 6") unvalidated and
+> unmentioned in its message. The working tree matches that commit, so what is
+> committed is the art session's final output. History is not rewritten (never
+> force-push). T013 therefore **validates the files already committed** instead
+> of committing them; a failing delivery is still bounced to the art session and
+> its fix lands as a new commit. From here on the orchestrator stages explicit
+> paths, never `git add -A`.
+
 - [ ] **T013** — `assets/planets/` (sixteen delivered files): **the delivery
   checkpoint — starts only when the art session's files are in
   `assets/planets/`.** Validate them against `planet-art-brief.md`'s checklist,
