@@ -438,10 +438,10 @@ once." Rejected: a second method (`say_after_beat`), which would duplicate
 older file, with the key absent, loads with Voices at its default and keeps
 every other value. Without the serde default, `from_json_or_default` would fail
 the whole parse and silently reset **all** of that file's settings, which a
-test rules out. **The default is 0.8, equal to Sound FX's default.** At the
+test rules out. **The default is 0.5** (T002c: the person set it by ear at the re-listen; it was 0.8, equal to Sound FX's default). At the
 default settings the burble then sits at the other effects' scale, which is
 what 9A asks, and T002b's band test compares the two at those defaults. A
-player who had lowered Sound FX before this spec gets Voices at 0.8. That is
+player who had lowered Sound FX before this spec gets Voices at 0.5. That is
 the spec's "loads with Voices at its default", taken literally.
 
 `audio.rs` routes by the effect, in one pure function:

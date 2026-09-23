@@ -26,10 +26,10 @@ pub struct Settings {
     #[serde(default = "default_animations")]
     pub animations: bool,
     /// Spec 030 (ruling 10A): the opponent's spoken-word burble, and no
-    /// other sound. A file without the key reads as the default, equal to
-    /// Sound FX's. Declared last on purpose: serde also accepts a struct
-    /// as a positional JSON array, and the malformed-JSON test's `[1,2,3]`
-    /// must keep failing on the `animations` bool.
+    /// other sound. A file without the key reads as the default, 50% (T002c,
+    /// set by the person's ear). Declared last on purpose: serde also
+    /// accepts a struct as a positional JSON array, and the malformed-JSON
+    /// test's `[1,2,3]` must keep failing on the `animations` bool.
     #[serde(default = "default_voices_volume")]
     pub voices_volume: f32,
 }
@@ -41,7 +41,7 @@ fn default_sfx_volume() -> f32 {
     0.8
 }
 fn default_voices_volume() -> f32 {
-    0.8
+    0.5 // well mixed with the other sounds, by the person's ear (T002c)
 }
 fn default_animations() -> bool {
     true
@@ -434,9 +434,9 @@ mod tests {
 
     #[test]
     fn the_voices_volume_defaults_loads_and_persists() {
-        // Spec 030 (ruling 10A, AC 17): the default equals Sound FX's.
+        // Spec 030 (ruling 10A, AC 17; T002c): the default is 50%.
         assert_eq!(Settings::default().voices_volume, default_voices_volume());
-        assert_eq!(default_voices_volume(), default_sfx_volume());
+        assert_eq!(default_voices_volume(), 0.5);
         // A file without the key loads Voices at its default and keeps every
         // other value as written, so an older file is not reset.
         assert_eq!(Settings::from_json_or_default("{}").voices_volume, default_voices_volume());
