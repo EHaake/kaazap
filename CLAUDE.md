@@ -244,7 +244,7 @@ every agent definition defaults to the implementation tier except
 | Role | Dispatched as | Model | Effort |
 |---|---|---|---|
 | Spec conversation | the spec session itself | session tier | high (raised per session) |
-| Plan and tasks draft | `sdd-planner` | **top tier** (no override) | high |
+| Plan and tasks draft | `sdd-planner` | implementation tier (no override) | high |
 | Plan and tasks sign-off | `skeptical-reviewer` | **top tier** (no override) | high |
 | Decision review | `skeptical-reviewer` | **top tier** (no override) | high |
 | Task implementation | `sdd-implementer` | implementation tier | high |
@@ -262,7 +262,13 @@ reinstall. Under the Opus profile — where this project is now — the
 top tier *is* the implementation tier, so every override column reads
 "no override" and the close-out row reads `sdd-implementer` at high;
 moving back to the Fable profile re-points those cells and nothing else
-in the table changes.
+in the table changes. The plan-and-tasks draft row reads
+"implementation tier (no override)" under both profiles: the planner
+moved down as a **trial**, adopted here 2026-09-24 from the skill's
+revision of the same date and starting with spec 031 — the sign-off
+stays at the top tier and checks the draft. The trial's tier logs
+record what the planner cost and what the sign-off found; the row
+moves back up only if the person says so.
 
 **A change the person asks for gets written here before it is acted
 on.** If they say to move a role — for one window, for this project,
@@ -332,12 +338,13 @@ infer the end of a temporary change and revert it unasked.
   being ambiguous goes back to the person as a product question. The
   session never diagnoses in place.
 - **The top tier runs only where the role table says it does**: by
-  default the `sdd-planner` (one dispatch per spec), the
-  `skeptical-reviewer` on plan/tasks sign-off and on decision reviews,
-  and the close-out dispatch. The first three carry an explicit
-  per-call override to the top tier's name; drop the override and the
-  definition's own implementation tier applies, which is exactly what
-  stepping one of those rows down means. The agent definitions carry
+  default the `skeptical-reviewer` on plan/tasks sign-off and on
+  decision reviews, and the close-out dispatch (the `sdd-planner` sat
+  here too until the 2026-09-24 trial moved it down). Under the Fable
+  profile the first two carry an explicit per-call override to the
+  top tier's name; drop the override and the definition's own
+  implementation tier applies, which is exactly what stepping one of
+  those rows down means. The agent definitions carry
   `effort: high`, which overrides the session's medium, so reasoning
   stays at full strength where it matters.
 - **Spec conversations happen in a Claude Code spec session of their
@@ -490,7 +497,10 @@ infer the end of a temporary change and revert it unasked.
   profiles renamed Fable/Opus, the Opus model is `claude-opus-5-5`
   everywhere (`.claude/settings.json` rewritten from
   `settings.opus.json`), the close-out bundle rule and the
-  device-or-browser-pass guidance adopted above.
+  device-or-browser-pass guidance adopted above. **Same day, the
+  plan-and-tasks draft row moved to the implementation tier (no
+  override) as a trial, starting with spec 031** — the first spec whose
+  tier log opens with it; the sign-off stays at the top tier.
 
 ## Spec-driven workflow
 
