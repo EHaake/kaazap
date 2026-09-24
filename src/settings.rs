@@ -20,10 +20,18 @@ pub struct Settings {
     pub music_volume: f32,
     #[serde(default = "default_sfx_volume")]
     pub sfx_volume: f32,
-    /// Spec 027: the board's one-shot transitions. Off draws the board settled.
+    /// Spec 027: the board's one-shot transitions and the opponent's spoken
+    /// lines (spec 030). Off draws the board settled and each line whole.
     /// A file without the key reads as On.
     #[serde(default = "default_animations")]
     pub animations: bool,
+    /// Spec 030 (ruling 10A): the opponent's spoken-word burble, and no
+    /// other sound. A file without the key reads as the default, 50% (T002c,
+    /// set by the person's ear). Declared last on purpose: serde also
+    /// accepts a struct as a positional JSON array, and the malformed-JSON
+    /// test's `[1,2,3]` must keep failing on the `animations` bool.
+    #[serde(default = "default_voices_volume")]
+    pub voices_volume: f32,
 }
 
 fn default_music_volume() -> f32 {
@@ -31,6 +39,9 @@ fn default_music_volume() -> f32 {
 }
 fn default_sfx_volume() -> f32 {
     0.8
+}
+fn default_voices_volume() -> f32 {
+    0.5 // well mixed with the other sounds, by the person's ear (T002c)
 }
 fn default_animations() -> bool {
     true
@@ -45,6 +56,7 @@ impl Default for Settings {
             music_volume: default_music_volume(),
             sfx_volume: default_sfx_volume(),
             animations: default_animations(),
+            voices_volume: default_voices_volume(),
         }
     }
 }
@@ -96,22 +108,27 @@ impl Settings {
             SettingRow::Sfx => {
                 self.sfx_volume = (self.sfx_volume + delta).clamp(0.0, 1.0);
             }
+            SettingRow::Voices => {
+                self.voices_volume = (self.voices_volume + delta).clamp(0.0, 1.0);
+            }
             SettingRow::Animations => self.animations = !self.animations,
         }
     }
 }
 
-/// A row on the settings screen: the two volumes (spec 004) and the board's
-/// Animations toggle (spec 027).
+/// A row on the settings screen: the three volumes (spec 004; Voices, spec
+/// 030) and the board's Animations toggle (spec 027).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingRow {
     Music,
     Sfx,
+    Voices,
     Animations,
 }
 
 /// Top to bottom, as drawn.
-const ROWS: [SettingRow; 3] = [SettingRow::Music, SettingRow::Sfx, SettingRow::Animations];
+const ROWS: [SettingRow; 4] =
+    [SettingRow::Music, SettingRow::Sfx, SettingRow::Voices, SettingRow::Animations];
 
 /// What a key does on the settings screen — resolved by `App` (which owns
 /// the `Settings` and the `Audio`), since the row values live there.
@@ -169,7 +186,7 @@ impl SettingsState {
     }
 
     /// Draw the settings panel as a bordered overlay over the menu: a
-    /// centered title, the two volume rows (each a labelled bar +
+    /// centered title, the three volume rows (each a labelled bar +
     /// percentage) and the Animations row (`On`/`Off`) — the selected one
     /// carries the `▸` marker and breathes with the pulse — and a controls
     /// hint. Sized and boxed like How to Play, so the two menu panels read
@@ -187,15 +204,15 @@ impl SettingsState {
         let title = "Settings";
         let hint = "↑/↓ select  ·  ←/→ change  ·  Esc back";
 
-        // Box sized to the widest line; a fixed 7-row content column:
-        // title, gap, the three rows, gap, hint.
+        // Box sized to the widest line; a fixed 8-row content column:
+        // title, gap, the four rows, gap, hint.
         let content_width = row_texts
             .iter()
             .map(|s| s.chars().count())
             .chain([title.chars().count(), hint.chars().count()])
             .max()
             .unwrap_or(0);
-        let layout = OverlayLayout::new(*config, content_width, 7);
+        let layout = OverlayLayout::new(*config, content_width, 8);
 
         clear_rect(frame, layout.outer);
         draw_box(frame, layout.outer, BorderWeight::Single, Emphasis::Normal);
@@ -207,12 +224,12 @@ impl SettingsState {
             let emphasis = if self.selected == *row { pulse } else { Emphasis::Normal };
             draw_text_in(frame, layout.inner, 2 + i, Align::Center, &row_texts[i], emphasis);
         }
-        draw_text_in(frame, layout.inner, 6, Align::Center, hint, Emphasis::Muted);
+        draw_text_in(frame, layout.inner, 7, Align::Center, hint, Emphasis::Muted);
     }
 
     /// One row's text: "▸ " on the selected row, two spaces otherwise, and
     /// every row padded to the volume rows' width, so the centered rows
-    /// share the marker and label columns. The two volume rows also share
+    /// share the marker and label columns. The three volume rows also share
     /// the bar/percent columns; the Animations label is one character wider
     /// than the volume label column, so its value sits one space after it.
     fn row_text(&self, row: SettingRow, settings: Settings) -> String {
@@ -220,6 +237,7 @@ impl SettingsState {
         match row {
             SettingRow::Music => volume_row(marker, "Music", settings.music_volume),
             SettingRow::Sfx => volume_row(marker, "Sound FX", settings.sfx_volume),
+            SettingRow::Voices => volume_row(marker, "Voices", settings.voices_volume),
             SettingRow::Animations => {
                 let value = if settings.animations { "On" } else { "Off" };
                 // Padded to the volume rows' width (marker 2 + label 9 +
@@ -264,9 +282,9 @@ mod tests {
     fn settings_json_round_trips() {
         // Exact-in-f32 levels so the JSON round-trip compares equal.
         for s in [
-            Settings { music_volume: 0.0, sfx_volume: 1.0, animations: true },
-            Settings { music_volume: 0.5, sfx_volume: 0.5, animations: false },
-            Settings { music_volume: 1.0, sfx_volume: 0.0, animations: true },
+            Settings { music_volume: 0.0, sfx_volume: 1.0, voices_volume: 0.0, animations: true },
+            Settings { music_volume: 0.5, sfx_volume: 0.5, voices_volume: 0.5, animations: false },
+            Settings { music_volume: 1.0, sfx_volume: 0.0, voices_volume: 1.0, animations: true },
         ] {
             let json = serde_json::to_string(&s).unwrap();
             assert_eq!(Settings::from_json_or_default(&json), s);
@@ -287,7 +305,12 @@ mod tests {
         assert_eq!(Settings::from_json_or_default("{}"), Settings::default());
         assert_eq!(
             Settings::from_json_or_default(r#"{"music_volume": 0.0}"#),
-            Settings { music_volume: 0.0, sfx_volume: default_sfx_volume(), animations: true }
+            Settings {
+                music_volume: 0.0,
+                sfx_volume: default_sfx_volume(),
+                voices_volume: default_voices_volume(),
+                animations: true
+            }
         );
         // Legacy {"music","sfx"} bools are unknown now → ignored, defaults.
         assert_eq!(
@@ -333,7 +356,8 @@ mod tests {
         s.adjust(SettingRow::Animations, false);
         assert!(s.animations, "← toggles back On");
 
-        let mut s = Settings { music_volume: 0.5, sfx_volume: 0.5, animations: true };
+        let mut s =
+            Settings { music_volume: 0.5, sfx_volume: 0.5, voices_volume: 0.5, animations: true };
         s.adjust(SettingRow::Music, true);
         assert!((s.music_volume - 0.6).abs() < 1e-6);
         s.adjust(SettingRow::Sfx, false);
@@ -349,15 +373,19 @@ mod tests {
     }
 
     #[test]
-    fn settings_rows_move_over_three_rows_and_clamp() {
+    fn settings_rows_move_over_four_rows_and_clamp() {
         let mut s = SettingsState::default();
         assert_eq!(s.selected(), SettingRow::Music);
         s.move_down();
         assert_eq!(s.selected(), SettingRow::Sfx);
         s.move_down();
+        assert_eq!(s.selected(), SettingRow::Voices);
+        s.move_down();
         assert_eq!(s.selected(), SettingRow::Animations);
         s.move_down();
         assert_eq!(s.selected(), SettingRow::Animations, "clamped at the bottom");
+        s.move_up();
+        assert_eq!(s.selected(), SettingRow::Voices);
         s.move_up();
         assert_eq!(s.selected(), SettingRow::Sfx);
         s.move_up();
@@ -396,11 +424,96 @@ mod tests {
                 assert_eq!(col(&row, word), label_col + "Animations ".chars().count(), "{cols}: value column");
                 // The box is inside the frame: its corners are drawn.
                 let content_width = "↑/↓ select  ·  ←/→ change  ·  Esc back".chars().count();
-                let layout = OverlayLayout::new(config, content_width, 7);
+                let layout = OverlayLayout::new(config, content_width, 8);
                 assert!(layout.outer.x1 < cols && layout.outer.y1 < 31);
                 assert_eq!(frame[layout.outer.x0][layout.outer.y0].ch, '┌');
                 assert_eq!(frame[layout.outer.x1][layout.outer.y1].ch, '┘');
             }
+        }
+    }
+
+    #[test]
+    fn the_voices_volume_defaults_loads_and_persists() {
+        // Spec 030 (ruling 10A, AC 17; T002c): the default is 50%.
+        assert_eq!(Settings::default().voices_volume, default_voices_volume());
+        assert_eq!(default_voices_volume(), 0.5);
+        // A file without the key loads Voices at its default and keeps every
+        // other value as written, so an older file is not reset.
+        assert_eq!(Settings::from_json_or_default("{}").voices_volume, default_voices_volume());
+        let old = r#"{"music_volume":0.3,"sfx_volume":0.4,"animations":false}"#;
+        assert_eq!(
+            Settings::from_json_or_default(old),
+            Settings {
+                music_volume: 0.3,
+                sfx_volume: 0.4,
+                voices_volume: default_voices_volume(),
+                animations: false
+            }
+        );
+        assert_eq!(Settings::from_json_or_default(r#"{"voices_volume":0.2}"#).voices_volume, 0.2);
+        let s = Settings { voices_volume: 0.25, ..Settings::default() };
+        let json = serde_json::to_string(&s).unwrap();
+        assert_eq!(Settings::from_json_or_default(&json), s);
+    }
+
+    #[test]
+    fn adjust_steps_and_clamps_the_voices_volume() {
+        let mut s = Settings {
+            music_volume: 0.5,
+            sfx_volume: 0.5,
+            voices_volume: 0.5,
+            animations: true,
+        };
+        s.adjust(SettingRow::Voices, true);
+        assert!((s.voices_volume - 0.6).abs() < 1e-6, "→ steps up");
+        s.adjust(SettingRow::Voices, false);
+        s.adjust(SettingRow::Voices, false);
+        assert!((s.voices_volume - 0.4).abs() < 1e-6, "← steps down");
+        for _ in 0..20 {
+            s.adjust(SettingRow::Voices, true);
+        }
+        assert_eq!(s.voices_volume, 1.0, "clamped at 1");
+        for _ in 0..20 {
+            s.adjust(SettingRow::Voices, false);
+        }
+        assert_eq!(s.voices_volume, 0.0, "clamped at 0");
+        assert_eq!(s.music_volume, 0.5, "Music untouched");
+        assert_eq!(s.sfx_volume, 0.5, "Sound FX untouched");
+        assert!(s.animations, "Animations untouched");
+    }
+
+    #[test]
+    fn the_voices_row_sits_between_sound_fx_and_animations() {
+        fn row_text(frame: &Frame, y: usize) -> String {
+            frame.iter().map(|col| col[y].ch).collect()
+        }
+        for cols in [89, 139] {
+            let config = Config { num_cols: cols, num_rows: 31 };
+            let settings = Settings { voices_volume: 0.7, ..Settings::default() };
+            let state = SettingsState::default();
+            let mut frame = crate::frame::new_frame(&config);
+            state.draw_overlay(&mut frame, &config, settings, Emphasis::Normal);
+            let rows: Vec<String> = (0..31).map(|y| row_text(&frame, y)).collect();
+            let find = |s: &str| {
+                rows.iter().position(|r| r.contains(s)).unwrap_or_else(|| panic!("a {s} row at {cols}"))
+            };
+            let (sfx, voices, animations) = (find("Sound FX"), find("Voices"), find("Animations"));
+            assert_eq!(voices, sfx + 1, "{cols}: Voices directly below Sound FX");
+            assert_eq!(animations, voices + 1, "{cols}: Animations directly below Voices");
+            // Its label in the Music row's label column, then a bar and a
+            // percentage, like the other volumes.
+            let col = |r: &str, s: &str| r[..r.find(s).unwrap()].chars().count();
+            let music = &rows[find("Music")];
+            let row = &rows[voices];
+            assert_eq!(col(row, "Voices"), col(music, "Music"), "{cols}: label columns");
+            assert!(row.contains("[███████░░░]"), "{cols}: a bar in {row:?}");
+            assert!(row.contains(" 70%"), "{cols}: a percentage in {row:?}");
+            // The box is inside the frame: its corners are drawn.
+            let content_width = "↑/↓ select  ·  ←/→ change  ·  Esc back".chars().count();
+            let layout = OverlayLayout::new(config, content_width, 8);
+            assert!(layout.outer.x1 < cols && layout.outer.y1 < 31);
+            assert_eq!(frame[layout.outer.x0][layout.outer.y0].ch, '┌');
+            assert_eq!(frame[layout.outer.x1][layout.outer.y1].ch, '┘');
         }
     }
 }

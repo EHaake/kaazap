@@ -72,10 +72,8 @@ pub fn draw_presence_extras(
 ) {
     let interior = Rect::new(panel.x0 + 1, panel.x1 - 1, panel.y0 + 1, panel.y1 - 1);
 
-    // Banter on interior row 14, centered — draw_text_in clips to the interior
-    // width so an over-long line can never overrun the border.
     if let Some(line) = banter {
-        draw_text_in(frame, interior, 14, Align::Center, line, Emphasis::Normal);
+        draw_banter_line(frame, panel, line);
     }
 
     // Pips on interior row 15: `filled` filled glyphs then the rest empty, drawn
@@ -101,6 +99,17 @@ pub fn draw_presence_extras(
     if let Some(stake) = stake {
         draw_text_in(frame, interior, 17, Align::Center, &stake_line(stake), Emphasis::Strong);
     }
+}
+
+/// The opponent's line on a presence panel's interior row 14, centred and
+/// clipped to the interior — the board's extras (spec 017) and the venue
+/// (spec 030). A revealed line is the finished line's length, so each word
+/// lands where the finished line has it.
+pub fn draw_banter_line(frame: &mut Frame, panel: Rect, line: &str) {
+    let interior = Rect::new(panel.x0 + 1, panel.x1 - 1, panel.y0 + 1, panel.y1 - 1);
+    // draw_text_in clips to the interior width so an over-long line can never
+    // overrun the border.
+    draw_text_in(frame, interior, 14, Align::Center, line, Emphasis::Normal);
 }
 
 /// The escrowed stake as the panel shows it — `Stake ◈ N`. One string for the
@@ -289,5 +298,30 @@ mod tests {
         draw_presence_extras(&mut f, panel, Some(&long), 0, None);
         assert_ne!(f[left_border][banter_y].ch, 'y', "left border untouched");
         assert_ne!(f[right_border][banter_y].ch, 'y', "right border untouched");
+    }
+
+    #[test]
+    fn a_revealed_line_draws_each_word_where_the_finished_line_has_it() {
+        use crate::banter::{revealed, word_count};
+        let banter_y = 15; // interior.y0 (1) + 14
+        let line = "Here goes nothing!";
+
+        let (mut whole, panel) = inmatch_panel();
+        draw_presence_extras(&mut whole, panel, Some(line), 0, None);
+
+        for n in 0..=word_count(line) {
+            let (mut f, panel) = inmatch_panel();
+            draw_presence_extras(&mut f, panel, Some(&revealed(line, n)), 0, None);
+            let mut drawn = 0;
+            for x in 0..PANEL_W {
+                let ch = f[x][banter_y].ch;
+                if ch != ' ' && ch != '\0' {
+                    drawn += 1;
+                    assert_eq!(ch, whole[x][banter_y].ch, "{n} words: col {x} is not where the finished line has it");
+                }
+            }
+            let expected: usize = line.split(' ').take(n).map(|w| w.chars().count()).sum();
+            assert_eq!(drawn, expected, "{n} words: every shown character is drawn");
+        }
     }
 }

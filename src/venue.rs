@@ -12,8 +12,10 @@
 //! and draws through [`VenueLayout`], which stacks it as three horizontal bands
 //! at every width: the header rows, then the planet art region with the
 //! opponent's presence panel in its own column beside it, then the action row
-//! and the controls hint (spec 029, amendment R3, superseding ruling N1).
-//! See `specs/029-tournament-rounds`.
+//! and the controls hint (spec 029, amendment R3, superseding ruling N1). The
+//! opponent's line, when `App` passes one, is drawn inside that panel on the
+//! row the board's panel uses (spec 030).
+//! See `specs/029-tournament-rounds` and `specs/030-series-banter`.
 
 use crossterm::event::KeyCode;
 
@@ -23,7 +25,7 @@ use crate::{
     frame::{BorderWeight, Emphasis, Frame, draw_box, draw_text, draw_text_centered},
     layout::{Rect, VenueLayout},
     opponent::{DEFAULT_OPPONENT, OpponentProfile, opponent_by_id},
-    portrait::{draw_portrait, draw_presence_panel},
+    portrait::{draw_banter_line, draw_portrait, draw_presence_panel},
     profile::Profile,
 };
 
@@ -184,8 +186,17 @@ impl VenueState {
     /// Draw the venue's three bands: the five header rows, then the planet's
     /// art region with the opponent's presence panel in its own column beside
     /// it, then the action row and the controls hint. Both regions draw at
-    /// every width (spec 029, amendment R3).
-    pub fn draw(&self, frame: &mut Frame, config: &Config, profile: &Profile, pulse: Emphasis) {
+    /// every width (spec 029, amendment R3). `line` is the opponent's line
+    /// as `App` has revealed it so far, drawn inside the presence panel; `None`
+    /// leaves that row blank (spec 030).
+    pub fn draw(
+        &self,
+        frame: &mut Frame,
+        config: &Config,
+        profile: &Profile,
+        line: Option<&str>,
+        pulse: Emphasis,
+    ) {
         // `App` only shows this screen while a series is in progress, and a
         // series names a planet from the `const` graph — the early return says
         // so rather than unwrapping.
@@ -225,6 +236,9 @@ impl VenueState {
         // element (ruling M1) — the same drawer the map's rail and the select
         // screen use. Top-aligned with the art, so the rows below it are blank.
         draw_presence_panel(frame, layout.portrait, opponent.name, opponent.portrait);
+        if let Some(line) = line {
+            draw_banter_line(frame, layout.portrait, line);
+        }
 
         // The action row: each label at a fixed stride, so the row's width
         // doesn't change as the cursor moves and only the cursored label takes
@@ -325,7 +339,7 @@ mod tests {
         profile.campaign_mut().begin_series("cinder", "greeb");
 
         let mut frame = new_frame(&config);
-        VenueState::new().draw(&mut frame, &config, &profile, Emphasis::Strong);
+        VenueState::new().draw(&mut frame, &config, &profile, None, Emphasis::Strong);
 
         let layout = VenueLayout::new(config);
         for blank in [layout.action_y - 1, layout.action_y + 1] {
@@ -342,6 +356,41 @@ mod tests {
             assert!(
                 row_text(&frame, y).chars().any(|c| c != ' '),
                 "row {y} should carry text"
+            );
+        }
+    }
+
+    #[test]
+    fn the_venue_line_sits_inside_the_portrait_panel() {
+        // Spec 030: the opponent's line is inside the presence panel, on its
+        // interior row 14 (the panel's last interior row, as on the board),
+        // strictly between the side borders, with the gap row above it blank
+        // across the interior. The breathing test's no-`App` pattern.
+        let line = "Here goes nothing!";
+        for config in Config::fit_sizes() {
+            let (cols, rows) = (config.num_cols, config.num_rows);
+            let mut profile = Profile::default();
+            profile.campaign_mut().begin_series("cinder", "greeb");
+            let mut frame = new_frame(&config);
+            VenueState::new().draw(&mut frame, &config, &profile, Some(line), Emphasis::Strong);
+
+            let p = VenueLayout::new(config).portrait;
+            let inside = |y: usize| -> String { (p.x0 + 1..=p.x1 - 1).map(|x| frame[x][y].ch).collect() };
+            assert_eq!(
+                inside(p.y1 - 1).trim(),
+                line,
+                "the line isn't on the panel's line row at {cols}×{rows}"
+            );
+            let row = row_text(&frame, p.y1 - 1);
+            let at = row.find(line).map(|b| row[..b].chars().count());
+            assert!(
+                at.is_some_and(|x| x > p.x0 && x + line.chars().count() - 1 < p.x1),
+                "the line isn't strictly inside the side borders at {cols}×{rows}: {row:?}"
+            );
+            assert!(
+                inside(p.y1 - 2).chars().all(|c| c == ' '),
+                "the gap row above the line isn't blank at {cols}×{rows}: {:?}",
+                inside(p.y1 - 2)
             );
         }
     }
@@ -550,7 +599,7 @@ mod tests {
                 let mut profile = Profile::default();
                 profile.campaign_mut().begin_series(planet.id, planet.opponents[0]);
                 let mut frame = new_frame(&config);
-                VenueState::new().draw(&mut frame, &config, &profile, Emphasis::Strong);
+                VenueState::new().draw(&mut frame, &config, &profile, None, Emphasis::Strong);
 
                 let lines: Vec<&str> = planet_art(&planet, &l).lines().collect();
                 for (i, y) in (l.art.y0 + 1..=l.art.y1 - 1).enumerate() {

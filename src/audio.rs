@@ -7,6 +7,7 @@
 use std::io::Cursor;
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
 use rodio::{Decoder, DeviceSinkBuilder, MixerDeviceSink, Player, Source};
 
@@ -34,6 +35,8 @@ pub enum Sfx {
     MenuMove,
     MenuSelect,
     MenuBack,
+    /// The opponent's per-word murmur (spec 030), one per spoken word.
+    Burble,
 }
 
 impl Sfx {
@@ -53,6 +56,7 @@ impl Sfx {
             Sfx::MenuMove => include_bytes!("../assets/sfx/menu_move.wav"),
             Sfx::MenuSelect => include_bytes!("../assets/sfx/menu_select.wav"),
             Sfx::MenuBack => include_bytes!("../assets/sfx/menu_back.wav"),
+            Sfx::Burble => include_bytes!("../assets/sfx/burble.wav"),
         }
     }
 }
@@ -129,7 +133,7 @@ impl Audio {
         self.send(AudioCommand::PlaySfx { sfx: cue.sfx, pitch: cue.pitch });
     }
 
-    /// Adopt new settings (the Music/SFX volumes) and reconcile music.
+    /// Adopt new settings (the Music/SFX/Voices volumes) and reconcile music.
     pub fn set_settings(&self, settings: Settings) {
         self.send(AudioCommand::SetSettings(settings));
     }
@@ -194,13 +198,11 @@ struct AudioState {
 
 impl AudioState {
     fn play(&self, sfx: Sfx, pitch: f32) {
-        if !should_play_sfx(self.muted, self.settings) {
-            return;
-        }
+        let Some(volume) = sfx_level(self.muted, sfx, self.settings) else { return };
         let Some(backend) = &self.backend else { return };
         if let Ok(source) = Decoder::new(Cursor::new(sfx.bytes())) {
             // `speed` shifts pitch (1.0 = normal); `amplify` sets volume.
-            let source = source.speed(pitch).amplify(self.settings.sfx_volume);
+            let source = source.speed(pitch).amplify(volume);
             backend.sink.mixer().add(source);
         }
     }
@@ -226,6 +228,16 @@ fn should_play_sfx(muted: bool, settings: Settings) -> bool {
     !muted && settings.sfx_volume > 0.0
 }
 
+/// The volume `sfx` plays at, or None when it is silent (spec 030, ruling
+/// 10A): the burble on the Voices volume — silent when muted or at zero —
+/// and every other effect on Sound FX, gated by `should_play_sfx`. Pure.
+fn sfx_level(muted: bool, sfx: Sfx, settings: Settings) -> Option<f32> {
+    match sfx {
+        Sfx::Burble => (!muted && settings.voices_volume > 0.0).then_some(settings.voices_volume),
+        _ => should_play_sfx(muted, settings).then_some(settings.sfx_volume),
+    }
+}
+
 /// Pure gating: should the music be playing in this state?
 fn should_music_sound(muted: bool, settings: Settings) -> bool {
     !muted && settings.music_volume > 0.0
@@ -243,6 +255,26 @@ pub struct Cue {
 /// How much lower the opponent's action sounds play than the player's.
 /// Subtle on purpose — "very similar but slightly different." Easy to tune.
 pub const OPPONENT_PITCH: f32 = 0.92;
+
+/// Per-word pitch for the burble (spec 030): a small, fixed rise and fall
+/// so a line reads as speech rather than one blip repeated. Tune by ear.
+pub const BURBLE_PITCHES: [f32; 5] = [1.0, 0.94, 1.05, 0.97, 1.02];
+
+/// The burble for word `i` of a line (0 = the first).
+pub fn burble_cue(word: usize) -> Cue {
+    Cue { sfx: Sfx::Burble, pitch: BURBLE_PITCHES[word % BURBLE_PITCHES.len()] }
+}
+
+/// The least time between two burbles (spec 030): longer than one burble at
+/// its slowest pitch, so they never overlap and stack louder, and no more
+/// than three loop ticks, so no word of an ordinary line is ever dropped
+/// (plan §Design tension 3).
+pub const BURBLE_GAP_MS: u64 = 150;
+
+/// Whether a burble may play `since_last` after the previous one. Pure.
+pub fn burble_clear(since_last: Duration) -> bool {
+    since_last >= Duration::from_millis(BURBLE_GAP_MS)
+}
 
 /// A minimal snapshot of the game state's audible facts, for both sides.
 /// `App` diffs successive snapshots to decide which SFX to play — the
@@ -390,6 +422,40 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn the_burble_follows_voices_and_nothing_else_does() {
+        // Spec 030 (ruling 10A; AC 9, AC 17).
+        let others = [
+            Sfx::CardDraw,
+            Sfx::CardPlay,
+            Sfx::Flip,
+            Sfx::Stand,
+            Sfx::Bust,
+            Sfx::RoundWin,
+            Sfx::RoundLoss,
+            Sfx::RoundTie,
+            Sfx::GameWin,
+            Sfx::GameLoss,
+            Sfx::MenuMove,
+            Sfx::MenuSelect,
+            Sfx::MenuBack,
+        ];
+        let both = Settings { sfx_volume: 0.3, voices_volume: 0.7, ..Settings::default() };
+        let no_voices = Settings { voices_volume: 0.0, ..both };
+        let no_sfx = Settings { sfx_volume: 0.0, ..both };
+
+        assert_eq!(sfx_level(false, Sfx::Burble, both), Some(0.7));
+        assert_eq!(sfx_level(false, Sfx::Burble, no_voices), None);
+        assert_eq!(sfx_level(false, Sfx::Burble, no_sfx), Some(0.7));
+        assert_eq!(sfx_level(true, Sfx::Burble, both), None);
+        for sfx in others {
+            assert_eq!(sfx_level(false, sfx, both), Some(0.3), "{sfx:?}");
+            assert_eq!(sfx_level(false, sfx, no_voices), Some(0.3), "{sfx:?}");
+            assert_eq!(sfx_level(false, sfx, no_sfx), None, "{sfx:?}");
+            assert_eq!(sfx_level(true, sfx, both), None, "{sfx:?}");
+        }
+    }
+
     // A player cue (normal pitch) and an opponent cue (lower pitch).
     fn pc(sfx: Sfx) -> Cue {
         Cue { sfx, pitch: 1.0 }
@@ -485,5 +551,116 @@ mod tests {
         let mut curr = prev;
         curr.p_dealer = 1; // some unrelated change
         assert_eq!(audio_cues(prev, curr), vec![pc(Sfx::CardDraw)]);
+    }
+
+    /// Whole-clip RMS of an embedded clip, or of its first `seconds` when
+    /// given. Decodes only; opens no audio device.
+    fn rms(bytes: &'static [u8], seconds: Option<usize>) -> f64 {
+        let source = Decoder::new(Cursor::new(bytes)).unwrap();
+        let per_second = source.sample_rate().get() as usize * source.channels().get() as usize;
+        let window = seconds.map_or(usize::MAX, |s| s * per_second);
+        let (sum, count) = source
+            .take(window)
+            .fold((0.0, 0usize), |(sum, count), s| (sum + (s as f64).powi(2), count + 1));
+        (sum / count as f64).sqrt()
+    }
+
+    // The burble against the board's move sounds and the music (plan §Design
+    // tension 9, ruling 9A), each by whole-clip RMS scaled by its default
+    // volume: inside the move sounds' band, at or above the music over its
+    // first 60 s, and never clipping. Decodes the embedded assets only.
+    #[test]
+    fn the_burble_is_as_loud_as_the_other_sounds() {
+        let d = Settings::default();
+        let (sfx, voices, music_volume) =
+            (d.sfx_volume as f64, d.voices_volume as f64, d.music_volume as f64);
+
+        let moves = [Sfx::CardDraw, Sfx::CardPlay, Sfx::Flip, Sfx::Stand];
+        let mut low = f64::INFINITY;
+        let mut high = 0.0f64;
+        let mut total = 0.0;
+        for sound in moves {
+            let r = rms(sound.bytes(), None);
+            println!("{sound:?} rms {r:.4}");
+            low = low.min(r * sfx);
+            high = high.max(r * sfx);
+            total += r;
+        }
+        println!("move sounds mean rms {:.4}", total / moves.len() as f64);
+
+        let burble_rms = rms(Sfx::Burble.bytes(), None);
+        let burble = Decoder::new(Cursor::new(Sfx::Burble.bytes())).unwrap();
+        let peak = burble.map(|s| (s as f64).abs()).fold(0.0, f64::max);
+        let heard = burble_rms * voices;
+        println!("burble rms {burble_rms:.4}, peak {peak:.4}; at default voices rms {heard:.4}");
+
+        let music = rms(MUSIC_BYTES, Some(60));
+        let floor = music * music_volume;
+        println!("band (rms at default sfx) {low:.4}..={high:.4}");
+        println!("floor: music rms {music:.4} over its first 60 s, at default music rms {floor:.4}");
+
+        assert!(low <= heard && heard <= high, "burble rms {heard} outside the band {low}..={high}");
+        assert!(heard >= floor, "burble rms {heard} under the music's {floor}");
+        assert!(peak < 1.0, "burble peak {peak} clips");
+    }
+
+    #[test]
+    fn a_burble_ends_before_the_next_can_start() {
+        let burble = Decoder::new(Cursor::new(Sfx::Burble.bytes())).unwrap();
+        let per_second = burble.sample_rate().get() as f64 * burble.channels().get() as f64;
+        let length_ms = burble.count() as f64 / per_second * 1000.0;
+        let slowest = BURBLE_PITCHES.iter().copied().fold(f32::INFINITY, f32::min) as f64;
+        // `speed(pitch)` below 1.0 stretches the clip.
+        assert!(length_ms / slowest <= BURBLE_GAP_MS as f64);
+        assert!(BURBLE_GAP_MS <= 3 * crate::GAME_LOOP_SLEEP_MS);
+    }
+
+    #[test]
+    fn burbles_are_spaced_by_the_gap() {
+        assert!(!burble_clear(Duration::ZERO));
+        assert!(!burble_clear(Duration::from_millis(BURBLE_GAP_MS - 1)));
+        assert!(burble_clear(Duration::from_millis(BURBLE_GAP_MS)));
+        assert!(burble_clear(Duration::from_millis(BURBLE_GAP_MS + 1)));
+        assert!(burble_clear(Duration::MAX));
+    }
+
+    #[test]
+    fn each_word_has_its_own_burble_pitch() {
+        let n = BURBLE_PITCHES.len();
+        for i in 0..n {
+            let cue = burble_cue(i);
+            assert_eq!(cue.sfx, Sfx::Burble);
+            assert!((0.9..=1.1).contains(&cue.pitch), "word {i}: {}", cue.pitch);
+            assert_ne!(cue.pitch, burble_cue(i + 1).pitch, "words {i} and {}", i + 1);
+        }
+        // Past the table's end, the pitches wrap.
+        assert_eq!(burble_cue(n), burble_cue(0));
+        assert_eq!(burble_cue(n + 2), burble_cue(2));
+    }
+
+    #[test]
+    fn the_event_beat_outlasts_the_round_sounds() {
+        fn length_ms(sfx: Sfx) -> f64 {
+            let clip = Decoder::new(Cursor::new(sfx.bytes())).unwrap();
+            let per_second = clip.sample_rate().get() as f64 * clip.channels().get() as f64;
+            clip.count() as f64 / per_second * 1000.0
+        }
+        let beat = crate::EVENT_BEAT_MS as f64;
+        // `speed(pitch)` below 1.0 stretches the clip; the opponent's bust plays
+        // at OPPONENT_PITCH.
+        for (sfx, pitch) in [
+            (Sfx::RoundWin, 1.0),
+            (Sfx::RoundLoss, 1.0),
+            (Sfx::RoundTie, 1.0),
+            (Sfx::Bust, OPPONENT_PITCH),
+        ] {
+            let heard = length_ms(sfx) / pitch as f64;
+            println!("{sfx:?} at pitch {pitch}: {heard:.0} ms, beat {beat:.0} ms");
+            assert!(heard <= beat, "{sfx:?} at pitch {pitch} lasts {heard} ms, past the beat");
+        }
+        // Longer than the beat by design (plan §Design tension 13): printed, not asserted.
+        for sfx in [Sfx::GameWin, Sfx::GameLoss] {
+            println!("{sfx:?}: {:.0} ms, beat {beat:.0} ms", length_ms(sfx));
+        }
     }
 }

@@ -3,13 +3,14 @@ use std::time::Duration;
 use crossterm::event::{KeyCode, KeyModifiers};
 
 use crate::{
-    SELECTION_PULSE_MS,
-    audio::{Audio, AudioSnapshot, Sfx, audio_cues},
+    EVENT_BEAT_MS, SELECTION_PULSE_MS,
+    audio::{Audio, AudioSnapshot, Sfx, audio_cues, burble_clear, burble_cue},
     banter::{
-        BanterSnapshot, banter_event, banter_for, lines_for, match_restarted, pick, play_resumed,
+        BanterSnapshot, SeriesState, Speech, banter_event, banter_for, lines_in_series,
+        match_restarted, pick, play_resumed, series_state, start_lines,
     },
     board::BoardView,
-    campaign::{NodeRef, PLANETS, Series, planet_by_id},
+    campaign::{NodeRef, PLANETS, Series, SeriesOutcome, planet_by_id},
     campaign_map::{CampaignMapState, MapBanner, MapOutcome},
     card::Card,
     config::Config,
@@ -32,7 +33,7 @@ use crate::{
     profile::{Profile, ProfileFailure, ProfileProblem},
     records::{RecordsOutcome, RecordsState},
     screen::Screen,
-    settings::{Settings, SettingsAction, SettingsState},
+    settings::{SettingRow, Settings, SettingsAction, SettingsState},
     shop::{ShopOutcome, ShopState},
     stats::{RunStats, run_summary_lines},
     venue::{VenueOutcome, VenueState},
@@ -445,9 +446,31 @@ fn campaign_entry_modal(broke: bool, victory_due: bool, primer_due: bool) -> Opt
 /// started mid-series has no campaign pointer; and a campaign pointer left over
 /// from another node is not this series. All three fall out of the same check.
 fn board_series_line(node: Option<&NodeRef>, series: Option<&Series>) -> Option<String> {
+    match_series(node, series)
+        .map(|series| format!("Series {} – {}", series.player_wins, series.opponent_wins))
+}
+
+/// This match's series — the series in progress, if the in-flight node is
+/// the one it is played against (`board_series_line`'s rule, spec 029).
+fn match_series<'a>(node: Option<&NodeRef>, series: Option<&'a Series>) -> Option<&'a Series> {
     let (node, series) = (node?, series?);
-    (node.planet == series.planet && node.opponent == series.opponent)
-        .then(|| format!("Series {} – {}", series.player_wins, series.opponent_wins))
+    (node.planet == series.planet && node.opponent == series.opponent).then_some(series)
+}
+
+/// The series a settled match decided, at its final score (spec 030, ruling
+/// 6A), or None. `before` is the match's series as it stood before
+/// settlement — the live one is cleared when decided. Pure.
+fn decided_series(before: Option<Series>, outcome: SeriesOutcome, player_won: bool) -> Option<Series> {
+    let mut series = before?;
+    if !matches!(outcome, SeriesOutcome::Won | SeriesOutcome::Lost) {
+        return None;
+    }
+    if player_won {
+        series.player_wins += 1;
+    } else {
+        series.opponent_wins += 1;
+    }
+    Some(series)
 }
 
 /// The victory notice's content (spec 024), title first and dismiss line last,
@@ -632,10 +655,13 @@ pub struct App {
     // The last in-game audio snapshot; the next one is diffed against it to
     // decide which SFX to play. None outside a game.
     prev_audio: Option<AudioSnapshot>,
-    // The opponent's current banter line, shown in the portrait panel. None
-    // outside a game, or when there's no appropriate line for the state yet.
-    banter: Option<&'static str>,
-    // The most recently shown banter line, kept independently of `banter` so
+    // The opponent's line being spoken (spec 030; the line was spec 017's
+    // `banter`). None when no line shows.
+    speech: Option<Speech>,
+    // Time since the last burble (spec 030); starts at `Duration::MAX` so the
+    // first is always clear.
+    since_burble: Duration,
+    // The most recently shown banter line, kept independently of `speech` so
     // the no-back-to-back-repeat rule survives the phase-clear (spec 017 §1):
     // `pick` is fed this, and it is never cleared by the phase-clear.
     banter_last: Option<&'static str>,
@@ -667,6 +693,13 @@ pub struct App {
     // UI state only — never saved, since the completion and its payout are
     // already persisted and only the notice is lost by quitting under it.
     victory_due: bool,
+    // The decided series at its final score (spec 030): set at settlement, from
+    // the match's series cloned before `resolve_match` plus this match's
+    // result, and only when the series was won or lost. The closing line draws
+    // on it and the board's game-over frame shows it; the map never reads it.
+    // Discarded on any screen but the board, beside the motion reset, because
+    // the held score belongs to one screen. UI state only — never saved.
+    final_series: Option<Series>,
     // One-shot board transitions in flight (spec 027). Observed every tick
     // while in a match, reset to default off the board; never saved.
     motion: BoardMotion,
@@ -694,7 +727,8 @@ impl App {
             settings,
             profile,
             prev_audio: None,
-            banter: None,
+            speech: None,
+            since_burble: Duration::MAX,
             banter_last: None,
             prev_banter: None,
             play_log: PlayLog::default(),
@@ -703,6 +737,7 @@ impl App {
             too_small: None,
             banner: None,
             victory_due: false,
+            final_series: None,
             motion: BoardMotion::default(),
         }
     }
@@ -789,6 +824,37 @@ impl App {
         }
     }
 
+    /// Open the campaign as an **arrival** (spec 030, ruling 3B): the screen
+    /// `open_campaign_home` derives, and — when that is the venue — the
+    /// opponent's line for where the series stands. Starting a series, every
+    /// menu entry and the game-over acknowledgement arrive; the Card Shop's and
+    /// the collection's Back call `open_campaign_home` directly, because
+    /// returning is not arriving. A broke arrival — under the run-over notice,
+    /// which covers the panel — says no line and clears any line still being
+    /// spoken (ruling 13A); otherwise the line waits `EVENT_BEAT_MS` so its
+    /// first burble doesn't land on the arrival's menu click (ruling 12A).
+    fn arrive_at_campaign(&mut self) {
+        self.open_campaign_home();
+        if !matches!(self.screen, Screen::Venue { .. }) {
+            return;
+        }
+        // The same check `campaign_entry_modal` uses for the run-over notice;
+        // clearing the speech stops the match's closing line burbling on here.
+        if self.profile.is_broke() {
+            self.speech = None;
+            return;
+        }
+        let Some(series) = self.profile.campaign().series() else {
+            return;
+        };
+        // A venue line waits the event beat, so its first burble comes after
+        // the arrival's menu click (ruling 12A); it avoids the last line said,
+        // as every pick does.
+        let pool = start_lines(banter_for(&series.opponent), Some(series_state(series)));
+        let line = pick(pool, self.banter_last, &mut rand::rng());
+        self.say(line, Duration::from_millis(EVENT_BEAT_MS));
+    }
+
     /// Enter (resume) the campaign: discard a stray in-progress match save first
     /// (with a confirm) if one exists, else open the map. The pre-spec-014
     /// Start Campaign behavior, now shared by the no-progress path and
@@ -819,16 +885,17 @@ impl App {
     /// ante, else the victory notice if a run was just completed, else the
     /// first-run primer when the campaign was reached from the start menu
     /// (`from_menu`) and the primer is still unseen. The one seam all three
-    /// checks run at, and it runs whichever screen `open_campaign_home` opens
-    /// (spec 029): the three menu-entry paths pass `from_menu: true`, the
+    /// checks run at, and it arrives through `arrive_at_campaign` (specs 029 +
+    /// 030): the three menu-entry paths pass `from_menu: true`, the
     /// game-over acknowledgement passes `false` (a match's game-over is not a
     /// menu entry, spec 023), while Back from the shop or deck builder — which
-    /// returns to a screen already seen and cannot create a broke state — keeps
-    /// using `open_campaign_home`. The victory flag is **taken** here: the notice
+    /// returns to a screen already seen and cannot create a broke state — calls
+    /// `open_campaign_home` instead of `arrive_at_campaign`: returning is not
+    /// arriving, so it says no new line. The victory flag is **taken** here: the notice
     /// is owed exactly once per completion, and the acknowledgement is the only
     /// entry that can happen in the window between settling and showing it.
     fn enter_campaign(&mut self, from_menu: bool) {
-        self.open_campaign_home();
+        self.arrive_at_campaign();
         let victory_due = std::mem::take(&mut self.victory_due);
         let primer_due = from_menu && !self.profile.primer_seen();
         self.modal = campaign_entry_modal(self.profile.is_broke(), victory_due, primer_due);
@@ -942,8 +1009,9 @@ impl App {
             self.profile.campaign_mut().begin_series(planet, opponent);
             self.profile.save();
             // Derived, not chosen: the lock is written, so the same function
-            // every other door asks now answers "the venue".
-            self.open_campaign_home();
+            // every other door asks now answers "the venue" — and starting a
+            // series is an arrival, so the opponent says a line there.
+            self.arrive_at_campaign();
         }
     }
 
@@ -1084,9 +1152,12 @@ impl App {
         // Seed the banter with the opponent's greeting; the first snapshot
         // seeds the diff silently.
         self.prev_banter = None;
-        let line = pick(banter_for(opp_id).match_start, None, &mut rand::rng());
-        self.banter = Some(line);
-        self.banter_last = Some(line);
+        // Inside a series the greeting avoids the line the venue just said
+        // (spec 030 AC 6); outside one nothing is avoided, exactly as before.
+        let state = self.series_state_now();
+        let last = state.and(self.banter_last);
+        let line = pick(start_lines(banter_for(opp_id), state), last, &mut rand::rng());
+        self.say(line, Duration::ZERO);
         // Fresh match — reset the play log; the first snapshot seeds its diff
         // silently, mirroring the banter/audio seeding above.
         self.play_log.reset(opp_name);
@@ -1100,6 +1171,13 @@ impl App {
         // Persist immediately (overwriting any prior save), so quitting right
         // away still leaves a resumable game and Continue appears next launch.
         self.save_game();
+    }
+
+    /// Where this match's series stands (spec 030) — None outside a series
+    /// (Quick Play, a rematch), by the board's own rule.
+    fn series_state_now(&self) -> Option<SeriesState> {
+        let campaign = self.profile.campaign();
+        match_series(campaign.in_progress(), campaign.series()).map(series_state)
     }
 
     /// Play the SFX for whatever just changed in the game, by diffing the
@@ -1116,6 +1194,70 @@ impl App {
             }
         }
         self.prev_audio = Some(curr);
+    }
+
+    /// Say `line` (spec 030): it replaces any line still being spoken, at once,
+    /// from its first word, and becomes `banter_last`; its first word's burble
+    /// plays now — if the line is on screen. With Animations off it is whole at
+    /// once, and this is its only burble. `wait` is zero for a match start, and
+    /// `EVENT_BEAT_MS` for a line answering an event (ruling 11A) or a venue
+    /// arrival (ruling 12A). Nothing shows or sounds until it passes; then `advance_speech`
+    /// plays the first word's burble.
+    fn say(&mut self, line: &'static str, wait: Duration) {
+        let speech = Speech::new(line, self.settings.animations).after(wait);
+        let showing = speech.words_shown() > 0;
+        self.speech = Some(speech);
+        self.banter_last = Some(line);
+        if showing && self.line_visible() {
+            self.burble(0);
+        }
+    }
+
+    /// Whether the line is drawn (plan §Design tension 5, ruling 7A): at the
+    /// venue always, on the board only when `board_view.is_wide()`, never under
+    /// the too-small screen.
+    fn line_visible(&self) -> bool {
+        if self.too_small.is_some() {
+            return false;
+        }
+        match &self.screen {
+            Screen::InGame { .. } => self.board_view.is_wide(),
+            Screen::Venue { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// Speak the current line on: while its screen — the board or the venue —
+    /// is up, one more word every WORD_STEP_MS, each with its burble; on any
+    /// other screen it settles, whole and silent, so returning shows it without
+    /// a sound (spec 030).
+    fn advance_speech(&mut self, dt: Duration) {
+        self.since_burble = self.since_burble.saturating_add(dt);
+        let visible = self.line_visible();
+        let Some(speech) = &mut self.speech else {
+            return;
+        };
+        let spoke = match &self.screen {
+            Screen::InGame { .. } | Screen::Venue { .. } => speech.advance(dt),
+            _ => {
+                speech.settle();
+                false
+            }
+        };
+        if spoke && visible {
+            let word = speech.words_shown() - 1;
+            self.burble(word);
+        }
+    }
+
+    /// Play word `word`'s burble — unless one played less than BURBLE_GAP_MS
+    /// ago, so two never overlap (plan §Design tension 3). The only place a
+    /// burble is sent.
+    fn burble(&mut self, word: usize) {
+        if burble_clear(self.since_burble) {
+            self.audio.play_cue(burble_cue(word));
+            self.since_burble = Duration::ZERO;
+        }
     }
 
     /// Update the opponent's banter line for whatever just changed, by diffing
@@ -1135,20 +1277,20 @@ impl App {
                 // match-start greeting so it fires like a match entered from the
                 // menu, not the lingering closing line (spec 017 §8 rematch
                 // note). A match start outranks the round-level branches.
-                let line = pick(banter_for(id).match_start, self.banter_last, &mut rand::rng());
-                self.banter = Some(line);
-                self.banter_last = Some(line);
+                let pool = start_lines(banter_for(id), self.series_state_now());
+                let line = pick(pool, self.banter_last, &mut rand::rng());
+                self.say(line, Duration::ZERO);
             } else if let Some(ev) = banter_event(&prev, &curr) {
                 // A new event: pick a line, avoiding the last one shown, and
                 // record it in both fields.
-                let line = pick(lines_for(banter_for(id), ev), self.banter_last, &mut rand::rng());
-                self.banter = Some(line);
-                self.banter_last = Some(line);
+                let pool = lines_in_series(banter_for(id), ev, self.final_series.is_some());
+                let line = pick(pool, self.banter_last, &mut rand::rng());
+                self.say(line, Duration::from_millis(EVENT_BEAT_MS));
             } else if play_resumed(&prev, &curr) {
                 // The next round's play has begun and no new line fired: clear
                 // the shown line (spec 017 §8), but keep `banter_last` so the
                 // no-repeat rule still holds across the blank (§1).
-                self.banter = None;
+                self.speech = None;
             }
         }
         self.prev_banter = Some(curr);
@@ -1590,9 +1732,14 @@ impl App {
                 self.settings.adjust(row, matches!(action, SettingsAction::Right));
                 self.audio.set_settings(self.settings);
                 self.settings.save();
-                // A tick after set_settings so you hear the new SFX level
-                // (the music change is already live).
-                self.audio.play(Sfx::MenuMove);
+                // After set_settings, so you hear the new level (the music
+                // change is already live): a burble on the Voices row, which
+                // it follows, and a tick on every other row, at the SFX level.
+                if row == SettingRow::Voices {
+                    self.burble(0);
+                } else {
+                    self.audio.play(Sfx::MenuMove);
+                }
             }
             SettingsAction::Back => {
                 self.modal = None;
@@ -1761,7 +1908,7 @@ impl App {
                     // Blank the banter on resume — no greeting for a match
                     // already underway; the next event supplies a line.
                     self.prev_banter = None;
-                    self.banter = None;
+                    self.speech = None;
                     self.banter_last = None;
                     // Reset the play log for the resumed match; its first
                     // observe seeds silently, so a resumed match is not
@@ -1868,9 +2015,14 @@ impl App {
             let opponent_id = game_state.opponent_profile.id;
             let player_rounds = game_state.player.rounds_won as u32;
             let opp_rounds = game_state.opponent.rounds_won as u32;
+            // This match's series as it stood, taken before settlement clears
+            // a decided one (spec 030).
+            let campaign = self.profile.campaign();
+            let before = match_series(campaign.in_progress(), campaign.series()).cloned();
             if let Some(settlement) =
                 self.profile.resolve_match(opponent_id, player_won, player_rounds, opp_rounds)
             {
+                self.final_series = decided_series(before, settlement.series, player_won);
                 self.banner = Some(MapBanner::Settled {
                     outcome: settlement.outcome,
                     series: settlement.series,
@@ -1883,6 +2035,9 @@ impl App {
             self.profile.save();
         }
 
+        // Speak the shown line on before any new line is said, so a line said
+        // later in this tick keeps its full first step.
+        self.advance_speech(dt);
         // Sound the opponent's moves and round/game resolutions, which
         // happen here in the update rather than from a player keypress.
         self.emit_audio_cues();
@@ -1894,7 +2049,10 @@ impl App {
         // and discard them the moment it is not.
         match &self.screen {
             Screen::InGame { game_state, .. } => self.motion.observe(game_state, dt),
-            _ => self.motion = BoardMotion::default(),
+            _ => {
+                self.motion = BoardMotion::default();
+                self.final_series = None;
+            }
         }
     }
 
@@ -1928,15 +2086,19 @@ impl App {
         }
 
         let pulse = self.pulse.emphasis();
+        let line = self.speech.as_ref().map(Speech::text);
         match &self.screen {
             Screen::StartMenu { menu_state } => menu_state.draw(frame, &self.config, pulse),
             Screen::InGame { game_state, cursor } => {
                 let campaign = self.profile.campaign();
-                let series = board_series_line(campaign.in_progress(), campaign.series());
+                let series = board_series_line(
+                    campaign.in_progress(),
+                    campaign.series().or(self.final_series.as_ref()),
+                );
                 self.board_view.draw(
                     game_state,
                     cursor,
-                    self.banter,
+                    line.as_deref(),
                     self.stake_to_show(),
                     series.as_deref(),
                     pulse,
@@ -1950,7 +2112,9 @@ impl App {
                 state.draw(frame, &self.config, &self.profile, self.banner.as_ref(), pulse)
             }
             Screen::Shop { state } => state.draw(frame, &self.config, &self.profile, pulse),
-            Screen::Venue { state } => state.draw(frame, &self.config, &self.profile, pulse),
+            Screen::Venue { state } => {
+                state.draw(frame, &self.config, &self.profile, line.as_deref(), pulse)
+            }
         }
 
         // The one open modal draws over the screen.
@@ -2746,6 +2910,63 @@ mod tests {
         // A stale pointer from another node is not this series.
         assert_eq!(board_series_line(Some(&node("cinder", "other")), Some(&series)), None);
         assert_eq!(board_series_line(Some(&node("elsewhere", "greeb")), Some(&series)), None);
+    }
+
+    #[test]
+    fn decided_series_agrees_with_the_series_rule() {
+        use crate::campaign::{CampaignRun, FINAL_OPPONENT, wins_needed};
+        // Each series, match by match (true = the player won that match): a
+        // best of 3 both ways and a best of 5 both ways.
+        let cases: [(&str, &[bool]); 6] = [
+            ("greeb", &[true, true]),
+            ("greeb", &[true, false, true]),
+            ("greeb", &[false, true, false]),
+            ("greeb", &[false, false]),
+            (FINAL_OPPONENT, &[true, false, true, false, true]),
+            (FINAL_OPPONENT, &[false, true, false, true, false]),
+        ];
+        for (opponent, matches) in cases {
+            let mut run = CampaignRun::default();
+            run.begin_series("cinder", opponent);
+            for (i, &won) in matches.iter().enumerate() {
+                let before = run.series().cloned();
+                let outcome = run.record_series_match("cinder", opponent, won);
+                let decided = decided_series(before.clone(), outcome, won);
+                if i + 1 < matches.len() {
+                    assert_eq!(outcome, SeriesOutcome::Continues, "{opponent} {matches:?} match {i}");
+                    assert_eq!(decided, None, "{opponent} {matches:?} match {i}");
+                    continue;
+                }
+                // The deciding match: the winner at `wins_needed`, the loser's
+                // tally as it stood.
+                let before = before.expect("a series was running");
+                let decided = decided.expect("a decided series has a final score");
+                let needed = wins_needed(opponent);
+                if won {
+                    assert_eq!(outcome, SeriesOutcome::Won, "{opponent} {matches:?}");
+                    assert_eq!(decided.player_wins, needed, "{opponent} {matches:?}");
+                    assert_eq!(decided.opponent_wins, before.opponent_wins, "{opponent} {matches:?}");
+                } else {
+                    assert_eq!(outcome, SeriesOutcome::Lost, "{opponent} {matches:?}");
+                    assert_eq!(decided.opponent_wins, needed, "{opponent} {matches:?}");
+                    assert_eq!(decided.player_wins, before.player_wins, "{opponent} {matches:?}");
+                }
+                assert_eq!((decided.planet.as_str(), decided.opponent.as_str()), ("cinder", opponent));
+                assert_eq!(run.series(), None, "a decided series is cleared");
+            }
+        }
+
+        // A rematch is in no series, and a match with no series before it has
+        // no final score to hold.
+        let series = Series {
+            planet: "cinder".to_string(),
+            opponent: "greeb".to_string(),
+            player_wins: 1,
+            opponent_wins: 1,
+        };
+        assert_eq!(decided_series(Some(series), SeriesOutcome::NotInSeries, true), None);
+        assert_eq!(decided_series(None, SeriesOutcome::Won, true), None);
+        assert_eq!(decided_series(None, SeriesOutcome::Lost, false), None);
     }
 
     #[test]

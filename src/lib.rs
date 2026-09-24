@@ -80,6 +80,18 @@ pub const ARRIVAL_BEAT_MS: u64 = 600; // a card arriving / a total changing draw
 pub const POPUP_BEAT_MS: u64 = 800; // the round/game popup waits this long after the round resolves
 pub const THINKING_STEP_MS: u64 = 300; // the thinking indicator steps . / .. / ... at this cadence
 
+// Spec 030 — a spoken line shows one more word every WORD_STEP_MS, the first
+// at once. Bounds pinned by banter::tests::the_word_step_is_about_a_fifth_of_a_second.
+pub const WORD_STEP_MS: u64 = 200;
+// Spec 030 (ruling 11A) — a line answering a round, bust, tie or match event
+// shows its first word EVENT_BEAT_MS after it is chosen, once the event's own
+// sound has played. Ruling 12A reuses it for the venue line: an arrival's line
+// waits the same beat, so its first burble follows the menu click that brought
+// the player there. Bounds pinned by
+// banter::tests::the_event_beat_is_about_a_third_of_a_second and
+// audio::tests::the_event_beat_outlasts_the_round_sounds.
+pub const EVENT_BEAT_MS: u64 = 400;
+
 // Campaign-map starfield twinkle period, per star. Deliberately slower than the
 // selection pulse so the ambient backdrop reads as depth, not a synchronized
 // blink (see design/brief.md's Motion amendment).
