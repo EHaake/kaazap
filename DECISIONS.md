@@ -2386,3 +2386,339 @@ drawn at the portraits' plain weight from a closed 23-character palette that
 admits no escape character. The art adds sixteen text files, a
 `.gitattributes` line and a `CREDITS.md` section — no crate, and no engine or
 save file.
+
+## Series-aware banter, spoken word by word (spec 030)
+
+Since spec 029 a campaign opponent is played as a series, but its lines
+didn't know it: every match opened on a greeting, and a match that took the
+series ended like any other. Spec 030 gives each voice six series pools and
+has the opponent speak at the venue. It also makes every line **spoken**,
+word by word, with a synthesized burble per word, and gives the burble a
+**Voices** volume. And it holds the final series score on the deciding
+match's game-over frame. It adds two types (`banter::Speech`,
+`banter::SeriesState`), one sound (`assets/sfx/burble.wav`), one settings
+field (`voices_volume`), two constants (`WORD_STEP_MS` 200, `EVENT_BEAT_MS`
+400), and 146 lines of dialogue. No engine, AI, save-format, economy,
+balance-data or dependency change. The person ruled 1B–6A in the spec
+conversation (2026-09-23) and 7A and 8A at planning. They amended the spec at
+the Phase 1 pause (9A–11A), after listening, and at the Phase 3 pause (12A,
+13A), after walking the venue.
+
+### The rulings (the person, 2026-09-23)
+
+- **1B — a match started mid-series has lines for Leading, Trailing and
+  Decider**, plus All square for the best of 5 at 1–1, rather than folding
+  the decider into "all square". Decider means both sides are one win from
+  the series (1–1 in a best of 3, 2–2 in a best of 5), so only The Sovereign
+  reaches All square, and only its voice carries those lines. Every other
+  voice's pool is empty, and no test pins that emptiness (unreachable, and
+  harmless).
+- **2A — the match that decides a series ends on series won / series lost
+  lines.** Other match ends keep today's lines.
+- **3B — the opponent speaks one line at the venue on arrival**, reacting to
+  the series score.
+- **4A — about 0.2 s per word, the first word at once** (`WORD_STEP_MS` =
+  200, bounds pinned at 150–250). Every line has at most five words, so every
+  line finishes within a second of its first word. That is pinned for every
+  line of every pool.
+- **5B — a soft burble per word.** The person's words were "soft and not
+  louder than the music … sort of a 'soft burble' if possible." 9A later
+  dropped the "not louder than the music" half.
+- **6A — the deciding match's game-over frame holds the final series
+  score**, which "should not follow the player to the galaxy screen." This
+  closes spec 029's *Asked, and not answered* item (plan §Open questions 1
+  there) in the direction that section predicted: a one-shot `App` field.
+- **7A (asked at planning) — the compact board draws no line, so no burble
+  plays there.** "If the banter isn't visible, it makes no sense to include
+  the speech burble." The line on the compact board is a roadmap item.
+- **8A (asked at planning) — a resumed match stays blank**, as spec 017
+  shipped it, and no line is spoken on resume.
+
+### Defaults set in the spec conversation, not separately ruled
+
+Words appear in place. A new line interrupts the old one. Animations Off
+shows the line whole, with one burble. A resumed match's line is whole and
+silent (superseded by 8A: a resumed match shows no line). Quick Play keeps
+today's lines but is spoken. The venue and match-start lines share a pool, with
+no repeat across the two. The Card Shop / collection round trip is not an
+arrival.
+
+### The Phase 1 amendment (the person, 2026-09-23, after the first listen)
+
+- **9A — the burble is as loud as the other sound effects**, and "never
+  louder than the music" is dropped. The first build met that rule to the
+  letter: its peak (0.08) sat under a ceiling of the music's RMS × default
+  music volume / default SFX volume (0.1025). The person found it "really,
+  really quiet" and had to turn the music off to hear it. Measured by peak,
+  a soft-enveloped voice with tremolo is far quieter than a square-wave blip
+  with the same peak, so the rule had been measuring the wrong thing.
+- **10A — a Voices volume in Settings**, which the burble follows instead of
+  Sound FX. `m` mutes it like every other sound.
+- **11A — a line answering an event waits a beat.** A line said on a round,
+  bust, tie or match/series event is chosen when it is today, but its first
+  word waits `EVENT_BEAT_MS` (400 ms), so the event's own sound plays first.
+  Popups, sounds, phases and keys keep their timing. The value is the top of
+  the ruled 0.3–0.4 s. The opponent's bust sound at `OPPONENT_PITCH` (0.92)
+  runs 380 ms, which rules out 350.
+- **The Voices default is 50%** (T002c, at the re-listen). The person's
+  words: "I have the volume set to 50% where it sounds well mixed with the
+  rest of the sounds, so maybe we should make that the default." The plan had
+  made it equal to Sound FX's 80%, so that the default settings compared like
+  with like. The ear overruled the arithmetic. At 50% the loudness test still
+  passes unchanged, but only just (below).
+- **The approval (AC 9).** At the re-listen: "Murmur is good now and is
+  correctly reflecting the settings." That was the only tweak asked for
+  (T002c). No `BURBLE` number moved after T002b.
+
+### The Phase 3 rulings (the person, 2026-09-23, after walking the venue)
+
+- **12A — the venue line waits the same beat.** "Add a slight delay to the
+  line so that the sounds don't overlap." The acknowledgement's menu click
+  and the venue line's first burble had landed on the same tick. The venue
+  arrival now passes `EVENT_BEAT_MS` too, reusing the one beat constant, so
+  only the match-start and rematch greetings start at once. `spec.md`'s AC 8
+  was amended to say so. The Phase 3 re-review caught that the amendment had
+  first been missing, and the orchestrator transcribed it.
+- **13A — an arrival under the run-over notice says no line.** The notice
+  covers the presence panel at 89 columns and clips its first character at
+  139, yet the line was spoken with its burbles and the run then reset.
+  `arrive_at_campaign` now returns early when `profile.is_broke()` (the check
+  `campaign_entry_modal` uses for the notice) and sets `speech = None`. The
+  `None` is required, because otherwise the match's closing line, possibly
+  still in its beat, keeps burbling at the venue. The person would prefer
+  the opponent to taunt that the run is over, but not if it needs more
+  design, and it does. It is on `ROADMAP.md`.
+
+### The burble as shipped
+
+`scripts/gen_sfx.py`'s `BURBLE` block, as it ships:
+
+    "length_s": 0.12, "pitch_hz": 150, "glide": -0.12,
+    "vibrato_hz": 18, "vibrato_depth": 0.04,
+    "tremolo_hz": 24, "tremolo_depth": 0.35,
+    "formants": ((500, 750, 90), (1100, 1400, 140)),
+    "harmonics": 18, "attack_s": 0.015, "release_s": 0.06,
+    "peak": 0.79
+
+The synthesis is additive: `harmonics` harmonics of a gliding, vibrato'd
+150 Hz fundamental, each weighted `1/k` times the resonance of two gliding
+formants (a "wo→a" vowel), with a raised-cosine envelope and a tremolo. It
+uses no `random`, so `bust`'s seeded noise is undisturbed. Per-word pitch is
+`audio::BURBLE_PITCHES` = `[1.0, 0.94, 1.05, 0.97, 1.02]`, and `burble_cue`
+wraps past its end. `python3 scripts/gen_sfx.py burble` regenerates that one
+file and leaves the other thirteen byte-identical.
+
+**`peak` went 0.08 → 0.79** (T002b), chosen so the burble's whole-clip RMS
+(0.1668) lands at the mean RMS of the four board move sounds (0.1660). Those
+are `CardDraw` 0.1629, `CardPlay` 0.2137, `Flip` 0.1882 and `Stand` 0.0992.
+At default volumes the band is 0.0794–0.1710 and the music floor is 0.0820
+(music RMS 0.1641 over its first 60 s × 0.5). At Voices 50% the burble reads
+**0.0834**: inside the band, and 0.0014 over the music floor. That margin is
+thin. A later default below about 49% fails the floor, and so does a quieter
+burble. Either way the change is a product question (plan §Open questions 3),
+not a looser test. A peak of 0.79 is near full scale at Voices 100%, which is
+for the ear to judge. The test decodes a 60 s MP3 window and takes about 4 s
+in a debug build.
+
+### The design calls (plan, signed off 2026-09-23; amended the same day)
+
+- **One `Speech` replaces `banter`.** The shown line and how much of it has
+  been said live in one `Option<Speech>`, the renamed spec 017 field
+  (`App::banter` → `App::speech`; `banter_last` unchanged). Replacing the line
+  replaces its clock, and clearing it drops the clock, so interruption (AC 10)
+  is a property of the data, not something each call site remembers.
+- **Reveal by blanking, not slicing.** `revealed(line, n)` returns the line
+  at its full length with each unsaid word's characters turned to spaces. Any
+  centring drawer then puts each said word at its finished column (AC 8) with
+  no new geometry. Passing an offset and a prefix would have duplicated
+  `draw_text_in`'s centring in a second place.
+- **Burbles come only from advancing the one `Speech`, at most one per
+  step, and never two within `BURBLE_GAP_MS` (150 ms).** Nothing is queued in
+  the audio thread, so a replaced or cleared line cannot burble again. Every
+  burble goes through `App::burble`, the only caller of `burble_cue` (one
+  call), which plays only if `audio::burble_clear` holds. Two burbles at once
+  play louder than one, and after 9A that pushed the burble past the other
+  effects and garbled it. Two bounds are pinned: the burble at its slowest
+  pitch ends within the gap, and the gap is at most three loop ticks. **The
+  gap drops a burble in exactly two cases**, both to keep the sound soft:
+  (1) a new line whose first word arrives within 150 ms of the old line's
+  last burble shows that word silently, which since the beat (11A, 12A) can
+  happen only to a greeting; and (2) a stalled frame that crosses two word
+  boundaries shows both words and owes one burble. A third caller arrived
+  with 10A: the Voices row's preview. The gap keeps a held ←/→ from stacking
+  previews. `self.burble(` has exactly three callers (`say`,
+  `advance_speech`, the Settings arm), and the Verify gates counted them in
+  every task after T002a.
+- **The Animations setting is read at say-time.** `Speech::new(line,
+  animated)` decides how many burbles the line is owed, which is settled when
+  it is chosen. The setting can only change from the Settings overlay over
+  the start menu, where no line is on screen, so reading it at say-time is
+  never stale.
+- **Arrival is the caller's word; returns settle in `tick`.**
+  `open_campaign_home` keeps its single job and stays the only place either
+  campaign screen is assigned (spec 029's grep still returns exactly two
+  lines). The new `arrive_at_campaign` calls it and then says the venue's
+  line. Its callers are `enter_campaign` (every menu entry and the game-over
+  acknowledgement) and `launch_from_map`. The Card Shop's and the deck
+  builder's Back arms keep calling `open_campaign_home`, so a return says
+  nothing new. On any screen other than the board or the venue, `tick`
+  **settles** the current `Speech` (every word shown, silently), the way it
+  resets `BoardMotion`, so coming back draws the whole line. Two alternatives
+  were rejected: a flag on `VenueState` (rebuilt on every return) and an
+  `arrival: bool` on `open_campaign_home` (spec 015's bug was a caller
+  forgetting what a return is).
+- **The series state lives in `banter.rs` and is read through
+  `match_series`.** `SeriesState` is a from-the-opponent's-side reading used
+  only to pick lines, so `campaign.rs` stays untouched. At match start the
+  series comes from `match_series(in_progress, series)`, which is
+  `board_series_line`'s node-matches-series rule pulled out into its own
+  function. Quick Play, a rematch and a match left in flight with no series
+  therefore all read as "no series", exactly as the board does. At the venue
+  it comes from the locked series, because the pointer is already cleared by
+  then.
+- **`banter_last` is fed to the match start only inside a series**
+  (`let last = state.and(self.banter_last)`; sign-off B1). The first draft
+  fed it always, which would have changed Quick Play's pick, against AC 4.
+  Now a series match start avoids the venue's line (AC 6), and every
+  no-series match passes `None` exactly as before.
+- **`final_series` follows the motion idiom rather than `victory_due`'s
+  take-on-entry.** It is set in `tick`'s resolution block from the match's
+  series cloned *before* `resolve_match` (settlement clears the live series
+  one tick before the game-over frame and the closing line need it). It is
+  cleared in `tick`'s `_` screen arm beside the `BoardMotion` reset, so it is
+  gone on every exit from the match, not just the one that exists today. The
+  map never reads it. **`decided_series` repeats the tally rule under a
+  test** (`decided_series_agrees_with_the_series_rule`, which drives
+  `record_series_match` through both series lengths) rather than changing
+  `SeriesOutcome` to carry the score. That change would have touched
+  `campaign.rs`, `profile.rs` and every `MapBanner` match.
+- **Loudness as a number.** As signed off it was a ceiling: peak ≤ music RMS
+  × default music / default SFX. 9A dropped the sentence it tested, and the
+  first listen showed that peak was the wrong measure anyway. It was
+  **replaced, not deleted**. `the_burble_is_as_loud_as_the_other_sounds` took
+  `the_burble_is_softer_than_the_music`'s place in the same diff. It checks a
+  **band** (the burble's whole-clip RMS × default Voices lies between the
+  quietest and loudest of `CardDraw`, `CardPlay`, `Flip`, `Stand` × default
+  Sound FX) and a **floor** (at least the music's first-60-s RMS × default
+  Music), plus a peak under 1.0. Whole-clip RMS is the simplest measure the
+  repo can take without a crate. It does not weight frequencies the way the
+  ear does, which is why the person's approval is the other half of AC 9.
+- **The event beat lives inside `Speech`, not at the `App`.** `Speech` gains
+  `wait` and `after(wait)`. While waiting it shows nothing and owes nothing,
+  and the step that ends the wait owes the first burble. A pending line held
+  beside `speech` was rejected: it would be a second field that
+  interruption, clearing and settling must each remember, which is the split
+  the first design call refused. With the wait inside, every existing rule
+  covers the beat as it stands. **The value is 400 ms.** It outlasts every
+  round, tie and bust sound (pinned by
+  `the_event_beat_outlasts_the_round_sounds`: `RoundWin` 210 ms, `RoundLoss`
+  270, `RoundTie` 210, `Bust` at 0.92 pitch 380). It does **not** outlast
+  the match-end jingles (`GameWin` 450 ms, `GameLoss` 520), so a match or
+  series line's first word lands on their last note. Waiting out the whole
+  jingle, about 0.55 s, would be outside the ruled range, and the person
+  heard it at the re-listen and asked for no change.
+- **Voices: one field and one routing function.** `Settings.voices_volume`
+  is `#[serde(default)]`, so an older file loads with Voices at its default
+  and keeps every other value. Without the serde default,
+  `from_json_or_default` would have reset the whole file. One pure
+  `audio::sfx_level(muted, sfx, settings)` gives each effect's volume or
+  `None`: the burble on Voices, every other effect on Sound FX through the
+  unchanged `should_play_sfx`. `AudioState::play` calls it. The default was
+  set equal to Sound FX's (80%) so that the defaults compared like with like,
+  and **T002c moved it to 50%** by ear (above). The Voices row **previews one
+  burble** at the new level instead of the `MenuMove` tick, because a tick at
+  the Sound FX volume tells the player nothing about Voices.
+- **`voices_volume` is declared last in the struct** (T002a's decision
+  review). serde's derived `Deserialize` also accepts a struct as a
+  positional JSON array. `settings_malformed_or_empty_json_falls_back_to_default`
+  relies on `[1,2,3]` failing when its third element lands on the
+  `animations` bool, and declaring the volume third, as the task line said,
+  let that array parse. Three options were weighed: declare it last (the test
+  is untouched, and the only visible effect is key order in `settings.json`);
+  edit the test (a test changed to pass); or add a custom deserializer (code
+  nobody asked for). The review chose declaring it last. **Any later
+  `Settings` field should also be declared last.** The field's doc says why.
+- **The venue panel grew two rows** (`VENUE_PANEL_H` 15 → 17: border, name,
+  portrait, a gap row, the line row, border). The venue line sits on the
+  panel's interior row 14, exactly where the board draws it, through one
+  shared drawer, `portrait::draw_banter_line`. The rejected alternative was a
+  line floating under the 15-row panel, which reads as a caption *under* the
+  opponent rather than the opponent speaking. **The class of layout
+  assertions that moved**, sanctioned as a class in T007: six pinned venue
+  portrait `Rect`s in `layout.rs`, each `y1` + 2; one area comment (330 →
+  374); and two `VenueState::draw` calls gaining their `line` argument. That
+  is a stated deviation from AC 11's parenthetical "existing tests
+  untouched", which is about phases, popups and timings, none of which these
+  assertions pin.
+- **Tests never build an `App`.** `App::new` reads the real settings and
+  profile, and `Profile::save()` has no `cfg(test)` guard. Every decision
+  sits behind a pure function and is tested there. The `App` wiring (`say`,
+  `advance_speech`, `arrive_at_campaign`, the settle-on-leave) is checked by
+  the driven walkthroughs and the counted-call greps.
+
+### Coverage, stated honestly
+
+- **An opponent bust's line never shows now.** It is replaced one tick later
+  by the round-outcome line (`game.rs` ~282–285 against ~399–400). Before the
+  beat it showed for one tick, about 50 ms; with the beat it never shows.
+  Nobody could see the difference. It is recorded so it isn't taken for a
+  bug.
+- **The beat lands at 400 ms plus up to one loop tick** (≈ 0.40–0.45 s), at
+  the top of AC 8's range. Round-end timing was driven. Bust and match-end
+  timing were not, since they take the same `update_banter` branch. The
+  person heard the match end at the re-listen.
+- **The silent cases rest on construction and the counted-call greps**
+  (Animations Off with one burble, 89 columns silent, the resumed match, a
+  replaced or cleared line, a return from the Card Shop). A driver cannot
+  hear. The person's ear was the check.
+- **A line still revealing can burble under something that covers it**, for
+  under a second: under the `?` help overlay on the board, and under the
+  wager modal at 89 columns, which covers the venue's line row.
+- **`the_burble_follows_voices_and_nothing_else_does` lists the sounds by
+  hand**, so a later `Sfx` variant is not caught automatically.
+- **AC 4 rests on the board's own rule.** `match_series` returns a series
+  only when the in-flight node is the one the locked series is played
+  against. Three callers rely on that during Quick Play: `series_state_now`,
+  `tick`'s `before` and the draw arm.
+- **`banter_last` isn't persisted**, so the first venue line after a relaunch
+  can repeat the one said before quitting (1 in 3). That is no regression:
+  spec 017's no-repeat rule was always within a session.
+- **Whether the menu-select sound ends inside 400 ms**, so that the venue's
+  first burble truly follows it (12A), is for the ear. It is not measured.
+  `the_event_beat_outlasts_the_round_sounds` could be extended to it.
+- **`the_venue_rows_breathe_only_around_the_action_row` still draws with no
+  line.** The geometry holds either way. Drawing a line there would be
+  optional hardening.
+
+### Process notes
+
+- **A driver session touched the real data directory once.** In the Phase 1
+  walkthrough, an Animations-Off run hit a zsh `nomatch` error that skipped
+  the chained `export KAAZAP_DATA_DIR=…`. The run re-saved the person's
+  profile, wrote a Quick Play `savegame.json` and set Animations Off in their
+  `settings.json`. It was reported to the person and nothing further was
+  touched. The lesson: set the data directory on the command itself
+  (`KAAZAP_DATA_DIR=… cmd`), not in an earlier link of a chain that can fail.
+- **Verify gates that could not be read as written**: T003's
+  `grep -nE '^\s*banter:'` also matches the `banter::{` import, which matched
+  before the task too. The amendment sign-off's B1 was a bare
+  `EVENT_BEAT_MS` grep that would also match the import and `say`'s doc
+  (fixed to `from_millis(EVENT_BEAT_MS)`). And T001 found that `tail -n 25`
+  of `cargo test -q` shows only the last test binaries' summaries, not the
+  lib's 519, so reports add `cargo test -q 2>&1 | grep "test result"`.
+- **What worked**: sanctioned changes stated as a **class** (T004's widened
+  "every line" iterators; T007's venue panel assertions) landed first time,
+  as they did in spec 029. So did call sites enumerated by grep before
+  editing (T003, T007).
+
+### What didn't change
+
+`game.rs`, `card.rs`, `player.rs`, `campaign.rs`, `profile.rs`, `save.rs`,
+`economy.rs`, `opponent.rs`, `board.rs`, `Cargo.toml` and `Cargo.lock` are
+untouched. `PROFILE_VERSION` and `SAVE_VERSION` stay 1. The one new
+persisted field is in the settings file, not a save or the profile, and is
+`#[serde(default)]`. No existing banter line or pool changed. The thirteen
+existing sounds are byte-identical. No new crate. The build has no warnings,
+the same count as `main`. Monochrome by construction: the spoken line is the
+existing banter line drawn through the existing drawer, and no colour path
+was added.

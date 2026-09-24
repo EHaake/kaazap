@@ -605,14 +605,58 @@ of, not guessed at here in advance.
   the routing and the board at 89×31 and 139×31, and all eight planets' art at
   both sizes, plus 120×31 and 139×40.
   `Readme.md`'s campaign paragraph names the series, the venue and the lock.
+- **Series-aware banter, spoken word by word** (spec 030) — the opponent's
+  lines now follow the series, and every line is spoken. A match started
+  mid-series opens on a line for where the series stands, read from the
+  opponent's side: **Leading**, **Trailing**, **Decider** (both one win away),
+  and **All square** (level at 1–1 in The Sovereign's best of five). At 0–0
+  the opener is today's greeting. The match that decides a series ends on a
+  **series won** or **series lost** line. Other match ends keep today's lines.
+  Quick Play and cleared-planet rematches pick exactly as before. The opponent
+  also **speaks at the venue** on arrival: when a series starts from the map,
+  after a match that didn't decide it, and when the campaign is entered or the
+  game launched mid-series. A trip to the Card Shop or the collection and back
+  is not an arrival, so the line shown is still there, whole and silent. An
+  arrival under the run-over notice says nothing. The venue's presence panel
+  grew two rows to hold the line, on the same row the board uses. The venue
+  line and the match start draw from one pool, so the match never opens on the
+  line the venue just said. The work added **146 lines**: 13 for each of the
+  other nine roster voices and the fallback, and 16 for The Sovereign. The
+  person read them all at the Phase 2 pause and kept them as written. Every
+  line is **spoken**: its words appear one at a time, in place, about
+  **0.2 s** apart.
+  Each word plays one **burble**, a soft, voice-like murmur synthesized by
+  `scripts/gen_sfx.py` like the other sounds and about as loud as a card being
+  played. A line answering a round, bust or match event, and the venue line,
+  waits a **400 ms beat** before its first word, so the event's sound (or the
+  menu click) lands first. Settings gained a **Voices** slider between Sound FX
+  and Animations. The burble follows it and nothing else does, `m` mutes it,
+  and it defaults to 50%, set by the person's ear. With Animations off a line
+  appears whole with one burble. The compact board (89–138 columns) draws no
+  line, so nothing is spoken there, and a resumed match stays blank. No key
+  waits for a line. The deciding match's game-over frame now keeps the **final
+  series score** (e.g. `Series 2 – 1`). The map afterwards is unchanged. No
+  engine, AI, save-format, economy, balance-data or dependency change:
+  `game.rs`, `card.rs`, `player.rs`, `campaign.rs`, `profile.rs`, `save.rs`,
+  `economy.rs`, `opponent.rs`, `Cargo.toml` and `Cargo.lock` are untouched, and
+  `PROFILE_VERSION` / `SAVE_VERSION` stay 1. The settings file gained one
+  serde-defaulted field (`voices_volume`), so an older file loads with Voices
+  at the default and every other value kept. The person amended the spec
+  twice, after listening at Phase 1 (9A–11A) and after walking the venue at
+  Phase 3 (12A, 13A). They approved the burble by ear and attested every
+  paused phase. Driver walkthroughs against a scratch `KAAZAP_DATA_DIR`
+  covered the reveal, the beat, Settings, the series lines and the venue at
+  89×31 and 139×31. `design/brief.md`'s *Motion* section calls a spoken line a
+  one-shot transition. `Readme.md` names the voice volume and the word-by-word
+  lines. `assets/CREDITS.md` covers the burble.
 
 ## Backlog
 
 **What's left for v1 (the person, 2026-09-23).** The game is basically
-complete. Two things remain before it counts as done: **series-aware
-banter** (below, taken as spec 030 with a word-by-word speaking animation)
-and **music** — *Original cantina-vibe music* and/or *Per-planet music*
-(below). Everything else here is optional polish or post-v1. The
+complete. One thing remains before it counts as done: **music** —
+*Original cantina-vibe music* and/or *Per-planet music* (below).
+**Series-aware banter**, the other item named here on 2026-09-23, shipped as
+spec 030. Everything else here is optional polish or post-v1. The
 **roguelike mode** is low priority, because the campaign already plays like
 one: going broke ends the run and wipes it. The **difficulty curve** is in a
 good place; another pass is possible, but nothing changes unless it is
@@ -745,16 +789,18 @@ touches the stakes work below, so they can interleave freely.
   spec 027 (Q5 A): portraits stay static**, as the brief's portrait amendment says, and the
   animation pass left the presence panel untouched; **banter** (above)
   is the next slice and now has a face to attach to.
-- **Series-aware banter** (deferred by spec 029, 2026-09-20). Since spec 029 a
-  campaign opponent is a Best of 3 series (Best of 5 for the final opponent), so
-  each opponent's **match-start line now fires two or three times in a row** —
-  up to five against The Sovereign — and the match-end lines know nothing about
-  whether that match took or lost the series. Accepted as a non-goal there. The
-  work is lines, not machinery: `banter.rs`'s event classes would gain a
-  series-aware variant of match start (first match, a match with the series
-  level, a match that can decide it) and perhaps of match end, reading the
-  series the board already shows (`board_series_line`'s inputs). As with spec
-  017, the real cost is the writing — ten voices and the fallback.
+- **Series-aware banter** — ✅ **Shipped (spec 030** — see Shipped above and
+  `DECISIONS.md`). Deferred by spec 029 on 2026-09-20. The shape this entry
+  guessed held: the series state is read from what the board already shows
+  (`match_series`, pulled out of `board_series_line`), and match start gained
+  Leading, Trailing, Decider and (for The Sovereign) All square pools. Match
+  end also gained a series won / series lost pair. As predicted, the real
+  cost was the writing: 146 lines across the eleven voices. The spec also
+  made every line **spoken**, word by word with a burble, gave the burble a
+  **Voices** volume, and had the opponent **speak at the venue**. Deferred
+  from it, each below: per-opponent burble voices, word-by-word text
+  elsewhere, a skip key, and a taunt when the run ends. The compact board's
+  silence is the bullet just after this one.
 
 - **The opponent's line on the compact board** (raised by the person
   2026-09-23, during spec 030's planning). Below 139 columns the compact
@@ -763,6 +809,39 @@ touches the stakes work below, so they can interleave freely.
   the line on the compact board without the portrait, and let it be spoken
   there like everywhere else. A layout question first (where a 20-character
   line fits on the 89-column board).
+  **Spec 030 shipped it silent, by ruling 7A**: "if the banter isn't
+  visible, it makes no sense to include the speech burble." One predicate
+  decides both (`App::line_visible`, which reads `BoardView::is_wide()`), so
+  once the line is drawn on the compact board, making `line_visible` true
+  there brings the burble back with no audio change.
+- **Per-opponent burble voices** (deferred by spec 030, 2026-09-23). Every
+  opponent speaks with one burble today, pitched per word by the five-entry
+  `audio::BURBLE_PITCHES`. A voice per opponent (Greeb higher and quicker, The
+  Sovereign low and slow) could be a pitch multiplier per voice fed into
+  `burble_cue`, or its own `BURBLE`-style parameter block in
+  `scripts/gen_sfx.py` and its own WAV. The first costs one table; the second
+  costs one generated file per voice. It must still pass
+  `the_burble_is_as_loud_as_the_other_sounds` and the `BURBLE_GAP_MS` bound
+  (`a_burble_ends_before_the_next_can_start`), because a slower voice is a
+  longer clip.
+- **Word-by-word text elsewhere** (deferred by spec 030). Only opponent lines
+  are spoken. Notices, popups, How to Play, the primer and the map print
+  whole. `banter::revealed` and `Speech` are pure and would serve another
+  caller, but each surface would need its own ruling on whether it should
+  wait, and on its sound.
+- **A key to skip the reveal** (deferred by spec 030). Lines are at most five
+  words and finish within a second, and no key waits for them, so the spec
+  kept every key's effect unchanged. If longer lines ever arrive, a skip is
+  `Speech::settle` on a key, but that key must also keep its current meaning.
+- **The opponent taunts the end of the run** (ruling 13A's preferred option,
+  deferred as needing design, 2026-09-23). A venue arrival that leaves the
+  player broke says **no** line today. The run-over notice covers the
+  presence panel at 89 columns and clips its first character at 139, and the
+  run resets behind it. The person would prefer a taunt ("the run is over"),
+  but not if it needs more design, and it does: every voice needs a new pool,
+  and the line needs a place to be seen, either on the notice itself or with
+  the notice moved off the panel. `arrive_at_campaign`'s `is_broke()` early
+  return is where it would start.
 
 ### Stakes, loss condition & difficulty balance (now being sequenced)
 
