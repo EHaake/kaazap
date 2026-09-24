@@ -482,7 +482,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   relaunch and the 89-column run-over capture) at both widths on a scratch
   `KAAZAP_DATA_DIR`.*
 
-- [ ] **T008a** — `src/app.rs`: the venue line waits a beat, and a broke
+- [x] **T008a** — `src/app.rs`: the venue line waits a beat, and a broke
   arrival says nothing (rulings 12A, 13A, the person at the Phase 3 pause:
   "add a slight delay to the line so that the sounds don't overlap"; "A is
   better than B"). Per plan §Design 5 (*Phase 3*, the amended paragraph) and
@@ -765,3 +765,4 @@ redo, and why). -->
 | T008 (sdd-implementer) | opus → claude-opus-5-5 | ~51K | 1 | yes | — | done; 519 lib tests, 0 warnings; greps as specified. Confirmed the game-over acknowledgement reaches `arrive_at_campaign` via `enter_campaign(false)` (Phase 1 review second look 1 closed). Note: the acknowledgement MenuSelect and the venue line first burble sound in the same tick |
 | Phase 3 driven walkthrough (orchestrator) | claude-opus-5-5 (session) | — | — | — | — | items 1–7 at 139×31 and 89×31 on a scratch data dir: venue line word by word in place; shop/collection Back keeps it whole; match opens on a different line; new line after a non-deciding match, on menu re-entry and after a relaunch; run-over notice covers the line at 89, clips it at 139 (§Open questions 4) |
 | Phase 3 review (skeptical-reviewer) | opus → claude-opus-5-5 | ~77K | 1 | — | 0 | **pass**; run-over item not blocking (matches plan §Design 5) but warrants a fix — product question to the person at the pause; six second looks to the close-out notes |
+| T008a (sdd-implementer) | opus → claude-opus-5-5 | ~29K | 1 | yes | — | done; 519 lib tests, 0 warnings; greps as specified; also corrected `say`'s doc clause about venue arrivals |

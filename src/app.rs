@@ -829,20 +829,30 @@ impl App {
     /// opponent's line for where the series stands. Starting a series, every
     /// menu entry and the game-over acknowledgement arrive; the Card Shop's and
     /// the collection's Back call `open_campaign_home` directly, because
-    /// returning is not arriving.
+    /// returning is not arriving. A broke arrival — under the run-over notice,
+    /// which covers the panel — says no line and clears any line still being
+    /// spoken (ruling 13A); otherwise the line waits `EVENT_BEAT_MS` so its
+    /// first burble doesn't land on the arrival's menu click (ruling 12A).
     fn arrive_at_campaign(&mut self) {
         self.open_campaign_home();
         if !matches!(self.screen, Screen::Venue { .. }) {
             return;
         }
+        // The same check `campaign_entry_modal` uses for the run-over notice;
+        // clearing the speech stops the match's closing line burbling on here.
+        if self.profile.is_broke() {
+            self.speech = None;
+            return;
+        }
         let Some(series) = self.profile.campaign().series() else {
             return;
         };
-        // A venue line has no event to wait out, so it starts at once (ruling
-        // 11A); it avoids the last line said, as every pick does.
+        // A venue line waits the event beat, so its first burble comes after
+        // the arrival's menu click (ruling 12A); it avoids the last line said,
+        // as every pick does.
         let pool = start_lines(banter_for(&series.opponent), Some(series_state(series)));
         let line = pick(pool, self.banter_last, &mut rand::rng());
-        self.say(line, Duration::ZERO);
+        self.say(line, Duration::from_millis(EVENT_BEAT_MS));
     }
 
     /// Enter (resume) the campaign: discard a stray in-progress match save first
@@ -1189,9 +1199,9 @@ impl App {
     /// Say `line` (spec 030): it replaces any line still being spoken, at once,
     /// from its first word, and becomes `banter_last`; its first word's burble
     /// plays now — if the line is on screen. With Animations off it is whole at
-    /// once, and this is its only burble. `wait` is zero for a match start or a
-    /// venue arrival, and `EVENT_BEAT_MS` for a line answering an event (ruling
-    /// 11A). Nothing shows or sounds until it passes; then `advance_speech`
+    /// once, and this is its only burble. `wait` is zero for a match start, and
+    /// `EVENT_BEAT_MS` for a line answering an event (ruling 11A) or a venue
+    /// arrival (ruling 12A). Nothing shows or sounds until it passes; then `advance_speech`
     /// plays the first word's burble.
     fn say(&mut self, line: &'static str, wait: Duration) {
         let speech = Speech::new(line, self.settings.animations).after(wait);
