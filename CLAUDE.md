@@ -206,27 +206,27 @@ this setting generalizes.
 
 ## Model policy
 
-**Standard profile** (the skill's default; this project's until
-2026-09-19). Top tier `fable`; implementation
-tier `opus`; session tier `fable` at medium effort (the top and session
-tiers are the same model at different effort; the fallback session model
-is `claude-opus-5`, the full ID, since the person's ruling of
-2026-09-16; it was `claude-opus-4-8` before then, a previous-generation
-model with no short alias). Settings from the skill's
-`project/.claude/settings.json`.
+**Fable profile** (this project's until 2026-09-19). Top tier
+`fable`; implementation tier `opus`; session tier `claude-fable-5-1`
+at medium effort (the top and session tiers are the same model at
+different effort). The fallback session model is `claude-opus-5-5`.
+Settings from the skill's `project/.claude/settings.json`.
 
-**Economy profile** — **this project's, since 2026-09-19**, when the
-person said to use Opus for everything from now on; it stands until they
-say otherwise, and nobody infers its end from an allowance reading or
-from a sign-off that keeps finding problems. One model family
-throughout: top tier `opus`; implementation tier `opus`; session tier
-`claude-opus-5` at medium effort — the full ID, the current Opus rather
-than the template's `claude-opus-4-8`, following the person's ruling of
-2026-09-16 and how spec 025 actually ran. Nothing runs on Fable: the
-planner and sign-off dispatches carry no override, and the top-tier
-fallback below never applies. Settings from the skill's
-`project/.claude/settings.economy.json`, with `"model"` set to
-`claude-opus-5`.
+**Opus profile** — **this project's, since 2026-09-19**, when the
+person said to use Opus for everything from now on; it stands until
+they say otherwise, and nobody infers its end from an allowance reading
+or from a sign-off that keeps finding problems. Opus for everything:
+top tier `opus`; implementation tier `opus`; session tier
+`claude-opus-5-5` at medium effort. Every dispatch runs at high effort
+— the agent definitions' own default — and only orchestration runs at
+medium. Nothing runs on Fable: the planner and sign-off dispatches
+carry no override, the close-out goes to `sdd-implementer`, and the
+top-tier fallback below never applies. Settings from the skill's
+`project/.claude/settings.opus.json`. (The skill called these the
+standard and economy profiles until 2026-09-23; renamed here on
+2026-09-24 to match. `claude-opus-4-8` names no current role or
+fallback — it appears only in the history below, or if the person asks
+for it.)
 
 These names are the only place a model is spelled out; everything
 below refers to the roles.
@@ -258,11 +258,11 @@ replace **top tier** (override) with "implementation tier (no
 override)"; the dispatch then carries no override and the agent runs
 at its own default. To change the implementer, change the agent name
 in that row — both definitions stay installed, so it is a word, not a
-reinstall. On the economy profile — where this project is now — the
+reinstall. Under the Opus profile — where this project is now — the
 top tier *is* the implementation tier, so every override column reads
-"no override" and the close-out row reads `sdd-implementer`; moving back
-to standard re-points those cells and nothing else in the table
-changes.
+"no override" and the close-out row reads `sdd-implementer` at high;
+moving back to the Fable profile re-points those cells and nothing else
+in the table changes.
 
 **A change the person asks for gets written here before it is acted
 on.** If they say to move a role — for one window, for this project,
@@ -280,8 +280,8 @@ infer the end of a temporary change and revert it unasked.
 - **The session runs at the session tier, at medium effort**, set in
   this repo's `.claude/settings.json` — written at project setup from
   the profile's settings file in the skill's `project/.claude/`
-  (`settings.json` for the standard profile, `settings.economy.json`
-  for economy) (`"model": "claude-opus-5"`, `"effortLevel":
+  (`settings.json` for the Fable profile, `settings.opus.json` for
+  Opus) (`"model"` set to the session tier's full ID, `"effortLevel":
   "medium"`, and a level under `"modelSettings"` for each tier's full
   model ID). If that file is missing or lacks these
   keys, recreate it from the template and commit it before dispatching
@@ -294,11 +294,12 @@ infer the end of a temporary change and revert it unasked.
   bookkeeping turns and re-sends its whole context on each one — the
   dominant cost of the workflow — and it makes no design decisions: it
   assembles bundles, dispatches, verifies, commits, and reports. The
-  role never needs the top tier. Under the standard profile it sits on
-  the top tier's model because, measured, Fable 5.1 at medium in this
-  seat cost about a third per task of Opus 4.8 and its allowance held;
-  on the economy profile it sits on Opus 5, whose reports read clearly
-  to the person, and the same discipline about turns applies.
+  role never needs the top tier. Under the Fable profile it sits on
+  the top tier's model; measured in this seat, Fable 5.1 at medium ran
+  close to Opus 5.5 per task while taking about a third of the turns
+  (the skill's design record has the numbers). Under the Opus profile
+  it sits on Opus 5.5, whose reports read clearly to the person, and
+  the same discipline about turns applies.
   If it drops the protocol (a skipped review, a stale `tasks.md`
   edit, a task done by hand), the first fix is high effort, one line
   in the same file.
@@ -378,6 +379,39 @@ infer the end of a temporary change and revert it unasked.
   orchestrator edits `tasks.md` or commits, and the orchestrator never
   implements second-look notes or does device or browser checks by
   hand.
+- **Where a device or browser pass runs** (adopted 2026-09-24 from the
+  skill's collaboration workflow). Not in the implementer, which has no
+  simulator or browser access. A task whose Verify criterion needs one
+  gets it from the person's walkthrough at the phase pause, or from a
+  general-purpose agent the orchestrator dispatches for that check
+  alone — never a task whose verification the implementer cannot
+  perform, read as if it had. A dispatched pass costs mostly re-read
+  context, so three habits keep it bounded: fold waits into the next
+  call (`sleep 2 && <screenshot>`, or wait for a condition) rather than
+  spending a turn on a bare `sleep`; one dispatch per checklist
+  section, each given only its own section and returning a short
+  pass/fail list, so context resets between sections; and leave the
+  pass only what needs eyes — a check with a deterministic answer (an
+  element exists, a label reads right, a key reaches the right screen)
+  goes into the automated UI tests the plan names, where it runs every
+  build for nothing, and the pass keeps layout, motion and feel. A
+  smaller model or lower effort is not the lever.
+- **Close-out runs on its own bundle, and the bundle carries the
+  evidence** (adopted 2026-09-24 from the skill's collaboration
+  workflow). The orchestrator assembles it with shell, as for a review
+  bundle: each acceptance criterion with the test names or Done notes
+  that satisfied it, the walkthrough list and what the person said at
+  each pause, the tier log, the spec's summary and its decided lines,
+  the `ROADMAP.md` entries this spec touches, and the previous spec's
+  `DECISIONS.md` section as the shape to copy. The dispatch says not to
+  read `spec.md`, `plan.md` or `tasks.md` in full; the close-out never
+  goes looking for evidence itself. It drafts the `ROADMAP.md` and
+  `DECISIONS.md` text into a file on the branch, to be applied to `main`
+  after the merge, and updates the README if user-facing behavior
+  changed. Only then does the pre-merge sweep run, so it verifies the
+  close-out instead of pre-dating it. (Measured on the same model: a
+  close-out allowed full reads cost $12.38 over 111 turns; one handed
+  the bundle with full reads forbidden cost $0.99 over 24 turns.)
 - **One implementation session per spec.** It opens when `plan.md` and
   `tasks.md` are final and ends at the merge; a phase pause is a pause
   in it, not a boundary — the person attests and says continue.
@@ -406,11 +440,11 @@ infer the end of a temporary change and revert it unasked.
 - **Batch the bookkeeping**: commit, checkbox, and tier-log row in one
   shell command; bundle assembly and dispatch back to back. Every turn
   saved is one fewer re-send of the whole context.
-- **Fallback** (standard profile): if the top tier's usage budget runs
+- **Fallback** (Fable profile): if the top tier's usage budget runs
   out, dispatch the planner and sign-off at the implementation tier for
   the rest of the window (drop the override; both definitions default
   to `opus`), switch the session itself to the fallback session model
-  named in the standard profile above (`/model claude-opus-5` — one
+  named in the Fable profile above (`/model claude-opus-5-5` — one
   cache re-write, then continue), and dispatch `sdd-implementer` for
   any row that names `sdd-implementer-fable`, including close-out.
   This is the whole role table stepped down at once, and it is the
@@ -445,13 +479,18 @@ infer the end of a temporary change and revert it unasked.
   implementation, reviews and sweep — ran at `opus`/`claude-opus-5` with
   the top-tier override dropped. Its tier log is in
   `specs/025-outfitter-locked-cards/tasks.md`.
-  **2026-09-19: the project moved to the economy profile** — the person
-  said to use Opus for everything from now on, so every row resolves to
-  `opus`/`claude-opus-5`, the close-out row names `sdd-implementer`, and
-  `.claude/settings.json` puts new sessions on `claude-opus-5` at medium.
-  Recorded here rather than in a tier log because no spec was in flight;
-  the next spec's tier log opens with it. It holds until the person says
-  otherwise.
+  **2026-09-19: the project moved to the Opus profile** (then called
+  the economy profile) — the person said to use Opus for everything
+  from now on, so every row resolves to `opus`, the close-out row names
+  `sdd-implementer`, and `.claude/settings.json` puts new sessions on
+  the Opus session tier at medium. Recorded here rather than in a tier
+  log because no spec was in flight; the next spec's tier log opens
+  with it. It holds until the person says otherwise.
+  **2026-09-24: reconciled with the skill's 2026-09-23/24 revision** —
+  profiles renamed Fable/Opus, the Opus model is `claude-opus-5-5`
+  everywhere (`.claude/settings.json` rewritten from
+  `settings.opus.json`), the close-out bundle rule and the
+  device-or-browser-pass guidance adopted above.
 
 ## Spec-driven workflow
 
