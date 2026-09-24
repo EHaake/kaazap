@@ -708,6 +708,7 @@ remove it. The orchestrator writes these rows; nobody else. -->
 | Phase 2 | yes | Attested by the person, 2026-09-23: "Banter lines are fine. Continue" — every new line read and kept as written. |
 | Phase 3 | yes | Attested by the person, 2026-09-23: silent on return from the Card Shop / collection "as expected after testing"; asked for a slight delay on the venue line (ruling 12A) and chose A for the run-over arrival (ruling 13A) — both fixed in T008a and re-driven. The person has not yet heard the delayed venue line. |
 | Close-out | no — walkthrough: none | Documentation, mechanical checks and the pre-merge sweep; nothing new to try. What remains for the person's ear: the venue line's short delay (12A), and the silent panel under the run-over notice (13A). |
+| Close-out walk (the person) | yes | Attested 2026-09-23: the venue line's beat (12A) and the silent run-over arrival (13A) — "Everything looks good. Merge the PR when ready." |
 
 ---
 
