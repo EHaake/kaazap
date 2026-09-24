@@ -176,68 +176,68 @@ construction.
 
 ## Acceptance criteria
 
-1. [ ] **Series states.** For every series score in a best of 3 and a best
+1. [x] **Series states.** For every series score in a best of 3 and a best
    of 5, the state is Opening at 0–0, Leading when the opponent is ahead,
    Trailing when behind, Decider when both are one win from the series, and
    All square otherwise when level (best of 5 at 1–1 only).
-2. [ ] **Match-start lines follow the series.** A campaign match started at
+2. [x] **Match-start lines follow the series.** A campaign match started at
    each state shows a line from that state's lines for that opponent; at
    Opening, today's greeting lines.
-3. [ ] **Series result lines.** A match that ends a series shows a series won
+3. [x] **Series result lines.** A match that ends a series shows a series won
    line when the opponent took the series and a series lost line when the
    player did; a match that doesn't end it shows today's match-win /
    match-loss lines.
-4. [ ] **No series, no change.** Quick Play and a cleared-planet rematch
+4. [x] **No series, no change.** Quick Play and a cleared-planet rematch
    choose their lines exactly as they do today, for every event.
-5. [ ] **Venue lines.** Arriving at the venue — from the map, after a
+5. [x] **Venue lines.** Arriving at the venue — from the map, after a
    non-deciding match, and on entering the campaign or launching the game
    with a series in progress — shows a line from the current state's lines,
    spoken, its first word a short beat after the arrival (ruling 12A);
    returning from the Card Shop or the collection shows the same line, whole,
    with no burble; an arrival under the run-over notice shows and says no
    line (ruling 13A).
-6. [ ] **No back-to-back repeat.** The match-start line is never the line the
+6. [x] **No back-to-back repeat.** The match-start line is never the line the
    venue just showed, and spec 017's no-repeat rule holds for every event.
-7. [ ] **Every voice is complete.** Each of the ten roster voices and the
+7. [x] **Every voice is complete.** Each of the ten roster voices and the
    fallback has at least three lines for Leading, Trailing and Decider and at
    least two for series won and series lost; The Sovereign has at least three
    All square lines; every line fits the panel's 20-character width.
-8. [ ] **Word by word, in place.** A spoken line shows its first word on the
+8. [x] **Word by word, in place.** A spoken line shows its first word on the
    frame it is chosen — or, for a line said on a round or match event
    (ruling 11A) or on arriving at the venue (ruling 12A), about 0.3–0.4
    seconds later — and one more word about every 0.2 seconds; at every step
    each shown word is at the column it holds in the finished line.
-9. [ ] **The burble.** One burble plays as each word appears; it is soft in
+9. [x] **The burble.** One burble plays as each word appears; it is soft in
    character, voice-like, and about as loud as the other sound effects
    (ruling 9A); it follows the new Voices volume (ruling 10A) and is silent
    with Voices at zero or muted; it is generated in-repo.
    **The person approves the sound by ear** at a walkthrough once it is
    playable in the game, and may ask for it to be tweaked; this criterion is
    not met until they have.
-10. [ ] **Interruption and clearing.** A new line replaces one being spoken
+10. [x] **Interruption and clearing.** A new line replaces one being spoken
     and starts from its first word; a line cleared mid-reveal stops, and in
     both cases no further burble from the old line plays.
-11. [ ] **Nothing waits.** Every key has the same effect on the same frame
+11. [x] **Nothing waits.** Every key has the same effect on the same frame
     while a line is being spoken or waiting out its event beat; phases,
     popups, timings and other sounds are unchanged (existing tests
     untouched).
-12. [ ] **Animations Off.** A line appears whole on the frame it is chosen
+12. [x] **Animations Off.** A line appears whole on the frame it is chosen
     (after the event beat, where one applies), with one burble.
-13. [ ] **Resumed match and compact board.** A resumed saved match shows no
+13. [x] **Resumed match and compact board.** A resumed saved match shows no
     line and plays no burble (ruling 8A); a match on the compact board shows
     no line and plays no burble (ruling 7A).
-14. [ ] **Final score held.** The game-over frame of a deciding match, won or
+14. [x] **Final score held.** The game-over frame of a deciding match, won or
     lost, shows the final series score; non-deciding matches' frames are
     unchanged; the map afterwards shows no series score and its banner is
     unchanged.
-15. [ ] **Nothing else changes.** No engine, AI, save-format, economy or
+15. [x] **Nothing else changes.** No engine, AI, save-format, economy or
     balance change; no new crate; monochrome. (The settings file gaining a
     Voices field, ruling 10A, is not a save-format change: saves and the
     profile are untouched.)
-16. [ ] **Docs.** The README and How to Play still describe the game
+16. [x] **Docs.** The README and How to Play still describe the game
     accurately; the design brief's Motion section says a spoken line is a
     one-shot transition; `assets/CREDITS.md` covers the new sound.
-17. [ ] **Voices volume.** Settings shows a Voices slider beside Music and
+17. [x] **Voices volume.** Settings shows a Voices slider beside Music and
     Sound FX that changes and persists like them; the burble follows it and
     no other sound does; a settings file without it loads with the default
     (ruling 10A).

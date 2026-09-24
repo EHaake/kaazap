@@ -53,8 +53,8 @@ changes a named part of this plan. Every other part stands as signed off.
 | Ruling | What changes | Where in this plan |
 |---|---|---|
 | **9A** — the burble is as loud as the other sound effects, and "never louder than the music" is dropped | Loudness is now a **band** (between the quietest and loudest of the board's move sounds) plus a **floor** (above the music at default settings). It replaces the ceiling. `BURBLE.peak` is raised to land in the band. The test `the_burble_is_softer_than_the_music` is **replaced** (not deleted) by `the_burble_is_as_loud_as_the_other_sounds`. | §Design tension 9 (rewritten), §Design 3, §Tests *audio.rs*, §Verification (walkthrough and tweak loop), §Open questions 3 |
-| **10A** — a Voices slider in Settings; the burble follows it instead of Sound FX; `m` mutes it | `Settings.voices_volume` (serde default 0.8), `SettingRow::Voices` between Sound FX and Animations, and one pure routing function `audio::sfx_level`. Adjusting Voices previews one burble at the new level. | §Design tension 14 (new), §Design 4, §Design 5 (*Phase 1*), §Design 10, §Design 11 (new), §Tests *settings.rs*, *audio.rs* |
-| **11A** — a line said on a round, bust, tie or match/series event waits a beat before its first word; greetings and venue lines start at once | `EVENT_BEAT_MS = 400` beside `WORD_STEP_MS`. `Speech` gains one field (`wait`) and one method (`after`). `say` takes the wait. Only `update_banter`'s event branch passes a non-zero wait. | §Design tensions 3, 4 (touched), 13 (new), §Design 1, 2, 5, 10 (the brief's sentence), §Tests *banter.rs*, *audio.rs*, §Verification |
+| **10A** — a Voices slider in Settings; the burble follows it instead of Sound FX; `m` mutes it | `Settings.voices_volume` (serde default 0.8; **superseded by T002c: 0.5**, set by the person's ear at the re-listen), `SettingRow::Voices` between Sound FX and Animations, and one pure routing function `audio::sfx_level`. Adjusting Voices previews one burble at the new level. | §Design tension 14 (new), §Design 4, §Design 5 (*Phase 1*), §Design 10, §Design 11 (new), §Tests *settings.rs*, *audio.rs* |
+| **11A** — a line said on a round, bust, tie or match/series event waits a beat before its first word; greetings and venue lines start at once | `EVENT_BEAT_MS = 400` beside `WORD_STEP_MS`. `Speech` gains one field (`wait`) and one method (`after`). `say` takes the wait. Only `update_banter`'s event branch passes a non-zero wait. **Superseded in part by ruling 12A (T008a, Phase 3 pause):** the venue line waits the same beat, so `arrive_at_campaign` passes `EVENT_BEAT_MS` too, and only greetings start at once. | §Design tensions 3, 4 (touched), 13 (new), §Design 1, 2, 5, 10 (the brief's sentence), §Tests *banter.rs*, *audio.rs*, §Verification |
 
 Tasks: T002a (the Voices volume), T002b (the loudness), T003a (the event
 beat), in that order, all in Phase 1 (`tasks.md`). T002b's test reads the
@@ -182,7 +182,9 @@ divergences from "one burble per word" that exist to keep the sound soft:
   line's first word then appears silently, and its later words burble as usual.
   (Amended, 11A: a line answering an event shows its first word
   `EVENT_BEAT_MS` after it is said, so this case now arises only for a line
-  with no beat: a greeting, a rematch's greeting, a venue arrival.)
+  with no beat: a greeting, a rematch's greeting, a venue arrival.
+  **Superseded in part by ruling 12A (T008a):** a venue arrival waits the beat
+  too, so the case is down to a greeting and a rematch's greeting.)
 - **A stalled frame** that crosses two word boundaries shows both words and
   owes one burble.
 
@@ -311,6 +313,12 @@ the middle of the band and clear of the floor, and records the figures. If the
 measured band and floor cannot both hold, T002b stops and reports rather than
 loosening either one.
 
+(**Superseded in part by T002c**: this estimate assumed Voices defaulted to
+0.8, equal to Sound FX. Since T002c the default is 0.5, so the burble's side
+scales by 0.5 and the band's by 0.8. At the new default the burble reads
+≈ 0.0834 against the band's floor 0.0794 and the music floor 0.0820 — a thin
+margin, and the test, which reads the defaults, still passes unchanged.)
+
 The test is `the_burble_is_as_loud_as_the_other_sounds` in `audio.rs`. It
 decodes the embedded assets with rodio's `Decoder`, opening no device, the way
 the old test did. It reads the defaults from `Settings::default()`, so a change
@@ -429,7 +437,12 @@ appears, and the popup's timing does not change.
 `update_banter`'s event branch passes `Duration::from_millis(EVENT_BEAT_MS)`.
 The match start, the in-place rematch greeting and (T008) the venue arrival
 pass `Duration::ZERO`: "The match-start greeting and the venue line … start at
-once." Rejected: a second method (`say_after_beat`), which would duplicate
+once." **Superseded in part by ruling 12A (T008a, the person at the Phase 3
+pause):** the venue arrival passes `Duration::from_millis(EVENT_BEAT_MS)` too,
+so its first burble does not land on the menu click that brought the player
+there; `grep -n 'from_millis(EVENT_BEAT_MS)' src/app.rs` now returns two lines,
+`update_banter`'s event branch and `arrive_at_campaign`. Only the match start
+and the rematch greeting pass `Duration::ZERO`. Rejected: a second method (`say_after_beat`), which would duplicate
 `say`'s body for one caller.
 
 ### 14. Voices: one field, one routing function (ruling 10A)
@@ -757,7 +770,10 @@ after T002a, which adds the Settings preview below.)
   `words_shown() > 0` **and** `line_visible()`. Its doc gains: "`wait` is zero
   for a match start or a venue arrival, and `EVENT_BEAT_MS` for a line
   answering an event (ruling 11A). Nothing shows or sounds until it passes;
-  then `advance_speech` plays the first word's burble."
+  then `advance_speech` plays the first word's burble." (**Superseded by
+  ruling 12A, T008a:** the doc now reads "zero for a match start, and
+  `EVENT_BEAT_MS` for a line answering an event (ruling 11A) or a venue
+  arrival (ruling 12A)".)
 - Call sites (`grep -n 'self\.say(' src/app.rs`, three today): `start_match`
   and `update_banter`'s rematch branch pass `Duration::ZERO`. `update_banter`'s
   event branch passes `Duration::from_millis(EVENT_BEAT_MS)`. `advance_speech`,
@@ -827,11 +843,13 @@ settings arm.
   Its line: `pick(start_lines(banter_for(&series.opponent),
   Some(series_state(series))), self.banter_last, …)`, then `say(line,
   Duration::ZERO)`. A venue line has no event to wait out (ruling 11A;
-  amended from plain `say`).
+  amended from plain `say`). **Superseded by ruling 12A (T008a; the amended
+  paragraph below):** the venue line passes `Duration::from_millis(EVENT_BEAT_MS)`.
   `enter_campaign`'s and `launch_from_map`'s `self.open_campaign_home()`
   become `self.arrive_at_campaign()`. The `Screen::Venue` draw arm passes
   `line.as_deref()`. An arrival under a notice (the run-over notice after a
-  non-deciding loss leaves the player broke) still says its line. Whether the
+  non-deciding loss leaves the player broke) still says its line
+  (**superseded by ruling 13A, T008a**: it says none; below). Whether the
   notice covers the panel at 89 columns is **checked at the Phase 3
   walkthrough**, not assumed (§Open questions 4).
   **Amended at the Phase 3 pause (T008a, rulings 12A and 13A):** the notice
@@ -924,7 +942,8 @@ module doc each gain a clause about the opponent's line.
   ```rust
       /// Spec 030 (ruling 10A): the opponent's spoken-word burble, and no
       /// other sound. A file without the key reads as the default, equal to
-      /// Sound FX's. Declared last on purpose: serde also accepts a struct
+      /// Sound FX's. [Superseded by T002c: the default is 50%, and the doc
+      /// says so.] Declared last on purpose: serde also accepts a struct
       /// as a positional JSON array, and the malformed-JSON test's `[1,2,3]`
       /// must keep failing on the `animations` bool.
       #[serde(default = "default_voices_volume")]
@@ -1038,7 +1057,8 @@ where a claim is cheap to pin on a drawn frame (as spec 029's venue tests do).
 
 - `the_voices_volume_defaults_loads_and_persists` (AC 17). It checks that
   `Settings::default().voices_volume == default_voices_volume() ==
-  default_sfx_volume()`. A file without the key (`{}`, and the pre-amendment
+  default_sfx_volume()`. (**Superseded by T002c**: the second equality is now
+  `default_voices_volume() == 0.5`, the one assertion T002c changed.) A file without the key (`{}`, and the pre-amendment
   shape `{"music_volume":0.3,"sfx_volume":0.4,"animations":false}`) loads with
   Voices at the default **and every other value as written**, so the old file
   is not reset. `{"voices_volume":0.2}` reads 0.2. A value round-trips through
@@ -1100,7 +1120,8 @@ where a claim is cheap to pin on a drawn frame (as spec 029's venue tests do).
   true and two words.
 - `after_zero_is_the_line_at_once`. `Speech::new(l, a).after(Duration::ZERO)
   == Speech::new(l, a)` for both `a`, so greetings and venue lines are
-  unchanged.
+  unchanged. (Since ruling 12A, T008a, the venue line is said with the beat;
+  the test still pins `after(ZERO)` for the greetings.)
 - `animations_off_after_a_beat_is_whole_with_one_burble`. `new(line,
   false).after(beat)`: nothing shows until `advance(beat)`, which returns true
   and shows the whole line. `advance` never returns true again.
@@ -1217,7 +1238,8 @@ Items 1–4 above still hold, and item 1's round-end capture changes as in item
 9. **An old settings file.** Write `settings.json` in the scratch dir with only
    the pre-amendment keys and non-default values, for example `{"music_volume":
    0.3, "sfx_volume": 0.4, "animations": false}`. The overlay then shows Music
-   30%, Sound FX 40%, Voices 80%, Animations Off.
+   30%, Sound FX 40%, Voices 80%, Animations Off. (Driven at 80%; since T002c
+   the default, and so this reading, is 50%.)
 10. **The person, by ear** (a driver cannot hear):
     - the murmur is about as loud as a card being played, and clearly audible
       over the music at the default settings;

@@ -85,7 +85,9 @@ pub const THINKING_STEP_MS: u64 = 300; // the thinking indicator steps . / .. / 
 pub const WORD_STEP_MS: u64 = 200;
 // Spec 030 (ruling 11A) — a line answering a round, bust, tie or match event
 // shows its first word EVENT_BEAT_MS after it is chosen, once the event's own
-// sound has played. Bounds pinned by
+// sound has played. Ruling 12A reuses it for the venue line: an arrival's line
+// waits the same beat, so its first burble follows the menu click that brought
+// the player there. Bounds pinned by
 // banter::tests::the_event_beat_is_about_a_third_of_a_second and
 // audio::tests::the_event_beat_outlasts_the_round_sounds.
 pub const EVENT_BEAT_MS: u64 = 400;

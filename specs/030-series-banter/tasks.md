@@ -506,7 +506,7 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
 
 ## Final phase — Spec close-out (walkthrough: none — documentation, mechanical checks and the pre-merge sweep; the person's walkthrough list below is what they walk at this phase)
 
-- [ ] **T009** — Close-out. Draft `specs/030-series-banter/closeout-main-docs.md`
+- [x] **T009** — Close-out. Draft `specs/030-series-banter/closeout-main-docs.md`
   in spec 029's shape.
   **ROADMAP**: mark *Series-aware banter* shipped as spec 030 (`grep -n -i
   "banter" ROADMAP.md`, read and judge each hit, including the *What's left
@@ -705,6 +705,7 @@ remove it. The orchestrator writes these rows; nobody else. -->
 | Phase 1 (with the 9A/10A/11A amendment) | yes, twice | Attested by the person, 2026-09-23. First listen: the murmur was "really, really quiet" (rulings 9A, 10A, 11A followed). Re-listen: "Murmur is good now and is correctly reflecting the settings" — **AC 9 approved**; Voices default set to 50% by ear (T002c). |
 | Phase 2 | yes | Attested by the person, 2026-09-23: "Banter lines are fine. Continue" — every new line read and kept as written. |
 | Phase 3 | yes | Attested by the person, 2026-09-23: silent on return from the Card Shop / collection "as expected after testing"; asked for a slight delay on the venue line (ruling 12A) and chose A for the run-over arrival (ruling 13A) — both fixed in T008a and re-driven. The person has not yet heard the delayed venue line. |
+| Close-out | no — walkthrough: none | Documentation, mechanical checks and the pre-merge sweep; nothing new to try. What remains for the person's ear: the venue line's short delay (12A), and the silent panel under the run-over notice (13A). |
 
 ---
 
@@ -769,3 +770,4 @@ redo, and why). -->
 | Phase 3 review (skeptical-reviewer) | opus → claude-opus-5-5 | ~77K | 1 | — | 0 | **pass**; run-over item not blocking (matches plan §Design 5) but warrants a fix — product question to the person at the pause; six second looks to the close-out notes |
 | T008a (sdd-implementer) | opus → claude-opus-5-5 | ~29K | 1 | yes | — | done; 519 lib tests, 0 warnings; greps as specified; also corrected `say`'s doc clause about venue arrivals |
 | Phase 3 re-review (skeptical-reviewer, same context) | opus → claude-opus-5-5 | ~85K (cumulative) | 1 | — | 1, doc only (AC 8 not amended for 12A) | fixed by the orchestrator in spec.md (a transcription of ruling 12A), no code change; five second looks to the close-out notes. Re-drive: venue line starts after the beat at both widths; blank under the run-over notice at both |
+| T009 close-out (sdd-implementer) | opus → claude-opus-5-5 | ~186K | 1 | yes | — | done; three green runs, 519 lib tests, 0 warnings on branch and main; every mechanical check green; ACs 1–8, 10–17 ticked with evidence, AC 9 ticked by the orchestrator ("Murmur is good now and is correctly reflecting the settings"); plan's superseded sentences marked; `EVENT_BEAT_MS` doc gains 12A; sweep items S1 (brief's beat clause omits the venue) and S2 (Quick Play `in_progress` invariant) |
