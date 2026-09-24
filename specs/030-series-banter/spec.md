@@ -132,8 +132,8 @@ construction.
   chosen when it is today, but its first word appears about **0.3–0.4
   seconds** later, once the event's own sound has played, so the burble does
   not compete with it. Until then the panel shows no line. The match-start
-  greeting starts at once; the venue line waits the same beat (ruling 12A). Nothing else moves: popups, sounds, phases and keys keep today's
-  timing.
+  greeting starts at once; the venue line waits the same beat (ruling 12A).
+  Nothing else moves: popups, sounds, phases and keys keep today's timing.
 - **In place.** Each word appears in the position it will hold in the
   finished line; the line never shifts sideways or re-centres as it grows.
 - **A soft burble per word** (ruling 5B). Each word, as it appears, plays one
@@ -203,10 +203,10 @@ construction.
    least two for series won and series lost; The Sovereign has at least three
    All square lines; every line fits the panel's 20-character width.
 8. [ ] **Word by word, in place.** A spoken line shows its first word on the
-   frame it is chosen — or, for a line said on a round or match event, about
-   0.3–0.4 seconds later (ruling 11A) — and one more word about every 0.2
-   seconds; at every step each shown word is at the column it holds in the
-   finished line.
+   frame it is chosen — or, for a line said on a round or match event
+   (ruling 11A) or on arriving at the venue (ruling 12A), about 0.3–0.4
+   seconds later — and one more word about every 0.2 seconds; at every step
+   each shown word is at the column it holds in the finished line.
 9. [ ] **The burble.** One burble plays as each word appears; it is soft in
    character, voice-like, and about as loud as the other sound effects
    (ruling 9A); it follows the new Voices volume (ruling 10A) and is silent
