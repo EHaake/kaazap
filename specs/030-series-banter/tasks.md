@@ -588,6 +588,8 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
 
 ## Handoff note
 
+*(Superseded, 2026-09-23: every task is done and the spec is closed out. The amendment below was signed off and implemented, and rulings 12A/13A followed at the Phase 3 pause; this note is kept as the record of how the implementation session was briefed.)*
+
 **Amendment pending sign-off (2026-09-23).** At the Phase 1 pause the person
 ruled 9A, 10A and 11A (`spec.md` *Resolved decisions*). This file and
 `plan.md` carry the amendment as a **draft**: T002a, T002b and T003a, plus the
@@ -771,3 +773,5 @@ redo, and why). -->
 | T008a (sdd-implementer) | opus → claude-opus-5-5 | ~29K | 1 | yes | — | done; 519 lib tests, 0 warnings; greps as specified; also corrected `say`'s doc clause about venue arrivals |
 | Phase 3 re-review (skeptical-reviewer, same context) | opus → claude-opus-5-5 | ~85K (cumulative) | 1 | — | 1, doc only (AC 8 not amended for 12A) | fixed by the orchestrator in spec.md (a transcription of ruling 12A), no code change; five second looks to the close-out notes. Re-drive: venue line starts after the beat at both widths; blank under the run-over notice at both |
 | T009 close-out (sdd-implementer) | opus → claude-opus-5-5 | ~186K | 1 | yes | — | done; three green runs, 519 lib tests, 0 warnings on branch and main; every mechanical check green; ACs 1–8, 10–17 ticked with evidence, AC 9 ticked by the orchestrator ("Murmur is good now and is correctly reflecting the settings"); plan's superseded sentences marked; `EVENT_BEAT_MS` doc gains 12A; sweep items S1 (brief's beat clause omits the venue) and S2 (Quick Play `in_progress` invariant) |
+| Pre-merge sweep (skeptical-reviewer) | opus → claude-opus-5-5 | ~202K | 1 | — | 0 | **clean, signed off**. S1: brief's beat clause extended to the venue (fixed on the branch). S2: Quick Play can never see the locked series — `start_match(…, None)` clears the pointer before anything reads it; AC 4 holds. Text fixes to closeout-main-docs.md (line count, word count, 8A note) and spec.md's defaults paragraph applied; Handoff note marked superseded. Open for the person: the venue beat (12A) and the silent run-over arrival (13A) by ear/eye; spec Non-goals' "two to four words" is descriptive and left for the person |
+| Sweep text fixes (sdd-implementer) | opus → claude-opus-5-5 | ~45K | 1 | yes | — | brief.md, closeout-main-docs.md, spec.md text only; command green |

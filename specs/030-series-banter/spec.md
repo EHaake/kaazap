@@ -282,7 +282,8 @@ construction.
 
 Defaults set in the spec conversation, not separately ruled: words appear in
 place; a new line interrupts; Animations Off shows the line whole; a resumed
-match's line is whole and silent; Quick Play keeps today's lines but is
+match's line is whole and silent (superseded by ruling 8A: a resumed match
+shows no line); Quick Play keeps today's lines but is
 spoken; the venue and match-start lines share a set, with no repeat across
 the two; with Animations Off one burble plays; the Card Shop / collection
 round trip is not an arrival.

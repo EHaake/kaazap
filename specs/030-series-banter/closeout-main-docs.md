@@ -82,9 +82,10 @@ Insert after it:
   grew two rows to hold the line, on the same row the board uses. The venue
   line and the match start draw from one pool, so the match never opens on the
   line the venue just said. The work added **146 lines**: 13 for each of the
-  ten roster voices and the fallback, and 16 for The Sovereign. The person read
-  them all at the Phase 2 pause and kept them as written. Every line is
-  **spoken**: its words appear one at a time, in place, about **0.2 s** apart.
+  other nine roster voices and the fallback, and 16 for The Sovereign. The
+  person read them all at the Phase 2 pause and kept them as written. Every
+  line is **spoken**: its words appear one at a time, in place, about
+  **0.2 s** apart.
   Each word plays one **burble**, a soft, voice-like murmur synthesized by
   `scripts/gen_sfx.py` like the other sounds and about as loud as a card being
   played. A line answering a round, bust or match event, and the venue line,
@@ -202,7 +203,7 @@ balance`:
   whole. `banter::revealed` and `Speech` are pure and would serve another
   caller, but each surface would need its own ruling on whether it should
   wait, and on its sound.
-- **A key to skip the reveal** (deferred by spec 030). Lines are two to five
+- **A key to skip the reveal** (deferred by spec 030). Lines are at most five
   words and finish within a second, and no key waits for them, so the spec
   kept every key's effect unchanged. If longer lines ever arrive, a skip is
   `Speech::settle` on a key, but that key must also keep its current meaning.
@@ -299,9 +300,10 @@ the Phase 1 pause (9A–11A), after listening, and at the Phase 3 pause (12A,
 
 Words appear in place. A new line interrupts the old one. Animations Off
 shows the line whole, with one burble. A resumed match's line is whole and
-silent. Quick Play keeps today's lines but is spoken. The venue and
-match-start lines share a pool, with no repeat across the two. The Card Shop /
-collection round trip is not an arrival.
+silent (superseded by 8A: a resumed match shows no line). Quick Play keeps
+today's lines but is spoken. The venue and match-start lines share a pool, with
+no repeat across the two. The Card Shop / collection round trip is not an
+arrival.
 
 ### The Phase 1 amendment (the person, 2026-09-23, after the first listen)
 
@@ -592,10 +594,7 @@ was added.
   spec 030 amendment (T003): a spoken line is a one-shot transition that ends
   on its own "in under a second from its first word — which, for a line
   answering a round or match event, comes a short beat after the event's own
-  sound" (T003a's clause). It rides into `main` with the merge. **One gap,
-  for the sweep (§4, S1):** since ruling 12A the venue line waits the same
-  beat, and the brief's clause names only event lines. It is not false (it
-  claims nothing about venue lines), but it is incomplete.
+  sound" (T003a's clause). It rides into `main` with the merge.
 - **`Readme.md` is on the branch.** Its status block quote reads "music/SFX/
   voice volume" (T002a) and "the board's card and score transitions and the
   opponent's word-by-word lines" (T003), both with their `> ` prefix.
