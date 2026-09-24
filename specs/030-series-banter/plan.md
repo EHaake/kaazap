@@ -834,6 +834,15 @@ settings arm.
   non-deciding loss leaves the player broke) still says its line. Whether the
   notice covers the panel at 89 columns is **checked at the Phase 3
   walkthrough**, not assumed (§Open questions 4).
+  **Amended at the Phase 3 pause (T008a, rulings 12A and 13A):** the notice
+  covers the panel at 89 columns and clips it at 139, so after the "not the
+  venue" early return, `arrive_at_campaign` returns with `self.speech = None`
+  when `self.profile.is_broke()` — the same check `campaign_entry_modal` uses
+  for the notice; the `None` is required so the match's closing line (possibly
+  still in its beat) doesn't keep burbling on the venue. And the venue line
+  passes `Duration::from_millis(EVENT_BEAT_MS)` instead of `Duration::ZERO`,
+  so its first burble comes a beat after the arrival's menu click (reusing
+  the one beat constant; no new one).
 
 ### 6. `src/board.rs`
 
@@ -1303,8 +1312,9 @@ lines; a skip key; music; the final score on the map.
    music at defaults), that is a question about "as loud as the other sound
    effects". It goes back to them rather than into a looser test. The Voices
    slider answers "louder for me" without changing the asset.
-4. **A venue arrival under the run-over notice** says its line (§Design 5,
-   Phase 3). Whether the notice covers the panel at 89 columns is driven and
+4. **Closed — ruling 13A (the person, Phase 3 pause):** the notice covers
+   the panel, so a broke arrival says no line (T008a). Was: **a venue arrival
+   under the run-over notice** says its line (§Design 5, Phase 3). Whether the notice covers the panel at 89 columns is driven and
    captured at the Phase 3 walkthrough (item 7). If it does, that is a Phase 3
    review finding.
 5. **For the re-listen, not a blocker (amendment, 11A).** `EVENT_BEAT_MS` is

@@ -105,7 +105,12 @@ construction.
   series is in progress (from the menu, or when the game is launched). The
   line comes from the same series-state lines as a match start. A trip to the
   Card Shop or the collection and back is not an arrival: the line already
-  shown is still there, drawn whole, with no burble.
+  shown is still there, drawn whole, with no burble. An arrival that ends the
+  run — a loss that leaves the player broke, shown under the run-over notice —
+  says **no** line and leaves the panel blank (ruling 13A).
+- **The venue line waits a beat too** (ruling 12A): its first word comes the
+  same short beat after the arrival as an event line's, so the burble does
+  not land on the menu click that brought the player there.
 - The venue's line and the match-start line that follows it come from the
   same set, so the **no back-to-back repeat** rule (spec 017) holds across
   the two: the match never opens with the line the venue just said.
@@ -127,8 +132,7 @@ construction.
   chosen when it is today, but its first word appears about **0.3–0.4
   seconds** later, once the event's own sound has played, so the burble does
   not compete with it. Until then the panel shows no line. The match-start
-  greeting and the venue line have no event sound to wait for and start at
-  once. Nothing else moves: popups, sounds, phases and keys keep today's
+  greeting starts at once; the venue line waits the same beat (ruling 12A). Nothing else moves: popups, sounds, phases and keys keep today's
   timing.
 - **In place.** Each word appears in the position it will hold in the
   finished line; the line never shifts sideways or re-centres as it grows.
@@ -188,8 +192,10 @@ construction.
 5. [ ] **Venue lines.** Arriving at the venue — from the map, after a
    non-deciding match, and on entering the campaign or launching the game
    with a series in progress — shows a line from the current state's lines,
-   spoken; returning from the Card Shop or the collection shows the same
-   line, whole, with no burble.
+   spoken, its first word a short beat after the arrival (ruling 12A);
+   returning from the Card Shop or the collection shows the same line, whole,
+   with no burble; an arrival under the run-over notice shows and says no
+   line (ruling 13A).
 6. [ ] **No back-to-back repeat.** The match-start line is never the line the
    venue just showed, and spec 017's no-repeat rule holds for every event.
 7. [ ] **Every voice is complete.** Each of the ten roster voices and the
@@ -263,6 +269,14 @@ construction.
 - **11A** (Phase 1 pause) — a line said on a round or match event waits a
   short beat (about 0.3–0.4 s) so it doesn't compete with the event's sound
   and popup; popups and keys keep today's timing.
+- **12A** (Phase 3 pause) — the venue line waits the same short beat as an
+  event line, so its first burble doesn't overlap the menu click of the
+  arrival: "add a slight delay to the line so that the sounds don't overlap."
+- **13A** (Phase 3 pause) — an arrival under the run-over notice says no line.
+  The person would prefer the opponent to taunt that the run is over, but not
+  if it needs further design; it does (the notice covers the panel at 89
+  columns, and every voice would need new lines), so it is a roadmap
+  follow-up.
 - **Approval (2026-09-23)** — approved, with the burble subject to the
   person's approval by ear once implemented, and possible tweaks.
 

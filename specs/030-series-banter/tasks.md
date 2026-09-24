@@ -482,6 +482,26 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   relaunch and the 89-column run-over capture) at both widths on a scratch
   `KAAZAP_DATA_DIR`.*
 
+- [ ] **T008a** — `src/app.rs`: the venue line waits a beat, and a broke
+  arrival says nothing (rulings 12A, 13A, the person at the Phase 3 pause:
+  "add a slight delay to the line so that the sounds don't overlap"; "A is
+  better than B"). Per plan §Design 5 (*Phase 3*, the amended paragraph) and
+  the Phase 3 review's option A. In `arrive_at_campaign`: right after the
+  "not the venue" early return, `if self.profile.is_broke() { self.speech =
+  None; return; }`; and the `say` call passes
+  `Duration::from_millis(EVENT_BEAT_MS)` instead of `Duration::ZERO`. Update
+  its doc and the comment above the `say` to say both (no literal
+  `self.burble(` in them). No test (no test may build an `App`); the
+  walkthrough re-drives it. Do not run `cargo fmt`.
+  *Verify: the full command, verbatim, green, no new warnings. `grep -n
+  'from_millis(EVENT_BEAT_MS)' src/app.rs` returns exactly two lines, in
+  `update_banter`'s event branch and `arrive_at_campaign`. `grep -n
+  'is_broke()' src/app.rs` includes one line in `arrive_at_campaign`.
+  `grep -n 'self\.burble(' src/app.rs` still exactly three. `git diff --stat`
+  shows exactly `src/app.rs`. No existing assertion changes. The report quotes
+  `arrive_at_campaign` verbatim. Then the orchestrator re-drives Phase 3
+  walkthrough items 1 and 7 at both widths.*
+
 ---
 
 ## Final phase — Spec close-out (walkthrough: none — documentation, mechanical checks and the pre-merge sweep; the person's walkthrough list below is what they walk at this phase)
@@ -542,7 +562,9 @@ amended walkthrough, and the Phase 1 pause repeats for the person's re-listen.
   'burble_cue(' src/app.rs` → exactly one line; `grep -n 'self\.burble('
   src/app.rs` → exactly three (amended: `say`, `advance_speech`, the Settings
   Voices preview); `grep -n 'from_millis(EVENT_BEAT_MS)' src/app.rs` → exactly
-  one line, in `update_banter`'s event branch. `cargo build --all-targets`
+  two lines (amended by T008a): `update_banter`'s event branch and
+  `arrive_at_campaign`. ROADMAP also gains the run-over taunt (ruling 13A's
+  preferred option, deferred as needing design). `cargo build --all-targets`
   warning count equals `main`'s (compare via a throwaway `git worktree` with
   its own `CARGO_TARGET_DIR`, as spec 029's close-out did — never switch the
   branch). Check off `spec.md`'s **17** acceptance criteria (amended: AC 17,
