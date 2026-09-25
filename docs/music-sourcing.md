@@ -269,3 +269,36 @@ in-repo variations on that file.
 - "Aug 1 Chiptunes" posting date (page read as 1 Aug 2026; may be misread).
 - FamiStudio command-line invocation path on macOS.
 - A licence-clean chiptune SoundFont (Musical Artifacts pages 403); "NES 8-Bit Soundfont" CC-BY 3.0 from a search snippet only.
+
+---
+
+## Findings so far (the person, 2026-09-24)
+
+Listening results and rulings from the exploration session, in order:
+
+- **In-repo composition, first take** (two swing chiptune loops from a
+  stdlib Python script, melodies through-composed): "not terrible … sound
+  like music, but artificial, like the melodies are arbitrary, following a
+  style correctly with no real understanding of it."
+- **Second take** (same keys, tempos and chords; one motif per section,
+  stated, answered, varied, closed; dynamics and articulation added):
+  "better in the sense that it sounds more like a composition, but the
+  melodies themselves are uninspired." The lead voice — a naive,
+  un-band-limited 25 % pulse — was "harsh and grating."
+- **Chiptune is not a requirement.** The placeholder track is not chiptune
+  either; it uses realistic synth-based instrumentation, and that is the
+  preferred direction. The sound problem is a rendering choice (aliasing,
+  narrow duty, no filtering), not a limit of composing in the repo.
+- **Melody selection is the person's.** The motif-audition approach was
+  accepted: many short candidate motifs are rendered, the person picks the
+  ones worth building tunes from, so taste enters where it matters most.
+- **Style direction.** A "spacey" vibe overall; not strictly swing —
+  electronica, ambient or beat-based, is welcome. Each region should be
+  very distinct (for example one swing-cantina, one spacey and
+  atmospheric, one electronic and beat-based), sharing some guiding
+  principle.
+
+Still open: whether real sampled instruments via FluidSynth are wanted
+alongside the in-repo synth (needs a Homebrew install and a soundfont
+download, both the person's call); which motifs survive the audition; and
+the guiding principle that ties the regional tracks together.
