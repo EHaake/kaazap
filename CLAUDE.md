@@ -239,7 +239,9 @@ the three names above stay the only place a model is spelled out.
 "Override" means the orchestrator passes a per-call model override on
 that dispatch; without one, the agent's own frontmatter applies, and
 every agent definition defaults to the implementation tier except
-`sdd-implementer-fable`, which pins the top tier's model at medium.
+`sdd-implementer-fable`, which pins the top tier's model at medium, and
+`sdd-implementer-sonnet`, which pins Sonnet at high (see *Lighter
+implementer* below).
 
 | Role | Dispatched as | Model | Effort |
 |---|---|---|---|
@@ -247,7 +249,7 @@ every agent definition defaults to the implementation tier except
 | Plan and tasks draft | `sdd-planner` | implementation tier (no override) | high |
 | Plan and tasks sign-off | `skeptical-reviewer` | **top tier** (no override) | high |
 | Decision review | `skeptical-reviewer` | **top tier** (no override) | high |
-| Task implementation | `sdd-implementer` | implementation tier | high |
+| Task implementation | `sdd-implementer-sonnet` (trial, from spec 031; two routes back to `sdd-implementer` under *Lighter implementer*) | `sonnet`, pinned by its definition | high |
 | Close-out task | `sdd-implementer` | top tier | high |
 | Per-task and phase review | `skeptical-reviewer` | implementation tier | high |
 | Pre-merge sweep | `skeptical-reviewer` | implementation tier | high |
@@ -464,11 +466,22 @@ infer the end of a temporary change and revert it unasked.
 - **Escape hatch**: two failed verifications on one task, or a "stopped
   on a judgment call" the orchestrator considers well-specified, and
   the orchestrator does that task itself, noting the
-  miss in `tasks.md`.
-- **Lighter implementer**: off. <!-- Turn on per project once the
-  first spec's tier log justifies it: "the session tier for tasks with
-  an automated Verify check, a named pattern file, and a small
-  footprint." -->
+  miss in `tasks.md`. Under the Sonnet implementer, the first failed
+  verification goes to `sdd-implementer` first.
+- **Lighter implementer**: **on, as a trial, from spec 031** (the
+  person, 2026-09-28, adopting the skill's Sonnet implementer of the
+  same date). The task-implementation row names `sdd-implementer-sonnet`.
+  The implementation tier stays Opus, so the planner, the reviews, the
+  sweep and the close-out don't move. Two routes lead back to
+  `sdd-implementer`: a task the planner marked `review: per-task` goes to
+  `sdd-implementer` from the start, and a Sonnet task that fails
+  verification is re-dispatched to `sdd-implementer`, not to Sonnet
+  again, with the escape hatch applying from there. The tier log's Tier
+  column records `sonnet` for Sonnet runs and lists every task that went
+  to `sdd-implementer` instead, with why (marked per-task, or a Sonnet
+  miss). It suits tasks that are mostly well-specified building against
+  a fast automated check, which is this project's usual shape. The row
+  moves back only if the person says so.
 - **Log token usage per implementer run and per reviewer invocation**,
   plus tier misses, in `tasks.md`'s tier log for the first spec under
   this policy, and compare against a previous spec before treating the
@@ -501,6 +514,14 @@ infer the end of a temporary change and revert it unasked.
   plan-and-tasks draft row moved to the implementation tier (no
   override) as a trial, starting with spec 031** — the first spec whose
   tier log opens with it; the sign-off stays at the top tier.
+  **2026-09-28: the task-implementation row moved to
+  `sdd-implementer-sonnet` as a trial, starting with spec 031** (the
+  person, adopting the skill's Sonnet implementer of the same date), with
+  the two routes back to `sdd-implementer` above. Nothing else moved: the
+  Opus profile, planner, reviews, sweep and close-out stay on Opus. Spec
+  031's tier log opens with this row and the planner-draft trial, and
+  records each Sonnet run as Tier `sonnet` and each task that went to
+  `sdd-implementer` instead, with its reason.
 
 ## Spec-driven workflow
 
